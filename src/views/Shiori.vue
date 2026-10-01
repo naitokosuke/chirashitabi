@@ -1,15 +1,20 @@
 <script setup lang="ts" vapor>
 import { computed, ref } from "vue";
 import { Temporal } from "temporal-polyfill-lite";
-import { safeUrl } from "@/map/google-maps";
-import { useNotes } from "@/notes/store";
-import { ARRIVAL_TAG, PACKING_TAG, hhmm, type Note, type NoteStatus } from "@/notes/types";
+import { safeUrl } from "@/features/place/google-maps";
+import { useNotes } from "@/features/notes/store";
+import { ARRIVAL_TAG, PACKING_TAG, type Note, type NoteStatus } from "@/features/notes/types";
+import { useTags } from "@/features/tags/store";
+import { useTrip } from "@/features/trip/store";
+import { hhmm, longDate, ntd, shortDate } from "@/features/trip/format";
 
 type Draft = { date: Temporal.PlainDate; items: { note: Note; time?: Temporal.PlainTime }[] };
 
 const store = useNotes();
+const tags = useTags();
+const trip = useTrip();
 const editing = ref(true);
-const tab = ref<Temporal.PlainDate | "appendix">(store.days[0].date);
+const tab = ref<Temporal.PlainDate | "appendix">(trip.days[0].date);
 /** The open day, or null on the appendix tab */
 const day = computed(() => (tab.value === "appendix" ? null : tab.value));
 const isTab = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
@@ -19,15 +24,10 @@ const draft = ref<Draft | null>(null); // Claude's draft
 const STATUS: Record<NoteStatus, string> = { idea: "Maybe", fixed: "Confirmed", done: "Done" };
 const APPENDIX_TAGS = [PACKING_TAG, ARRIVAL_TAG];
 
-const fmt = (date: Temporal.PlainDate) =>
-  date.toLocaleString("en-US", { month: "numeric", day: "numeric", weekday: "short" });
-const short = (date: Temporal.PlainDate) =>
-  date.toLocaleString("en-US", { month: "numeric", day: "numeric" });
-const dayIndex = (date: Temporal.PlainDate) => store.days.findIndex((d) => d.date.equals(date)) + 1;
-const ntd = (n: number) => "NT$ " + n.toLocaleString("en-US");
+const dayIndex = (date: Temporal.PlainDate) => trip.days.findIndex((d) => d.date.equals(date)) + 1;
 
-const totalFixed = computed(() => store.budgetOf(undefined, true));
-const totalAll = computed(() => store.budgetOf(undefined, false));
+const totalFixed = computed(() => trip.budgetOf(undefined, true));
+const totalAll = computed(() => trip.budgetOf(undefined, false));
 const fixedCount = computed(() => store.notes.filter((n) => n.status === "fixed").length);
 
 function assign(n: Note, date: Temporal.PlainDate | null) {
@@ -52,7 +52,7 @@ function setTime(n: Note, e: Event) {
 }
 function setIntro(e: Event) {
   if (!day.value) return;
-  store.setIntro(day.value, (e.target as HTMLTextAreaElement).value);
+  trip.setIntro(day.value, (e.target as HTMLTextAreaElement).value);
 }
 
 /** Mock of "Claude, draft this day": in the real app this comes back from the Worker. */
@@ -60,7 +60,7 @@ const DRAFT_SLOTS = ["10:00", "12:30", "16:00", "20:30"].map((s) => Temporal.Pla
 function askClaude() {
   const date = day.value;
   if (!date) return;
-  const items = store.forDay(date).map((note, i) => ({ note, time: DRAFT_SLOTS[i] }));
+  const items = trip.forDay(date).map((note, i) => ({ note, time: DRAFT_SLOTS[i] }));
   draft.value = { date, items };
 }
 function exportNote() {
@@ -72,9 +72,9 @@ function adoptDraft() {
   for (const { note, time } of draft.value.items) {
     if (time) store.update(note.id, { time, status: "fixed" });
   }
-  store.setIntro(
+  trip.setIntro(
     draft.value.date,
-    store.dayOf(draft.value.date)?.intro ||
+    trip.dayOf(draft.value.date)?.intro ||
       "Xiaolongbao for lunch, Jiufen in the evening, then beer in Xinyi.",
   );
   draft.value = null;
@@ -85,7 +85,7 @@ function adoptDraft() {
   <div class="shiori">
     <header class="head">
       <h1>Booklet</h1>
-      <p class="sum">{{ short(store.days[0].date) }} – {{ short(store.days.at(-1)!.date) }} · {{ fixedCount }} confirmed · {{ ntd(totalFixed) }}<small v-if="totalAll > totalFixed"> ({{ ntd(totalAll) }} with maybes)</small></p>
+      <p class="sum">{{ shortDate(trip.days[0].date) }} – {{ shortDate(trip.days.at(-1)!.date) }} · {{ fixedCount }} confirmed · {{ ntd(totalFixed) }}<small v-if="totalAll > totalFixed"> ({{ ntd(totalAll) }} with maybes)</small></p>
       <div aria-label="Mode" class="mode" role="group">
         <button type="button" :class="{ on: editing }" @click="() => (editing = true)">Edit</button>
         <button type="button" :class="{ on: !editing }" @click="() => (editing = false)">Read</button>
@@ -94,11 +94,11 @@ function adoptDraft() {
 
     <!-- tray: memos without a day (edit mode only) -->
     <section v-if="editing" class="tray">
-      <div class="tray-head"><span>Notes without a day · {{ store.unassigned.length }}</span><span class="muted">Tap to pick a day</span></div>
-      <div v-if="store.unassigned.length === 0" class="muted empty">Every note has a day</div>
+      <div class="tray-head"><span>Notes without a day · {{ trip.unassigned.length }}</span><span class="muted">Tap to pick a day</span></div>
+      <div v-if="trip.unassigned.length === 0" class="muted empty">Every note has a day</div>
       <div v-else class="tray-row">
         <button
-          v-for="n in store.unassigned"
+          v-for="n in trip.unassigned"
           :key="n.id"
           class="tray-card"
           type="button"
@@ -107,36 +107,36 @@ function adoptDraft() {
           @click="() => togglePick(n)"
         >
           <span class="t">{{ n.title }}</span>
-          <span class="tags"><span v-for="t in n.tags" :key="t" :style="`color:${store.tagColor(t)}`">#{{ t }}</span></span>
+          <span class="tags"><span v-for="t in n.tags" :key="t" :style="`color:${tags.tagColor(t)}`">#{{ t }}</span></span>
         </button>
       </div>
       <div v-if="picking" class="pick">
         <span class="pick-label">Put “{{ picking.title }}” on</span>
         <button
-          v-for="d in store.days"
+          v-for="d in trip.days"
           :key="d.date.toString()"
           type="button"
           @click="() => assign(picking!, d.date)"
-        >{{ short(d.date) }}</button>
+        >{{ shortDate(d.date) }}</button>
         <button class="later" type="button" @click="() => (picking = null)">Later</button>
       </div>
     </section>
 
     <nav class="tabs">
       <button
-        v-for="d in store.days"
+        v-for="d in trip.days"
         :key="d.date.toString()"
         type="button"
         :class="{ on: isTab(d.date) }"
         @click="() => (tab = d.date)"
-      >{{ short(d.date) }}</button>
+      >{{ shortDate(d.date) }}</button>
       <button type="button" :class="{ on: tab === 'appendix' }" @click="() => (tab = 'appendix')">Appendix</button>
     </nav>
 
     <main class="body">
       <!-- ---------- a day ---------- -->
       <template v-if="day">
-        <h2 class="day">Day {{ dayIndex(day) }} <span>{{ fmt(day) }}</span></h2>
+        <h2 class="day">Day {{ dayIndex(day) }} <span>{{ longDate(day) }}</span></h2>
 
         <template v-if="editing">
           <textarea
@@ -144,16 +144,16 @@ function adoptDraft() {
             class="intro"
             placeholder="A line about this day (shown at the top of the booklet)"
             rows="2"
-            :value="store.dayOf(day)?.intro"
+            :value="trip.dayOf(day)?.intro"
             @change="setIntro"
           ></textarea>
         </template>
-        <p v-else-if="store.dayOf(day)?.intro" class="intro-read">{{ store.dayOf(day)?.intro }}</p>
+        <p v-else-if="trip.dayOf(day)?.intro" class="intro-read">{{ trip.dayOf(day)?.intro }}</p>
 
-        <p v-if="store.forDay(day).length === 0" class="muted empty">Nothing yet. Add some from “Notes without a day” above.</p>
+        <p v-if="trip.forDay(day).length === 0" class="muted empty">Nothing yet. Add some from “Notes without a day” above.</p>
 
         <ol class="items">
-          <li v-for="n in store.forDay(day)" :key="n.id" class="item" :class="n.status">
+          <li v-for="n in trip.forDay(day)" :key="n.id" class="item" :class="n.status">
             <template v-if="editing">
               <input
                 aria-label="Time"
@@ -193,13 +193,13 @@ function adoptDraft() {
         </ol>
 
         <!-- read mode: candidates at the end of the day -->
-        <template v-if="!editing && store.forDay(day, 'idea').length">
+        <template v-if="!editing && trip.forDay(day, 'idea').length">
           <h3 class="maybe">If there is time</h3>
-          <ul class="maybe-list"><li v-for="n in store.forDay(day, 'idea')" :key="n.id">{{ n.title }}<span v-if="n.budget" class="muted"> · {{ ntd(n.budget) }}</span></li></ul>
+          <ul class="maybe-list"><li v-for="n in trip.forDay(day, 'idea')" :key="n.id">{{ n.title }}<span v-if="n.budget" class="muted"> · {{ ntd(n.budget) }}</span></li></ul>
         </template>
 
         <!-- Claude draft (edit mode) -->
-        <template v-if="editing && store.forDay(day).length">
+        <template v-if="editing && trip.forDay(day).length">
           <div v-if="draft && draft.date.equals(day)" class="claude">
             <div class="h"><svg
                 aria-hidden="true"
@@ -226,15 +226,15 @@ function adoptDraft() {
           </button>
         </template>
 
-        <p v-if="store.budgetOf(day)" class="daytotal">Budget for the day {{ ntd(store.budgetOf(day)) }}<small v-if="store.budgetOf(day, false) > store.budgetOf(day)"> ({{ ntd(store.budgetOf(day, false)) }} with maybes)</small></p>
+        <p v-if="trip.budgetOf(day)" class="daytotal">Budget for the day {{ ntd(trip.budgetOf(day)) }}<small v-if="trip.budgetOf(day, false) > trip.budgetOf(day)"> ({{ ntd(trip.budgetOf(day, false)) }} with maybes)</small></p>
       </template>
 
       <!-- ---------- appendix ---------- -->
       <template v-else>
         <section v-for="t in APPENDIX_TAGS" :key="t" class="appendix">
-          <h2 class="day" :style="`color:${store.tagColor(t)}`">#{{ t }}</h2>
-          <ul class="check"><li v-for="n in store.byTag(t)" :key="n.id"><label><input type="checkbox" />{{ n.title }}<span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
-          <p v-if="store.byTag(t).length === 0" class="muted">No notes with this tag yet</p>
+          <h2 class="day" :style="`color:${tags.tagColor(t)}`">#{{ t }}</h2>
+          <ul class="check"><li v-for="n in trip.byTag(t)" :key="n.id"><label><input type="checkbox" />{{ n.title }}<span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
+          <p v-if="trip.byTag(t).length === 0" class="muted">No notes with this tag yet</p>
         </section>
       </template>
     </main>

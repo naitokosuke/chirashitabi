@@ -5,12 +5,17 @@ import { Map as MLMap, Marker } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
 import { Temporal } from "temporal-polyfill-lite";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useNotes } from "@/notes/store";
-import { MEMBERS, PACKING_TAG, hhmm, type Note } from "@/notes/types";
-import { googleMapsLink, safeUrl } from "./google-maps";
+import { useNotes } from "@/features/notes/store";
+import { MEMBERS, PACKING_TAG, type Note } from "@/features/notes/types";
+import { useTags } from "@/features/tags/store";
+import { useTrip } from "@/features/trip/store";
+import { hhmm, ntd, shortDate } from "@/features/trip/format";
+import { googleMapsLink, safeUrl } from "@/features/place/google-maps";
 
 const emit = defineEmits<{ write: [at: { lat: number; lng: number }]; edit: [note: Note] }>();
 const store = useNotes();
+const tags = useTags();
+const trip = useTrip();
 const el = useTemplateRef<HTMLElement>("el");
 const selected = ref<Note | null>(null);
 const day = ref<Temporal.PlainDate | null>(null); // show a day's route
@@ -94,7 +99,7 @@ function pinEl(n: Note) {
   d.setAttribute("aria-label", n.title);
   d.style.setProperty(
     "--pin",
-    n.kind === "claude" ? "var(--clay)" : n.tags[0] ? store.tagColor(n.tags[0]) : MEMBERS[n.by],
+    n.kind === "claude" ? "var(--clay)" : n.tags[0] ? tags.tagColor(n.tags[0]) : MEMBERS[n.by],
   );
   d.innerHTML = `<span class="dot"></span><span class="lbl">${escapeHtml(n.title)}</span>`;
   d.addEventListener("click", (e) => {
@@ -117,8 +122,8 @@ function syncMarkers() {
       continue;
     }
     seen.add(n.id);
-    const visible = store.mode === "only" ? store.matches(n) : true;
-    const dim = store.mode === "dim" && !store.matches(n);
+    const visible = tags.mode === "only" ? tags.matches(n) : true;
+    const dim = tags.mode === "dim" && !tags.matches(n);
     let m = markers.get(n.id);
     if (!m) {
       m = new Marker({ element: pinEl(n), anchor: "bottom" }).setLngLat([n.lng, n.lat]).addTo(map);
@@ -145,7 +150,7 @@ function syncRoute() {
     src.setData(emptyLine());
     return;
   }
-  const pts = store
+  const pts = trip
     .forDay(day.value)
     .filter((n) => n.status !== "idea" && n.lat != null)
     .map((n) => [n.lng!, n.lat!]);
@@ -171,16 +176,13 @@ function syncRoute() {
 // re-sync whenever notes, filter or selection change (cheap: a dozen DOM toggles)
 watchEffect(() => {
   void store.notes.map((n) => [n.lat, n.lng, n.title, n.tags.length]);
-  void store.mode;
-  void [...store.selected];
+  void tags.mode;
+  void [...tags.selected];
   void selected.value;
   syncMarkers();
 });
 watch([day, () => store.notes.map((n) => `${n.time} ${n.status} ${n.date}`)], syncRoute);
 
-const short = (date: Temporal.PlainDate) =>
-  date.toLocaleString("en-US", { month: "numeric", day: "numeric" });
-const ntd = (n: number) => "NT$ " + n.toLocaleString("en-US");
 function fitAll() {
   const pts = store.notes
     .filter((n) => n.lat != null)
@@ -201,12 +203,12 @@ function fitAll() {
       <div class="days">
         <button type="button" :class="{ on: day === null }" @click="showAllDays">All</button>
         <button
-          v-for="d in store.days"
+          v-for="d in trip.days"
           :key="d.date.toString()"
           type="button"
           :class="{ on: isDay(d.date) }"
           @click="() => toggleDay(d.date)"
-        >Route {{ short(d.date) }}</button>
+        >Route {{ shortDate(d.date) }}</button>
       </div>
       <p v-if="noPin" class="nopin">{{ noPin }} {{ noPin === 1 ? "note has" : "notes have" }} no place · long-press the map to place</p>
     </div>
@@ -217,9 +219,9 @@ function fitAll() {
       <p class="t">{{ selected.title }}</p>
       <p v-if="selected.body" class="b">{{ selected.body }}</p>
       <p class="meta">
-        <span v-for="t in selected.tags" :key="t" :style="`color:${store.tagColor(t)}`">#{{ t }} </span>
+        <span v-for="t in selected.tags" :key="t" :style="`color:${tags.tagColor(t)}`">#{{ t }} </span>
         <span v-if="selected.budget">{{ ntd(selected.budget) }} </span>
-        <span v-if="selected.date">{{ short(selected.date) }} {{ selected.time ? hhmm(selected.time) : "" }}</span>
+        <span v-if="selected.date">{{ shortDate(selected.date) }} {{ selected.time ? hhmm(selected.time) : "" }}</span>
       </p>
       <div class="act">
         <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">Open in Google Maps</a>

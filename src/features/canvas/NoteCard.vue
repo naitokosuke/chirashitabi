@@ -1,10 +1,10 @@
 <script setup lang="ts" vapor>
-import { useNotes } from "@/notes/store";
-import { MEMBERS, type Note } from "@/notes/types";
+import { useTags } from "@/features/tags/store";
+import { MEMBERS, type Note } from "@/features/notes/types";
 
 defineProps<{ note: Note; dragging: boolean; pop: boolean; dim: boolean; hidden: boolean }>();
 defineEmits<{ adopt: []; remove: [] }>();
-const store = useNotes();
+const tags = useTags();
 </script>
 
 <template>
@@ -26,7 +26,7 @@ const store = useNotes();
     <template v-else>
       <p class="t">{{ note.title }}</p>
       <p v-if="note.body" class="b">{{ note.body }}</p>
-      <p v-if="note.tags.length" class="tags"><span v-for="t in note.tags" :key="t" :style="`color:${store.tagColor(t)}`">#{{ t }}</span></p>
+      <p v-if="note.tags.length" class="tags"><span v-for="t in note.tags" :key="t" :style="`color:${tags.tagColor(t)}`">#{{ t }}</span></p>
       <span class="who" :style="`background:${MEMBERS[note.by]}`"></span>
     </template>
   </div>

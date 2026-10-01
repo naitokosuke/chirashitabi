@@ -1,12 +1,14 @@
 <script setup lang="ts" vapor>
 import { nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
-import { useNotes } from "@/notes/store";
-import type { Note, NoteInput } from "@/notes/types";
-import { parseMapsUrl } from "@/map/google-maps";
+import { useNotes } from "@/features/notes/store";
+import { COLORS, type Note, type NoteInput } from "@/features/notes/types";
+import { useTags } from "@/features/tags/store";
+import { parseMapsUrl } from "@/features/place/google-maps";
 
 const props = defineProps<{ editing: Note | null; at?: { lat: number; lng: number } | null }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
 const store = useNotes();
+const tags = useTags();
 const id = useId();
 
 const form = ref<NoteInput>(
@@ -23,8 +25,8 @@ const form = ref<NoteInput>(
     : {
         title: "",
         body: "",
-        tags: [...store.selected],
-        color: store.COLORS[0],
+        tags: [...tags.selected],
+        color: COLORS[0],
         lat: props.at?.lat,
         lng: props.at?.lng,
       },
@@ -127,7 +129,7 @@ function submit() {
             :key="t"
             class="chip on"
             type="button"
-            :style="`--tag:${store.tagColor(t)}`"
+            :style="`--tag:${tags.tagColor(t)}`"
             @click="() => removeTag(t)"
           >#{{ t }} ×</button>
           <input
@@ -140,7 +142,7 @@ function submit() {
           />
         </div>
         <div class="recent">
-          <template v-for="t in store.tagList.slice(0, 8)" :key="t.name">
+          <template v-for="t in tags.tagList.slice(0, 8)" :key="t.name">
             <button
               v-if="!form.tags.includes(t.name)"
               class="chip"
@@ -172,7 +174,7 @@ function submit() {
         <span :id="`${id}-color`" class="l">Color</span>
         <div class="colors" role="group" :aria-labelledby="`${id}-color`">
           <button
-            v-for="c in store.COLORS"
+            v-for="c in COLORS"
             :key="c"
             type="button"
             :class="{ on: form.color === c }"

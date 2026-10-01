@@ -8,7 +8,12 @@ export default defineConfig({
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
     options: { typeAware: true, typeCheck: true },
-    vize: { preset: "opinionated" },
+    vize: {
+      preset: "opinionated",
+      // Views are named by their directory, like route pages (views/Canvas.vue).
+      // Vize's lint ignores per-file entries for now, so this is project-wide.
+      rules: { "vue/multi-word-component-names": "off" },
+    },
   },
   fmt: { vize: true },
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },

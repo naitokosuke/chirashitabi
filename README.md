@@ -18,20 +18,29 @@ vp build -c vite.single.config.ts   # single-file build (dist-single/)
 
 ```
 src/main.ts, App.vue, style.css   Boot and view switching (the canvas stays mounted underneath)
-src/notes/     The notes domain: Pinia store (tags, filter state, Transport = the sync hook), types, seed data
-src/canvas/    The canvas: pan / pinch / drag / long-press, filter bar, cards, screen <-> world transform (viewport.ts)
-src/form/      Full-screen note form (new / edit, Google Maps link -> coordinates)
-src/map/       MapLibre + OpenFreeMap: pins, tag filtering, a day's route, long-press to add; Maps URL parsing
-src/shiori/    The booklet (edit / read, appendix, Claude's draft)
+
+src/views/
+  Canvas.vue   Pan / pinch / drag / long-press, card menu, adding notes
+  Map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add
+  Shiori.vue   The booklet (edit / read, appendix, Claude's draft)
+  Form.vue     Full-screen note form (new / edit, Google Maps link -> coordinates)
+
+src/features/
+  notes/   Notes: store, types, seed data
+  sync/    Transport = the sync hook
+  tags/    Tag colors and the tag filter (store, filter bar)
+  trip/    Days, notes on a day, budgets; date / time / NT$ formatting
+  place/   Google Maps links: parsing, safe hrefs
+  canvas/  Sticky note card, screen <-> world transform
 ```
 
 ## Sync hook
 
-`transport.send(mutation)` in `notes/store.ts` is the only way out, and it does nothing yet.
+`transport.send(mutation)` in `features/sync/store.ts` is the only way out, and it does nothing yet.
 Once the Cloudflare side (Durable Object + WebSocket) exists, connect it by:
 
-1. `transport.value = { send: (m) => ws.send(JSON.stringify(m)) }`
-2. passing snapshots from the server to `store.apply(notes)`
+1. `useSync().transport = { send: (m) => ws.send(JSON.stringify(m)) }`
+2. passing snapshots from the server to `useNotes().apply(notes)`
 
 `note:move` is throttled to every 80ms while dragging.
 
@@ -42,6 +51,6 @@ The receiving side gets plain strings, so revive them with `Temporal.PlainDate.f
 
 - Tiles come from OpenFreeMap (`https://tiles.openfreemap.org/styles/liberty`): free, no key.
 - Coordinates come from the Google Maps link pasted into the form. Short `maps.app.goo.gl` links need the Worker
-  to follow the redirect before `parseMapsUrl` sees them (not implemented yet; see `map/google-maps.ts`).
+  to follow the redirect before `parseMapsUrl` sees them (not implemented yet; see `features/place/google-maps.ts`).
 - When there are no coordinates, long-press the map to place the note.
 - Google Maps is only an "open" link. There is room for an iframe (Maps Embed API, free, needs a key) on a single note's detail.

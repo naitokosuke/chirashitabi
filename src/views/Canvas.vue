@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { Note, NoteInput } from "@/notes/types";
+import type { Note, NoteInput } from "@/features/notes/types";
 
 // Module scope is shared with every importer. The canvas is mounted once and
 // never unmounted, so one slot is enough.
@@ -7,7 +7,7 @@ let placeOnMounted: ((input: NoteInput, quiet: boolean) => Note) | undefined;
 
 /**
  * Put a note at the centre of the canvas and pop it (`quiet`: toast only).
- * `import CanvasView, { place } from "@/canvas/CanvasView.vue"`
+ * `import Canvas, { place } from "@/views/Canvas.vue"`
  */
 export function place(input: NoteInput, quiet = false): Note | undefined {
   return placeOnMounted?.(input, quiet);
@@ -16,13 +16,16 @@ export function place(input: NoteInput, quiet = false): Note | undefined {
 
 <script setup lang="ts" vapor>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef } from "vue";
-import { useNotes, ME } from "@/notes/store";
-import { useViewport } from "./viewport";
-import NoteCard from "./NoteCard.vue";
-import FilterBar from "./FilterBar.vue";
+import { useNotes } from "@/features/notes/store";
+import { COLORS } from "@/features/notes/types";
+import { useTags } from "@/features/tags/store";
+import { useViewport } from "@/features/canvas/viewport";
+import NoteCard from "@/features/canvas/NoteCard.vue";
+import FilterBar from "@/features/tags/FilterBar.vue";
 
 const emit = defineEmits<{ write: []; edit: [note: Note] }>();
 const store = useNotes();
+const tags = useTags();
 const { view, clamp, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
 const worldStyle = computed(
@@ -258,8 +261,8 @@ onMounted(() =>
           :note="n"
           :dragging="draggingId === n.id"
           :pop="popId === n.id"
-          :dim="store.mode === 'dim' && !store.matches(n)"
-          :hidden="store.mode === 'only' && !store.matches(n)"
+          :dim="tags.mode === 'dim' && !tags.matches(n)"
+          :hidden="tags.mode === 'only' && !tags.matches(n)"
           @adopt="() => store.adopt(n.id)"
           @remove="() => store.remove(n.id)"
         />
@@ -283,7 +286,7 @@ onMounted(() =>
       @pointerdown.stop
     >
       <button
-        v-for="c in store.COLORS"
+        v-for="c in COLORS"
         :key="c"
         class="sw"
         type="button"

@@ -1,10 +1,10 @@
 <script setup lang="ts" vapor>
 import { ref } from "vue";
-import CanvasView, { place } from "@/canvas/CanvasView.vue";
-import FormView from "@/form/FormView.vue";
-import ShioriView from "@/shiori/ShioriView.vue";
-import MapView from "@/map/MapView.vue";
-import type { Note, NoteInput } from "@/notes/types";
+import Canvas, { place } from "@/views/Canvas.vue";
+import Form from "@/views/Form.vue";
+import Shiori from "@/views/Shiori.vue";
+import Map from "@/views/Map.vue";
+import type { Note, NoteInput } from "@/features/notes/types";
 const tab = ref<"canvas" | "map" | "shiori">("canvas");
 const form = ref(false);
 const editing = ref<Note | null>(null);
@@ -44,15 +44,15 @@ function onSave(input: NoteInput, keepOpen: boolean) {
 <template>
   <!-- The canvas stays mounted underneath so pan/zoom survives a trip to the form or the booklet -->
   <div class="screen">
-    <CanvasView @write="newNote" @edit="editNote" />
+    <Canvas @write="newNote" @edit="editNote" />
     <Transition name="fade">
-      <MapView v-if="tab === 'map'" @write="writeAt" @edit="editNote" />
+      <Map v-if="tab === 'map'" @write="writeAt" @edit="editNote" />
     </Transition>
     <Transition name="fade">
-      <ShioriView v-if="tab === 'shiori'" />
+      <Shiori v-if="tab === 'shiori'" />
     </Transition>
     <Transition name="slide">
-      <FormView v-if="form" :editing :at @close="closeForm" @save="onSave" />
+      <Form v-if="form" :editing :at @close="closeForm" @save="onSave" />
     </Transition>
   </div>
   <nav aria-label="Views" class="nav">

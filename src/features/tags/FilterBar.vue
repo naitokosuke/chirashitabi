@@ -1,11 +1,11 @@
 <script setup lang="ts" vapor>
-import { useNotes } from "@/notes/store";
-const store = useNotes();
+import { useTags } from "./store";
+const tags = useTags();
 function setMode(mode: "dim" | "only") {
-  store.mode = mode;
+  tags.mode = mode;
 }
 function clearTags() {
-  store.selected.clear();
+  tags.selected.clear();
 }
 </script>
 
@@ -14,20 +14,20 @@ function clearTags() {
     <div class="row">
       <h1>chirashitabi<span class="room">Taiwan trip</span></h1>
       <div aria-label="How to filter" class="mode" role="group">
-        <button type="button" :class="{ on: store.mode === 'dim' }" @click="() => setMode('dim')">Dim</button>
-        <button type="button" :class="{ on: store.mode === 'only' }" @click="() => setMode('only')">Only</button>
+        <button type="button" :class="{ on: tags.mode === 'dim' }" @click="() => setMode('dim')">Dim</button>
+        <button type="button" :class="{ on: tags.mode === 'only' }" @click="() => setMode('only')">Only</button>
       </div>
     </div>
     <div class="chips">
-      <button v-if="store.selected.size" class="chip clear" type="button" @click="clearTags">× Clear</button>
+      <button v-if="tags.selected.size" class="chip clear" type="button" @click="clearTags">× Clear</button>
       <button
-        v-for="t in store.tagList"
+        v-for="t in tags.tagList"
         :key="t.name"
         class="chip"
         type="button"
-        :class="{ on: store.selected.has(t.name) }"
+        :class="{ on: tags.selected.has(t.name) }"
         :style="`--tag:${t.color}`"
-        @click="() => store.toggleTag(t.name)"
+        @click="() => tags.toggleTag(t.name)"
       >#{{ t.name }}<span class="n">{{ t.count }}</span></button>
     </div>
   </div>

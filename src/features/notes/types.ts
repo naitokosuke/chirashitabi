@@ -35,25 +35,8 @@ export interface Note {
 export type NoteInput = Pick<Note, "title" | "body" | "tags" | "color"> &
   Partial<Pick<Note, "lat" | "lng" | "mapsUrl">>;
 
-export interface Day {
-  date: Temporal.PlainDate;
-  intro: string; // 2-3 lines written for the booklet, not a note
-}
-
 /** Tags with a meaning of their own: packing notes never need a day or a pin */
 export const PACKING_TAG = "Packing";
 export const ARRIVAL_TAG = "On arrival";
 
-/** "12:30" — for labels and `<input type="time">` values */
-export const hhmm = (t: Temporal.PlainTime) => t.toString({ smallestUnit: "minute" });
-
 export const COLORS = ["#fff1b8", "#ffd9de", "#d8f0e6", "#dbe7ff", "#ead9ff", "#ffffff"];
-export const TAG_COLORS = [
-  "#b11f33",
-  "#a06f00",
-  "#1f6b53",
-  "#2b5bc4",
-  "#7a3fb0",
-  "#b85c1a",
-  "#0f7a8a",
-];
