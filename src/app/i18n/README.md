@@ -2,8 +2,8 @@
 
 The UI text of chirashitabi, in English and Japanese, written in [Unicode MessageFormat 2](https://unicode.org/reports/tr35/tr35-messageFormat.html) (MF2)
 
-- [Writing messages](writing-messages.md) covers MF2 as this app uses it, from a plain string to plurals and markup
-- [Adding a locale](adding-a-locale.md) lists what a new language needs
+- [Writing messages](docs/writing-messages.md) covers MF2 as this app uses it, from a plain string to plurals and markup
+- [Adding a locale](docs/adding-a-locale.md) lists what a new language needs
 
 ## Why a layer of our own
 

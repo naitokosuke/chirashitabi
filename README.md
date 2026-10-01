@@ -45,7 +45,7 @@ src/app/            The app
   i18n/    UI messages in MessageFormat 2 (messages/en.ts is the source, ja.ts follows it);
            format (messageformat, cut at markup); useI18n (the locale: picked here or the
            browser's, remembered on this device); Message.vue (markup -> slots);
-           docs/ (how it fits together, writing messages, adding a locale)
+           README.md (how it fits together); docs/ (writing messages, adding a locale)
 
   mocks/   Mock room data (members, trip, notes) and a mock WorkerApi, installed at boot
 

@@ -57,7 +57,7 @@ A count goes through `:integer`, which formats it for the locale and makes it se
 "shiori.trayTitle": "Notes without a day · {$count :integer}",
 ```
 
-Dates, times and money arrive already formatted as strings (see [the README](README.md#the-locale)), so they are plain `{$date}` and `{$total}`.
+Dates, times and money arrive already formatted as strings (see [the README](../README.md#the-locale)), so they are plain `{$date}` and `{$total}`.
 
 ## Plurals
 
@@ -108,7 +108,7 @@ Markup marks part of a sentence for the view to render, without HTML in the mess
 ```
 
 `t()` drops the markup and returns the text.
-`<Message>` renders the text outside markup as is, and the text inside through the slot of the same name (see [the README](README.md#using-a-message)).
+`<Message>` renders the text outside markup as is, and the text inside through the slot of the same name (see [the README](../README.md#using-a-message)).
 The translation decides where the marked part sits, while the view decides what it looks like.
 
 Markup inside markup is flattened into the outer one: the slot receives all of its text.
