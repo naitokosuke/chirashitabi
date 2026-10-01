@@ -1,3 +1,40 @@
+<script lang="ts">
+import type { Memo } from "./features/notes/types";
+import type { LatLng } from "./features/place/types";
+import type { FormTarget } from "./views/Form.vue";
+
+export type View = "canvas" | "map" | "shiori";
+
+/** Everything the shell shows: the tab that is up, and the form sheet over it (closed, or open on a target) */
+export type AppState = { tab: View; form: FormTarget | null };
+
+/** What can happen to the shell */
+export type AppEvent =
+  | { type: "tabSelected"; tab: View }
+  | { type: "writeRequested" }
+  | { type: "writeAtPinRequested"; pin: LatLng }
+  | { type: "editRequested"; note: Memo }
+  | { type: "formClosed" };
+
+export const initialState: AppState = { tab: "canvas", form: null };
+
+/** The state after an event; pure, so effects such as placing a memo stay with the caller */
+export function next(state: AppState, event: AppEvent): AppState {
+  switch (event.type) {
+    case "tabSelected":
+      return { ...state, tab: event.tab };
+    case "writeRequested":
+      return { ...state, form: { kind: "new", pin: null } };
+    case "writeAtPinRequested":
+      return { ...state, form: { kind: "new", pin: event.pin } };
+    case "editRequested":
+      return { ...state, form: { kind: "edit", note: event.note } };
+    case "formClosed":
+      return { ...state, form: null };
+  }
+}
+</script>
+
 <script setup lang="ts" vapor>
 import { computed, ref } from "vue";
 
@@ -5,43 +42,30 @@ import { CtTabBar, type CtOption } from "../ui/index";
 
 import { useI18n } from "./i18n/useI18n";
 
-import type { Memo, NoteInput } from "./features/notes/types";
-import type { LatLng } from "./features/place/types";
+import type { NoteInput } from "./features/notes/types";
 import Canvas, { place } from "./views/Canvas.vue";
-import Form, { type FormTarget } from "./views/Form.vue";
+import Form from "./views/Form.vue";
 import Map from "./views/Map.vue";
 import Shiori from "./views/Shiori.vue";
 
 const i18n = useI18n();
-type View = "canvas" | "map" | "shiori";
 const views = computed((): CtOption<View>[] => [
   { value: "canvas", label: i18n.t("nav.canvas") },
   { value: "map", label: i18n.t("nav.map") },
   { value: "shiori", label: i18n.t("nav.booklet") },
 ]);
 
-const tab = ref<View>("canvas");
-/** The form sheet: closed, or open on a new memo or an existing one */
-const form = ref<FormTarget | null>(null);
+const state = ref<AppState>(initialState);
 
-function newNote() {
-  form.value = { kind: "new", pin: null };
-}
-function editNote(note: Memo) {
-  form.value = { kind: "edit", note };
-}
-function writeAt(pin: LatLng) {
-  form.value = { kind: "new", pin };
-}
-function closeForm() {
-  form.value = null;
+function send(event: AppEvent) {
+  state.value = next(state.value, event);
 }
 function onSave(input: NoteInput, keepOpen: boolean) {
   if (keepOpen) {
     place(input, true);
     return;
   }
-  form.value = null;
+  send({ type: "formClosed" });
   // let the canvas come back first, then pop
   setTimeout(() => place(input), 220);
 }
@@ -50,18 +74,36 @@ function onSave(input: NoteInput, keepOpen: boolean) {
 <template>
   <!-- The canvas stays mounted underneath so pan/zoom survives a trip to the form or the booklet -->
   <div class="screen">
-    <Canvas @write="newNote" @edit="editNote" />
+    <Canvas
+      @write="send({ type: 'writeRequested' })"
+      @edit="send({ type: 'editRequested', note: $event })"
+    />
     <Transition name="ct-morph">
-      <Map v-if="tab === 'map'" @write="writeAt" @edit="editNote" />
+      <Map
+        v-if="state.tab === 'map'"
+        @write="send({ type: 'writeAtPinRequested', pin: $event })"
+        @edit="send({ type: 'editRequested', note: $event })"
+      />
     </Transition>
     <Transition name="ct-morph">
-      <Shiori v-if="tab === 'shiori'" />
+      <Shiori v-if="state.tab === 'shiori'" />
     </Transition>
     <Transition name="ct-slide">
-      <Form v-if="form" :target="form" @close="closeForm" @save="onSave" />
+      <Form
+        v-if="state.form"
+        :target="state.form"
+        @close="send({ type: 'formClosed' })"
+        @save="onSave"
+      />
     </Transition>
   </div>
-  <CtTabBar v-model="tab" class="nav" :label="i18n.t('nav.label')" :items="views">
+  <CtTabBar
+    class="nav"
+    :model-value="state.tab"
+    :label="i18n.t('nav.label')"
+    :items="views"
+    @update:model-value="send({ type: 'tabSelected', tab: $event })"
+  >
     <template #icon="{ value }">
       <svg
         v-if="value === 'canvas'"
