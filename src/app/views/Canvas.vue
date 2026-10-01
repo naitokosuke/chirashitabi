@@ -46,6 +46,7 @@ import {
 import NoteCard from "../features/canvas/NoteCard.vue";
 import { distance, fitView, pinchTo, startPinch, type Pt } from "../features/canvas/transform";
 import { useViewport } from "../features/canvas/useViewport";
+import { useI18n } from "../features/i18n/useI18n";
 import { COLORS, type NoteColor, type NoteId } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
 import FilterBar from "../features/tags/FilterBar.vue";
@@ -56,6 +57,7 @@ const emit = defineEmits<{ write: []; edit: [note: Memo] }>();
 const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
+const i18n = useI18n();
 const { view, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
 const worldStyle = computed(
@@ -222,12 +224,12 @@ function placeAtCenter(input: NoteInput, quiet: boolean) {
   const c = toWorld(r.width / 2, r.height / 2);
   const n = store.add(input, { x: c.x - 82, y: c.y - 40 });
   if (quiet) {
-    showToast(`Added “${n.title}”`, n.id);
+    showToast(i18n.t("canvas.added", { title: n.title }), n.id);
     return n;
   }
   pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
   window.setTimeout(() => (pop.value = null), 900);
-  showToast(`Added “${n.title}”. Drag it anywhere`, n.id);
+  showToast(i18n.t("canvas.addedDrag", { title: n.title }), n.id);
   return n;
 }
 onMounted(() => (placeOnMounted = placeAtCenter));
@@ -271,11 +273,11 @@ onMounted(() =>
 
     <FilterBar :room="trip.name" />
 
-    <div class="jump"><button type="button" @click="fitAll">Fit all</button></div>
+    <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
 
     <div v-if="toast" class="toast">
       <span>{{ toast.text }}</span>
-      <button v-if="toast.undo" type="button" @click="undoToast">Undo</button>
+      <button v-if="toast.undo" type="button" @click="undoToast">{{ i18n.t("canvas.undo") }}</button>
     </div>
 
     <div
@@ -294,11 +296,11 @@ onMounted(() =>
         :aria-label="c"
         @click="() => setMenuColor(c)"
       ></button>
-      <button type="button" @click="duplicateFromMenu">Duplicate</button>
-      <button class="del" type="button" @click="removeFromMenu">Delete</button>
+      <button type="button" @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</button>
+      <button class="del" type="button" @click="removeFromMenu">{{ i18n.t("canvas.delete") }}</button>
     </div>
 
-    <button aria-label="Write a note" class="fab" type="button" @click="write">
+    <button class="fab" :aria-label="i18n.t('canvas.write')" type="button" @click="write">
       <svg
         fill="none"
         height="26"

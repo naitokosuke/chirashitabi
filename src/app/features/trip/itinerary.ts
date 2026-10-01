@@ -11,11 +11,6 @@ import {
 } from "../notes/types";
 import type { DayDraft } from "../worker/types";
 
-export const STATUS_LABEL: Record<NoteStatus, string> = {
-  idea: "Maybe",
-  fixed: "Confirmed",
-  done: "Done",
-};
 const NEXT_STATUS: Record<NoteStatus, NoteStatus> = { idea: "fixed", fixed: "done", done: "idea" };
 /** Maybe -> Confirmed -> Done -> Maybe */
 export const cycleStatus = (s: Schedule): Schedule => ({ ...s, status: NEXT_STATUS[s.status] });

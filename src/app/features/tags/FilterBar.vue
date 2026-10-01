@@ -1,16 +1,21 @@
 <script setup lang="ts" vapor>
+import { computed } from "vue";
+
 import { CtChip, CtSegmented, type CtOption } from "../../../ui/index";
+
+import { useI18n } from "../i18n/useI18n";
 
 import type { FilterMode } from "./types";
 import { useTags } from "./useTags";
 
 const tags = useTags();
+const i18n = useI18n();
 defineProps<{ room: string }>();
 
-const MODES = [
-  { value: "dim", label: "Dim" },
-  { value: "only", label: "Only" },
-] as const satisfies readonly CtOption<FilterMode>[];
+const modes = computed((): CtOption<FilterMode>[] => [
+  { value: "dim", label: i18n.t("filter.dim") },
+  { value: "only", label: i18n.t("filter.only") },
+]);
 
 function clearTags() {
   tags.selected.clear();
@@ -21,10 +26,10 @@ function clearTags() {
   <div class="bar">
     <div class="row">
       <h1>chirashitabi<span v-if="room" class="room">{{ room }}</span></h1>
-      <CtSegmented v-model="tags.mode" class="mode" label="How to filter" :options="MODES" />
+      <CtSegmented v-model="tags.mode" class="mode" :label="i18n.t('filter.label')" :options="modes" />
     </div>
     <div class="chips">
-      <CtChip v-if="tags.selected.size" class="clear" @click="clearTags">× Clear</CtChip>
+      <CtChip v-if="tags.selected.size" class="clear" @click="clearTags">{{ i18n.t("filter.clear") }}</CtChip>
       <CtChip
         v-for="t in tags.tagList"
         :key="t.name"

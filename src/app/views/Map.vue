@@ -9,6 +9,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import { formatMoney } from "../shared/money";
 
+import { useI18n } from "../features/i18n/useI18n";
 import { useMembers } from "../features/members/useMembers";
 import type { Memo, Note } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
@@ -25,7 +26,9 @@ const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
 const members = useMembers();
-const price = (amount: number) => formatMoney(amount, trip.currency);
+const i18n = useI18n();
+const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
+const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 const el = useTemplateRef<HTMLElement>("el");
 const selected = ref<Pinned | null>(null);
 const day = ref<Temporal.PlainDate | null>(null); // show a day's route
@@ -181,19 +184,19 @@ function fitAll() {
 
     <div class="top">
       <div class="days">
-        <button type="button" :class="{ on: day === null }" @click="showAllDays">All</button>
+        <button type="button" :class="{ on: day === null }" @click="showAllDays">{{ i18n.t("map.all") }}</button>
         <button
           v-for="d in trip.days"
           :key="d.date.toString()"
           type="button"
           :class="{ on: isDay(d.date) }"
           @click="() => toggleDay(d.date)"
-        >Route {{ shortDate(d.date) }}</button>
+        >{{ i18n.t("map.route", { date: short(d.date) }) }}</button>
       </div>
-      <p v-if="noPin" class="nopin">{{ noPin }} {{ noPin === 1 ? "note has" : "notes have" }} no place · long-press the map to place</p>
+      <p v-if="noPin" class="nopin">{{ i18n.t("map.noPin", { count: noPin }) }}</p>
     </div>
 
-    <div class="jump"><button type="button" @click="fitAll">Fit all</button></div>
+    <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
 
     <div v-if="selected" class="card" :style="`--card:${selected.color}`">
       <p class="t">{{ selected.title }}</p>
@@ -201,12 +204,12 @@ function fitAll() {
       <p class="meta">
         <span v-for="t in selected.tags" :key="t" :style="`color:${tags.tagColor(t)}`">#{{ t }} </span>
         <span v-if="selected.budget">{{ price(selected.budget) }} </span>
-        <span v-if="selected.schedule">{{ shortDate(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
+        <span v-if="selected.schedule">{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
       </p>
       <div class="act">
-        <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">Open in Google Maps</a>
-        <button type="button" @click="editSelected">Edit</button>
-        <button aria-label="Close" class="x" type="button" @click="closeCard">×</button>
+        <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{ i18n.t("map.openInGoogleMaps") }}</a>
+        <button type="button" @click="editSelected">{{ i18n.t("common.edit") }}</button>
+        <button class="x" type="button" :aria-label="i18n.t('common.close')" @click="closeCard">×</button>
       </div>
     </div>
   </div>
