@@ -6,7 +6,7 @@ const store = useNotes()
 <template>
   <div class="bar">
     <div class="row">
-      <h1>台湾たび</h1>
+      <h1>ちらしたび<span class="room">台湾たび</span></h1>
       <div class="mode" role="group" aria-label="絞り込みの見せ方">
         <button :class="{ on: store.mode === 'dim' }" @click="store.mode = 'dim'">薄くする</button>
         <button :class="{ on: store.mode === 'only' }" @click="store.mode = 'only'">だけ表示</button>
@@ -24,7 +24,8 @@ const store = useNotes()
 .bar { position: absolute; left: 0; right: 0; top: 0; z-index: 5; padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 8px; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .bar > * { pointer-events: auto; }
 .row { display: flex; align-items: center; gap: 8px; }
-h1 { margin: 0; font-size: 18px; font-weight: 900; color: var(--red); background: var(--bg); padding: 4px 10px; border-radius: 10px; }
+h1 { margin: 0; font-size: 18px; font-weight: 900; color: var(--red); background: var(--bg); padding: 4px 10px; border-radius: 10px; display: flex; align-items: baseline; gap: 8px; }
+.room { font-size: 13px; font-weight: 700; color: var(--muted); }
 .mode { display: flex; background: var(--surface); border: 1.5px solid var(--line); border-radius: 999px; padding: 3px; margin-left: auto; }
 .mode button { min-height: 32px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--muted); }
 .mode button.on { background: var(--ink); color: var(--bg); }
