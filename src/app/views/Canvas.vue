@@ -43,10 +43,11 @@ import {
   useTemplateRef,
 } from "vue";
 
+import { useI18n } from "../i18n/useI18n";
+
 import NoteCard from "../features/canvas/NoteCard.vue";
 import { distance, fitView, pinchTo, startPinch, type Pt } from "../features/canvas/transform";
 import { useViewport } from "../features/canvas/useViewport";
-import { useI18n } from "../features/i18n/useI18n";
 import { COLORS, type NoteColor, type NoteId } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
 import FilterBar from "../features/tags/FilterBar.vue";

@@ -1,5 +1,6 @@
 <script setup lang="ts" vapor>
-import { useI18n } from "../i18n/useI18n";
+import { useI18n } from "../../i18n/useI18n";
+
 import { useMembers } from "../members/useMembers";
 import type { Note } from "../notes/types";
 import type { Visibility } from "../tags/types";

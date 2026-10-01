@@ -46,7 +46,7 @@ The store keeps `<html lang>` in step, so screen readers and the browser's hyphe
 There is no control in the UI to switch yet.
 During development, `setLocale("en")` on the `i18n` store in Vue devtools does it.
 
-Dates and money are formatted outside the messages, by `trip/format.ts` and `shared/money.ts`, which take the locale as an argument.
+Dates and money are formatted outside the messages, by `features/trip/format.ts` and `shared/money.ts`, which take the locale as an argument.
 A view passes `i18n.locale` and hands the formatted string to the message as a variable.
 MF2's own `:date` would read a `Temporal.PlainDate` as a JavaScript `Date` at UTC midnight and can show the day before in a timezone west of UTC.
 

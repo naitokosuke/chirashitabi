@@ -39,12 +39,13 @@ src/app/            The app
     place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON
     canvas/  Sticky note card; transform (screen <-> world, zoom, pinch, fit); useViewport (the animated view)
     worker/  WorkerApi: drafting a day, booklet export
-    i18n/    UI messages in MessageFormat 2 (messages/en.ts is the source, ja.ts follows it);
-             format (messageformat, cut at markup); useI18n (the locale: picked here or the
-             browser's, remembered on this device); Message.vue (markup -> slots);
-             docs/ (how it fits together, writing messages, adding a locale)
 
   shared/  Types every feature can use: Brand; CurrencyCode and formatMoney; HexColor
+
+  i18n/    UI messages in MessageFormat 2 (messages/en.ts is the source, ja.ts follows it);
+           format (messageformat, cut at markup); useI18n (the locale: picked here or the
+           browser's, remembered on this device); Message.vue (markup -> slots);
+           docs/ (how it fits together, writing messages, adding a locale)
 
   mocks/   Mock room data (members, trip, notes) and a mock WorkerApi, installed at boot
 

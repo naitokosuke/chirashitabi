@@ -3,7 +3,7 @@ import { computed } from "vue";
 
 import { CtChip, CtSegmented, type CtOption } from "../../../ui/index";
 
-import { useI18n } from "../i18n/useI18n";
+import { useI18n } from "../../i18n/useI18n";
 
 import type { FilterMode } from "./types";
 import { useTags } from "./useTags";

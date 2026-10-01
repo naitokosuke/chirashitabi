@@ -11,7 +11,8 @@ import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
 
 import { CtChip } from "../../ui/index";
 
-import { useI18n } from "../features/i18n/useI18n";
+import { useI18n } from "../i18n/useI18n";
+
 import {
   blankInput,
   inputFromNote,
