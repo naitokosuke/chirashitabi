@@ -41,7 +41,8 @@ src/app/            The app
     worker/  WorkerApi: drafting a day, booklet export
     i18n/    UI messages in MessageFormat 2 (messages/en.ts is the source, ja.ts follows it);
              format (messageformat, cut at markup); useI18n (the locale: picked here or the
-             browser's, remembered on this device); Message.vue (markup -> slots)
+             browser's, remembered on this device); Message.vue (markup -> slots);
+             docs/ (how it fits together, writing messages, adding a locale)
 
   shared/  Types every feature can use: Brand; CurrencyCode and formatMoney; HexColor
 
