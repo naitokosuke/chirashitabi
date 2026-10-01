@@ -1,9 +1,9 @@
 <script setup lang="ts" vapor>
-import { useTags } from "@/features/tags/store";
+import { useTags, type Visibility } from "@/features/tags/store";
 import { useMembers } from "@/features/members/store";
 import type { Note } from "@/features/notes/types";
 
-defineProps<{ note: Note; dragging: boolean; pop: boolean; dim: boolean; hidden: boolean }>();
+defineProps<{ note: Note; dragging: boolean; pop: boolean; visibility: Visibility }>();
 defineEmits<{ adopt: []; remove: [] }>();
 const tags = useTags();
 const members = useMembers();
@@ -11,9 +11,9 @@ const members = useMembers();
 
 <template>
   <div
-    v-show="!hidden"
+    v-show="visibility !== 'hidden'"
     class="card"
-    :class="{ suggestion: note.kind === 'suggestion', dragging, pop, dim }"
+    :class="{ suggestion: note.kind === 'suggestion', dragging, pop, dim: visibility === 'dimmed' }"
     :style="`transform: translate(${note.x}px, ${note.y}px) rotate(${note.rot}deg); --card: ${note.color}; --who: ${members.colorOf(note.by)}`"
     :data-id="note.id"
   >

@@ -16,4 +16,4 @@ export const money = (amount: number, currency: string) =>
     maximumFractionDigits: 0,
   }).format(amount);
 /** The value of an `<input type="time">`; empty means no time */
-export const fromHhmm = (value: string) => (value ? Temporal.PlainTime.from(value) : undefined);
+export const fromHhmm = (value: string) => (value ? Temporal.PlainTime.from(value) : null);

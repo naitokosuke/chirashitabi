@@ -1,12 +1,15 @@
 import type { FeatureCollection } from "geojson";
-import type { Note } from "@/features/notes/types";
-import { isPinned, lngLat, type Pinned } from "./pin";
+import type { Scheduled } from "@/features/notes/types";
+import { isPinned, lngLat } from "./pin";
 
 type LngLat = [number, number];
 
 /** The stops of a day's route, in order: everything with a place except the maybes */
-export const routeStops = (notes: Note[]): LngLat[] =>
-  notes.filter((n): n is Pinned<Note> => n.status !== "idea" && isPinned(n)).map(lngLat);
+export const routeStops = (notes: Scheduled[]): LngLat[] =>
+  notes
+    .filter((n) => n.schedule.status !== "idea")
+    .filter(isPinned)
+    .map((n) => lngLat(n.pin));
 
 /** A line through the stops, or nothing while there are fewer than two */
 export const routeLine = (stops: LngLat[]): FeatureCollection => ({

@@ -1,33 +1,53 @@
 import type { Temporal } from "temporal-polyfill-lite";
+import type { LatLng } from "@/features/place/types";
 
-/** A suggestion waits to be adopted or dismissed; anyone can make one */
-export type NoteKind = "note" | "suggestion";
 export type NoteStatus = "idea" | "fixed" | "done";
 
-export interface Note {
+/** Where a note sits on a day. Off the itinerary there is no time or status to speak of */
+export interface Schedule {
+  date: Temporal.PlainDate;
+  time: Temporal.PlainTime | null; // null: "Anytime"
+  status: NoteStatus;
+}
+
+/** What every card on the canvas has */
+interface CardBase {
   id: string;
-  kind: NoteKind;
   title: string;
-  body: string;
-  tags: string[];
   color: string;
   x: number;
   y: number;
   rot: number;
   by: string; // a member id
-  // optional, added later for the itinerary
-  date?: Temporal.PlainDate;
-  time?: Temporal.PlainTime;
-  budget?: number | null;
-  mapsUrl?: string;
-  status?: NoteStatus;
-  lat?: number;
-  lng?: number;
   updatedAt: Temporal.Instant;
 }
 
-export type NoteInput = Pick<Note, "title" | "body" | "tags" | "color"> &
-  Partial<Pick<Note, "lat" | "lng" | "mapsUrl">>;
+/** An ordinary note: it can carry tags, a place, a day and a budget */
+export interface Memo extends CardBase {
+  kind: "memo";
+  body: string;
+  tags: string[];
+  mapsUrl: string | null;
+  pin: LatLng | null;
+  schedule: Schedule | null;
+  budget: number | null;
+}
+
+/** A suggestion waits to be adopted (becoming a memo) or dismissed; anyone can make one */
+export interface Suggestion extends CardBase {
+  kind: "suggestion";
+}
+
+export type Note = Memo | Suggestion;
+
+/** A memo that is on a day */
+export type Scheduled = Memo & { schedule: Schedule };
+
+/** What the form writes */
+export type NoteInput = Pick<Memo, "title" | "body" | "tags" | "color" | "mapsUrl" | "pin">;
+
+/** What can change on a memo after it is written */
+export type MemoPatch = Partial<Omit<Memo, "id" | "kind" | "by" | "updatedAt">>;
 
 /** Tags with a meaning of their own: packing notes never need a day or a pin */
 export const PACKING_TAG = "Packing";

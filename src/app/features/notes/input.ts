@@ -1,28 +1,51 @@
-import { COLORS, type Note, type NoteInput } from "./types";
+import type { LatLng } from "@/features/place/types";
+import { COLORS, type Memo, type Note, type NoteInput, type Suggestion } from "./types";
 
-/** The form's starting point when editing an existing note */
-export const inputFromNote = (note: Note): NoteInput => ({
+/** The form's starting point when editing an existing memo */
+export const inputFromNote = (note: Memo): NoteInput => ({
   title: note.title,
   body: note.body,
   tags: [...note.tags],
   color: note.color,
   mapsUrl: note.mapsUrl,
-  lat: note.lat,
-  lng: note.lng,
+  pin: note.pin,
 });
 
-/** A new note: carries the tags being filtered on, and a pin when written from the map */
-export const blankInput = (
-  tags: Iterable<string>,
-  at?: { lat: number; lng: number } | null,
-): NoteInput => ({
+/** A new memo: carries the tags being filtered on, and a pin when written from the map */
+export const blankInput = (tags: Iterable<string>, pin: LatLng | null): NoteInput => ({
   title: "",
   body: "",
   tags: [...tags],
   color: COLORS[0],
-  lat: at?.lat,
-  lng: at?.lng,
+  mapsUrl: null,
+  pin,
 });
+
+/** A copy keeps the words and the look, not the place */
+export const duplicateInput = (n: Note): NoteInput => ({
+  title: n.title,
+  body: n.kind === "memo" ? n.body : "",
+  tags: n.kind === "memo" ? [...n.tags] : [],
+  color: n.color,
+  mapsUrl: null,
+  pin: null,
+});
+
+/** What a suggestion becomes once adopted: a plain white memo, nothing planned yet */
+export const adopted = (s: Suggestion): Memo => ({
+  ...s,
+  kind: "memo",
+  color: "#ffffff",
+  body: "",
+  tags: [],
+  mapsUrl: null,
+  pin: null,
+  schedule: null,
+  budget: null,
+});
+
+/** Tags shown on a card; suggestions have none */
+export const tagsOf = (n: Note): readonly string[] => (n.kind === "memo" ? n.tags : []);
 
 /** The textarea shows the title on the first line, the body below */
 export const noteText = (input: Pick<NoteInput, "title" | "body">) =>

@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import type { Temporal } from "temporal-polyfill-lite";
 import { useNotes } from "@/features/notes/store";
 import type { NoteStatus } from "@/features/notes/types";
+import type { LatLng } from "@/features/place/types";
 import { useSync } from "@/features/sync/store";
 import * as itinerary from "./itinerary";
 
@@ -16,7 +17,7 @@ export interface TripSnapshot {
   name: string; // the room name, e.g. "Taiwan trip"
   days: Day[];
   currency: string; // ISO 4217, for budgets: "TWD", "JPY", …
-  center: { lat: number; lng: number }; // where the map opens
+  center: LatLng; // where the map opens
 }
 
 /** The trip's days, and the notes placed on them. */
@@ -26,7 +27,7 @@ export const useTrip = defineStore("trip", () => {
   const name = ref("");
   const days = ref<Day[]>([]);
   const currency = ref("USD");
-  const center = ref<TripSnapshot["center"] | null>(null);
+  const center = ref<LatLng | null>(null);
 
   const unassigned = computed(() => itinerary.unassigned(store.notes));
   const forDay = (date: Temporal.PlainDate, status?: NoteStatus) =>

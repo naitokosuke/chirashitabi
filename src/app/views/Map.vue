@@ -6,22 +6,23 @@ import type { Temporal } from "temporal-polyfill-lite";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useNotes } from "@/features/notes/store";
 import { useMembers } from "@/features/members/store";
-import type { Note } from "@/features/notes/types";
+import type { Memo, Note } from "@/features/notes/types";
 import { useTags } from "@/features/tags/store";
 import { useTrip } from "@/features/trip/store";
 import { hhmm, money, shortDate } from "@/features/trip/format";
 import { placeLink, safeUrl } from "@/features/place/google-maps";
-import { isPinned, lngLat, needsPin, type Pinned } from "@/features/place/pin";
+import { lngLat, needsPin, pinnedOf, type Pinned } from "@/features/place/pin";
 import { boundsOf, routeLine, routeStops } from "@/features/place/route";
+import type { LatLng } from "@/features/place/types";
 
-const emit = defineEmits<{ write: [at: { lat: number; lng: number }]; edit: [note: Note] }>();
+const emit = defineEmits<{ write: [pin: LatLng]; edit: [note: Memo] }>();
 const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
 const members = useMembers();
 const price = (amount: number) => money(amount, trip.currency);
 const el = useTemplateRef<HTMLElement>("el");
-const selected = ref<Pinned<Note> | null>(null);
+const selected = ref<Pinned | null>(null);
 const day = ref<Temporal.PlainDate | null>(null); // show a day's route
 const isDay = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
 const toggleDay = (date: Temporal.PlainDate) => (day.value = isDay(date) ? null : date);
@@ -31,7 +32,7 @@ const closeCard = () => (selected.value = null);
 const editSelected = () => {
   if (selected.value) emit("edit", selected.value);
 };
-const selectedLink = computed(() => (selected.value ? placeLink(selected.value) : undefined));
+const selectedLink = computed(() => (selected.value ? placeLink(selected.value) : null));
 
 // free vector tiles, no key. Swap the style URL for your own if you self-host.
 const STYLE = "https://tiles.openfreemap.org/styles/liberty";
@@ -92,15 +93,12 @@ onBeforeUnmount(() => {
   map = null;
 });
 
-function pinEl(n: Pinned<Note>) {
+function pinEl(n: Pinned) {
   const d = document.createElement("button");
   d.type = "button";
   d.className = "pin";
   d.setAttribute("aria-label", n.title);
-  d.style.setProperty(
-    "--pin",
-    n.kind === "note" && n.tags[0] ? tags.tagColor(n.tags[0]) : members.colorOf(n.by),
-  );
+  d.style.setProperty("--pin", n.tags[0] ? tags.tagColor(n.tags[0]) : members.colorOf(n.by));
   const dot = document.createElement("span"),
     lbl = document.createElement("span");
   dot.className = "dot";
@@ -110,7 +108,7 @@ function pinEl(n: Pinned<Note>) {
   d.addEventListener("click", (e) => {
     e.stopPropagation();
     selected.value = n;
-    map?.easeTo({ center: lngLat(n), duration: 300 });
+    map?.easeTo({ center: lngLat(n.pin), duration: 300 });
   });
   return d;
 }
@@ -118,17 +116,17 @@ function pinEl(n: Pinned<Note>) {
 function syncMarkers() {
   if (!map) return;
   const seen = new Set<string>();
-  for (const n of store.notes) {
-    if (!isPinned(n)) continue;
+  for (const n of pinnedOf(store.notes)) {
     seen.add(n.id);
     let m = markers.get(n.id);
     if (!m) {
-      m = new Marker({ element: pinEl(n), anchor: "bottom" }).setLngLat(lngLat(n)).addTo(map);
+      m = new Marker({ element: pinEl(n), anchor: "bottom" }).setLngLat(lngLat(n.pin)).addTo(map);
       markers.set(n.id, m);
-    } else m.setLngLat(lngLat(n));
+    } else m.setLngLat(lngLat(n.pin));
     const e = m.getElement();
-    e.classList.toggle("dim", tags.isDimmed(n));
-    e.style.display = tags.isHidden(n) ? "none" : "";
+    const visibility = tags.visibility(n);
+    e.classList.toggle("dim", visibility === "dimmed");
+    e.style.display = visibility === "hidden" ? "none" : "";
     e.classList.toggle("on", selected.value?.id === n.id);
     e.querySelector(".lbl")!.textContent = n.title;
   }
@@ -154,16 +152,20 @@ function syncRoute() {
 }
 // re-sync whenever notes, filter or selection change (cheap: a dozen DOM toggles)
 watchEffect(() => {
-  void store.notes.map((n) => [n.lat, n.lng, n.title, n.tags.length]);
+  void pinnedOf(store.notes).map((n) => [n.pin.lat, n.pin.lng, n.title, n.tags.length]);
   void tags.mode;
   void [...tags.selected];
   void selected.value;
   syncMarkers();
 });
-watch([day, () => store.notes.map((n) => `${n.time} ${n.status} ${n.date}`)], syncRoute);
+const scheduleKey = (n: Note) =>
+  n.kind === "memo" && n.schedule
+    ? `${n.schedule.date} ${n.schedule.time} ${n.schedule.status}`
+    : "";
+watch([day, () => store.notes.map(scheduleKey)], syncRoute);
 
 function fitAll() {
-  const b = boundsOf(store.notes.filter(isPinned).map(lngLat));
+  const b = boundsOf(pinnedOf(store.notes).map((n) => lngLat(n.pin)));
   if (b) map?.fitBounds(b, { padding: 80, duration: 500 });
 }
 </script>
@@ -194,11 +196,11 @@ function fitAll() {
       <p class="meta">
         <span v-for="t in selected.tags" :key="t" :style="`color:${tags.tagColor(t)}`">#{{ t }} </span>
         <span v-if="selected.budget">{{ price(selected.budget) }} </span>
-        <span v-if="selected.date">{{ shortDate(selected.date) }} {{ selected.time ? hhmm(selected.time) : "" }}</span>
+        <span v-if="selected.schedule">{{ shortDate(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
       </p>
       <div class="act">
         <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">Open in Google Maps</a>
-        <button v-if="selected.kind === 'note'" type="button" @click="editSelected">Edit</button>
+        <button type="button" @click="editSelected">Edit</button>
         <button aria-label="Close" class="x" type="button" @click="closeCard">×</button>
       </div>
     </div>

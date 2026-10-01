@@ -1,5 +1,13 @@
 import { Temporal } from "temporal-polyfill-lite";
-import { PACKING_TAG, type Note, type NoteStatus } from "@/features/notes/types";
+import {
+  PACKING_TAG,
+  type Memo,
+  type MemoPatch,
+  type Note,
+  type NoteStatus,
+  type Schedule,
+  type Scheduled,
+} from "@/features/notes/types";
 import type { DayDraft } from "@/features/worker/store";
 
 export const STATUS_LABEL: Record<NoteStatus, string> = {
@@ -8,52 +16,67 @@ export const STATUS_LABEL: Record<NoteStatus, string> = {
   done: "Done",
 };
 const NEXT_STATUS: Record<NoteStatus, NoteStatus> = { idea: "fixed", fixed: "done", done: "idea" };
-/** A note without a status is still a maybe */
-export const statusOf = (n: Note): NoteStatus => n.status ?? "idea";
 /** Maybe -> Confirmed -> Done -> Maybe */
-export const nextStatus = (n: Note) => NEXT_STATUS[statusOf(n)];
+export const cycleStatus = (s: Schedule): Schedule => ({ ...s, status: NEXT_STATUS[s.status] });
 
-const onDay = (n: Note, date: Temporal.PlainDate) => n.date?.equals(date) ?? false;
+const isMemo = (n: Note): n is Memo => n.kind === "memo";
+const isScheduled = (n: Note): n is Scheduled => isMemo(n) && n.schedule !== null;
+const onDay = (n: Memo, date: Temporal.PlainDate) => n.schedule?.date.equals(date) ?? false;
+const isFixed = (n: Memo) => n.schedule?.status === "fixed";
 // untimed items ("Anytime") go last; ties fall back to edit order
-const byTime = (a: Note, b: Note) =>
-  (a.time && b.time ? Temporal.PlainTime.compare(a.time, b.time) : +!a.time - +!b.time) ||
-  Temporal.Instant.compare(a.updatedAt, b.updatedAt);
+function byTime(a: Scheduled, b: Scheduled) {
+  const [ta, tb] = [a.schedule.time, b.schedule.time];
+  return (
+    (ta && tb ? Temporal.PlainTime.compare(ta, tb) : +!ta - +!tb) ||
+    Temporal.Instant.compare(a.updatedAt, b.updatedAt)
+  );
+}
 
-/** Notes still waiting for a day (packing notes never need one) */
+/** Memos still waiting for a day (packing notes never need one) */
 export const unassigned = (notes: Note[]) =>
-  notes.filter((n) => n.kind === "note" && !n.date && !n.tags.includes(PACKING_TAG));
+  notes.filter(isMemo).filter((n) => n.schedule === null && !n.tags.includes(PACKING_TAG));
 
-/** A day's notes in time order, optionally only those with `status` */
+/** A day's memos in time order, optionally only those with `status` */
 export const forDay = (notes: Note[], date: Temporal.PlainDate, status?: NoteStatus) =>
   notes
-    .filter((n) => n.kind === "note" && onDay(n, date) && (!status || statusOf(n) === status))
+    .filter(isScheduled)
+    .filter((n) => n.schedule.date.equals(date) && (!status || n.schedule.status === status))
     .sort(byTime);
 
 export const byTag = (notes: Note[], tag: string) =>
-  notes.filter((n) => n.kind === "note" && n.tags.includes(tag));
+  notes.filter(isMemo).filter((n) => n.tags.includes(tag));
 
 /** The sum of budgets, for one day or the whole trip; by default only what is confirmed */
 export const budgetOf = (notes: Note[], date?: Temporal.PlainDate, onlyFixed = true) =>
   notes
-    .filter(
-      (n) => n.kind === "note" && (!date || onDay(n, date)) && (!onlyFixed || n.status === "fixed"),
-    )
+    .filter(isMemo)
+    .filter((n) => (!date || onDay(n, date)) && (!onlyFixed || isFixed(n)))
     .reduce((s, n) => s + (n.budget ?? 0), 0);
 
-export const fixedCount = (notes: Note[]) => notes.filter((n) => n.status === "fixed").length;
+export const fixedCount = (notes: Note[]) => notes.filter(isMemo).filter(isFixed).length;
 
 /** "Day 1" is the first day of the trip */
 export const dayNumber = (days: { date: Temporal.PlainDate }[], date: Temporal.PlainDate) =>
   days.findIndex((d) => d.date.equals(date)) + 1;
 
-/** Put a note on a day (keeping its time and status), or take it off and back to a maybe */
-export const assignTo = (n: Note, date: Temporal.PlainDate | null): Partial<Note> =>
-  date
-    ? { date, time: n.time, status: statusOf(n) }
-    : { date: undefined, time: undefined, status: "idea" };
+/** Put a memo on a day (keeping its time and status), or take it off the itinerary */
+export const assignTo = (n: Memo, date: Temporal.PlainDate | null): MemoPatch => ({
+  schedule: date && {
+    date,
+    time: n.schedule?.time ?? null,
+    status: n.schedule?.status ?? "idea",
+  },
+});
 
 /** Adopting a draft confirms every item it gave a time */
 export const draftUpdates = (draft: DayDraft) =>
   draft.items.flatMap(({ note, time }) =>
-    time ? [{ id: note.id, patch: { time, status: "fixed" } satisfies Partial<Note> }] : [],
+    time
+      ? [
+          {
+            id: note.id,
+            patch: { schedule: { ...note.schedule, time, status: "fixed" } } satisfies MemoPatch,
+          },
+        ]
+      : [],
   );

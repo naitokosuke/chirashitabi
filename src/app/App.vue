@@ -4,7 +4,9 @@ import Canvas, { place } from "@/views/Canvas.vue";
 import Form from "@/views/Form.vue";
 import Shiori from "@/views/Shiori.vue";
 import Map from "@/views/Map.vue";
-import type { Note, NoteInput } from "@/features/notes/types";
+import type { Memo, NoteInput } from "@/features/notes/types";
+import type { LatLng } from "@/features/place/types";
+import type { FormTarget } from "@/views/Form.vue";
 import { CtTabBar, type CtOption } from "@ui/index";
 
 const VIEWS = [
@@ -16,26 +18,20 @@ type View = (typeof VIEWS)[number]["value"];
 const isView = (v: string): v is View => VIEWS.some((view) => view.value === v);
 
 const tab = ref<View>("canvas");
-const form = ref(false);
-const editing = ref<Note | null>(null);
-const at = ref<{ lat: number; lng: number } | null>(null);
+/** The form sheet: closed, or open on a new memo or an existing one */
+const form = ref<FormTarget | null>(null);
 
-function write(note: Note | null = null, coords: { lat: number; lng: number } | null = null) {
-  editing.value = note;
-  at.value = coords;
-  form.value = true;
-}
 function newNote() {
-  write();
+  form.value = { kind: "new", pin: null };
 }
-function editNote(note: Note) {
-  write(note);
+function editNote(note: Memo) {
+  form.value = { kind: "edit", note };
 }
-function writeAt(coords: { lat: number; lng: number }) {
-  write(null, coords);
+function writeAt(pin: LatLng) {
+  form.value = { kind: "new", pin };
 }
 function closeForm() {
-  form.value = false;
+  form.value = null;
 }
 function showTab(v: string) {
   if (isView(v)) tab.value = v;
@@ -45,7 +41,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
     place(input, true);
     return;
   }
-  form.value = false;
+  form.value = null;
   // let the canvas come back first, then pop
   setTimeout(() => place(input), 220);
 }
@@ -62,7 +58,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
       <Shiori v-if="tab === 'shiori'" />
     </Transition>
     <Transition name="ct-slide">
-      <Form v-if="form" :editing :at @close="closeForm" @save="onSave" />
+      <Form v-if="form" :target="form" @close="closeForm" @save="onSave" />
     </Transition>
   </div>
   <CtTabBar class="nav" label="Views" :items="VIEWS" :model-value="tab" @update:model-value="showTab">

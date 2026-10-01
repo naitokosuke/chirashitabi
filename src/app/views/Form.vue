@@ -1,7 +1,15 @@
+<script lang="ts">
+import type { Memo } from "@/features/notes/types";
+import type { LatLng } from "@/features/place/types";
+
+/** What the form is open on: a new memo (pinned when written from the map), or an existing one */
+export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; note: Memo };
+</script>
+
 <script setup lang="ts" vapor>
-import { nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
+import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
 import { useNotes } from "@/features/notes/store";
-import { COLORS, type Note, type NoteInput } from "@/features/notes/types";
+import { COLORS, type NoteInput } from "@/features/notes/types";
 import {
   blankInput,
   inputFromNote,
@@ -11,23 +19,25 @@ import {
 } from "@/features/notes/input";
 import { useTags } from "@/features/tags/store";
 import { placeFromUrl } from "@/features/place/google-maps";
-import { isPinned } from "@/features/place/pin";
 import { CtChip } from "@ui/index";
 
-const props = defineProps<{ editing: Note | null; at?: { lat: number; lng: number } | null }>();
+const props = defineProps<{ target: FormTarget }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
 const store = useNotes();
 const tags = useTags();
 const id = useId();
+const editing = computed(() => props.target.kind === "edit");
 
 const form = ref<NoteInput>(
-  props.editing ? inputFromNote(props.editing) : blankInput(tags.selected, props.at),
+  props.target.kind === "edit"
+    ? inputFromNote(props.target.note)
+    : blankInput(tags.selected, props.target.pin),
 );
 const mapsUrl = ref(form.value.mapsUrl ?? "");
 function onMapsUrl() {
-  Object.assign(form.value, placeFromUrl(mapsUrl.value));
+  Object.assign(form.value, placeFromUrl(mapsUrl.value, form.value.pin));
 }
-const hasPin = () => isPinned(form.value);
+const hasPin = () => form.value.pin !== null;
 const text = ref(noteText(form.value));
 const tagInput = ref("");
 const keepOpen = ref(false);
@@ -61,11 +71,10 @@ function submit() {
     tags: [...new Set([...form.value.tags, ...inline])],
     color: form.value.color,
     mapsUrl: form.value.mapsUrl,
-    lat: form.value.lat,
-    lng: form.value.lng,
+    pin: form.value.pin,
   };
-  if (props.editing) {
-    store.update(props.editing.id, input);
+  if (props.target.kind === "edit") {
+    store.update(props.target.note.id, input);
     emit("close");
     return;
   }

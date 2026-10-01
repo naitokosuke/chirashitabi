@@ -1,9 +1,13 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { useNotes } from "@/features/notes/store";
+import { tagsOf } from "@/features/notes/input";
 import type { Note } from "@/features/notes/types";
 
 const TAG_COLORS = ["#b11f33", "#a06f00", "#1f6b53", "#2b5bc4", "#7a3fb0", "#b85c1a", "#0f7a8a"];
+
+/** How the filter shows a note: as is, faded ("dim" mode) or gone ("only" mode) */
+export type Visibility = "shown" | "dimmed" | "hidden";
 
 /** Tag colors and the tag filter. View state only, never synced. */
 export const useTags = defineStore("tags", () => {
@@ -16,7 +20,7 @@ export const useTags = defineStore("tags", () => {
   }
   const tagList = computed(() => {
     const c = new Map<string, number>();
-    for (const n of store.notes) for (const t of n.tags) c.set(t, (c.get(t) ?? 0) + 1);
+    for (const n of store.notes) for (const t of tagsOf(n)) c.set(t, (c.get(t) ?? 0) + 1);
     return [...c]
       .sort((a, b) => b[1] - a[1])
       .map(([name, count]) => ({ name, count, color: tagColor(name) }));
@@ -27,10 +31,9 @@ export const useTags = defineStore("tags", () => {
   const toggleTag = (t: string) =>
     selected.value.has(t) ? selected.value.delete(t) : selected.value.add(t);
   const matches = (n: Note) =>
-    selected.value.size === 0 || n.tags.some((t) => selected.value.has(t));
-  /** Notes outside the filter: faded in "dim" mode, gone in "only" mode */
-  const isDimmed = (n: Note) => mode.value === "dim" && !matches(n);
-  const isHidden = (n: Note) => mode.value === "only" && !matches(n);
+    selected.value.size === 0 || tagsOf(n).some((t) => selected.value.has(t));
+  const visibility = (n: Note): Visibility =>
+    matches(n) ? "shown" : mode.value === "dim" ? "dimmed" : "hidden";
 
-  return { tagColor, tagList, selected, mode, toggleTag, matches, isDimmed, isHidden };
+  return { tagColor, tagList, selected, mode, toggleTag, matches, visibility };
 });

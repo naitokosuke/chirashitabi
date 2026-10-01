@@ -9,7 +9,7 @@ export const mockWorker = (): WorkerApi => ({
     return {
       by: "claude",
       reason: "Given the locations and opening hours, this order means the least walking.",
-      items: notes.map((note, i) => ({ note, time: SLOTS[i] })),
+      items: notes.map((note, i) => ({ note, time: SLOTS.at(i) ?? null })),
       intro: "Xiaolongbao for lunch, Jiufen in the evening, then beer in Xinyi.",
     };
   },

@@ -1,38 +1,57 @@
 <script lang="ts">
-import type { Note, NoteInput } from "@/features/notes/types";
+import type { Memo, Note, NoteInput } from "@/features/notes/types";
+import type { PinchStart } from "@/features/canvas/transform";
 
 // Module scope is shared with every importer. The canvas is mounted once and
 // never unmounted, so one slot is enough.
-let placeOnMounted: ((input: NoteInput, quiet: boolean) => Note) | undefined;
+let placeOnMounted: ((input: NoteInput, quiet: boolean) => Memo) | undefined;
 
 /**
  * Put a note at the centre of the canvas and pop it (`quiet`: toast only).
  * `import Canvas, { place } from "@/views/Canvas.vue"`
  */
-export function place(input: NoteInput, quiet = false): Note | undefined {
+export function place(input: NoteInput, quiet = false): Memo | undefined {
   return placeOnMounted?.(input, quiet);
 }
+
+/** A card held by a finger; (ox, oy) is where on the card it was grabbed */
+interface Grab {
+  note: Note;
+  ox: number;
+  oy: number;
+}
+/** What the fingers (or the mouse) are doing right now: one thing at a time */
+type Gesture =
+  | { kind: "idle" }
+  /** Down on a card, not moved yet: becomes a drag, a tap (edit) or a long press (menu) */
+  | { kind: "press"; grab: Grab; sx: number; sy: number; timer: number }
+  | { kind: "drag"; grab: Grab; lastSend: number }
+  | { kind: "pan"; x: number; y: number; tx: number; ty: number }
+  | { kind: "pinch"; start: PinchStart };
+type Drag = Extract<Gesture, { kind: "drag" }>;
+const IDLE: Gesture = { kind: "idle" };
 </script>
 
 <script setup lang="ts" vapor>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  useTemplateRef,
+} from "vue";
 import { useNotes } from "@/features/notes/store";
 import { COLORS } from "@/features/notes/types";
 import { useTags } from "@/features/tags/store";
 import { useTrip } from "@/features/trip/store";
 import { useViewport } from "@/features/canvas/viewport";
-import {
-  distance,
-  fitView,
-  pinchTo,
-  startPinch,
-  type PinchStart,
-  type Pt,
-} from "@/features/canvas/transform";
+import { distance, fitView, pinchTo, startPinch, type Pt } from "@/features/canvas/transform";
 import NoteCard from "@/features/canvas/NoteCard.vue";
 import FilterBar from "@/features/tags/FilterBar.vue";
 
-const emit = defineEmits<{ write: []; edit: [note: Note] }>();
+const emit = defineEmits<{ write: []; edit: [note: Memo] }>();
 const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
@@ -42,21 +61,22 @@ const worldStyle = computed(
   () => `transform: translate(${view.value.tx}px, ${view.value.ty}px) scale(${view.value.s})`,
 );
 
-// ---- pointer state: plain variables, never reactive (changes every frame) ----
+// ---- pointer state ----
+// Where each finger is: plain, never reactive (changes every frame)
 const pointers = new Map<number, Pt>();
-let drag: {
-  note: Note;
-  ox: number;
-  oy: number;
-  sx: number;
-  sy: number;
-  moved: boolean;
-  lastSend: number;
-} | null = null;
-let pan: { x: number; y: number; tx: number; ty: number } | null = null;
-let pinch: PinchStart | null = null;
-let pressTimer: number | undefined;
-const draggingId = ref<string | null>(null);
+// Shallow: the gesture is replaced when it changes kind; its fields are
+// mutated in place every frame without triggering anything.
+const gesture = shallowRef<Gesture>(IDLE);
+/** Change gestures; leaving a press cancels its long-press timer */
+function setGesture(next: Gesture) {
+  const g = gesture.value;
+  if (g.kind === "press") clearTimeout(g.timer);
+  gesture.value = next;
+}
+const draggingId = computed(() =>
+  gesture.value.kind === "drag" ? gesture.value.grab.note.id : null,
+);
+const panning = computed(() => gesture.value.kind === "pan");
 const menu = ref<{ note: Note; x: number; y: number } | null>(null);
 
 function noteAt(el: EventTarget | null): Note | undefined {
@@ -69,87 +89,78 @@ function onDown(e: PointerEvent) {
   menu.value = null;
   vp.value!.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pointers.size === 2) {
+  // a second finger turns whatever was going on into a pinch; a third is ignored
+  if (pointers.size >= 2) {
     const [a, b] = [...pointers.values()];
-    endDrag();
-    clearTimeout(pressTimer);
-    pinch = startPinch(view.value, a, b);
+    if (pointers.size === 2) setGesture({ kind: "pinch", start: startPinch(view.value, a, b) });
     return;
   }
   const note = noteAt(e.target);
-  if (note) {
-    const w = toWorld(e.clientX, e.clientY);
-    drag = {
-      note,
-      ox: w.x - note.x,
-      oy: w.y - note.y,
-      sx: e.clientX,
-      sy: e.clientY,
-      moved: false,
-      lastSend: 0,
-    };
-    pressTimer = window.setTimeout(() => {
-      if (drag && !drag.moved) {
-        openMenu(note, e.clientX, e.clientY);
-        drag = null;
-      }
-    }, 420);
-  } else {
-    pan = { x: e.clientX, y: e.clientY, tx: view.value.tx, ty: view.value.ty };
+  if (!note) {
+    setGesture({ kind: "pan", x: e.clientX, y: e.clientY, tx: view.value.tx, ty: view.value.ty });
+    return;
   }
+  const w = toWorld(e.clientX, e.clientY);
+  const [sx, sy] = [e.clientX, e.clientY];
+  setGesture({
+    kind: "press",
+    grab: { note, ox: w.x - note.x, oy: w.y - note.y },
+    sx,
+    sy,
+    // only fires while still pressing: moving or lifting clears it
+    timer: window.setTimeout(() => {
+      setGesture(IDLE);
+      openMenu(note, sx, sy);
+    }, 420),
+  });
 }
 
 function onMove(e: PointerEvent) {
   if (!pointers.has(e.pointerId)) return;
-  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pinch && pointers.size === 2) {
-    const [a, b] = [...pointers.values()];
-    view.value = pinchTo(pinch, a, b);
-    return;
+  const p = { x: e.clientX, y: e.clientY };
+  pointers.set(e.pointerId, p);
+  let g = gesture.value;
+  if (g.kind === "press" && distance(p, { x: g.sx, y: g.sy }) > 6) {
+    g = { kind: "drag", grab: g.grab, lastSend: 0 };
+    setGesture(g);
   }
-  if (drag) {
-    if (!drag.moved && distance({ x: e.clientX, y: e.clientY }, { x: drag.sx, y: drag.sy }) > 6) {
-      drag.moved = true;
-      draggingId.value = drag.note.id;
-      clearTimeout(pressTimer);
+  switch (g.kind) {
+    case "pinch": {
+      const [a, b] = [...pointers.values()];
+      view.value = pinchTo(g.start, a, b);
+      return;
     }
-    if (drag.moved) {
-      const w = toWorld(e.clientX, e.clientY);
-      // throttle network sends to ~12/s; local position updates every frame
-      const now = performance.now();
-      if (now - drag.lastSend > 80) {
-        store.move(drag.note.id, w.x - drag.ox, w.y - drag.oy);
-        drag.lastSend = now;
-      } else {
-        drag.note.x = w.x - drag.ox;
-        drag.note.y = w.y - drag.oy;
-      }
-    }
-    return;
+    case "drag":
+      return dragTo(g, p);
+    case "pan":
+      view.value.tx = g.tx + (p.x - g.x);
+      view.value.ty = g.ty + (p.y - g.y);
   }
-  if (pan) {
-    view.value.tx = pan.tx + (e.clientX - pan.x);
-    view.value.ty = pan.ty + (e.clientY - pan.y);
+}
+function dragTo(g: Drag, p: Pt) {
+  const { note, ox, oy } = g.grab;
+  const w = toWorld(p.x, p.y);
+  // throttle network sends to ~12/s; local position updates every frame
+  const now = performance.now();
+  if (now - g.lastSend > 80) {
+    store.move(note.id, w.x - ox, w.y - oy);
+    g.lastSend = now;
+  } else {
+    note.x = w.x - ox;
+    note.y = w.y - oy;
   }
 }
 
 function onUp(e: PointerEvent) {
   pointers.delete(e.pointerId);
-  clearTimeout(pressTimer);
-  if (pinch) {
-    if (pointers.size < 2) pinch = null;
-    return;
-  }
-  if (drag) {
-    if (!drag.moved && e.type === "pointerup" && drag.note.kind === "note") emit("edit", drag.note);
-    else if (drag.moved) store.move(drag.note.id, drag.note.x, drag.note.y, true);
-    endDrag();
-  }
-  pan = null;
-}
-function endDrag() {
-  drag = null;
-  draggingId.value = null;
+  const g = gesture.value;
+  // a pinch lasts until fewer than two fingers are left
+  if (g.kind === "pinch" && pointers.size >= 2) return;
+  // a tap on a memo opens it; suggestions are adopted with their own buttons
+  if (g.kind === "press" && e.type === "pointerup" && g.grab.note.kind === "memo")
+    emit("edit", g.grab.note);
+  if (g.kind === "drag") store.move(g.grab.note.id, g.grab.note.x, g.grab.note.y, true);
+  setGesture(IDLE);
 }
 
 function onWheel(e: WheelEvent) {
@@ -168,7 +179,7 @@ function openMenu(note: Note, sx: number, sy: number) {
   menu.value = { note, x: Math.min(sx - 80, r.width - 330), y: Math.max(sy - 70, 90) };
 }
 function setMenuColor(color: string) {
-  if (menu.value) store.update(menu.value.note.id, { color });
+  if (menu.value) store.recolor(menu.value.note.id, color);
 }
 function duplicateFromMenu() {
   if (menu.value) store.duplicate(menu.value.note.id);
@@ -187,8 +198,8 @@ function fitAll() {
 }
 
 // ---- adding from the form: place at viewport center, pop ----
-const popId = ref<string | null>(null);
-const ring = ref<{ x: number; y: number } | null>(null);
+/** The card that just landed, and where the ring around it goes */
+const pop = ref<{ id: string; x: number; y: number } | null>(null);
 const toast = ref<{ text: string; undo?: string } | null>(null);
 let toastTimer: number | undefined;
 function showToast(text: string, undo?: string) {
@@ -211,12 +222,8 @@ function placeAtCenter(input: NoteInput, quiet: boolean) {
     showToast(`Added “${n.title}”`, n.id);
     return n;
   }
-  popId.value = n.id;
-  ring.value = { x: n.x - 14, y: n.y - 14 };
-  window.setTimeout(() => {
-    popId.value = null;
-    ring.value = null;
-  }, 900);
+  pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
+  window.setTimeout(() => (pop.value = null), 900);
   showToast(`Added “${n.title}”. Drag it anywhere`, n.id);
   return n;
 }
@@ -237,7 +244,7 @@ onMounted(() =>
     <div
       ref="vp"
       class="viewport"
-      :class="{ panning: !!pan }"
+      :class="{ panning }"
       @pointerdown="onDown"
       @pointermove="onMove"
       @pointerup="onUp"
@@ -250,13 +257,12 @@ onMounted(() =>
           :key="n.id"
           :note="n"
           :dragging="draggingId === n.id"
-          :pop="popId === n.id"
-          :dim="tags.isDimmed(n)"
-          :hidden="tags.isHidden(n)"
+          :pop="pop?.id === n.id"
+          :visibility="tags.visibility(n)"
           @adopt="() => store.adopt(n.id)"
           @remove="() => store.remove(n.id)"
         />
-        <div v-if="ring" class="ring" :style="`transform: translate(${ring.x}px, ${ring.y}px)`"></div>
+        <div v-if="pop" class="ring" :style="`transform: translate(${pop.x}px, ${pop.y}px)`"></div>
       </div>
     </div>
 

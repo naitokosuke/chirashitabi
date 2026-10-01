@@ -1,73 +1,87 @@
 import { Temporal } from "temporal-polyfill-lite";
-import { ARRIVAL_TAG, PACKING_TAG, type Note } from "@/features/notes/types";
+import {
+  ARRIVAL_TAG,
+  PACKING_TAG,
+  type Memo,
+  type Note,
+  type NoteStatus,
+  type Schedule,
+  type Suggestion,
+} from "@/features/notes/types";
 
-const day = (s: string) => Temporal.PlainDate.from(s);
-const at = (s: string) => Temporal.PlainTime.from(s);
+/** On `date`, at `time` ("" for anytime) */
+const on = (date: string, time: string, status: NoteStatus): Schedule => ({
+  date: Temporal.PlainDate.from(date),
+  time: time ? Temporal.PlainTime.from(time) : null,
+  status,
+});
+const pin = (lat: number, lng: number) => ({ lat, lng });
 
 let i = 0;
-const n = (p: Partial<Note> & Pick<Note, "title" | "x" | "y">): Note => ({
+const card = () => ({
   id: "s" + i++,
-  kind: "note",
-  body: "",
-  tags: [],
   color: "#fff1b8",
   rot: 0,
   by: "yuki",
-  status: "idea",
   updatedAt: Temporal.Now.instant(),
+});
+const n = (p: Partial<Memo> & Pick<Memo, "title" | "x" | "y">): Memo => ({
+  ...card(),
+  kind: "memo",
+  body: "",
+  tags: [],
+  mapsUrl: null,
+  pin: null,
+  schedule: null,
+  budget: null,
+  ...p,
+});
+const suggest = (p: Partial<Suggestion> & Pick<Suggestion, "title" | "x" | "y">): Suggestion => ({
+  ...card(),
+  kind: "suggestion",
   ...p,
 });
 
 export const mockNotes = (): Note[] => [
   n({
     title: "Din Tai Fung xiaolongbao",
-    lat: 25.0335,
-    lng: 121.5301,
+    pin: pin(25.0335, 121.5301),
     body: "The main shop has a queue; the Taipei 101 branch is fine",
     tags: ["Food"],
     x: 40,
     y: 40,
     rot: -2,
     by: "ken",
-    date: day("2026-11-03"),
-    time: at("12:30"),
-    status: "fixed",
+    schedule: on("2026-11-03", "12:30", "fixed"),
     budget: 700,
     mapsUrl: "https://maps.google.com/?q=Din+Tai+Fung",
   }),
   n({
     title: "Jiufen at dusk",
-    lat: 25.1094,
-    lng: 121.8453,
+    pin: pin(25.1094, 121.8453),
     body: "Aim for when the lanterns come on. The bus back gets crowded",
     tags: ["Jiufen", "Want to go"],
     color: "#ffd9de",
     x: 230,
     y: 52,
     rot: 1.5,
-    date: day("2026-11-03"),
-    time: at("16:00"),
-    status: "fixed",
+    schedule: on("2026-11-03", "16:00", "fixed"),
     mapsUrl: "https://maps.google.com/?q=Jiufen",
   }),
   n({
     title: "Taihu Brewing",
-    lat: 25.0378,
-    lng: 121.5629,
+    pin: pin(25.0378, 121.5629),
     body: "Xinyi. Stop by after the night market",
     tags: ["Beer"],
     x: 60,
     y: 210,
     rot: 1,
-    date: day("2026-11-03"),
-    time: at("20:30"),
-    status: "fixed",
+    schedule: on("2026-11-03", "20:30", "fixed"),
     budget: 400,
   }),
   n({
     title: "Shilin Night Market",
-    lat: 25.0881,
-    lng: 121.5244,
+    pin: pin(25.0881, 121.5244),
     body: "Pepper buns and sausage-in-sausage",
     tags: ["Food", "Want to go"],
     color: "#ffffff",
@@ -75,29 +89,24 @@ export const mockNotes = (): Note[] => [
     y: 190,
     rot: -1,
     by: "ken",
-    date: day("2026-11-03"),
-    status: "idea",
+    schedule: on("2026-11-03", "", "idea"),
     budget: 500,
   }),
   n({
     title: "Dried goods on Dihua Street",
-    lat: 25.0557,
-    lng: 121.51,
+    pin: pin(25.0557, 121.51),
     body: "Mullet roe, tea",
     tags: ["Shopping"],
     color: "#d8f0e6",
     x: 50,
     y: 360,
     rot: 2,
-    date: day("2026-11-04"),
-    time: at("10:00"),
-    status: "fixed",
+    schedule: on("2026-11-04", "10:00", "fixed"),
     budget: 1500,
   }),
   n({
     title: "Taipei 101 observatory",
-    lat: 25.0339,
-    lng: 121.5645,
+    pin: pin(25.0339, 121.5645),
     body: "Depends on the weather",
     tags: ["Want to go"],
     color: "#ffffff",
@@ -105,22 +114,19 @@ export const mockNotes = (): Note[] => [
     y: 370,
     rot: -2.5,
     by: "ken",
-    date: day("2026-11-04"),
-    status: "idea",
+    schedule: on("2026-11-04", "", "idea"),
     budget: 600,
   }),
   n({
     title: "Smoothie House shaved ice",
-    lat: 25.033,
-    lng: 121.5297,
+    pin: pin(25.033, 121.5297),
     body: "Yongkang Street. One bowl to share",
     tags: ["Sweets"],
     x: 250,
     y: 510,
     rot: 0.5,
   }),
-  n({
-    kind: "suggestion",
+  suggest({
     title:
       "On 11/4, Dihua Street → Taipei 101 is a single MRT line. Shaved ice on Yongkang Street after 101",
     x: 30,
@@ -130,8 +136,7 @@ export const mockNotes = (): Note[] => [
   }),
   n({
     title: "Le Blé d'Or honey lager",
-    lat: 25.0415,
-    lng: 121.546,
+    pin: pin(25.0415, 121.546),
     body: "Supposedly sweet. One glass is enough",
     tags: ["Beer"],
     x: 480,

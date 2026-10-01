@@ -3,17 +3,11 @@ import { computed, ref } from "vue";
 import { Temporal } from "temporal-polyfill-lite";
 import { safeUrl } from "@/features/place/google-maps";
 import { useNotes } from "@/features/notes/store";
-import { ARRIVAL_TAG, PACKING_TAG, type Note } from "@/features/notes/types";
+import { ARRIVAL_TAG, PACKING_TAG, type Memo, type Scheduled } from "@/features/notes/types";
 import { useTags } from "@/features/tags/store";
 import { useTrip } from "@/features/trip/store";
 import { fromHhmm, hhmm, longDate, money, shortDate } from "@/features/trip/format";
-import {
-  assignTo,
-  draftUpdates,
-  nextStatus,
-  statusOf,
-  STATUS_LABEL,
-} from "@/features/trip/itinerary";
+import { assignTo, cycleStatus, draftUpdates, STATUS_LABEL } from "@/features/trip/itinerary";
 import { useWorker, type DayDraft } from "@/features/worker/store";
 import { useMembers } from "@/features/members/store";
 import { CtSegmented, CtTabList, CtTabPanel, type CtOption } from "@ui/index";
@@ -25,7 +19,6 @@ const tags = useTags();
 const trip = useTrip();
 const worker = useWorker();
 const members = useMembers();
-const editing = ref(true);
 /** A picked day, the appendix, or null for "the first day" */
 const tab = ref<Temporal.PlainDate | "appendix" | null>(null);
 /** The open day, or null on the appendix tab (or while the trip has no days) */
@@ -49,11 +42,14 @@ const MODES = [
   { value: "edit", label: "Edit" },
   { value: "read", label: "Read" },
 ] as const satisfies readonly CtOption[];
-const mode = computed(() => (editing.value ? "edit" : "read"));
+type Mode = (typeof MODES)[number]["value"];
+const isMode = (v: string): v is Mode => MODES.some((m) => m.value === v);
+const mode = ref<Mode>("edit");
+const editing = computed(() => mode.value === "edit");
 function setMode(value: string) {
-  editing.value = value === "edit";
+  if (isMode(value)) mode.value = value;
 }
-const picking = ref<Note | null>(null); // note being assigned from the tray
+const picking = ref<Memo | null>(null); // note being assigned from the tray
 const draft = ref<Draft | null>(null); // a member's draft of the open day
 
 const APPENDIX_TAGS = [PACKING_TAG, ARRIVAL_TAG];
@@ -61,19 +57,20 @@ const APPENDIX_TAGS = [PACKING_TAG, ARRIVAL_TAG];
 const totalFixed = computed(() => trip.budgetOf(undefined, true));
 const totalAll = computed(() => trip.budgetOf(undefined, false));
 
-function assign(n: Note, date: Temporal.PlainDate | null) {
+function assign(n: Memo, date: Temporal.PlainDate | null) {
   store.update(n.id, assignTo(n, date));
   picking.value = null;
   if (date) tab.value = date;
 }
-function togglePick(n: Note) {
+function togglePick(n: Memo) {
   picking.value = picking.value?.id === n.id ? null : n;
 }
-function cycleStatus(n: Note) {
-  store.update(n.id, { status: nextStatus(n) });
+function nextStatus(n: Scheduled) {
+  store.update(n.id, { schedule: cycleStatus(n.schedule) });
 }
-function setTime(n: Note, e: Event) {
-  store.update(n.id, { time: fromHhmm((e.target as HTMLInputElement).value) });
+function setTime(n: Scheduled, e: Event) {
+  const time = fromHhmm((e.target as HTMLInputElement).value);
+  store.update(n.id, { schedule: { ...n.schedule, time } });
 }
 function setIntro(e: Event) {
   if (!day.value) return;
@@ -172,13 +169,13 @@ function adoptDraft() {
           <p v-if="trip.forDay(day).length === 0" class="muted empty">Nothing yet. Add some from “Notes without a day” above.</p>
 
           <ol class="items">
-            <li v-for="n in trip.forDay(day)" :key="n.id" class="item" :class="n.status">
+            <li v-for="n in trip.forDay(day)" :key="n.id" class="item" :class="n.schedule.status">
               <template v-if="editing">
                 <input
                   aria-label="Time"
                   class="time"
                   type="time"
-                  :value="n.time ? hhmm(n.time) : ''"
+                  :value="n.schedule.time ? hhmm(n.schedule.time) : ''"
                   @change="(e: Event) => setTime(n, e)"
                 />
                 <div class="main">
@@ -188,16 +185,16 @@ function adoptDraft() {
                     <button
                       class="status"
                       type="button"
-                      :class="n.status"
-                      @click="() => cycleStatus(n)"
-                    >{{ STATUS_LABEL[statusOf(n)] }}</button>
+                      :class="n.schedule.status"
+                      @click="() => nextStatus(n)"
+                    >{{ STATUS_LABEL[n.schedule.status] }}</button>
                     <span v-if="n.budget" class="muted">{{ price(n.budget) }}</span>
                     <button class="unassign" type="button" @click="() => assign(n, null)">Remove day</button>
                   </div>
                 </div>
               </template>
-              <template v-else-if="n.status !== 'idea'">
-                <span class="time-read">{{ n.time ? hhmm(n.time) : "Anytime" }}</span>
+              <template v-else-if="n.schedule.status !== 'idea'">
+                <span class="time-read">{{ n.schedule.time ? hhmm(n.schedule.time) : "Anytime" }}</span>
                 <div class="main">
                   <p class="t">{{ n.title }}</p>
                   <p class="meta"><span v-if="n.body">{{ n.body }}</span><span v-if="n.budget"> · {{ price(n.budget) }}</span><a
