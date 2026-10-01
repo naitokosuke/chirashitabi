@@ -3,15 +3,17 @@ import { shallowRef } from "vue";
 import type { Temporal } from "temporal-polyfill-lite";
 import type { Note } from "@/features/notes/types";
 
-/** Claude's suggested order and times for one day */
+/** A suggested order and times for one day, from whichever member drafted it */
 export interface DayDraft {
+  by: string; // a member id
+  reason: string; // why this order
   items: { note: Note; time?: Temporal.PlainTime }[];
   intro: string;
 }
 
 /** What the Cloudflare Worker will do for the room, besides sync */
 export interface WorkerApi {
-  /** Ask Claude to order a day's notes and give them times */
+  /** Have a member order a day's notes and give them times */
   draftDay(date: Temporal.PlainDate, notes: Note[]): Promise<DayDraft>;
   /** Publish the booklet as a static page at /r/<room>/shiori */
   exportBooklet(): Promise<void>;

@@ -120,7 +120,7 @@ export const mockNotes = (): Note[] => [
     rot: 0.5,
   }),
   n({
-    kind: "claude",
+    kind: "suggestion",
     title:
       "On 11/4, Dihua Street → Taipei 101 is a single MRT line. Shaved ice on Yongkang Street after 101",
     x: 30,

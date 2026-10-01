@@ -8,6 +8,7 @@ import { useTags } from "@/features/tags/store";
 import { useTrip } from "@/features/trip/store";
 import { hhmm, longDate, money, shortDate } from "@/features/trip/format";
 import { useWorker, type DayDraft } from "@/features/worker/store";
+import { useMembers } from "@/features/members/store";
 
 type Draft = DayDraft & { date: Temporal.PlainDate };
 
@@ -15,6 +16,7 @@ const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
 const worker = useWorker();
+const members = useMembers();
 const editing = ref(true);
 /** A picked day, the appendix, or null for "the first day" */
 const tab = ref<Temporal.PlainDate | "appendix" | null>(null);
@@ -25,7 +27,7 @@ const day = computed(() =>
 const price = (amount: number) => money(amount, trip.currency);
 const isTab = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
 const picking = ref<Note | null>(null); // note being assigned from the tray
-const draft = ref<Draft | null>(null); // Claude's draft
+const draft = ref<Draft | null>(null); // a member's draft of the open day
 
 const STATUS: Record<NoteStatus, string> = { idea: "Maybe", fixed: "Confirmed", done: "Done" };
 const APPENDIX_TAGS = [PACKING_TAG, ARRIVAL_TAG];
@@ -61,7 +63,7 @@ function setIntro(e: Event) {
   trip.setIntro(day.value, (e.target as HTMLTextAreaElement).value);
 }
 
-async function askClaude() {
+async function askForDraft() {
   const date = day.value;
   if (!date || !worker.api) return;
   draft.value = { date, ...(await worker.api.draftDay(date, trip.forDay(date))) };
@@ -198,32 +200,19 @@ function adoptDraft() {
           <ul class="maybe-list"><li v-for="n in trip.forDay(day, 'idea')" :key="n.id">{{ n.title }}<span v-if="n.budget" class="muted"> · {{ price(n.budget) }}</span></li></ul>
         </template>
 
-        <!-- Claude draft (edit mode) -->
+        <!-- a member's draft of the day (edit mode) -->
         <template v-if="editing && worker.api && trip.forDay(day).length">
-          <div v-if="draft && draft.date.equals(day)" class="claude">
-            <div class="h"><svg
-                aria-hidden="true"
-                class="spark"
-                fill="currentColor"
-                height="14"
-                viewBox="0 0 24 24"
-                width="14"
-              ><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" /></svg>Claude<small>draft</small></div>
-            <p>Given the locations and opening hours, this order means the least walking.</p>
+          <div
+            v-if="draft && draft.date.equals(day)"
+            class="draft"
+            :style="`--who: ${members.colorOf(draft.by)}`"
+          >
+            <div class="h"><span aria-hidden="true" class="dot"></span>{{ members.nameOf(draft.by) }}<small>draft</small></div>
+            <p>{{ draft.reason }}</p>
             <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}</li></ol>
             <div class="act"><button class="ok" type="button" @click="adoptDraft">Set times and confirm</button><button class="no" type="button" @click="() => (draft = null)">Dismiss</button></div>
           </div>
-          <button v-else class="ask" type="button" @click="askClaude">
-            <svg
-              aria-hidden="true"
-              class="spark"
-              fill="currentColor"
-              height="14"
-              viewBox="0 0 24 24"
-              width="14"
-            ><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" /></svg>
-            Ask Claude to draft the order and times
-          </button>
+          <button v-else class="ask" type="button" @click="askForDraft">Draft the order and times</button>
         </template>
 
         <p v-if="trip.budgetOf(day)" class="daytotal">Budget for the day {{ price(trip.budgetOf(day)) }}<small v-if="trip.budgetOf(day, false) > trip.budgetOf(day)"> ({{ price(trip.budgetOf(day, false)) }} with maybes)</small></p>
@@ -249,6 +238,7 @@ function adoptDraft() {
 .shiori {
   position: absolute;
   inset: 0;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -280,6 +270,9 @@ h1 {
 }
 
 .mode {
+  /* next to the title; .sum comes first in the markup and takes the row below */
+  grid-row: 1;
+  grid-column: 2;
   display: flex;
   background: var(--surface);
   border: 1.5px solid var(--line);
@@ -572,10 +565,6 @@ h1 {
   }
 }
 
-.spark {
-  color: var(--clay);
-}
-
 .ask {
   margin-block-start: 14px;
   display: inline-flex;
@@ -588,28 +577,32 @@ h1 {
   border: 1px solid var(--oat);
   color: var(--slate);
   font-size: var(--font-sm);
-  font-family: system-ui, sans-serif;
 }
 
-.claude {
+.draft {
   margin-block-start: 14px;
   padding: 12px 14px;
   border-radius: 12px;
   background: var(--ivory);
   border: 1px solid var(--oat);
   color: var(--slate);
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   .h {
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-family: Georgia, serif;
+    gap: 6px;
     font-size: var(--font-base);
+    font-weight: 700;
     margin-block-end: 4px;
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--who);
+    }
     small {
       margin-inline-start: auto;
-      font-family: system-ui, sans-serif;
       font-size: var(--font-2xs);
+      font-weight: 400;
       color: var(--stone);
     }
   }
@@ -634,7 +627,7 @@ h1 {
       font-weight: 600;
     }
     .ok {
-      background: var(--clay);
+      background: var(--who);
       color: var(--on-accent);
     }
     .no {

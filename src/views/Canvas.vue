@@ -146,8 +146,7 @@ function onUp(e: PointerEvent) {
     return;
   }
   if (drag) {
-    if (!drag.moved && e.type === "pointerup" && drag.note.kind !== "claude")
-      emit("edit", drag.note);
+    if (!drag.moved && e.type === "pointerup" && drag.note.kind === "note") emit("edit", drag.note);
     else if (drag.moved) store.move(drag.note.id, drag.note.x, drag.note.y, true);
     endDrag();
   }
@@ -320,6 +319,7 @@ onMounted(() =>
 .canvas {
   position: absolute;
   inset: 0;
+  isolation: isolate; /* keep the canvas chrome's z-index inside this view */
 }
 
 .viewport {

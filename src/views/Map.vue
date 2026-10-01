@@ -6,7 +6,8 @@ import type { FeatureCollection } from "geojson";
 import { Temporal } from "temporal-polyfill-lite";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useNotes } from "@/features/notes/store";
-import { MEMBERS, PACKING_TAG, type Note } from "@/features/notes/types";
+import { useMembers } from "@/features/members/store";
+import { PACKING_TAG, type Note } from "@/features/notes/types";
 import { useTags } from "@/features/tags/store";
 import { useTrip } from "@/features/trip/store";
 import { hhmm, money, shortDate } from "@/features/trip/format";
@@ -16,6 +17,7 @@ const emit = defineEmits<{ write: [at: { lat: number; lng: number }]; edit: [not
 const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
+const members = useMembers();
 const price = (amount: number) => money(amount, trip.currency);
 const el = useTemplateRef<HTMLElement>("el");
 const selected = ref<Note | null>(null);
@@ -100,7 +102,7 @@ function pinEl(n: Note) {
   d.setAttribute("aria-label", n.title);
   d.style.setProperty(
     "--pin",
-    n.kind === "claude" ? "var(--clay)" : n.tags[0] ? tags.tagColor(n.tags[0]) : MEMBERS[n.by],
+    n.kind === "note" && n.tags[0] ? tags.tagColor(n.tags[0]) : members.colorOf(n.by),
   );
   d.innerHTML = `<span class="dot"></span><span class="lbl">${escapeHtml(n.title)}</span>`;
   d.addEventListener("click", (e) => {
@@ -226,7 +228,7 @@ function fitAll() {
       </p>
       <div class="act">
         <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">Open in Google Maps</a>
-        <button v-if="selected.kind !== 'claude'" type="button" @click="editSelected">Edit</button>
+        <button v-if="selected.kind === 'note'" type="button" @click="editSelected">Edit</button>
         <button aria-label="Close" class="x" type="button" @click="closeCard">×</button>
       </div>
     </div>
@@ -237,6 +239,7 @@ function fitAll() {
 .mapview {
   position: absolute;
   inset: 0;
+  isolation: isolate;
 
   /* marker elements are built with innerHTML inside the map container */
   & :deep(.pin) {

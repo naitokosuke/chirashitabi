@@ -1,24 +1,26 @@
 <script setup lang="ts" vapor>
 import { useTags } from "@/features/tags/store";
-import { MEMBERS, type Note } from "@/features/notes/types";
+import { useMembers } from "@/features/members/store";
+import type { Note } from "@/features/notes/types";
 
 defineProps<{ note: Note; dragging: boolean; pop: boolean; dim: boolean; hidden: boolean }>();
 defineEmits<{ adopt: []; remove: [] }>();
 const tags = useTags();
+const members = useMembers();
 </script>
 
 <template>
   <div
     v-show="!hidden"
     class="card"
-    :class="{ claude: note.kind === 'claude', dragging, pop, dim }"
-    :style="`transform: translate(${note.x}px, ${note.y}px) rotate(${note.rot}deg); --card: ${note.color}`"
+    :class="{ suggestion: note.kind === 'suggestion', dragging, pop, dim }"
+    :style="`transform: translate(${note.x}px, ${note.y}px) rotate(${note.rot}deg); --card: ${note.color}; --who: ${members.colorOf(note.by)}`"
     :data-id="note.id"
   >
-    <template v-if="note.kind === 'claude'">
+    <template v-if="note.kind === 'suggestion'">
       <div class="h">
-        <svg aria-hidden="true" fill="#D97757" height="14" viewBox="0 0 24 24" width="14"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" /></svg>
-        Claude<small>suggestion</small>
+        <span aria-hidden="true" class="dot"></span>
+        {{ members.nameOf(note.by) }}<small>suggestion</small>
       </div>
       <p class="t">{{ note.title }}</p>
       <div class="act"><button class="ok" type="button" @click.stop="() => $emit('adopt')">Adopt</button><button class="no" type="button" @click.stop="() => $emit('remove')">Dismiss</button></div>
@@ -27,7 +29,7 @@ const tags = useTags();
       <p class="t">{{ note.title }}</p>
       <p v-if="note.body" class="b">{{ note.body }}</p>
       <p v-if="note.tags.length" class="tags"><span v-for="t in note.tags" :key="t" :style="`color:${tags.tagColor(t)}`">#{{ t }}</span></p>
-      <span class="who" :style="`background:${MEMBERS[note.by]}`"></span>
+      <span class="who"></span>
     </template>
   </div>
 </template>
@@ -88,26 +90,32 @@ const tags = useTags();
   width: 9px;
   height: 9px;
   border-radius: 50%;
+  background: var(--who);
 }
 
-.card.claude {
+.card.suggestion {
   background: var(--ivory);
   color: var(--slate);
   border: 1px solid var(--oat);
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   width: 186px;
   border-radius: 10px;
   & .h {
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-family: Georgia, 'Times New Roman', serif;
+    gap: 6px;
     font-size: var(--font-md);
+    font-weight: 700;
     margin-block-end: 4px;
+    & .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--who);
+    }
     & small {
       margin-inline-start: auto;
-      font-family: system-ui, sans-serif;
       font-size: var(--font-2xs);
+      font-weight: 400;
       color: var(--stone);
     }
   }
@@ -127,7 +135,7 @@ const tags = useTags();
       font-weight: 600;
     }
     & .ok {
-      background: var(--clay);
+      background: var(--who);
       color: var(--on-accent);
     }
     & .no {

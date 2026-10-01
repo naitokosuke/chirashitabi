@@ -25,19 +25,20 @@ src/main.ts, App.vue, style.css   Boot and view switching (the canvas stays moun
 src/views/
   Canvas.vue   Pan / pinch / drag / long-press, card menu, adding notes
   Map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add
-  Shiori.vue   The booklet (edit / read, appendix, Claude's draft)
+  Shiori.vue   The booklet (edit / read, appendix, a member's draft of a day)
   Form.vue     Full-screen note form (new / edit, Google Maps link -> coordinates)
 
 src/features/
+  members/ Everyone in the room, people and agents alike; who is using this device
   notes/   Notes: store, types
   sync/    Transport = the sync hook
   trip/    The room's trip (name, days, currency, map center), notes on a day, budgets; formatting
   tags/    Tag colors and the tag filter (store, filter bar)
   place/   Google Maps links: parsing, safe hrefs
   canvas/  Sticky note card, screen <-> world transform
-  worker/  WorkerApi: Claude's day drafts, booklet export
+  worker/  WorkerApi: drafting a day, booklet export
 
-src/mocks/  Mock room data (trip, notes) and a mock WorkerApi, installed at boot
+src/mocks/  Mock room data (members, trip, notes) and a mock WorkerApi, installed at boot
 ```
 
 ## Sync hook
@@ -46,7 +47,7 @@ src/mocks/  Mock room data (trip, notes) and a mock WorkerApi, installed at boot
 Once the Cloudflare side (Durable Object + WebSocket) exists, connect it by:
 
 1. `useSync().transport = { send: (m) => ws.send(JSON.stringify(m)) }`
-2. passing snapshots from the server to `useTrip().apply(trip)` and `useNotes().apply(notes)`
+2. passing snapshots from the server to `useMembers().apply(members)`, `useTrip().apply(trip)` and `useNotes().apply(notes)`, and setting `useMembers().me`
 3. setting `useWorker().api` to calls into the Worker
 
 `src/mocks/index.ts` does the same with mock data, so it shows what a room has to provide.

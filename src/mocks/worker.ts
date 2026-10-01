@@ -7,6 +7,8 @@ const SLOTS = ["10:00", "12:30", "16:00", "20:30"].map((s) => Temporal.PlainTime
 export const mockWorker = (): WorkerApi => ({
   async draftDay(_date, notes) {
     return {
+      by: "claude",
+      reason: "Given the locations and opening hours, this order means the least walking.",
       items: notes.map((note, i) => ({ note, time: SLOTS[i] })),
       intro: "Xiaolongbao for lunch, Jiufen in the evening, then beer in Xinyi.",
     };

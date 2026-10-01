@@ -1,14 +1,8 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-export type NoteKind = "note" | "claude";
+/** A suggestion waits to be adopted or dismissed; anyone can make one */
+export type NoteKind = "note" | "suggestion";
 export type NoteStatus = "idea" | "fixed" | "done";
-
-export const MEMBERS = {
-  yuki: "#3c6ee0",
-  ken: "#d7263d",
-  claude: "#D97757",
-} as const satisfies Record<string, string>;
-export type Member = keyof typeof MEMBERS;
 
 export interface Note {
   id: string;
@@ -20,7 +14,7 @@ export interface Note {
   x: number;
   y: number;
   rot: number;
-  by: Member;
+  by: string; // a member id
   // optional, added later for the itinerary
   date?: Temporal.PlainDate;
   time?: Temporal.PlainTime;

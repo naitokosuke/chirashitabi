@@ -1,15 +1,16 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { Temporal } from "temporal-polyfill-lite";
+import { useMembers } from "@/features/members/store";
 import { useSync } from "@/features/sync/store";
-import type { Member, Note, NoteInput } from "./types";
+import type { Note, NoteInput } from "./types";
 
-const ME: Member = "yuki";
 const uid = () => Math.random().toString(36).slice(2, 10);
 const now = () => Temporal.Now.instant();
 
 export const useNotes = defineStore("notes", () => {
   const sync = useSync();
+  const members = useMembers();
   // Deep ref on purpose: cards read x/y through the array, so moving one card
   // only touches that object. shallowRef would skip those nested updates.
   const notes = ref<Note[]>([]);
@@ -19,7 +20,7 @@ export const useNotes = defineStore("notes", () => {
     const n: Note = {
       id: uid(),
       kind: "note",
-      by: ME,
+      by: members.me,
       updatedAt: now(),
       x: at.x + (Math.random() * 20 - 10),
       y: at.y + (Math.random() * 20 - 10),
@@ -57,8 +58,9 @@ export const useNotes = defineStore("notes", () => {
       { x: n.x + 24, y: n.y + 24 },
     );
   }
+  /** A suggestion becomes an ordinary note; `by` still says whose idea it was */
   function adopt(id: string) {
-    update(id, { kind: "note", color: "#ffffff", tags: ["Claude"] });
+    update(id, { kind: "note", color: "#ffffff" });
   }
   const byId = (id: string) => notes.value.find((n) => n.id === id);
 
