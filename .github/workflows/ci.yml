@@ -5,13 +5,15 @@ on:
   pull_request:
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # pinned, so a new Ubuntu arrives as a commit rather than under the latest label
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      # Vite+, Node.js and pnpm come from the project, as they do locally: vite-plus in
+      # the catalog, devEngines.runtime and devEngines.packageManager. It runs `vp install` too
       - uses: voidzero-dev/setup-vp@v1.21.1
         with:
-          node-version: 24
           cache: true
-      - run: vp install
       - run: vp run check
+      - run: vp test
       - run: vp build
