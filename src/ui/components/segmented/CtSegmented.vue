@@ -13,7 +13,7 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.optio
 
 <template>
   <div ref="list" class="ct-segmented" role="radiogroup" :aria-label="label">
-    <span aria-hidden="true" class="indicator" :class="{ ready }" :style="style"></span>
+    <span aria-hidden="true" class="indicator" :class="{ ready }" :style></span>
     <button
       v-for="o in options"
       :key="o.value"

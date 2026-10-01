@@ -22,7 +22,7 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.tabs.
       @click="() => emit('update:modelValue', t.value)"
     >{{ t.label }}</button>
     <!-- the underline slides and stretches to the selected tab -->
-    <span aria-hidden="true" class="indicator" :class="{ ready }" :style="style"></span>
+    <span aria-hidden="true" class="indicator" :class="{ ready }" :style></span>
   </div>
 </template>
 

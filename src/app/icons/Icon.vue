@@ -14,7 +14,7 @@ const style = computed(() => ({
 </script>
 
 <template>
-  <span aria-hidden="true" class="icon" :style="style"></span>
+  <span aria-hidden="true" class="icon" :style></span>
 </template>
 
 <style scoped>
