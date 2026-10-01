@@ -1,0 +1,196 @@
+<script setup lang="ts" vapor>
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { useNotes, ME } from '@/stores/notes'
+import { useViewport } from '@/lib/viewport'
+import type { Note, NoteInput } from '@/lib/types'
+import NoteCard from '@/components/NoteCard.vue'
+import FilterBar from '@/components/FilterBar.vue'
+
+const emit = defineEmits<{ write: []; edit: [note: Note] }>()
+const store = useNotes()
+const { view, clamp, toWorld, zoomAt, animateTo } = useViewport()
+const vp = ref<HTMLElement | null>(null)
+const worldStyle = computed(() => `transform: translate(${view.tx}px, ${view.ty}px) scale(${view.s})`)
+
+// ---- pointer state: plain variables, never reactive (changes every frame) ----
+type Pt = { x: number; y: number }
+const pointers = new Map<number, Pt>()
+let drag: { note: Note; ox: number; oy: number; sx: number; sy: number; moved: boolean; lastSend: number } | null = null
+let pan: { x: number; y: number; tx: number; ty: number } | null = null
+let pinch: { dist: number; mid: Pt; s: number; tx: number; ty: number } | null = null
+let pressTimer: number | undefined
+const draggingId = ref<string | null>(null)
+const menu = ref<{ note: Note; x: number; y: number } | null>(null)
+
+function noteAt(el: EventTarget | null): Note | undefined {
+  const card = (el as HTMLElement).closest?.('[data-id]') as HTMLElement | null
+  return card ? store.byId(card.dataset.id!) : undefined
+}
+
+function onDown(e: PointerEvent) {
+  if ((e.target as HTMLElement).closest('button')) return
+  menu.value = null
+  vp.value!.setPointerCapture(e.pointerId)
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()]
+    endDrag(); clearTimeout(pressTimer)
+    pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, s: view.s, tx: view.tx, ty: view.ty }
+    return
+  }
+  const note = noteAt(e.target)
+  if (note) {
+    const w = toWorld(e.clientX, e.clientY)
+    drag = { note, ox: w.x - note.x, oy: w.y - note.y, sx: e.clientX, sy: e.clientY, moved: false, lastSend: 0 }
+    pressTimer = window.setTimeout(() => {
+      if (drag && !drag.moved) { openMenu(note, e.clientX, e.clientY); drag = null }
+    }, 420)
+  } else {
+    pan = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty }
+  }
+}
+
+function onMove(e: PointerEvent) {
+  if (!pointers.has(e.pointerId)) return
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  if (pinch && pointers.size === 2) {
+    const [a, b] = [...pointers.values()]
+    const dist = Math.hypot(a.x - b.x, a.y - b.y), mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+    const ns = clamp(pinch.s * dist / pinch.dist), k = ns / pinch.s
+    view.s = ns
+    view.tx = mid.x - (pinch.mid.x - pinch.tx) * k
+    view.ty = mid.y - (pinch.mid.y - pinch.ty) * k
+    return
+  }
+  if (drag) {
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6) {
+      drag.moved = true; draggingId.value = drag.note.id; clearTimeout(pressTimer)
+    }
+    if (drag.moved) {
+      const w = toWorld(e.clientX, e.clientY)
+      // throttle network sends to ~12/s; local position updates every frame
+      const now = performance.now()
+      if (now - drag.lastSend > 80) { store.move(drag.note.id, w.x - drag.ox, w.y - drag.oy); drag.lastSend = now }
+      else { drag.note.x = w.x - drag.ox; drag.note.y = w.y - drag.oy }
+    }
+    return
+  }
+  if (pan) { view.tx = pan.tx + (e.clientX - pan.x); view.ty = pan.ty + (e.clientY - pan.y) }
+}
+
+function onUp(e: PointerEvent) {
+  pointers.delete(e.pointerId)
+  clearTimeout(pressTimer)
+  if (pinch) { if (pointers.size < 2) pinch = null; return }
+  if (drag) {
+    if (!drag.moved && e.type === 'pointerup' && drag.note.kind !== 'claude') emit('edit', drag.note)
+    else if (drag.moved) store.move(drag.note.id, drag.note.x, drag.note.y, true)
+    endDrag()
+  }
+  pan = null
+}
+function endDrag() { drag = null; draggingId.value = null }
+
+function onWheel(e: WheelEvent) {
+  e.preventDefault()
+  if (e.ctrlKey || e.metaKey) zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.01))
+  else { view.tx -= e.deltaX; view.ty -= e.deltaY }
+}
+
+// ---- menu ----
+function openMenu(note: Note, sx: number, sy: number) {
+  navigator.vibrate?.(10)
+  const r = vp.value!.getBoundingClientRect()
+  menu.value = { note, x: Math.min(sx - 80, r.width - 330), y: Math.max(sy - 70, 90) }
+}
+
+// ---- fit ----
+function fitAll() {
+  const r = vp.value!.getBoundingClientRect()
+  const xs = store.notes.map((n) => n.x), ys = store.notes.map((n) => n.y)
+  const minX = Math.min(...xs) - 30, maxX = Math.max(...xs) + 220, minY = Math.min(...ys) - 30, maxY = Math.max(...ys) + 160
+  const s = clamp(Math.min(r.width / (maxX - minX), (r.height - 200) / (maxY - minY)))
+  animateTo((r.width - (maxX + minX) * s) / 2, 120 + (r.height - 200 - (maxY + minY) * s) / 2, s)
+}
+
+// ---- adding from the form: place at viewport center, pop ----
+const popId = ref<string | null>(null)
+const ring = ref<{ x: number; y: number } | null>(null)
+const toast = ref<{ text: string; undo?: string } | null>(null)
+let toastTimer: number | undefined
+function showToast(text: string, undo?: string) {
+  toast.value = { text, undo }; clearTimeout(toastTimer); toastTimer = window.setTimeout(() => (toast.value = null), 3200)
+}
+function place(input: NoteInput, quiet = false) {
+  const r = vp.value!.getBoundingClientRect()
+  const c = toWorld(r.width / 2, r.height / 2)
+  const n = store.add(input, { x: c.x - 82, y: c.y - 40 })
+  if (quiet) { showToast(`${n.title} を置きました`, n.id); return n }
+  popId.value = n.id; ring.value = { x: n.x - 14, y: n.y - 14 }
+  window.setTimeout(() => { popId.value = null; ring.value = null }, 900)
+  showToast(`${n.title} を置きました。指で動かせます`, n.id)
+  return n
+}
+defineExpose({ place })
+
+onMounted(() => nextTick(() => {
+  const r = vp.value!.getBoundingClientRect(); view.tx = (r.width - 400) / 2; view.ty = 90
+}))
+</script>
+
+<template>
+  <div class="canvas">
+    <div ref="vp" class="viewport" :class="{ panning: !!pan }"
+         @pointerdown="onDown" @pointermove="onMove" @pointerup="onUp" @pointercancel="onUp" @wheel="onWheel">
+      <div class="world" :style="worldStyle">
+        <NoteCard v-for="n in store.notes" :key="n.id" :note="n"
+                  :dragging="draggingId === n.id" :pop="popId === n.id"
+                  :dim="store.mode === 'dim' && !store.matches(n)"
+                  :hidden="store.mode === 'only' && !store.matches(n)"
+                  @adopt="store.adopt(n.id)" @remove="store.remove(n.id)" />
+        <div v-if="ring" class="ring" :style="`transform: translate(${ring.x}px, ${ring.y}px)`"></div>
+      </div>
+    </div>
+
+    <FilterBar />
+
+    <div class="jump"><button @click="fitAll">全体</button></div>
+
+    <div v-if="toast" class="toast">
+      <span>{{ toast.text }}</span>
+      <button v-if="toast.undo" @click="store.remove(toast.undo); toast = null">取り消す</button>
+    </div>
+
+    <div v-if="menu" class="menu" :style="`left:${menu.x}px; top:${menu.y}px`" @pointerdown.stop>
+      <button v-for="c in store.COLORS" :key="c" class="sw" :class="{ on: menu.note.color === c }" :style="`background:${c}`" :aria-label="c"
+              @click="store.update(menu!.note.id, { color: c })"></button>
+      <button @click="store.duplicate(menu!.note.id); menu = null">複製</button>
+      <button class="del" @click="store.remove(menu!.note.id); menu = null">削除</button>
+    </div>
+
+    <button class="fab" aria-label="メモを書く" @click="emit('write')">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </div>
+</template>
+
+<style scoped>
+.canvas { position: absolute; inset: 0; }
+.viewport { position: absolute; inset: 0; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overflow: hidden; cursor: grab;
+  background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px); background-size: 22px 22px; }
+.viewport.panning { cursor: grabbing; }
+.world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.ring { position: absolute; left: 0; top: 0; width: 192px; height: 110px; border: 3px solid var(--red); border-radius: 16px; pointer-events: none; animation: ring .7s ease-out .1s both; }
+@keyframes ring { 0% { transform: scale(.6); opacity: .7 } 100% { transform: scale(1.7); opacity: 0 } }
+.fab { position: absolute; right: 16px; bottom: 20px; z-index: 5; width: 58px; height: 58px; border-radius: 50%; background: var(--red); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(215,38,61,.35); }
+.jump { position: absolute; left: 16px; bottom: 28px; z-index: 5; }
+.jump button { min-height: 40px; padding: 0 14px; border-radius: 999px; background: var(--surface); border: 1.5px solid var(--line); font-size: 13px; font-weight: 700; }
+.toast { position: absolute; left: 16px; right: 90px; bottom: 92px; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-radius: 14px; background: var(--ink); color: var(--bg); font-size: 14px; font-weight: 700; box-shadow: 0 6px 18px rgba(28,34,56,.3); }
+.toast button { color: #ffd9de; font-weight: 700; font-size: 13px; }
+.menu { position: absolute; z-index: 6; background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 6px; display: flex; gap: 4px; box-shadow: 0 8px 20px rgba(28,34,56,.2); }
+.menu button { min-height: 40px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 700; }
+.menu button.del { color: var(--red); }
+.menu .sw { width: 28px; height: 28px; border-radius: 50%; margin: 6px 3px; border: 2px solid transparent; padding: 0; min-height: 0; }
+.menu .sw.on { border-color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .ring { display: none } }
+</style>
