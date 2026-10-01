@@ -1,13 +1,11 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { useNotes } from "@/features/notes/store";
+import { useNotes } from "@/features/notes/useNotes";
 import { tagsOf } from "@/features/notes/input";
 import type { Note } from "@/features/notes/types";
+import type { FilterMode, Visibility } from "./types";
 
 const TAG_COLORS = ["#b11f33", "#a06f00", "#1f6b53", "#2b5bc4", "#7a3fb0", "#b85c1a", "#0f7a8a"];
-
-/** How the filter shows a note: as is, faded ("dim" mode) or gone ("only" mode) */
-export type Visibility = "shown" | "dimmed" | "hidden";
 
 /** Tag colors and the tag filter. View state only, never synced. */
 export const useTags = defineStore("tags", () => {
@@ -27,7 +25,7 @@ export const useTags = defineStore("tags", () => {
   });
 
   const selected = ref(new Set<string>());
-  const mode = ref<"dim" | "only">("dim");
+  const mode = ref<FilterMode>("dim");
   const toggleTag = (t: string) =>
     selected.value.has(t) ? selected.value.delete(t) : selected.value.add(t);
   const matches = (n: Note) =>

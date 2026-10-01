@@ -1,6 +1,6 @@
 <script setup lang="ts" vapor>
 import { CtChip, CtSegmented, type CtOption } from "@ui/index";
-import { useTags } from "./store";
+import { useTags } from "./useTags";
 
 const tags = useTags();
 defineProps<{ room: string }>();

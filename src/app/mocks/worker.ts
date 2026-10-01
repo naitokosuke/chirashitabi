@@ -1,5 +1,5 @@
 import { Temporal } from "temporal-polyfill-lite";
-import type { WorkerApi } from "@/features/worker/store";
+import type { WorkerApi } from "@/features/worker/types";
 
 const SLOTS = ["10:00", "12:30", "16:00", "20:30"].map((s) => Temporal.PlainTime.from(s));
 

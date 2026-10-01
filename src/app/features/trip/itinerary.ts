@@ -8,7 +8,7 @@ import {
   type Schedule,
   type Scheduled,
 } from "@/features/notes/types";
-import type { DayDraft } from "@/features/worker/store";
+import type { DayDraft } from "@/features/worker/types";
 
 export const STATUS_LABEL: Record<NoteStatus, string> = {
   idea: "Maybe",

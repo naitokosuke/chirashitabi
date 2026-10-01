@@ -42,10 +42,10 @@ import {
   shallowRef,
   useTemplateRef,
 } from "vue";
-import { useNotes } from "@/features/notes/store";
+import { useNotes } from "@/features/notes/useNotes";
 import { COLORS } from "@/features/notes/types";
-import { useTags } from "@/features/tags/store";
-import { useTrip } from "@/features/trip/store";
+import { useTags } from "@/features/tags/useTags";
+import { useTrip } from "@/features/trip/useTrip";
 import { useViewport } from "@/features/canvas/useViewport";
 import { distance, fitView, pinchTo, startPinch, type Pt } from "@/features/canvas/transform";
 import NoteCard from "@/features/canvas/NoteCard.vue";

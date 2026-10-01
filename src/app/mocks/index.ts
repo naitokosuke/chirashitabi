@@ -1,7 +1,7 @@
-import { useMembers } from "@/features/members/store";
-import { useNotes } from "@/features/notes/store";
-import { useTrip } from "@/features/trip/store";
-import { useWorker } from "@/features/worker/store";
+import { useMembers } from "@/features/members/useMembers";
+import { useNotes } from "@/features/notes/useNotes";
+import { useTrip } from "@/features/trip/useTrip";
+import { useWorker } from "@/features/worker/useWorker";
 import { mockMe, mockMembers } from "./members";
 import { mockNotes } from "./notes";
 import { mockTrip } from "./trip";

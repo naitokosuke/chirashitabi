@@ -2,14 +2,15 @@
 import { computed, ref } from "vue";
 import { Temporal } from "temporal-polyfill-lite";
 import { safeUrl } from "@/features/place/google-maps";
-import { useNotes } from "@/features/notes/store";
+import { useNotes } from "@/features/notes/useNotes";
 import { ARRIVAL_TAG, PACKING_TAG, type Memo, type Scheduled } from "@/features/notes/types";
-import { useTags } from "@/features/tags/store";
-import { useTrip } from "@/features/trip/store";
+import { useTags } from "@/features/tags/useTags";
+import { useTrip } from "@/features/trip/useTrip";
 import { fromHhmm, hhmm, longDate, money, shortDate } from "@/features/trip/format";
 import { assignTo, cycleStatus, draftUpdates, STATUS_LABEL } from "@/features/trip/itinerary";
-import { useWorker, type DayDraft } from "@/features/worker/store";
-import { useMembers } from "@/features/members/store";
+import { useWorker } from "@/features/worker/useWorker";
+import type { DayDraft } from "@/features/worker/types";
+import { useMembers } from "@/features/members/useMembers";
 import { CtSegmented, CtTabList, CtTabPanel, type CtOption } from "@ui/index";
 
 type Draft = DayDraft & { date: Temporal.PlainDate };

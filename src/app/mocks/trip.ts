@@ -1,5 +1,5 @@
 import { Temporal } from "temporal-polyfill-lite";
-import type { TripSnapshot } from "@/features/trip/store";
+import type { TripSnapshot } from "@/features/trip/types";
 
 const start = Temporal.PlainDate.from("2026-11-03");
 

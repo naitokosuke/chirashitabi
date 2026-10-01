@@ -1,12 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-
-/** Anyone in the room: a person or an agent, on equal terms */
-export interface Member {
-  id: string;
-  name: string;
-  color: string;
-}
+import type { Member } from "./types";
 
 export const useMembers = defineStore("members", () => {
   const members = ref<Member[]>([]);

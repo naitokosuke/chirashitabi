@@ -1,4 +1,4 @@
-import type { Member } from "@/features/members/store";
+import type { Member } from "@/features/members/types";
 
 export const mockMembers = (): Member[] => [
   { id: "yuki", name: "Yuki", color: "#3c6ee0" },

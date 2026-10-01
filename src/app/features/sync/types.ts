@@ -1,5 +1,3 @@
-import { defineStore } from "pinia";
-import { shallowRef } from "vue";
 import type { Temporal } from "temporal-polyfill-lite";
 import type { Memo, MemoPatch } from "@/features/notes/types";
 
@@ -19,9 +17,3 @@ export type Mutation =
   | { type: "note:move"; id: string; x: number; y: number } // throttled while dragging
   | { type: "note:delete"; id: string }
   | { type: "day:intro"; date: Temporal.PlainDate; intro: string };
-
-export const useSync = defineStore("sync", () => {
-  const transport = shallowRef<Transport>({ send: () => {} });
-  const send = (msg: Mutation) => transport.value.send(msg);
-  return { transport, send };
-});

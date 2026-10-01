@@ -8,7 +8,7 @@ export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; n
 
 <script setup lang="ts" vapor>
 import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
-import { useNotes } from "@/features/notes/store";
+import { useNotes } from "@/features/notes/useNotes";
 import { COLORS, type NoteInput } from "@/features/notes/types";
 import {
   blankInput,
@@ -17,7 +17,7 @@ import {
   noteText,
   parseNoteText,
 } from "@/features/notes/input";
-import { useTags } from "@/features/tags/store";
+import { useTags } from "@/features/tags/useTags";
 import { placeFromUrl } from "@/features/place/google-maps";
 import { CtChip } from "@ui/index";
 

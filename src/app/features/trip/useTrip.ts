@@ -1,24 +1,12 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import type { Temporal } from "temporal-polyfill-lite";
-import { useNotes } from "@/features/notes/store";
+import { useNotes } from "@/features/notes/useNotes";
 import type { NoteStatus } from "@/features/notes/types";
 import type { LatLng } from "@/features/place/types";
-import { useSync } from "@/features/sync/store";
+import { useSync } from "@/features/sync/useSync";
 import * as itinerary from "./itinerary";
-
-export interface Day {
-  date: Temporal.PlainDate;
-  intro: string; // 2-3 lines written for the booklet, not a note
-}
-
-/** What the room knows about the trip itself */
-export interface TripSnapshot {
-  name: string; // the room name, e.g. "Taiwan trip"
-  days: Day[];
-  currency: string; // ISO 4217, for budgets: "TWD", "JPY", …
-  center: LatLng; // where the map opens
-}
+import type { Day, TripSnapshot } from "./types";
 
 /** The trip's days, and the notes placed on them. */
 export const useTrip = defineStore("trip", () => {

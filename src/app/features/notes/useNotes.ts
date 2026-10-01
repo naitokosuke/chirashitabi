@@ -1,8 +1,8 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { Temporal } from "temporal-polyfill-lite";
-import { useMembers } from "@/features/members/store";
-import { useSync } from "@/features/sync/store";
+import { useMembers } from "@/features/members/useMembers";
+import { useSync } from "@/features/sync/useSync";
 import { adopted, duplicateInput } from "./input";
 import type { Memo, MemoPatch, Note, NoteInput } from "./types";
 

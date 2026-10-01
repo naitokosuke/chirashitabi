@@ -1,5 +1,3 @@
-import { defineStore } from "pinia";
-import { shallowRef } from "vue";
 import type { Temporal } from "temporal-polyfill-lite";
 import type { Scheduled } from "@/features/notes/types";
 
@@ -18,9 +16,3 @@ export interface WorkerApi {
   /** Publish the booklet as a static page at /r/<room>/shiori */
   exportBooklet(): Promise<void>;
 }
-
-/** Null until a Worker is connected; the UI hides what needs it. */
-export const useWorker = defineStore("worker", () => {
-  const api = shallowRef<WorkerApi | null>(null);
-  return { api };
-});

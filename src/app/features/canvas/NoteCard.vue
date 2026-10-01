@@ -1,6 +1,7 @@
 <script setup lang="ts" vapor>
-import { useTags, type Visibility } from "@/features/tags/store";
-import { useMembers } from "@/features/members/store";
+import { useTags } from "@/features/tags/useTags";
+import type { Visibility } from "@/features/tags/types";
+import { useMembers } from "@/features/members/useMembers";
 import type { Note } from "@/features/notes/types";
 
 defineProps<{ note: Note; dragging: boolean; pop: boolean; visibility: Visibility }>();

@@ -29,7 +29,7 @@ src/app/            The app (`@/…`)
     Shiori.vue   The booklet (edit / read, appendix, a member's draft of a day)
     Form.vue     Full-screen note form (new / edit, Google Maps link -> coordinates)
 
-  features/  Stores and components, plus pure .ts modules for the logic the views run
+  features/
     members/ Everyone in the room, people and agents alike; who is using this device
     notes/   Notes: store, types; input (the form's text -> title, body, tags)
     sync/    Transport = the sync hook
@@ -55,7 +55,7 @@ src/ui/             The design system (`@ui/…`): props, slots and events only,
 
 ## Sync hook
 
-`transport.send(mutation)` in `features/sync/store.ts` is the only way out, and it does nothing yet.
+`transport.send(mutation)` in `features/sync/useSync.ts` is the only way out, and it does nothing yet.
 Once the Cloudflare side (Durable Object + WebSocket) exists, connect it by:
 
 1. `useSync().transport = { send: (m) => ws.send(JSON.stringify(m)) }`
