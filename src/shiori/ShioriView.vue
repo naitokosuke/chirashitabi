@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import { Temporal } from "temporal-polyfill-lite";
 import { safeUrl } from "@/map/google-maps";
 import { useNotes } from "@/notes/store";
-import { hhmm, type Note, type NoteStatus } from "@/notes/types";
+import { ARRIVAL_TAG, PACKING_TAG, hhmm, type Note, type NoteStatus } from "@/notes/types";
 
 type Draft = { date: Temporal.PlainDate; items: { note: Note; time?: Temporal.PlainTime }[] };
 
@@ -16,15 +16,15 @@ const isTab = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
 const picking = ref<Note | null>(null); // note being assigned from the tray
 const draft = ref<Draft | null>(null); // Claude's draft
 
-const STATUS: Record<NoteStatus, string> = { idea: "候補", fixed: "確定", done: "済" };
-const APPENDIX_TAGS = ["持ち物", "到着したら"];
+const STATUS: Record<NoteStatus, string> = { idea: "Maybe", fixed: "Confirmed", done: "Done" };
+const APPENDIX_TAGS = [PACKING_TAG, ARRIVAL_TAG];
 
 const fmt = (date: Temporal.PlainDate) =>
-  date.toLocaleString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
+  date.toLocaleString("en-US", { month: "numeric", day: "numeric", weekday: "short" });
 const short = (date: Temporal.PlainDate) =>
-  date.toLocaleString("ja-JP", { month: "numeric", day: "numeric" });
+  date.toLocaleString("en-US", { month: "numeric", day: "numeric" });
 const dayIndex = (date: Temporal.PlainDate) => store.days.findIndex((d) => d.date.equals(date)) + 1;
-const yen = (n: number) => "NT$ " + n.toLocaleString("ja-JP");
+const ntd = (n: number) => "NT$ " + n.toLocaleString("en-US");
 
 const totalFixed = computed(() => store.budgetOf(undefined, true));
 const totalAll = computed(() => store.budgetOf(undefined, false));
@@ -55,7 +55,7 @@ function setIntro(e: Event) {
   store.setIntro(day.value, (e.target as HTMLTextAreaElement).value);
 }
 
-/** Mock of "Claude、下書きを作って": in the real app this comes back from the Worker. */
+/** Mock of "Claude, draft this day": in the real app this comes back from the Worker. */
 const DRAFT_SLOTS = ["10:00", "12:30", "16:00", "20:30"].map((s) => Temporal.PlainTime.from(s));
 function askClaude() {
   const date = day.value;
@@ -64,7 +64,7 @@ function askClaude() {
   draft.value = { date, items };
 }
 function exportNote() {
-  window.alert("本番では /r/<room>/shiori に静的ページとして書き出します");
+  window.alert("In production this exports a static page to /r/<room>/shiori");
 }
 
 function adoptDraft() {
@@ -74,7 +74,8 @@ function adoptDraft() {
   }
   store.setIntro(
     draft.value.date,
-    store.dayOf(draft.value.date)?.intro || "この日は昼に小籠包、夕方から九份。夜は信義でビール。",
+    store.dayOf(draft.value.date)?.intro ||
+      "Xiaolongbao for lunch, Jiufen in the evening, then beer in Xinyi.",
   );
   draft.value = null;
 }
@@ -83,18 +84,18 @@ function adoptDraft() {
 <template>
   <div class="shiori">
     <header class="head">
-      <h1>しおり</h1>
-      <p class="sum">{{ short(store.days[0].date) }} 〜 {{ short(store.days.at(-1)!.date) }} · 確定 {{ fixedCount }} 件 · {{ yen(totalFixed) }}<small v-if="totalAll > totalFixed">（候補込み {{ yen(totalAll) }}）</small></p>
-      <div aria-label="モード" class="mode" role="group">
-        <button type="button" :class="{ on: editing }" @click="() => (editing = true)">編集</button>
-        <button type="button" :class="{ on: !editing }" @click="() => (editing = false)">閲覧</button>
+      <h1>Booklet</h1>
+      <p class="sum">{{ short(store.days[0].date) }} – {{ short(store.days.at(-1)!.date) }} · {{ fixedCount }} confirmed · {{ ntd(totalFixed) }}<small v-if="totalAll > totalFixed"> ({{ ntd(totalAll) }} with maybes)</small></p>
+      <div aria-label="Mode" class="mode" role="group">
+        <button type="button" :class="{ on: editing }" @click="() => (editing = true)">Edit</button>
+        <button type="button" :class="{ on: !editing }" @click="() => (editing = false)">Read</button>
       </div>
     </header>
 
     <!-- tray: memos without a day (edit mode only) -->
     <section v-if="editing" class="tray">
-      <div class="tray-head"><span>日付のないメモ · {{ store.unassigned.length }}</span><span class="muted">タップして日を決める</span></div>
-      <div v-if="store.unassigned.length === 0" class="muted empty">全部に日付が付きました</div>
+      <div class="tray-head"><span>Notes without a day · {{ store.unassigned.length }}</span><span class="muted">Tap to pick a day</span></div>
+      <div v-if="store.unassigned.length === 0" class="muted empty">Every note has a day</div>
       <div v-else class="tray-row">
         <button
           v-for="n in store.unassigned"
@@ -110,14 +111,14 @@ function adoptDraft() {
         </button>
       </div>
       <div v-if="picking" class="pick">
-        <span class="pick-label">「{{ picking.title }}」は</span>
+        <span class="pick-label">Put “{{ picking.title }}” on</span>
         <button
           v-for="d in store.days"
           :key="d.date.toString()"
           type="button"
           @click="() => assign(picking!, d.date)"
         >{{ short(d.date) }}</button>
-        <button class="later" type="button" @click="() => (picking = null)">あとで</button>
+        <button class="later" type="button" @click="() => (picking = null)">Later</button>
       </div>
     </section>
 
@@ -129,19 +130,19 @@ function adoptDraft() {
         :class="{ on: isTab(d.date) }"
         @click="() => (tab = d.date)"
       >{{ short(d.date) }}</button>
-      <button type="button" :class="{ on: tab === 'appendix' }" @click="() => (tab = 'appendix')">付録</button>
+      <button type="button" :class="{ on: tab === 'appendix' }" @click="() => (tab = 'appendix')">Appendix</button>
     </nav>
 
     <main class="body">
       <!-- ---------- a day ---------- -->
       <template v-if="day">
-        <h2 class="day">{{ dayIndex(day) }}日目 <span>{{ fmt(day) }}</span></h2>
+        <h2 class="day">Day {{ dayIndex(day) }} <span>{{ fmt(day) }}</span></h2>
 
         <template v-if="editing">
           <textarea
-            aria-label="この日のひとこと"
+            aria-label="A line about this day"
             class="intro"
-            placeholder="この日のひとこと（しおりの冒頭に載ります）"
+            placeholder="A line about this day (shown at the top of the booklet)"
             rows="2"
             :value="store.dayOf(day)?.intro"
             @change="setIntro"
@@ -149,13 +150,13 @@ function adoptDraft() {
         </template>
         <p v-else-if="store.dayOf(day)?.intro" class="intro-read">{{ store.dayOf(day)?.intro }}</p>
 
-        <p v-if="store.forDay(day).length === 0" class="muted empty">まだ何もありません。上の「日付のないメモ」から入れてください。</p>
+        <p v-if="store.forDay(day).length === 0" class="muted empty">Nothing yet. Add some from “Notes without a day” above.</p>
 
         <ol class="items">
           <li v-for="n in store.forDay(day)" :key="n.id" class="item" :class="n.status">
             <template v-if="editing">
               <input
-                aria-label="時刻"
+                aria-label="Time"
                 class="time"
                 type="time"
                 :value="n.time ? hhmm(n.time) : ''"
@@ -171,21 +172,21 @@ function adoptDraft() {
                     :class="n.status"
                     @click="() => cycleStatus(n)"
                   >{{ STATUS[n.status ?? "idea"] }}</button>
-                  <span v-if="n.budget" class="muted">{{ yen(n.budget) }}</span>
-                  <button class="unassign" type="button" @click="() => assign(n, null)">日付を外す</button>
+                  <span v-if="n.budget" class="muted">{{ ntd(n.budget) }}</span>
+                  <button class="unassign" type="button" @click="() => assign(n, null)">Remove day</button>
                 </div>
               </div>
             </template>
             <template v-else-if="n.status !== 'idea'">
-              <span class="time-read">{{ n.time ? hhmm(n.time) : "いつでも" }}</span>
+              <span class="time-read">{{ n.time ? hhmm(n.time) : "Anytime" }}</span>
               <div class="main">
                 <p class="t">{{ n.title }}</p>
-                <p class="meta"><span v-if="n.body">{{ n.body }}</span><span v-if="n.budget"> · {{ yen(n.budget) }}</span><a
+                <p class="meta"><span v-if="n.body">{{ n.body }}</span><span v-if="n.budget"> · {{ ntd(n.budget) }}</span><a
                     v-if="safeUrl(n.mapsUrl)"
                     :href="safeUrl(n.mapsUrl)"
                     rel="noopener noreferrer"
                     target="_blank"
-                  > · 地図</a></p>
+                  > · Map</a></p>
               </div>
             </template>
           </li>
@@ -193,8 +194,8 @@ function adoptDraft() {
 
         <!-- read mode: candidates at the end of the day -->
         <template v-if="!editing && store.forDay(day, 'idea').length">
-          <h3 class="maybe">余裕があれば</h3>
-          <ul class="maybe-list"><li v-for="n in store.forDay(day, 'idea')" :key="n.id">{{ n.title }}<span v-if="n.budget" class="muted"> · {{ yen(n.budget) }}</span></li></ul>
+          <h3 class="maybe">If there is time</h3>
+          <ul class="maybe-list"><li v-for="n in store.forDay(day, 'idea')" :key="n.id">{{ n.title }}<span v-if="n.budget" class="muted"> · {{ ntd(n.budget) }}</span></li></ul>
         </template>
 
         <!-- Claude draft (edit mode) -->
@@ -207,10 +208,10 @@ function adoptDraft() {
                 height="14"
                 viewBox="0 0 24 24"
                 width="14"
-              ><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" /></svg>Claude<small>下書き</small></div>
-            <p>位置関係と営業時間から、この順がいちばん歩かずに済みます。</p>
+              ><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" /></svg>Claude<small>draft</small></div>
+            <p>Given the locations and opening hours, this order means the least walking.</p>
             <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}</li></ol>
-            <div class="act"><button class="ok" type="button" @click="adoptDraft">時間と確定を書き込む</button><button class="no" type="button" @click="() => (draft = null)">消す</button></div>
+            <div class="act"><button class="ok" type="button" @click="adoptDraft">Set times and confirm</button><button class="no" type="button" @click="() => (draft = null)">Dismiss</button></div>
           </div>
           <button v-else class="ask" type="button" @click="askClaude">
             <svg
@@ -221,11 +222,11 @@ function adoptDraft() {
               viewBox="0 0 24 24"
               width="14"
             ><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" /></svg>
-            Claude に順番と時間の下書きを頼む
+            Ask Claude to draft the order and times
           </button>
         </template>
 
-        <p v-if="store.budgetOf(day)" class="daytotal">この日の予算 {{ yen(store.budgetOf(day)) }}<small v-if="store.budgetOf(day, false) > store.budgetOf(day)">（候補込み {{ yen(store.budgetOf(day, false)) }}）</small></p>
+        <p v-if="store.budgetOf(day)" class="daytotal">Budget for the day {{ ntd(store.budgetOf(day)) }}<small v-if="store.budgetOf(day, false) > store.budgetOf(day)"> ({{ ntd(store.budgetOf(day, false)) }} with maybes)</small></p>
       </template>
 
       <!-- ---------- appendix ---------- -->
@@ -233,13 +234,13 @@ function adoptDraft() {
         <section v-for="t in APPENDIX_TAGS" :key="t" class="appendix">
           <h2 class="day" :style="`color:${store.tagColor(t)}`">#{{ t }}</h2>
           <ul class="check"><li v-for="n in store.byTag(t)" :key="n.id"><label><input type="checkbox" />{{ n.title }}<span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
-          <p v-if="store.byTag(t).length === 0" class="muted">このタグのメモはまだありません</p>
+          <p v-if="store.byTag(t).length === 0" class="muted">No notes with this tag yet</p>
         </section>
       </template>
     </main>
 
     <footer v-if="!editing" class="foot">
-      <button class="export" type="button" @click="exportNote">書き出す</button>
+      <button class="export" type="button" @click="exportNote">Export</button>
     </footer>
   </div>
 </template>

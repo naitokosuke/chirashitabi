@@ -1,12 +1,27 @@
+<script lang="ts">
+import type { Note, NoteInput } from "@/notes/types";
+
+// Module scope is shared with every importer. The canvas is mounted once and
+// never unmounted, so one slot is enough.
+let placeOnMounted: ((input: NoteInput, quiet: boolean) => Note) | undefined;
+
+/**
+ * Put a note at the centre of the canvas and pop it (`quiet`: toast only).
+ * `import CanvasView, { place } from "@/canvas/CanvasView.vue"`
+ */
+export function place(input: NoteInput, quiet = false): Note | undefined {
+  return placeOnMounted?.(input, quiet);
+}
+</script>
+
 <script setup lang="ts" vapor>
-import { computed, nextTick, onMounted, ref, useTemplateRef } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef } from "vue";
 import { useNotes, ME } from "@/notes/store";
 import { useViewport } from "./viewport";
-import type { Note, NoteInput } from "@/notes/types";
 import NoteCard from "./NoteCard.vue";
 import FilterBar from "./FilterBar.vue";
 
-const emit = defineEmits<{ write: []; edit: [note: Note]; ready: [place: typeof place] }>();
+const emit = defineEmits<{ write: []; edit: [note: Note] }>();
 const store = useNotes();
 const { view, clamp, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
@@ -195,12 +210,12 @@ function undoToast() {
 function write() {
   emit("write");
 }
-function place(input: NoteInput, quiet = false) {
+function placeAtCenter(input: NoteInput, quiet: boolean) {
   const r = vp.value!.getBoundingClientRect();
   const c = toWorld(r.width / 2, r.height / 2);
   const n = store.add(input, { x: c.x - 82, y: c.y - 40 });
   if (quiet) {
-    showToast(`${n.title} を置きました`, n.id);
+    showToast(`Added “${n.title}”`, n.id);
     return n;
   }
   popId.value = n.id;
@@ -209,10 +224,11 @@ function place(input: NoteInput, quiet = false) {
     popId.value = null;
     ring.value = null;
   }, 900);
-  showToast(`${n.title} を置きました。指で動かせます`, n.id);
+  showToast(`Added “${n.title}”. Drag it anywhere`, n.id);
   return n;
 }
-onMounted(() => emit("ready", place));
+onMounted(() => (placeOnMounted = placeAtCenter));
+onBeforeUnmount(() => (placeOnMounted = undefined));
 
 onMounted(() =>
   nextTick(() => {
@@ -253,11 +269,11 @@ onMounted(() =>
 
     <FilterBar />
 
-    <div class="jump"><button type="button" @click="fitAll">全体</button></div>
+    <div class="jump"><button type="button" @click="fitAll">Fit all</button></div>
 
     <div v-if="toast" class="toast">
       <span>{{ toast.text }}</span>
-      <button v-if="toast.undo" type="button" @click="undoToast">取り消す</button>
+      <button v-if="toast.undo" type="button" @click="undoToast">Undo</button>
     </div>
 
     <div
@@ -276,11 +292,11 @@ onMounted(() =>
         :aria-label="c"
         @click="() => setMenuColor(c)"
       ></button>
-      <button type="button" @click="duplicateFromMenu">複製</button>
-      <button class="del" type="button" @click="removeFromMenu">削除</button>
+      <button type="button" @click="duplicateFromMenu">Duplicate</button>
+      <button class="del" type="button" @click="removeFromMenu">Delete</button>
     </div>
 
-    <button aria-label="メモを書く" class="fab" type="button" @click="write">
+    <button aria-label="Write a note" class="fab" type="button" @click="write">
       <svg
         fill="none"
         height="26"

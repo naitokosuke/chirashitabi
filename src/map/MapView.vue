@@ -6,7 +6,7 @@ import type { FeatureCollection } from "geojson";
 import { Temporal } from "temporal-polyfill-lite";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useNotes } from "@/notes/store";
-import { MEMBERS, hhmm, type Note } from "@/notes/types";
+import { MEMBERS, PACKING_TAG, hhmm, type Note } from "@/notes/types";
 import { googleMapsLink, safeUrl } from "./google-maps";
 
 const emit = defineEmits<{ write: [at: { lat: number; lng: number }]; edit: [note: Note] }>();
@@ -113,7 +113,7 @@ function syncMarkers() {
   let missing = 0;
   for (const n of store.notes) {
     if (n.lat == null || n.lng == null) {
-      if (n.kind === "note" && !n.tags.includes("持ち物")) missing++;
+      if (n.kind === "note" && !n.tags.includes(PACKING_TAG)) missing++;
       continue;
     }
     seen.add(n.id);
@@ -179,8 +179,8 @@ watchEffect(() => {
 watch([day, () => store.notes.map((n) => `${n.time} ${n.status} ${n.date}`)], syncRoute);
 
 const short = (date: Temporal.PlainDate) =>
-  date.toLocaleString("ja-JP", { month: "numeric", day: "numeric" });
-const yen = (n: number) => "NT$ " + n.toLocaleString("ja-JP");
+  date.toLocaleString("en-US", { month: "numeric", day: "numeric" });
+const ntd = (n: number) => "NT$ " + n.toLocaleString("en-US");
 function fitAll() {
   const pts = store.notes
     .filter((n) => n.lat != null)
@@ -199,32 +199,32 @@ function fitAll() {
 
     <div class="top">
       <div class="days">
-        <button type="button" :class="{ on: day === null }" @click="showAllDays">全部</button>
+        <button type="button" :class="{ on: day === null }" @click="showAllDays">All</button>
         <button
           v-for="d in store.days"
           :key="d.date.toString()"
           type="button"
           :class="{ on: isDay(d.date) }"
           @click="() => toggleDay(d.date)"
-        >{{ short(d.date) }}の道順</button>
+        >Route {{ short(d.date) }}</button>
       </div>
-      <p v-if="noPin" class="nopin">場所が未設定のメモ {{ noPin }} 件 · 地図を長押しで置けます</p>
+      <p v-if="noPin" class="nopin">{{ noPin }} {{ noPin === 1 ? "note has" : "notes have" }} no place · long-press the map to place</p>
     </div>
 
-    <div class="jump"><button type="button" @click="fitAll">全体</button></div>
+    <div class="jump"><button type="button" @click="fitAll">Fit all</button></div>
 
     <div v-if="selected" class="card" :style="`--card:${selected.color}`">
       <p class="t">{{ selected.title }}</p>
       <p v-if="selected.body" class="b">{{ selected.body }}</p>
       <p class="meta">
         <span v-for="t in selected.tags" :key="t" :style="`color:${store.tagColor(t)}`">#{{ t }} </span>
-        <span v-if="selected.budget">{{ yen(selected.budget) }} </span>
+        <span v-if="selected.budget">{{ ntd(selected.budget) }} </span>
         <span v-if="selected.date">{{ short(selected.date) }} {{ selected.time ? hhmm(selected.time) : "" }}</span>
       </p>
       <div class="act">
-        <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">Google マップで開く</a>
-        <button v-if="selected.kind !== 'claude'" type="button" @click="editSelected">編集</button>
-        <button aria-label="閉じる" class="x" type="button" @click="closeCard">×</button>
+        <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">Open in Google Maps</a>
+        <button v-if="selected.kind !== 'claude'" type="button" @click="editSelected">Edit</button>
+        <button aria-label="Close" class="x" type="button" @click="closeCard">×</button>
       </div>
     </div>
   </div>

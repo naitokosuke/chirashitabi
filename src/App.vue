@@ -1,16 +1,10 @@
 <script setup lang="ts" vapor>
 import { ref } from "vue";
-import CanvasView from "@/canvas/CanvasView.vue";
+import CanvasView, { place } from "@/canvas/CanvasView.vue";
 import FormView from "@/form/FormView.vue";
 import ShioriView from "@/shiori/ShioriView.vue";
 import MapView from "@/map/MapView.vue";
 import type { Note, NoteInput } from "@/notes/types";
-
-// CanvasView hands this up via @ready (Vize's Vapor output doesn't bind `ref` on components yet)
-let place: ((input: NoteInput, quiet?: boolean) => Note) | null = null;
-function onCanvasReady(fn: typeof place) {
-  place = fn;
-}
 const tab = ref<"canvas" | "map" | "shiori">("canvas");
 const form = ref(false);
 const editing = ref<Note | null>(null);
@@ -38,19 +32,19 @@ function showTab(t: "canvas" | "map" | "shiori") {
 }
 function onSave(input: NoteInput, keepOpen: boolean) {
   if (keepOpen) {
-    place?.(input, true);
+    place(input, true);
     return;
   }
   form.value = false;
   // let the canvas come back first, then pop
-  setTimeout(() => place?.(input), 220);
+  setTimeout(() => place(input), 220);
 }
 </script>
 
 <template>
   <!-- The canvas stays mounted underneath so pan/zoom survives a trip to the form or the booklet -->
   <div class="screen">
-    <CanvasView @ready="onCanvasReady" @write="newNote" @edit="editNote" />
+    <CanvasView @write="newNote" @edit="editNote" />
     <Transition name="fade">
       <MapView v-if="tab === 'map'" @write="writeAt" @edit="editNote" />
     </Transition>
@@ -61,7 +55,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
       <FormView v-if="form" :editing :at @close="closeForm" @save="onSave" />
     </Transition>
   </div>
-  <nav aria-label="ビュー" class="nav">
+  <nav aria-label="Views" class="nav">
     <button type="button" :class="{ on: tab === 'canvas' }" @click="() => showTab('canvas')">
       <svg
         fill="none"
@@ -73,7 +67,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
         viewBox="0 0 24 24"
         width="22"
       ><rect height="8" rx="1.5" width="8" x="3" y="4" /><rect height="6" rx="1.5" width="8" x="13" y="7" /><rect height="6" rx="1.5" width="9" x="6" y="14" /></svg>
-      キャンバス
+      Canvas
     </button>
     <button type="button" :class="{ on: tab === 'map' }" @click="() => showTab('map')">
       <svg
@@ -86,7 +80,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
         viewBox="0 0 24 24"
         width="22"
       ><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
-      地図
+      Map
     </button>
     <button type="button" :class="{ on: tab === 'shiori' }" @click="() => showTab('shiori')">
       <svg
@@ -99,7 +93,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
         viewBox="0 0 24 24"
         width="22"
       ><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z" /><path d="M20 4h-7a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h8z" /></svg>
-      しおり
+      Booklet
     </button>
   </nav>
 </template>

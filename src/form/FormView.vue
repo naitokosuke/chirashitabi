@@ -103,24 +103,24 @@ function submit() {
           stroke-width="2.5"
           viewBox="0 0 24 24"
           width="16"
-        ><path d="M15 5l-7 7 7 7" /></svg>キャンバス
+        ><path d="M15 5l-7 7 7 7" /></svg>Canvas
       </button>
-      <h2>{{ editing ? "メモを編集" : "メモを追加" }}</h2>
-      <label v-if="!editing"><input v-model="keepOpen" type="checkbox" />続けて追加</label>
+      <h2>{{ editing ? "Edit note" : "New note" }}</h2>
+      <label v-if="!editing"><input v-model="keepOpen" type="checkbox" />Add another</label>
     </div>
     <div class="body">
       <div>
-        <label class="l" :for="`${id}-text`">メモ</label>
+        <label class="l" :for="`${id}-text`">Note</label>
         <textarea
           :id="`${id}-text`"
           ref="textEl"
           v-model="text"
-          placeholder="行きたい場所、食べたいもの、思いついたこと"
+          placeholder="Places to go, food to try, anything that comes to mind"
           rows="4"
         ></textarea>
       </div>
       <div>
-        <label class="l" :for="`${id}-tag`">タグ</label>
+        <label class="l" :for="`${id}-tag`">Tags</label>
         <div class="tagbox">
           <button
             v-for="t in form.tags"
@@ -134,7 +134,7 @@ function submit() {
             :id="`${id}-tag`"
             v-model="tagInput"
             enterkeyhint="done"
-            placeholder="タグを入力…"
+            placeholder="Add a tag…"
             @keydown.enter.prevent="commitTag"
             @blur="commitTag"
           />
@@ -152,20 +152,24 @@ function submit() {
         </div>
       </div>
       <div>
-        <label class="l" :for="`${id}-maps`">場所</label>
+        <label class="l" :for="`${id}-maps`">Place</label>
         <input
           :id="`${id}-maps`"
           v-model="mapsUrl"
           class="url"
           inputmode="url"
-          placeholder="Google マップのリンクを貼る"
+          placeholder="Paste a Google Maps link"
           type="url"
           @change="onMapsUrl"
         />
-        <p class="pinstate">{{ hasPin() ? "地図にピンが立ちます" : "座標が取れないときは地図ビューで長押しして置けます" }}</p>
+        <p class="pinstate">{{
+            hasPin()
+              ? "This drops a pin on the map"
+              : "No coordinates? Long-press on the map view to place it"
+          }}</p>
       </div>
       <div>
-        <span :id="`${id}-color`" class="l">色</span>
+        <span :id="`${id}-color`" class="l">Color</span>
         <div class="colors" role="group" :aria-labelledby="`${id}-color`">
           <button
             v-for="c in store.COLORS"
@@ -180,8 +184,8 @@ function submit() {
       </div>
     </div>
     <div class="foot">
-      <button class="save" type="submit" :disabled="!text.trim()">{{ editing ? "保存する" : "保存してキャンバスに置く" }}</button>
-      <p v-if="!editing" class="hint">キャンバスに戻って、見ていた場所の真ん中にポンと出ます</p>
+      <button class="save" type="submit" :disabled="!text.trim()">{{ editing ? "Save" : "Save to canvas" }}</button>
+      <p v-if="!editing" class="hint">It pops up in the middle of where you were looking on the canvas</p>
     </div>
   </form>
 </template>

@@ -1,7 +1,15 @@
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import { Temporal } from "temporal-polyfill-lite";
-import { COLORS, TAG_COLORS, type Day, type Member, type Note, type NoteInput } from "./types";
+import {
+  COLORS,
+  PACKING_TAG,
+  TAG_COLORS,
+  type Day,
+  type Member,
+  type Note,
+  type NoteInput,
+} from "./types";
 import { seed } from "./seed";
 
 export const ME: Member = "yuki";
@@ -102,12 +110,12 @@ export const useNotes = defineStore("notes", () => {
   }
   const byId = (id: string) => notes.value.find((n) => n.id === id);
 
-  // ---- booklet (しおり) helpers ----
+  // ---- booklet helpers ----
   const unassigned = computed(() =>
-    notes.value.filter((n) => n.kind === "note" && !n.date && !n.tags.includes("持ち物")),
+    notes.value.filter((n) => n.kind === "note" && !n.date && !n.tags.includes(PACKING_TAG)),
   );
   const onDay = (n: Note, date: Temporal.PlainDate) => n.date?.equals(date) ?? false;
-  // untimed items ("いつでも") go last; ties fall back to edit order
+  // untimed items ("Anytime") go last; ties fall back to edit order
   const byTime = (a: Note, b: Note) =>
     (a.time && b.time ? Temporal.PlainTime.compare(a.time, b.time) : +!a.time - +!b.time) ||
     Temporal.Instant.compare(a.updatedAt, b.updatedAt);

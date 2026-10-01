@@ -18,10 +18,10 @@ const store = useNotes();
     <template v-if="note.kind === 'claude'">
       <div class="h">
         <svg aria-hidden="true" fill="#D97757" height="14" viewBox="0 0 24 24" width="14"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" /></svg>
-        Claude<small>提案</small>
+        Claude<small>suggestion</small>
       </div>
       <p class="t">{{ note.title }}</p>
-      <div class="act"><button class="ok" type="button" @click.stop="() => $emit('adopt')">採用</button><button class="no" type="button" @click.stop="() => $emit('remove')">消す</button></div>
+      <div class="act"><button class="ok" type="button" @click.stop="() => $emit('adopt')">Adopt</button><button class="no" type="button" @click.stop="() => $emit('remove')">Dismiss</button></div>
     </template>
     <template v-else>
       <p class="t">{{ note.title }}</p>

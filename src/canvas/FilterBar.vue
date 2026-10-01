@@ -12,14 +12,14 @@ function clearTags() {
 <template>
   <div class="bar">
     <div class="row">
-      <h1>ちらしたび<span class="room">台湾たび</span></h1>
-      <div aria-label="絞り込みの見せ方" class="mode" role="group">
-        <button type="button" :class="{ on: store.mode === 'dim' }" @click="() => setMode('dim')">薄くする</button>
-        <button type="button" :class="{ on: store.mode === 'only' }" @click="() => setMode('only')">だけ表示</button>
+      <h1>chirashitabi<span class="room">Taiwan trip</span></h1>
+      <div aria-label="How to filter" class="mode" role="group">
+        <button type="button" :class="{ on: store.mode === 'dim' }" @click="() => setMode('dim')">Dim</button>
+        <button type="button" :class="{ on: store.mode === 'only' }" @click="() => setMode('only')">Only</button>
       </div>
     </div>
     <div class="chips">
-      <button v-if="store.selected.size" class="chip clear" type="button" @click="clearTags">× 解除</button>
+      <button v-if="store.selected.size" class="chip clear" type="button" @click="clearTags">× Clear</button>
       <button
         v-for="t in store.tagList"
         :key="t.name"

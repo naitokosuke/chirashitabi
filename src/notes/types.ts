@@ -40,6 +40,10 @@ export interface Day {
   intro: string; // 2-3 lines written for the booklet, not a note
 }
 
+/** Tags with a meaning of their own: packing notes never need a day or a pin */
+export const PACKING_TAG = "Packing";
+export const ARRIVAL_TAG = "On arrival";
+
 /** "12:30" — for labels and `<input type="time">` values */
 export const hhmm = (t: Temporal.PlainTime) => t.toString({ smallestUnit: "minute" });
 
