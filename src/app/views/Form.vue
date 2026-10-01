@@ -24,6 +24,8 @@ import { COLORS, type NoteColor, type NoteInput } from "../features/notes/types"
 import { useNotes } from "../features/notes/useNotes";
 import { placeFromUrl } from "../features/place/google-maps";
 import { useTags } from "../features/tags/useTags";
+import backIcon from "../icons/back.svg";
+import Icon from "../icons/Icon.vue";
 
 const props = defineProps<{ target: FormTarget }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
@@ -95,16 +97,7 @@ function submit() {
   <form class="formview" @submit.prevent="submit">
     <div class="head">
       <button class="back" type="button" @click="() => emit('close')">
-        <svg
-          fill="none"
-          height="16"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2.5"
-          viewBox="0 0 24 24"
-          width="16"
-        ><path d="M15 5l-7 7 7 7" /></svg>{{ i18n.t("nav.canvas") }}
+        <Icon :size="16" :src="backIcon" />{{ i18n.t("nav.canvas") }}
       </button>
       <h2>{{ i18n.t(editing ? "form.titleEdit" : "form.titleNew") }}</h2>
       <label v-if="!editing"><input v-model="keepOpen" type="checkbox" />{{ i18n.t("form.addAnother") }}</label>

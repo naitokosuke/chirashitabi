@@ -53,6 +53,8 @@ import { useNotes } from "../features/notes/useNotes";
 import FilterBar from "../features/tags/FilterBar.vue";
 import { useTags } from "../features/tags/useTags";
 import { useTrip } from "../features/trip/useTrip";
+import Icon from "../icons/Icon.vue";
+import plusIcon from "../icons/plus.svg";
 
 const emit = defineEmits<{ write: []; edit: [note: Memo] }>();
 const store = useNotes();
@@ -302,15 +304,7 @@ onMounted(() =>
     </div>
 
     <button class="fab" :aria-label="i18n.t('canvas.write')" type="button" @click="write">
-      <svg
-        fill="none"
-        height="26"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-width="2.5"
-        viewBox="0 0 24 24"
-        width="26"
-      ><path d="M12 5v14M5 12h14" /></svg>
+      <Icon :size="26" :src="plusIcon" />
     </button>
   </div>
 </template>
