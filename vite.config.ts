@@ -19,8 +19,12 @@ export default defineConfig({
     options: { typeAware: true, typeCheck: true },
     vize: {
       preset: "opinionated",
-      // I don't like this rule🫠
-      rules: { "vue/multi-word-component-names": "off" },
+      rules: {
+        // I don't like this rule🫠
+        "vue/multi-word-component-names": "off",
+        // :items rather than :items="items"; it only looks at component props, not native attrs
+        "vue/prefer-props-shorthand": "error",
+      },
     },
   },
   fmt: {

@@ -15,7 +15,7 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.items
 <template>
   <nav ref="list" class="ct-tab-bar" :aria-label="label">
     <!-- the highlight slides behind whichever item is current -->
-    <span aria-hidden="true" class="indicator" :class="{ ready }" :style="style"></span>
+    <span aria-hidden="true" class="indicator" :class="{ ready }" :style></span>
     <button
       v-for="item in items"
       :key="item.value"
