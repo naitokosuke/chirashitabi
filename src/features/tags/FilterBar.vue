@@ -1,6 +1,7 @@
 <script setup lang="ts" vapor>
 import { useTags } from "./store";
 const tags = useTags();
+defineProps<{ room: string }>();
 function setMode(mode: "dim" | "only") {
   tags.mode = mode;
 }
@@ -12,7 +13,7 @@ function clearTags() {
 <template>
   <div class="bar">
     <div class="row">
-      <h1>chirashitabi<span class="room">Taiwan trip</span></h1>
+      <h1>chirashitabi<span v-if="room" class="room">{{ room }}</span></h1>
       <div aria-label="How to filter" class="mode" role="group">
         <button type="button" :class="{ on: tags.mode === 'dim' }" @click="() => setMode('dim')">Dim</button>
         <button type="button" :class="{ on: tags.mode === 'only' }" @click="() => setMode('only')">Only</button>

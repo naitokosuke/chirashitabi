@@ -10,8 +10,13 @@ export interface Day {
   intro: string; // 2-3 lines written for the booklet, not a note
 }
 
-const TRIP_START = Temporal.PlainDate.from("2026-11-03");
-const TRIP_DAYS = 4;
+/** What the room knows about the trip itself */
+export interface TripSnapshot {
+  name: string; // the room name, e.g. "Taiwan trip"
+  days: Day[];
+  currency: string; // ISO 4217, for budgets: "TWD", "JPY", …
+  center: { lat: number; lng: number }; // where the map opens
+}
 
 const onDay = (n: Note, date: Temporal.PlainDate) => n.date?.equals(date) ?? false;
 // untimed items ("Anytime") go last; ties fall back to edit order
@@ -23,9 +28,10 @@ const byTime = (a: Note, b: Note) =>
 export const useTrip = defineStore("trip", () => {
   const store = useNotes();
   const sync = useSync();
-  const days = ref<Day[]>(
-    Array.from({ length: TRIP_DAYS }, (_, i) => ({ date: TRIP_START.add({ days: i }), intro: "" })),
-  );
+  const name = ref("");
+  const days = ref<Day[]>([]);
+  const currency = ref("USD");
+  const center = ref<TripSnapshot["center"] | null>(null);
 
   const unassigned = computed(() =>
     store.notes.filter((n) => n.kind === "note" && !n.date && !n.tags.includes(PACKING_TAG)),
@@ -53,5 +59,25 @@ export const useTrip = defineStore("trip", () => {
     sync.send({ type: "day:intro", date, intro });
   }
 
-  return { days, unassigned, forDay, byTag, budgetOf, dayOf, setIntro };
+  /** Called by the room when an authoritative snapshot arrives. */
+  function apply(snapshot: TripSnapshot) {
+    name.value = snapshot.name;
+    days.value = snapshot.days;
+    currency.value = snapshot.currency;
+    center.value = snapshot.center;
+  }
+
+  return {
+    name,
+    days,
+    currency,
+    center,
+    unassigned,
+    forDay,
+    byTag,
+    budgetOf,
+    dayOf,
+    setIntro,
+    apply,
+  };
 });

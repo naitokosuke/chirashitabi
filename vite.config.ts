@@ -10,8 +10,7 @@ export default defineConfig({
     options: { typeAware: true, typeCheck: true },
     vize: {
       preset: "opinionated",
-      // Views are named by their directory, like route pages (views/Canvas.vue).
-      // Vize's lint ignores per-file entries for now, so this is project-wide.
+      // I don't like this rule🫠
       rules: { "vue/multi-word-component-names": "off" },
     },
   },

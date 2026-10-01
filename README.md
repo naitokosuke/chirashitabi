@@ -12,7 +12,10 @@ vp dev
 vp run check   # format + lint + type check (Vize)
 vp build
 vp build -c vite.single.config.ts   # single-file build (dist-single/)
+VITE_MOCK=false vp dev              # start with empty stores, no mock data
 ```
+
+There is no room backend yet, so the app boots with the mock data in `src/mocks/` (a Taiwan trip).
 
 ## Layout
 
@@ -26,12 +29,15 @@ src/views/
   Form.vue     Full-screen note form (new / edit, Google Maps link -> coordinates)
 
 src/features/
-  notes/   Notes: store, types, seed data
+  notes/   Notes: store, types
   sync/    Transport = the sync hook
+  trip/    The room's trip (name, days, currency, map center), notes on a day, budgets; formatting
   tags/    Tag colors and the tag filter (store, filter bar)
-  trip/    Days, notes on a day, budgets; date / time / NT$ formatting
   place/   Google Maps links: parsing, safe hrefs
   canvas/  Sticky note card, screen <-> world transform
+  worker/  WorkerApi: Claude's day drafts, booklet export
+
+src/mocks/  Mock room data (trip, notes) and a mock WorkerApi, installed at boot
 ```
 
 ## Sync hook
@@ -40,7 +46,10 @@ src/features/
 Once the Cloudflare side (Durable Object + WebSocket) exists, connect it by:
 
 1. `useSync().transport = { send: (m) => ws.send(JSON.stringify(m)) }`
-2. passing snapshots from the server to `useNotes().apply(notes)`
+2. passing snapshots from the server to `useTrip().apply(trip)` and `useNotes().apply(notes)`
+3. setting `useWorker().api` to calls into the Worker
+
+`src/mocks/index.ts` does the same with mock data, so it shows what a room has to provide.
 
 `note:move` is throttled to every 80ms while dragging.
 

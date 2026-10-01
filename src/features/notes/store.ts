@@ -3,7 +3,6 @@ import { ref } from "vue";
 import { Temporal } from "temporal-polyfill-lite";
 import { useSync } from "@/features/sync/store";
 import type { Member, Note, NoteInput } from "./types";
-import { seed } from "./seed";
 
 const ME: Member = "yuki";
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -13,7 +12,7 @@ export const useNotes = defineStore("notes", () => {
   const sync = useSync();
   // Deep ref on purpose: cards read x/y through the array, so moving one card
   // only touches that object. shallowRef would skip those nested updates.
-  const notes = ref<Note[]>(seed());
+  const notes = ref<Note[]>([]);
 
   // ---- mutations (local first, then sync) ----
   function add(input: NoteInput, at: { x: number; y: number }): Note {

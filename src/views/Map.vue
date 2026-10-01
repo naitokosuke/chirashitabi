@@ -9,13 +9,14 @@ import { useNotes } from "@/features/notes/store";
 import { MEMBERS, PACKING_TAG, type Note } from "@/features/notes/types";
 import { useTags } from "@/features/tags/store";
 import { useTrip } from "@/features/trip/store";
-import { hhmm, ntd, shortDate } from "@/features/trip/format";
+import { hhmm, money, shortDate } from "@/features/trip/format";
 import { googleMapsLink, safeUrl } from "@/features/place/google-maps";
 
 const emit = defineEmits<{ write: [at: { lat: number; lng: number }]; edit: [note: Note] }>();
 const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
+const price = (amount: number) => money(amount, trip.currency);
 const el = useTemplateRef<HTMLElement>("el");
 const selected = ref<Note | null>(null);
 const day = ref<Temporal.PlainDate | null>(null); // show a day's route
@@ -35,7 +36,6 @@ const selectedLink = computed(() => {
 
 // free vector tiles, no key. Swap the style URL for your own if you self-host.
 const STYLE = "https://tiles.openfreemap.org/styles/liberty";
-const TAIPEI: [number, number] = [121.54, 25.05];
 
 let map: MLMap | null = null;
 const markers = new Map<string, Marker>();
@@ -44,8 +44,9 @@ onMounted(() => {
   map = new MLMap({
     container: el.value!,
     style: STYLE,
-    center: TAIPEI,
-    zoom: 11.5,
+    // the trip's area; the whole world until the room says where we are going
+    center: trip.center ? [trip.center.lng, trip.center.lat] : [0, 0],
+    zoom: trip.center ? 11.5 : 1,
     attributionControl: { compact: true },
   });
   map.addControl(
@@ -220,7 +221,7 @@ function fitAll() {
       <p v-if="selected.body" class="b">{{ selected.body }}</p>
       <p class="meta">
         <span v-for="t in selected.tags" :key="t" :style="`color:${tags.tagColor(t)}`">#{{ t }} </span>
-        <span v-if="selected.budget">{{ ntd(selected.budget) }} </span>
+        <span v-if="selected.budget">{{ price(selected.budget) }} </span>
         <span v-if="selected.date">{{ shortDate(selected.date) }} {{ selected.time ? hhmm(selected.time) : "" }}</span>
       </p>
       <div class="act">

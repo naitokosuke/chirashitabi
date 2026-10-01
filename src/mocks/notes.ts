@@ -1,5 +1,5 @@
 import { Temporal } from "temporal-polyfill-lite";
-import { ARRIVAL_TAG, PACKING_TAG, type Note } from "./types";
+import { ARRIVAL_TAG, PACKING_TAG, type Note } from "@/features/notes/types";
 
 const day = (s: string) => Temporal.PlainDate.from(s);
 const at = (s: string) => Temporal.PlainTime.from(s);
@@ -18,7 +18,7 @@ const n = (p: Partial<Note> & Pick<Note, "title" | "x" | "y">): Note => ({
   ...p,
 });
 
-export const seed = (): Note[] => [
+export const mockNotes = (): Note[] => [
   n({
     title: "Din Tai Fung xiaolongbao",
     lat: 25.0335,

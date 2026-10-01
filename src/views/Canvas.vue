@@ -19,6 +19,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef } f
 import { useNotes } from "@/features/notes/store";
 import { COLORS } from "@/features/notes/types";
 import { useTags } from "@/features/tags/store";
+import { useTrip } from "@/features/trip/store";
 import { useViewport } from "@/features/canvas/viewport";
 import NoteCard from "@/features/canvas/NoteCard.vue";
 import FilterBar from "@/features/tags/FilterBar.vue";
@@ -26,6 +27,7 @@ import FilterBar from "@/features/tags/FilterBar.vue";
 const emit = defineEmits<{ write: []; edit: [note: Note] }>();
 const store = useNotes();
 const tags = useTags();
+const trip = useTrip();
 const { view, clamp, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
 const worldStyle = computed(
@@ -185,6 +187,7 @@ function removeFromMenu() {
 
 // ---- fit ----
 function fitAll() {
+  if (!store.notes.length) return;
   const r = vp.value!.getBoundingClientRect();
   const xs = store.notes.map((n) => n.x),
     ys = store.notes.map((n) => n.y);
@@ -270,7 +273,7 @@ onMounted(() =>
       </div>
     </div>
 
-    <FilterBar />
+    <FilterBar :room="trip.name" />
 
     <div class="jump"><button type="button" @click="fitAll">Fit all</button></div>
 

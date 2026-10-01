@@ -6,17 +6,23 @@ import { useNotes } from "@/features/notes/store";
 import { ARRIVAL_TAG, PACKING_TAG, type Note, type NoteStatus } from "@/features/notes/types";
 import { useTags } from "@/features/tags/store";
 import { useTrip } from "@/features/trip/store";
-import { hhmm, longDate, ntd, shortDate } from "@/features/trip/format";
+import { hhmm, longDate, money, shortDate } from "@/features/trip/format";
+import { useWorker, type DayDraft } from "@/features/worker/store";
 
-type Draft = { date: Temporal.PlainDate; items: { note: Note; time?: Temporal.PlainTime }[] };
+type Draft = DayDraft & { date: Temporal.PlainDate };
 
 const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
+const worker = useWorker();
 const editing = ref(true);
-const tab = ref<Temporal.PlainDate | "appendix">(trip.days[0].date);
-/** The open day, or null on the appendix tab */
-const day = computed(() => (tab.value === "appendix" ? null : tab.value));
+/** A picked day, the appendix, or null for "the first day" */
+const tab = ref<Temporal.PlainDate | "appendix" | null>(null);
+/** The open day, or null on the appendix tab (or while the trip has no days) */
+const day = computed(() =>
+  tab.value === "appendix" ? null : (tab.value ?? trip.days[0]?.date ?? null),
+);
+const price = (amount: number) => money(amount, trip.currency);
 const isTab = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
 const picking = ref<Note | null>(null); // note being assigned from the tray
 const draft = ref<Draft | null>(null); // Claude's draft
@@ -55,16 +61,13 @@ function setIntro(e: Event) {
   trip.setIntro(day.value, (e.target as HTMLTextAreaElement).value);
 }
 
-/** Mock of "Claude, draft this day": in the real app this comes back from the Worker. */
-const DRAFT_SLOTS = ["10:00", "12:30", "16:00", "20:30"].map((s) => Temporal.PlainTime.from(s));
-function askClaude() {
+async function askClaude() {
   const date = day.value;
-  if (!date) return;
-  const items = trip.forDay(date).map((note, i) => ({ note, time: DRAFT_SLOTS[i] }));
-  draft.value = { date, items };
+  if (!date || !worker.api) return;
+  draft.value = { date, ...(await worker.api.draftDay(date, trip.forDay(date))) };
 }
-function exportNote() {
-  window.alert("In production this exports a static page to /r/<room>/shiori");
+function exportBooklet() {
+  void worker.api?.exportBooklet();
 }
 
 function adoptDraft() {
@@ -72,11 +75,8 @@ function adoptDraft() {
   for (const { note, time } of draft.value.items) {
     if (time) store.update(note.id, { time, status: "fixed" });
   }
-  trip.setIntro(
-    draft.value.date,
-    trip.dayOf(draft.value.date)?.intro ||
-      "Xiaolongbao for lunch, Jiufen in the evening, then beer in Xinyi.",
-  );
+  // keep an intro someone already wrote
+  trip.setIntro(draft.value.date, trip.dayOf(draft.value.date)?.intro || draft.value.intro);
   draft.value = null;
 }
 </script>
@@ -85,7 +85,7 @@ function adoptDraft() {
   <div class="shiori">
     <header class="head">
       <h1>Booklet</h1>
-      <p class="sum">{{ shortDate(trip.days[0].date) }} – {{ shortDate(trip.days.at(-1)!.date) }} · {{ fixedCount }} confirmed · {{ ntd(totalFixed) }}<small v-if="totalAll > totalFixed"> ({{ ntd(totalAll) }} with maybes)</small></p>
+      <p class="sum"><template v-if="trip.days.length">{{ shortDate(trip.days[0]!.date) }} – {{ shortDate(trip.days.at(-1)!.date) }} · </template>{{ fixedCount }} confirmed · {{ price(totalFixed) }}<small v-if="totalAll > totalFixed"> ({{ price(totalAll) }} with maybes)</small></p>
       <div aria-label="Mode" class="mode" role="group">
         <button type="button" :class="{ on: editing }" @click="() => (editing = true)">Edit</button>
         <button type="button" :class="{ on: !editing }" @click="() => (editing = false)">Read</button>
@@ -172,7 +172,7 @@ function adoptDraft() {
                     :class="n.status"
                     @click="() => cycleStatus(n)"
                   >{{ STATUS[n.status ?? "idea"] }}</button>
-                  <span v-if="n.budget" class="muted">{{ ntd(n.budget) }}</span>
+                  <span v-if="n.budget" class="muted">{{ price(n.budget) }}</span>
                   <button class="unassign" type="button" @click="() => assign(n, null)">Remove day</button>
                 </div>
               </div>
@@ -181,7 +181,7 @@ function adoptDraft() {
               <span class="time-read">{{ n.time ? hhmm(n.time) : "Anytime" }}</span>
               <div class="main">
                 <p class="t">{{ n.title }}</p>
-                <p class="meta"><span v-if="n.body">{{ n.body }}</span><span v-if="n.budget"> · {{ ntd(n.budget) }}</span><a
+                <p class="meta"><span v-if="n.body">{{ n.body }}</span><span v-if="n.budget"> · {{ price(n.budget) }}</span><a
                     v-if="safeUrl(n.mapsUrl)"
                     :href="safeUrl(n.mapsUrl)"
                     rel="noopener noreferrer"
@@ -195,11 +195,11 @@ function adoptDraft() {
         <!-- read mode: candidates at the end of the day -->
         <template v-if="!editing && trip.forDay(day, 'idea').length">
           <h3 class="maybe">If there is time</h3>
-          <ul class="maybe-list"><li v-for="n in trip.forDay(day, 'idea')" :key="n.id">{{ n.title }}<span v-if="n.budget" class="muted"> · {{ ntd(n.budget) }}</span></li></ul>
+          <ul class="maybe-list"><li v-for="n in trip.forDay(day, 'idea')" :key="n.id">{{ n.title }}<span v-if="n.budget" class="muted"> · {{ price(n.budget) }}</span></li></ul>
         </template>
 
         <!-- Claude draft (edit mode) -->
-        <template v-if="editing && trip.forDay(day).length">
+        <template v-if="editing && worker.api && trip.forDay(day).length">
           <div v-if="draft && draft.date.equals(day)" class="claude">
             <div class="h"><svg
                 aria-hidden="true"
@@ -226,7 +226,7 @@ function adoptDraft() {
           </button>
         </template>
 
-        <p v-if="trip.budgetOf(day)" class="daytotal">Budget for the day {{ ntd(trip.budgetOf(day)) }}<small v-if="trip.budgetOf(day, false) > trip.budgetOf(day)"> ({{ ntd(trip.budgetOf(day, false)) }} with maybes)</small></p>
+        <p v-if="trip.budgetOf(day)" class="daytotal">Budget for the day {{ price(trip.budgetOf(day)) }}<small v-if="trip.budgetOf(day, false) > trip.budgetOf(day)"> ({{ price(trip.budgetOf(day, false)) }} with maybes)</small></p>
       </template>
 
       <!-- ---------- appendix ---------- -->
@@ -239,8 +239,8 @@ function adoptDraft() {
       </template>
     </main>
 
-    <footer v-if="!editing" class="foot">
-      <button class="export" type="button" @click="exportNote">Export</button>
+    <footer v-if="!editing && worker.api" class="foot">
+      <button class="export" type="button" @click="exportBooklet">Export</button>
     </footer>
   </div>
 </template>
