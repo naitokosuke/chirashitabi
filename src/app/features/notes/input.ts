@@ -1,4 +1,5 @@
-import type { LatLng } from "@/features/place/types";
+import type { LatLng } from "../place/types";
+
 import { COLORS, type Memo, type Note, type NoteInput, type Suggestion } from "./types";
 
 /** The form's starting point when editing an existing memo */

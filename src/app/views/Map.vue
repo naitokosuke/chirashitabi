@@ -1,26 +1,31 @@
 <script setup lang="ts" vapor>
+import type { Temporal } from "temporal-polyfill-lite";
+
 import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect, useTemplateRef } from "vue";
+
 import * as maplibregl from "maplibre-gl";
 import { Map as MLMap, Marker } from "maplibre-gl";
-import type { Temporal } from "temporal-polyfill-lite";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useNotes } from "@/features/notes/useNotes";
-import { useMembers } from "@/features/members/useMembers";
-import type { Memo, Note } from "@/features/notes/types";
-import { useTags } from "@/features/tags/useTags";
-import { useTrip } from "@/features/trip/useTrip";
-import { hhmm, money, shortDate } from "@/features/trip/format";
-import { placeLink, safeUrl } from "@/features/place/google-maps";
-import { lngLat, needsPin, pinnedOf, type Pinned } from "@/features/place/pin";
-import { boundsOf, routeLine, routeStops } from "@/features/place/route";
-import type { LatLng } from "@/features/place/types";
+
+import { formatMoney } from "../shared/money";
+
+import { useMembers } from "../features/members/useMembers";
+import type { Memo, Note } from "../features/notes/types";
+import { useNotes } from "../features/notes/useNotes";
+import { placeLink, safeUrl } from "../features/place/google-maps";
+import { lngLat, needsPin, pinnedOf, type Pinned } from "../features/place/pin";
+import { boundsOf, routeLine, routeStops } from "../features/place/route";
+import type { LatLng } from "../features/place/types";
+import { useTags } from "../features/tags/useTags";
+import { hhmm, shortDate } from "../features/trip/format";
+import { useTrip } from "../features/trip/useTrip";
 
 const emit = defineEmits<{ write: [pin: LatLng]; edit: [note: Memo] }>();
 const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
 const members = useMembers();
-const price = (amount: number) => money(amount, trip.currency);
+const price = (amount: number) => formatMoney(amount, trip.currency);
 const el = useTemplateRef<HTMLElement>("el");
 const selected = ref<Pinned | null>(null);
 const day = ref<Temporal.PlainDate | null>(null); // show a day's route

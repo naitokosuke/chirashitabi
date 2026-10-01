@@ -1,5 +1,15 @@
 import type { Temporal } from "temporal-polyfill-lite";
-import type { LatLng } from "@/features/place/types";
+
+import type { Brand } from "../../shared/brand";
+
+import type { MemberId } from "../members/types";
+import type { LatLng } from "../place/types";
+
+export type NoteId = Brand<string, "NoteId">;
+
+export const COLORS = ["#fff1b8", "#ffd9de", "#d8f0e6", "#dbe7ff", "#ead9ff", "#ffffff"] as const;
+/** A card's paper: one of the palette, never a free CSS value */
+export type NoteColor = (typeof COLORS)[number];
 
 export type NoteStatus = "idea" | "fixed" | "done";
 
@@ -12,13 +22,13 @@ export interface Schedule {
 
 /** What every card on the canvas has */
 interface CardBase {
-  id: string;
+  id: NoteId;
   title: string;
-  color: string;
+  color: NoteColor;
   x: number;
   y: number;
   rot: number;
-  by: string; // a member id
+  by: MemberId;
   updatedAt: Temporal.Instant;
 }
 
@@ -52,5 +62,3 @@ export type MemoPatch = Partial<Omit<Memo, "id" | "kind" | "by" | "updatedAt">>;
 /** Tags with a meaning of their own: packing notes never need a day or a pin */
 export const PACKING_TAG = "Packing";
 export const ARRIVAL_TAG = "On arrival";
-
-export const COLORS = ["#fff1b8", "#ffd9de", "#d8f0e6", "#dbe7ff", "#ead9ff", "#ffffff"];

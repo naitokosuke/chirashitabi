@@ -1,8 +1,11 @@
-import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { useNotes } from "@/features/notes/useNotes";
-import { tagsOf } from "@/features/notes/input";
-import type { Note } from "@/features/notes/types";
+
+import { defineStore } from "pinia";
+
+import { tagsOf } from "../notes/input";
+import type { Note } from "../notes/types";
+import { useNotes } from "../notes/useNotes";
+
 import type { FilterMode, Visibility } from "./types";
 
 const TAG_COLORS = ["#b11f33", "#a06f00", "#1f6b53", "#2b5bc4", "#7a3fb0", "#b85c1a", "#0f7a8a"];

@@ -1,5 +1,6 @@
 import type { Temporal } from "temporal-polyfill-lite";
-import type { Memo, MemoPatch } from "@/features/notes/types";
+
+import type { Memo, MemoPatch, NoteColor, NoteId } from "../notes/types";
 
 /**
  * Transport is the only thing that changes when the Cloudflare room arrives:
@@ -11,9 +12,9 @@ export interface Transport {
 }
 export type Mutation =
   | { type: "note:add"; note: Memo }
-  | { type: "note:update"; id: string; patch: MemoPatch } // memos only
-  | { type: "note:recolor"; id: string; color: string }
-  | { type: "note:adopt"; id: string } // a suggestion becomes a memo
-  | { type: "note:move"; id: string; x: number; y: number } // throttled while dragging
-  | { type: "note:delete"; id: string }
+  | { type: "note:update"; id: NoteId; patch: MemoPatch } // memos only
+  | { type: "note:recolor"; id: NoteId; color: NoteColor }
+  | { type: "note:adopt"; id: NoteId } // a suggestion becomes a memo
+  | { type: "note:move"; id: NoteId; x: number; y: number } // throttled while dragging
+  | { type: "note:delete"; id: NoteId }
   | { type: "day:intro"; date: Temporal.PlainDate; intro: string };

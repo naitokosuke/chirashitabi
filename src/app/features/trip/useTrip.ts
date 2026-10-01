@@ -1,10 +1,16 @@
-import { defineStore } from "pinia";
-import { computed, ref } from "vue";
 import type { Temporal } from "temporal-polyfill-lite";
-import { useNotes } from "@/features/notes/useNotes";
-import type { NoteStatus } from "@/features/notes/types";
-import type { LatLng } from "@/features/place/types";
-import { useSync } from "@/features/sync/useSync";
+
+import { computed, ref } from "vue";
+
+import { defineStore } from "pinia";
+
+import { currencyCode } from "../../shared/money";
+
+import type { NoteStatus } from "../notes/types";
+import { useNotes } from "../notes/useNotes";
+import type { LatLng } from "../place/types";
+import { useSync } from "../sync/useSync";
+
 import * as itinerary from "./itinerary";
 import type { Day, TripSnapshot } from "./types";
 
@@ -14,7 +20,7 @@ export const useTrip = defineStore("trip", () => {
   const sync = useSync();
   const name = ref("");
   const days = ref<Day[]>([]);
-  const currency = ref("USD");
+  const currency = ref(currencyCode("USD")!);
   const center = ref<LatLng | null>(null);
 
   const unassigned = computed(() => itinerary.unassigned(store.notes));

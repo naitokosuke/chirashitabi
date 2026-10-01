@@ -1,6 +1,6 @@
 <script lang="ts">
-import type { Memo, Note, NoteInput } from "@/features/notes/types";
-import type { PinchStart } from "@/features/canvas/transform";
+import type { PinchStart } from "../features/canvas/transform";
+import type { Memo, Note, NoteInput } from "../features/notes/types";
 
 // Module scope is shared with every importer. The canvas is mounted once and
 // never unmounted, so one slot is enough.
@@ -8,7 +8,7 @@ let placeOnMounted: ((input: NoteInput, quiet: boolean) => Memo) | undefined;
 
 /**
  * Put a note at the centre of the canvas and pop it (`quiet`: toast only).
- * `import Canvas, { place } from "@/views/Canvas.vue"`
+ * `import Canvas, { place } from "./Canvas.vue"`
  */
 export function place(input: NoteInput, quiet = false): Memo | undefined {
   return placeOnMounted?.(input, quiet);
@@ -42,14 +42,15 @@ import {
   shallowRef,
   useTemplateRef,
 } from "vue";
-import { useNotes } from "@/features/notes/useNotes";
-import { COLORS } from "@/features/notes/types";
-import { useTags } from "@/features/tags/useTags";
-import { useTrip } from "@/features/trip/useTrip";
-import { useViewport } from "@/features/canvas/useViewport";
-import { distance, fitView, pinchTo, startPinch, type Pt } from "@/features/canvas/transform";
-import NoteCard from "@/features/canvas/NoteCard.vue";
-import FilterBar from "@/features/tags/FilterBar.vue";
+
+import NoteCard from "../features/canvas/NoteCard.vue";
+import { distance, fitView, pinchTo, startPinch, type Pt } from "../features/canvas/transform";
+import { useViewport } from "../features/canvas/useViewport";
+import { COLORS, type NoteColor, type NoteId } from "../features/notes/types";
+import { useNotes } from "../features/notes/useNotes";
+import FilterBar from "../features/tags/FilterBar.vue";
+import { useTags } from "../features/tags/useTags";
+import { useTrip } from "../features/trip/useTrip";
 
 const emit = defineEmits<{ write: []; edit: [note: Memo] }>();
 const store = useNotes();
@@ -81,7 +82,8 @@ const menu = ref<{ note: Note; x: number; y: number } | null>(null);
 
 function noteAt(el: EventTarget | null): Note | undefined {
   const card = (el as HTMLElement).closest?.("[data-id]") as HTMLElement | null;
-  return card ? store.byId(card.dataset.id!) : undefined;
+  // data-id comes back from the DOM as a plain string, so match it rather than trust it
+  return card ? store.notes.find((n) => n.id === card.dataset.id) : undefined;
 }
 
 function onDown(e: PointerEvent) {
@@ -178,7 +180,7 @@ function openMenu(note: Note, sx: number, sy: number) {
   const r = vp.value!.getBoundingClientRect();
   menu.value = { note, x: Math.min(sx - 80, r.width - 330), y: Math.max(sy - 70, 90) };
 }
-function setMenuColor(color: string) {
+function setMenuColor(color: NoteColor) {
   if (menu.value) store.recolor(menu.value.note.id, color);
 }
 function duplicateFromMenu() {
@@ -199,10 +201,11 @@ function fitAll() {
 
 // ---- adding from the form: place at viewport center, pop ----
 /** The card that just landed, and where the ring around it goes */
-const pop = ref<{ id: string; x: number; y: number } | null>(null);
-const toast = ref<{ text: string; undo?: string } | null>(null);
+const pop = ref<{ id: NoteId; x: number; y: number } | null>(null);
+/** `undo` takes back the note just added */
+const toast = ref<{ text: string; undo?: NoteId } | null>(null);
 let toastTimer: number | undefined;
-function showToast(text: string, undo?: string) {
+function showToast(text: string, undo?: NoteId) {
   toast.value = { text, undo };
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => (toast.value = null), 3200);

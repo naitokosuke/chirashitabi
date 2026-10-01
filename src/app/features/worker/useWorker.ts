@@ -1,5 +1,7 @@
-import { defineStore } from "pinia";
 import { shallowRef } from "vue";
+
+import { defineStore } from "pinia";
+
 import type { WorkerApi } from "./types";
 
 /** Null until a Worker is connected; the UI hides what needs it. */

@@ -1,5 +1,8 @@
 import type { Temporal } from "temporal-polyfill-lite";
-import type { LatLng } from "@/features/place/types";
+
+import type { CurrencyCode } from "../../shared/money";
+
+import type { LatLng } from "../place/types";
 
 export interface Day {
   date: Temporal.PlainDate;
@@ -10,6 +13,6 @@ export interface Day {
 export interface TripSnapshot {
   name: string; // the room name, e.g. "Taiwan trip"
   days: Day[];
-  currency: string; // ISO 4217, for budgets: "TWD", "JPY", …
+  currency: CurrencyCode; // what every budget is in
   center: LatLng; // where the map opens
 }

@@ -1,5 +1,7 @@
 <script setup lang="ts" vapor>
-import { CtChip, CtSegmented, type CtOption } from "@ui/index";
+import { CtChip, CtSegmented, type CtOption } from "../../../ui/index";
+
+import type { FilterMode } from "./types";
 import { useTags } from "./useTags";
 
 const tags = useTags();
@@ -8,13 +10,8 @@ defineProps<{ room: string }>();
 const MODES = [
   { value: "dim", label: "Dim" },
   { value: "only", label: "Only" },
-] as const satisfies readonly CtOption[];
-type Mode = (typeof MODES)[number]["value"];
-const isMode = (v: string): v is Mode => MODES.some((m) => m.value === v);
+] as const satisfies readonly CtOption<FilterMode>[];
 
-function setMode(v: string) {
-  if (isMode(v)) tags.mode = v;
-}
 function clearTags() {
   tags.selected.clear();
 }
@@ -24,13 +21,7 @@ function clearTags() {
   <div class="bar">
     <div class="row">
       <h1>chirashitabi<span v-if="room" class="room">{{ room }}</span></h1>
-      <CtSegmented
-        class="mode"
-        label="How to filter"
-        :options="MODES"
-        :model-value="tags.mode"
-        @update:model-value="setMode"
-      />
+      <CtSegmented v-model="tags.mode" class="mode" label="How to filter" :options="MODES" />
     </div>
     <div class="chips">
       <CtChip v-if="tags.selected.size" class="clear" @click="clearTags">× Clear</CtChip>

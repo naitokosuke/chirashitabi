@@ -1,17 +1,22 @@
 <script setup lang="ts" vapor>
-import { computed, ref } from "vue";
 import { Temporal } from "temporal-polyfill-lite";
-import { safeUrl } from "@/features/place/google-maps";
-import { useNotes } from "@/features/notes/useNotes";
-import { ARRIVAL_TAG, PACKING_TAG, type Memo, type Scheduled } from "@/features/notes/types";
-import { useTags } from "@/features/tags/useTags";
-import { useTrip } from "@/features/trip/useTrip";
-import { fromHhmm, hhmm, longDate, money, shortDate } from "@/features/trip/format";
-import { assignTo, cycleStatus, draftUpdates, STATUS_LABEL } from "@/features/trip/itinerary";
-import { useWorker } from "@/features/worker/useWorker";
-import type { DayDraft } from "@/features/worker/types";
-import { useMembers } from "@/features/members/useMembers";
-import { CtSegmented, CtTabList, CtTabPanel, type CtOption } from "@ui/index";
+
+import { computed, ref } from "vue";
+
+import { CtSegmented, CtTabList, CtTabPanel, type CtOption } from "../../ui/index";
+
+import { formatMoney } from "../shared/money";
+
+import { useMembers } from "../features/members/useMembers";
+import { ARRIVAL_TAG, PACKING_TAG, type Memo, type Scheduled } from "../features/notes/types";
+import { useNotes } from "../features/notes/useNotes";
+import { safeUrl } from "../features/place/google-maps";
+import { useTags } from "../features/tags/useTags";
+import { fromHhmm, hhmm, longDate, shortDate } from "../features/trip/format";
+import { assignTo, cycleStatus, draftUpdates, STATUS_LABEL } from "../features/trip/itinerary";
+import { useTrip } from "../features/trip/useTrip";
+import type { DayDraft } from "../features/worker/types";
+import { useWorker } from "../features/worker/useWorker";
 
 type Draft = DayDraft & { date: Temporal.PlainDate };
 
@@ -26,7 +31,7 @@ const tab = ref<Temporal.PlainDate | "appendix" | null>(null);
 const day = computed(() =>
   tab.value === "appendix" ? null : (tab.value ?? trip.days[0]?.date ?? null),
 );
-const price = (amount: number) => money(amount, trip.currency);
+const price = (amount: number) => formatMoney(amount, trip.currency);
 
 // tabs are keyed by the date's ISO string
 const APPENDIX = "appendix";
@@ -44,12 +49,8 @@ const MODES = [
   { value: "read", label: "Read" },
 ] as const satisfies readonly CtOption[];
 type Mode = (typeof MODES)[number]["value"];
-const isMode = (v: string): v is Mode => MODES.some((m) => m.value === v);
 const mode = ref<Mode>("edit");
 const editing = computed(() => mode.value === "edit");
-function setMode(value: string) {
-  if (isMode(value)) mode.value = value;
-}
 const picking = ref<Memo | null>(null); // note being assigned from the tray
 const draft = ref<Draft | null>(null); // a member's draft of the open day
 
@@ -101,13 +102,7 @@ function adoptDraft() {
     <header class="head">
       <h1>Booklet</h1>
       <p class="sum"><template v-if="trip.days.length">{{ shortDate(trip.days[0]!.date) }} – {{ shortDate(trip.days.at(-1)!.date) }} · </template>{{ trip.fixedCount }} confirmed · {{ price(totalFixed) }}<small v-if="totalAll > totalFixed"> ({{ price(totalAll) }} with maybes)</small></p>
-      <CtSegmented
-        class="mode"
-        label="Mode"
-        :options="MODES"
-        :model-value="mode"
-        @update:model-value="setMode"
-      />
+      <CtSegmented v-model="mode" class="mode" label="Mode" :options="MODES" />
     </header>
 
     <!-- tray: memos without a day (edit mode only) -->

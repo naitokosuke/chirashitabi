@@ -1,13 +1,14 @@
 <script setup lang="ts" vapor>
 import { ref } from "vue";
-import Canvas, { place } from "@/views/Canvas.vue";
-import Form from "@/views/Form.vue";
-import Shiori from "@/views/Shiori.vue";
-import Map from "@/views/Map.vue";
-import type { Memo, NoteInput } from "@/features/notes/types";
-import type { LatLng } from "@/features/place/types";
-import type { FormTarget } from "@/views/Form.vue";
-import { CtTabBar, type CtOption } from "@ui/index";
+
+import { CtTabBar, type CtOption } from "../ui/index";
+
+import type { Memo, NoteInput } from "./features/notes/types";
+import type { LatLng } from "./features/place/types";
+import Canvas, { place } from "./views/Canvas.vue";
+import Form, { type FormTarget } from "./views/Form.vue";
+import Map from "./views/Map.vue";
+import Shiori from "./views/Shiori.vue";
 
 const VIEWS = [
   { value: "canvas", label: "Canvas" },
@@ -15,7 +16,6 @@ const VIEWS = [
   { value: "shiori", label: "Booklet" },
 ] as const satisfies readonly CtOption[];
 type View = (typeof VIEWS)[number]["value"];
-const isView = (v: string): v is View => VIEWS.some((view) => view.value === v);
 
 const tab = ref<View>("canvas");
 /** The form sheet: closed, or open on a new memo or an existing one */
@@ -32,9 +32,6 @@ function writeAt(pin: LatLng) {
 }
 function closeForm() {
   form.value = null;
-}
-function showTab(v: string) {
-  if (isView(v)) tab.value = v;
 }
 function onSave(input: NoteInput, keepOpen: boolean) {
   if (keepOpen) {
@@ -61,7 +58,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
       <Form v-if="form" :target="form" @close="closeForm" @save="onSave" />
     </Transition>
   </div>
-  <CtTabBar class="nav" label="Views" :items="VIEWS" :model-value="tab" @update:model-value="showTab">
+  <CtTabBar v-model="tab" class="nav" label="Views" :items="VIEWS">
     <template #icon="{ value }">
       <svg
         v-if="value === 'canvas'"

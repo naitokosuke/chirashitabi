@@ -1,8 +1,8 @@
 <script setup lang="ts" vapor>
-import { useTags } from "@/features/tags/useTags";
-import type { Visibility } from "@/features/tags/types";
-import { useMembers } from "@/features/members/useMembers";
-import type { Note } from "@/features/notes/types";
+import { useMembers } from "../members/useMembers";
+import type { Note } from "../notes/types";
+import type { Visibility } from "../tags/types";
+import { useTags } from "../tags/useTags";
 
 defineProps<{ note: Note; dragging: boolean; pop: boolean; visibility: Visibility }>();
 defineEmits<{ adopt: []; remove: [] }>();

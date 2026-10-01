@@ -1,7 +1,10 @@
 import { createVaporApp, type VaporComponent } from "vue";
+
 import { createPinia } from "pinia";
+
 import App from "./App.vue";
-import "@ui/styles/index.css";
+import "../ui/styles/index.css";
+
 import "./style.css";
 
 const app = createVaporApp(App as VaporComponent).use(createPinia());

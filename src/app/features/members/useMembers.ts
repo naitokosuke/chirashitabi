@@ -1,15 +1,17 @@
-import { defineStore } from "pinia";
 import { ref } from "vue";
-import type { Member } from "./types";
+
+import { defineStore } from "pinia";
+
+import type { Member, MemberId } from "./types";
 
 export const useMembers = defineStore("members", () => {
   const members = ref<Member[]>([]);
-  /** Who is using this device; their notes are signed with this id */
-  const me = ref("");
+  /** Who is using this device; their notes are signed with this id. "" until the room says */
+  const me = ref("" as MemberId);
 
-  const byId = (id: string) => members.value.find((m) => m.id === id);
-  const nameOf = (id: string) => byId(id)?.name ?? "Someone";
-  const colorOf = (id: string) => byId(id)?.color ?? "var(--stone-light)";
+  const byId = (id: MemberId) => members.value.find((m) => m.id === id);
+  const nameOf = (id: MemberId) => byId(id)?.name ?? "Someone";
+  const colorOf = (id: MemberId) => byId(id)?.color ?? "var(--stone-light)";
 
   /** Called by the room when the member list arrives or changes. */
   function apply(snapshot: Member[]) {

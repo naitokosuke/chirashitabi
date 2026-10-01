@@ -1,6 +1,6 @@
 <script lang="ts">
-import type { Memo } from "@/features/notes/types";
-import type { LatLng } from "@/features/place/types";
+import type { Memo } from "../features/notes/types";
+import type { LatLng } from "../features/place/types";
 
 /** What the form is open on: a new memo (pinned when written from the map), or an existing one */
 export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; note: Memo };
@@ -8,18 +8,20 @@ export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; n
 
 <script setup lang="ts" vapor>
 import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
-import { useNotes } from "@/features/notes/useNotes";
-import { COLORS, type NoteInput } from "@/features/notes/types";
+
+import { CtChip } from "../../ui/index";
+
 import {
   blankInput,
   inputFromNote,
   normalizeTag,
   noteText,
   parseNoteText,
-} from "@/features/notes/input";
-import { useTags } from "@/features/tags/useTags";
-import { placeFromUrl } from "@/features/place/google-maps";
-import { CtChip } from "@ui/index";
+} from "../features/notes/input";
+import { COLORS, type NoteColor, type NoteInput } from "../features/notes/types";
+import { useNotes } from "../features/notes/useNotes";
+import { placeFromUrl } from "../features/place/google-maps";
+import { useTags } from "../features/tags/useTags";
 
 const props = defineProps<{ target: FormTarget }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
@@ -57,7 +59,7 @@ function commitTag() {
 function removeTag(t: string) {
   form.value.tags.splice(form.value.tags.indexOf(t), 1);
 }
-function setColor(c: string) {
+function setColor(c: NoteColor) {
   form.value.color = c;
 }
 

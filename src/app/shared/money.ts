@@ -1,0 +1,18 @@
+import type { Brand } from "./brand";
+
+/** An ISO 4217 code this runtime can format: "TWD", "JPY", … */
+export type CurrencyCode = Brand<string, "CurrencyCode">;
+
+const KNOWN = new Set(Intl.supportedValuesOf("currency"));
+
+/** The code, or null when Intl does not know it */
+export const currencyCode = (code: string): CurrencyCode | null =>
+  KNOWN.has(code) ? (code as CurrencyCode) : null;
+
+/** "NT$1,500" for TWD, "¥1,500" for JPY */
+export const formatMoney = (amount: number, currency: CurrencyCode) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount);

@@ -1,5 +1,6 @@
-import { PACKING_TAG, type Memo, type Note } from "@/features/notes/types";
-import type { LatLng } from "./types";
+import { PACKING_TAG, type Memo, type Note } from "../notes/types";
+
+import type { LatLng, LngLat } from "./types";
 
 export type Pinned<T extends Memo = Memo> = T & { pin: LatLng };
 
@@ -14,5 +15,4 @@ export const pinnedOf = (notes: Note[]): Pinned[] =>
 export const needsPin = (n: Note) =>
   n.kind === "memo" && !n.tags.includes(PACKING_TAG) && !isPinned(n);
 
-/** [lng, lat], the order GeoJSON and MapLibre want */
-export const lngLat = (p: LatLng): [number, number] => [p.lng, p.lat];
+export const lngLat = (p: LatLng): LngLat => [p.lng, p.lat];

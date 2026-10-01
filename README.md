@@ -20,7 +20,7 @@ There is no room backend yet, so the app boots with the mock data in `src/mocks/
 ## Layout
 
 ```
-src/app/            The app (`@/…`)
+src/app/            The app
   main.ts, App.vue, style.css   Boot and view switching (the canvas stays mounted underneath)
 
   views/
@@ -40,9 +40,11 @@ src/app/            The app (`@/…`)
     canvas/  Sticky note card; transform (screen <-> world, zoom, pinch, fit); useViewport (the animated view)
     worker/  WorkerApi: drafting a day, booklet export
 
+  shared/  Types every feature can use: Brand; CurrencyCode and formatMoney; HexColor
+
   mocks/   Mock room data (members, trip, notes) and a mock WorkerApi, installed at boot
 
-src/ui/             The design system (`@ui/…`): props, slots and events only, no app imports
+src/ui/             The design system: props, slots and events only, no app imports
   styles/        Tokens (colors, type, z-index, motion), base, transitions (ct-morph / ct-fade / ct-slide)
   components/
     chip/        CtChip: a pill, optionally tinted, selected or a toggle
@@ -68,6 +70,7 @@ Once the Cloudflare side (Durable Object + WebSocket) exists, connect it by:
 
 Temporal values become ISO strings under `JSON.stringify` (`"2026-11-03"`, `"12:30:00"`).
 The receiving side gets plain strings, so revive them with `Temporal.PlainDate.from` and friends before calling `apply`.
+Currencies and member colors arrive as plain strings too; `currencyCode` and `hexColor` in `shared/` check them.
 
 ## Map
 

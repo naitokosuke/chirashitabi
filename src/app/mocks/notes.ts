@@ -1,13 +1,17 @@
 import { Temporal } from "temporal-polyfill-lite";
+
 import {
   ARRIVAL_TAG,
   PACKING_TAG,
   type Memo,
   type Note,
+  type NoteId,
   type NoteStatus,
   type Schedule,
   type Suggestion,
-} from "@/features/notes/types";
+} from "../features/notes/types";
+
+import { CLAUDE, KEN, YUKI } from "./members";
 
 /** On `date`, at `time` ("" for anytime) */
 const on = (date: string, time: string, status: NoteStatus): Schedule => ({
@@ -18,11 +22,11 @@ const on = (date: string, time: string, status: NoteStatus): Schedule => ({
 const pin = (lat: number, lng: number) => ({ lat, lng });
 
 let i = 0;
-const card = () => ({
-  id: "s" + i++,
+const card = (): Pick<Memo, "id" | "color" | "rot" | "by" | "updatedAt"> => ({
+  id: ("s" + i++) as NoteId,
   color: "#fff1b8",
   rot: 0,
-  by: "yuki",
+  by: YUKI,
   updatedAt: Temporal.Now.instant(),
 });
 const n = (p: Partial<Memo> & Pick<Memo, "title" | "x" | "y">): Memo => ({
@@ -51,7 +55,7 @@ export const mockNotes = (): Note[] => [
     x: 40,
     y: 40,
     rot: -2,
-    by: "ken",
+    by: KEN,
     schedule: on("2026-11-03", "12:30", "fixed"),
     budget: 700,
     mapsUrl: "https://maps.google.com/?q=Din+Tai+Fung",
@@ -88,7 +92,7 @@ export const mockNotes = (): Note[] => [
     x: 240,
     y: 190,
     rot: -1,
-    by: "ken",
+    by: KEN,
     schedule: on("2026-11-03", "", "idea"),
     budget: 500,
   }),
@@ -113,7 +117,7 @@ export const mockNotes = (): Note[] => [
     x: 240,
     y: 370,
     rot: -2.5,
-    by: "ken",
+    by: KEN,
     schedule: on("2026-11-04", "", "idea"),
     budget: 600,
   }),
@@ -132,7 +136,7 @@ export const mockNotes = (): Note[] => [
     x: 30,
     y: 500,
     rot: -1,
-    by: "claude",
+    by: CLAUDE,
   }),
   n({
     title: "Le Blé d'Or honey lager",
@@ -142,7 +146,7 @@ export const mockNotes = (): Note[] => [
     x: 480,
     y: 60,
     rot: 1,
-    by: "ken",
+    by: KEN,
   }),
   n({
     title: "Stomach medicine and band-aids",

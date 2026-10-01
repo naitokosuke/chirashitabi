@@ -1,4 +1,5 @@
 import { Temporal } from "temporal-polyfill-lite";
+
 import {
   PACKING_TAG,
   type Memo,
@@ -7,8 +8,8 @@ import {
   type NoteStatus,
   type Schedule,
   type Scheduled,
-} from "@/features/notes/types";
-import type { DayDraft } from "@/features/worker/types";
+} from "../notes/types";
+import type { DayDraft } from "../worker/types";
 
 export const STATUS_LABEL: Record<NoteStatus, string> = {
   idea: "Maybe",

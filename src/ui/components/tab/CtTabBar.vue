@@ -1,11 +1,12 @@
-<script setup lang="ts" vapor>
+<script setup lang="ts" generic="V extends string" vapor>
 import { useTemplateRef } from "vue";
+
 import { useIndicator } from "../../composables/useIndicator";
 import type { CtOption } from "../../types";
 
-const props = defineProps<{ items: readonly CtOption[]; modelValue: string; label: string }>();
-const emit = defineEmits<{ "update:modelValue": [value: string] }>();
-defineSlots<{ icon(props: { value: string }): unknown }>();
+const props = defineProps<{ items: readonly CtOption<V>[]; modelValue: V; label: string }>();
+const emit = defineEmits<{ "update:modelValue": [value: V] }>();
+defineSlots<{ icon(props: { value: V }): unknown }>();
 
 const list = useTemplateRef<HTMLElement>("list");
 const { style, ready } = useIndicator(list, () => [props.modelValue, props.items.length]);

@@ -1,10 +1,16 @@
-import type { Member } from "@/features/members/types";
+import { hexColor } from "../shared/color";
+
+import type { Member, MemberId } from "../features/members/types";
+
+export const YUKI = "yuki" as MemberId;
+export const KEN = "ken" as MemberId;
+export const CLAUDE = "claude" as MemberId;
 
 export const mockMembers = (): Member[] => [
-  { id: "yuki", name: "Yuki", color: "#3c6ee0" },
-  { id: "ken", name: "Ken", color: "#d7263d" },
-  { id: "claude", name: "Claude", color: "#D97757" },
+  { id: YUKI, name: "Yuki", color: hexColor("#3c6ee0")! },
+  { id: KEN, name: "Ken", color: hexColor("#d7263d")! },
+  { id: CLAUDE, name: "Claude", color: hexColor("#D97757")! },
 ];
 
 /** Whose device this mock runs on */
-export const mockMe = "yuki";
+export const mockMe = YUKI;
