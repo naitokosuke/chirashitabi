@@ -46,7 +46,7 @@ import { useNotes } from "@/features/notes/store";
 import { COLORS } from "@/features/notes/types";
 import { useTags } from "@/features/tags/store";
 import { useTrip } from "@/features/trip/store";
-import { useViewport } from "@/features/canvas/viewport";
+import { useViewport } from "@/features/canvas/useViewport";
 import { distance, fitView, pinchTo, startPinch, type Pt } from "@/features/canvas/transform";
 import NoteCard from "@/features/canvas/NoteCard.vue";
 import FilterBar from "@/features/tags/FilterBar.vue";

@@ -37,7 +37,7 @@ src/app/            The app (`@/…`)
              status, budgets, assigning a day, adopting a draft); formatting
     tags/    Tag colors and the tag filter (store, filter bar)
     place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON
-    canvas/  Sticky note card; transform (screen <-> world, zoom, pinch, fit); the animated viewport
+    canvas/  Sticky note card; transform (screen <-> world, zoom, pinch, fit); useViewport (the animated view)
     worker/  WorkerApi: drafting a day, booklet export
 
   mocks/   Mock room data (members, trip, notes) and a mock WorkerApi, installed at boot
