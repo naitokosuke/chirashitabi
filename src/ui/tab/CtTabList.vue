@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { useTemplateRef } from "vue";
-import { useIndicator } from "./indicator";
-import type { CtOption } from "./types";
+import { useIndicator } from "../indicator/indicator";
+import type { CtOption } from "../types";
 
 const props = defineProps<{ tabs: readonly CtOption[]; modelValue: string; label: string }>();
 const emit = defineEmits<{ "update:modelValue": [value: string] }>();
