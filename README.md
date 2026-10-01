@@ -47,6 +47,8 @@ src/app/            The app
            browser's, remembered on this device); Message.vue (markup -> slots);
            README.md (how it fits together); docs/ (writing messages, adding a locale)
 
+  icons/   The icons as .svg files (tabs, write, back); Icon.vue paints one in the text color
+
   mocks/   Mock room data (members, trip, notes) and a mock WorkerApi, installed at boot
 
 src/ui/             The design system: props, slots and events only, no app imports
