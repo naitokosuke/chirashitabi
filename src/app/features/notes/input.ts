@@ -62,6 +62,7 @@ export const normalizeTag = (raw: string) => raw.replace(/^#/, "").trim();
 export function parseNoteText(text: string): Pick<NoteInput, "title" | "body" | "tags"> {
   const [first, ...rest] = text.trim().split("\n");
   const tags = [...text.matchAll(/#([^\s#]+)/g)].map((m) => m[1]);
-  const title = first.replace(/#[^\s#]+/g, "").trim() || first;
+  const stripped = first.replace(/#[^\s#]+/g, "").trim();
+  const title = stripped === "" ? first : stripped;
   return { title, body: rest.join("\n"), tags };
 }

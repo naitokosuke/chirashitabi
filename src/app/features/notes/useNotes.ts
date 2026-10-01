@@ -48,14 +48,14 @@ export const useNotes = defineStore("notes", () => {
   /** Any card can change color, suggestions included */
   function recolor(id: NoteId, color: NoteColor) {
     const n = byId(id);
-    if (!n) return;
+    if (n === undefined) return;
     n.color = color;
     n.updatedAt = now();
     sync.send({ type: "note:recolor", id, color });
   }
   function move(id: NoteId, x: number, y: number, final = false) {
     const n = byId(id);
-    if (!n) return;
+    if (n === undefined) return;
     n.x = x;
     n.y = y;
     if (final) n.updatedAt = now();
@@ -68,7 +68,7 @@ export const useNotes = defineStore("notes", () => {
   }
   function duplicate(id: NoteId) {
     const n = byId(id);
-    if (!n) return;
+    if (n === undefined) return;
     return add(duplicateInput(n), { x: n.x + 24, y: n.y + 24 });
   }
   /** A suggestion becomes an ordinary memo; `by` still says whose idea it was */

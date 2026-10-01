@@ -16,7 +16,7 @@ import { CLAUDE, KEN, YUKI } from "./members";
 /** On `date`, at `time` ("" for anytime) */
 const on = (date: string, time: string, status: NoteStatus): Schedule => ({
   date: Temporal.PlainDate.from(date),
-  time: time ? Temporal.PlainTime.from(time) : null,
+  time: time === "" ? null : Temporal.PlainTime.from(time),
   status,
 });
 const pin = (lat: number, lng: number) => ({ lat, lng });

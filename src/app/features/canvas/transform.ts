@@ -46,7 +46,7 @@ export function pinchTo(start: PinchStart, a: Pt, b: Pt): View {
 
 /** A view that shows every card (top-left corners at `points`) inside a width × height viewport */
 export function fitView(points: Pt[], width: number, height: number): View | null {
-  if (!points.length) return null;
+  if (points.length === 0) return null;
   const xs = points.map((p) => p.x),
     ys = points.map((p) => p.y);
   const minX = Math.min(...xs) - 30,

@@ -10,7 +10,7 @@ export function parseMapsUrl(url: string): LatLng | null {
   ];
   for (const p of pats) {
     const m = url.match(p);
-    if (m) return { lat: +m[1], lng: +m[2] };
+    if (m !== null) return { lat: +m[1], lng: +m[2] };
   }
   return null;
 }
@@ -22,7 +22,7 @@ export const googleMapsLink = ({ lat, lng }: LatLng) =>
  * person in the room, so a `javascript:` URL must never reach an href.
  */
 export function safeUrl(url: string | null): string | undefined {
-  if (!url || !URL.canParse(url)) return undefined;
+  if (url === null || !URL.canParse(url)) return undefined;
   const u = new URL(url);
   return u.protocol === "https:" || u.protocol === "http:" ? u.href : undefined;
 }
@@ -35,9 +35,10 @@ export function placeFromUrl(
   raw: string,
   pin: LatLng | null,
 ): { mapsUrl: string | null; pin: LatLng | null } {
-  const mapsUrl = raw.trim() || null;
-  return { mapsUrl, pin: (mapsUrl && parseMapsUrl(mapsUrl)) || pin };
+  const trimmed = raw.trim();
+  const mapsUrl = trimmed === "" ? null : trimmed;
+  return { mapsUrl, pin: (mapsUrl === null ? null : parseMapsUrl(mapsUrl)) ?? pin };
 }
 
 /** Where "Open in Google Maps" goes: the pasted link, else the pin */
-export const placeLink = (n: Pinned) => n.mapsUrl || googleMapsLink(n.pin);
+export const placeLink = (n: Pinned) => n.mapsUrl ?? googleMapsLink(n.pin);

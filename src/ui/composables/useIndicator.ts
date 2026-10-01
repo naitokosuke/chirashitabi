@@ -15,8 +15,8 @@ export function useIndicator(list: Readonly<Ref<HTMLElement | null>>, watchSourc
 
   async function measure() {
     await nextTick();
-    const el = list.value?.querySelector<HTMLElement>(SELECTED);
-    if (!el) return;
+    const el = list.value?.querySelector<HTMLElement>(SELECTED) ?? null;
+    if (el === null) return;
     box.value = {
       x: el.offsetLeft,
       y: el.offsetTop,
@@ -31,7 +31,7 @@ export function useIndicator(list: Readonly<Ref<HTMLElement | null>>, watchSourc
   onMounted(() => {
     void measure();
     observer = new ResizeObserver(() => void measure());
-    if (list.value) observer.observe(list.value);
+    if (list.value !== null) observer.observe(list.value);
   });
   onBeforeUnmount(() => observer?.disconnect());
 

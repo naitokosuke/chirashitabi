@@ -11,6 +11,10 @@ export default defineConfig({
         "error",
         { patterns: [{ regex: "^(@/|@ui/|~/|#)", message: "Use a relative path." }] },
       ],
+      "typescript/strict-boolean-expressions": [
+        "error",
+        { allowString: false, allowNumber: false, allowNullableObject: false },
+      ],
     },
     options: { typeAware: true, typeCheck: true },
     vize: {

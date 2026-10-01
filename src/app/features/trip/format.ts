@@ -9,4 +9,4 @@ export const shortDate = (date: Temporal.PlainDate) =>
 /** "12:30" — for labels and `<input type="time">` values */
 export const hhmm = (t: Temporal.PlainTime) => t.toString({ smallestUnit: "minute" });
 /** The value of an `<input type="time">`; empty means no time */
-export const fromHhmm = (value: string) => (value ? Temporal.PlainTime.from(value) : null);
+export const fromHhmm = (value: string) => (value === "" ? null : Temporal.PlainTime.from(value));

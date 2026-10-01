@@ -35,7 +35,7 @@ export const useTrip = defineStore("trip", () => {
   const dayOf = (date: Temporal.PlainDate) => days.value.find((d) => d.date.equals(date));
   function setIntro(date: Temporal.PlainDate, intro: string) {
     const d = dayOf(date);
-    if (d) d.intro = intro;
+    if (d !== undefined) d.intro = intro;
     sync.send({ type: "day:intro", date, intro });
   }
 

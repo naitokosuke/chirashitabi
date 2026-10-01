@@ -23,7 +23,7 @@ export const routeLine = (stops: LngLat[]): FeatureCollection => ({
 
 /** [[west, south], [east, north]] around the points, or null when there are none */
 export function boundsOf(points: LngLat[]): [LngLat, LngLat] | null {
-  if (!points.length) return null;
+  if (points.length === 0) return null;
   const lngs = points.map((p) => p[0]),
     lats = points.map((p) => p[1]);
   return [

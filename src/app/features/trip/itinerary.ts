@@ -27,10 +27,11 @@ const isFixed = (n: Memo) => n.schedule?.status === "fixed";
 // untimed items ("Anytime") go last; ties fall back to edit order
 function byTime(a: Scheduled, b: Scheduled) {
   const [ta, tb] = [a.schedule.time, b.schedule.time];
-  return (
-    (ta && tb ? Temporal.PlainTime.compare(ta, tb) : +!ta - +!tb) ||
-    Temporal.Instant.compare(a.updatedAt, b.updatedAt)
-  );
+  const byClock =
+    ta !== null && tb !== null
+      ? Temporal.PlainTime.compare(ta, tb)
+      : Number(ta === null) - Number(tb === null);
+  return byClock !== 0 ? byClock : Temporal.Instant.compare(a.updatedAt, b.updatedAt);
 }
 
 /** Memos still waiting for a day (packing notes never need one) */
@@ -41,7 +42,9 @@ export const unassigned = (notes: Note[]) =>
 export const forDay = (notes: Note[], date: Temporal.PlainDate, status?: NoteStatus) =>
   notes
     .filter(isScheduled)
-    .filter((n) => n.schedule.date.equals(date) && (!status || n.schedule.status === status))
+    .filter(
+      (n) => n.schedule.date.equals(date) && (status === undefined || n.schedule.status === status),
+    )
     .sort(byTime);
 
 export const byTag = (notes: Note[], tag: string) =>
@@ -51,7 +54,7 @@ export const byTag = (notes: Note[], tag: string) =>
 export const budgetOf = (notes: Note[], date?: Temporal.PlainDate, onlyFixed = true) =>
   notes
     .filter(isMemo)
-    .filter((n) => (!date || onDay(n, date)) && (!onlyFixed || isFixed(n)))
+    .filter((n) => (date === undefined || onDay(n, date)) && (!onlyFixed || isFixed(n)))
     .reduce((s, n) => s + (n.budget ?? 0), 0);
 
 export const fixedCount = (notes: Note[]) => notes.filter(isMemo).filter(isFixed).length;
@@ -62,17 +65,16 @@ export const dayNumber = (days: { date: Temporal.PlainDate }[], date: Temporal.P
 
 /** Put a memo on a day (keeping its time and status), or take it off the itinerary */
 export const assignTo = (n: Memo, date: Temporal.PlainDate | null): MemoPatch => ({
-  schedule: date && {
-    date,
-    time: n.schedule?.time ?? null,
-    status: n.schedule?.status ?? "idea",
-  },
+  schedule:
+    date === null
+      ? null
+      : { date, time: n.schedule?.time ?? null, status: n.schedule?.status ?? "idea" },
 });
 
 /** Adopting a draft confirms every item it gave a time */
 export const draftUpdates = (draft: DayDraft) =>
   draft.items.flatMap(({ note, time }) =>
-    time
+    time !== null
       ? [
           {
             id: note.id,
