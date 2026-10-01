@@ -42,12 +42,13 @@ src/app/            The app (`@/…`)
   mocks/   Mock room data (members, trip, notes) and a mock WorkerApi, installed at boot
 
 src/ui/             The design system (`@ui/…`): props, slots and events only, no app imports
-  foundation/   What everything stands on: tokens (colors, type, z-index, motion), base, transitions (ct-morph / ct-fade / ct-slide)
-  indicator/    Measures the selected child so an indicator can slide to it
-  chip/         CtChip: a pill, optionally tinted, selected or a toggle
-  segmented/    CtSegmented: the pill morphs to the choice
-  tab/          CtTabList: the underline slides to the tab; CtTabPanel: content morphs in;
-                CtTabBar: bottom navigation, the highlight slides behind the current item
+  styles/        Tokens (colors, type, z-index, motion), base, transitions (ct-morph / ct-fade / ct-slide)
+  components/
+    chip/        CtChip: a pill, optionally tinted, selected or a toggle
+    segmented/   CtSegmented: the pill morphs to the choice
+    tab/         CtTabList: the underline slides to the tab; CtTabPanel: content morphs in;
+                 CtTabBar: bottom navigation, the highlight slides behind the current item
+  composables/   useIndicator: measures the selected child so an indicator can slide to it
   index.ts, types.ts   The public entry and the shared CtOption type
 ```
 
