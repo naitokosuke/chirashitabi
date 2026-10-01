@@ -12,7 +12,7 @@ const compiled = new Map<string, MessageFormat>();
 function compile(locale: Locale, id: MessageId) {
   const cacheKey = `${locale}\u0000${id}`;
   let mf = compiled.get(cacheKey);
-  if (!mf) {
+  if (mf === undefined) {
     mf = new MessageFormat(locale, MESSAGES[locale][id]);
     compiled.set(cacheKey, mf);
   }
@@ -53,7 +53,7 @@ export function segments(locale: Locale, id: MessageId, params?: MessageParams):
     if (part.type !== "markup") {
       const text = textOf(part);
       const last = out.at(-1);
-      if (open) open.text += text;
+      if (open !== null) open.text += text;
       else if (last?.kind === "text") last.text += text;
       else out.push({ kind: "text", at, text });
     } else if (part.kind === "open") {
