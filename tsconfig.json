@@ -9,7 +9,7 @@
     "skipLibCheck": true,
     "noEmit": true,
     "jsx": "preserve",
-    "paths": { "@/*": ["./src/*"] }
+    "paths": { "@/*": ["./src/app/*"], "@ui/*": ["./src/ui/*"] }
   },
   "include": ["src", "vite.config.ts"]
 }

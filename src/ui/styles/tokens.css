@@ -1,0 +1,64 @@
+:root {
+  --bg: #f3f5f1;
+  --dot: #cfd5cc;
+  --surface: #fff;
+  --ink: #1c2238;
+  --muted: #4b5563;
+  --line: #d9ded6;
+  --red: #d7263d;
+  --jade: #2e8b6e;
+  --gold: #e0a100;
+  --blue: #3c6ee0;
+  --ivory: #faf9f5;
+  --oat: #e3dacc;
+  --slate: #141413;
+
+  /* Fixed regardless of theme: paper surfaces are always light */
+  --on-accent: #fff;
+  --paper: #fff1b8;
+  --paper-ink: #1c2238;
+  --paper-muted: #4b5563;
+  --pink-soft: #ffd9de;
+  --stone: #73726c;
+  --stone-light: #9aa09c;
+
+  --font-2xs: 11px;
+  --font-xs: 12px;
+  --font-sm: 13px;
+  --font-md: 14px;
+  --font-base: 15px;
+  --font-lg: 16px;
+  --font-xl: 17px;
+  --font-2xl: 18px;
+  --font-3xl: 19px;
+  --font-4xl: 22px;
+
+  /* Stacking, low to high */
+  --z-float: 2;
+  --z-float-top: 3;
+  --z-chrome: 5;
+  --z-menu: 6;
+  --z-drag: 10;
+  --z-sheet: 20;
+
+  /* Motion: things that morph from one place to another overshoot nothing and settle softly */
+  --ease-morph: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-morph: 0.35s;
+  --duration-swap: 0.28s;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b1f1c;
+    --dot: #2e3430;
+    --surface: #262b28;
+    --ink: #eef1ec;
+    --muted: #a7aeaa;
+    --line: #3a403c;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-morph: 0s;
+    --duration-swap: 0s;
+  }
+}

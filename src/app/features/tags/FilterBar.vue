@@ -1,9 +1,19 @@
 <script setup lang="ts" vapor>
+import { CtChip, CtSegmented, type CtOption } from "@ui/index";
 import { useTags } from "./store";
+
 const tags = useTags();
 defineProps<{ room: string }>();
-function setMode(mode: "dim" | "only") {
-  tags.mode = mode;
+
+const MODES = [
+  { value: "dim", label: "Dim" },
+  { value: "only", label: "Only" },
+] as const satisfies readonly CtOption[];
+type Mode = (typeof MODES)[number]["value"];
+const isMode = (v: string): v is Mode => MODES.some((m) => m.value === v);
+
+function setMode(v: string) {
+  if (isMode(v)) tags.mode = v;
 }
 function clearTags() {
   tags.selected.clear();
@@ -14,22 +24,25 @@ function clearTags() {
   <div class="bar">
     <div class="row">
       <h1>chirashitabi<span v-if="room" class="room">{{ room }}</span></h1>
-      <div aria-label="How to filter" class="mode" role="group">
-        <button type="button" :class="{ on: tags.mode === 'dim' }" @click="() => setMode('dim')">Dim</button>
-        <button type="button" :class="{ on: tags.mode === 'only' }" @click="() => setMode('only')">Only</button>
-      </div>
+      <CtSegmented
+        class="mode"
+        label="How to filter"
+        :options="MODES"
+        :model-value="tags.mode"
+        @update:model-value="setMode"
+      />
     </div>
     <div class="chips">
-      <button v-if="tags.selected.size" class="chip clear" type="button" @click="clearTags">× Clear</button>
-      <button
+      <CtChip v-if="tags.selected.size" class="clear" @click="clearTags">× Clear</CtChip>
+      <CtChip
         v-for="t in tags.tagList"
         :key="t.name"
-        class="chip"
-        type="button"
-        :class="{ on: tags.selected.has(t.name) }"
-        :style="`--tag:${t.color}`"
+        toggle
+        :color="t.color"
+        :selected="tags.selected.has(t.name)"
+        :count="t.count"
         @click="() => tags.toggleTag(t.name)"
-      >#{{ t.name }}<span class="n">{{ t.count }}</span></button>
+      >#{{ t.name }}</CtChip>
     </div>
   </div>
 </template>
@@ -77,26 +90,7 @@ h1 {
 }
 
 .mode {
-  display: flex;
-  background: var(--surface);
-  border: 1.5px solid var(--line);
-  border-radius: 999px;
-  padding: 3px;
   margin-inline-start: auto;
-
-  & button {
-    min-height: 32px;
-    padding: 0 12px;
-    border-radius: 999px;
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-
-    &.on {
-      background: var(--ink);
-      color: var(--bg);
-    }
-  }
 }
 
 .chips {
@@ -112,8 +106,7 @@ h1 {
   }
 }
 
-.chip.clear {
-  color: var(--muted);
+.clear {
   border-style: dashed;
 }
 </style>

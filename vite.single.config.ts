@@ -5,6 +5,11 @@ import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   plugins: [vize({ vapor: true }), viteSingleFile()],
-  resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
+  resolve: {
+    alias: {
+      "@ui": fileURLToPath(new URL("./src/ui", import.meta.url)),
+      "@": fileURLToPath(new URL("./src/app", import.meta.url)),
+    },
+  },
   build: { outDir: "dist-single" },
 });

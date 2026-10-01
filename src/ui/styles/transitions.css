@@ -1,0 +1,41 @@
+/*
+ * Transition names for <Transition name="…">.
+ * ct-morph: a layer morphing in over another.
+ * ct-fade:  a layer appearing over another.
+ * ct-slide: a sheet coming in from the side.
+ */
+.ct-morph-enter-active,
+.ct-morph-leave-active {
+  transition:
+    opacity var(--duration-swap) ease,
+    transform var(--duration-swap) var(--ease-morph);
+}
+.ct-morph-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.ct-morph-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.ct-fade-enter-active,
+.ct-fade-leave-active {
+  transition: opacity var(--duration-swap) ease;
+}
+.ct-fade-enter-from,
+.ct-fade-leave-to {
+  opacity: 0;
+}
+
+.ct-slide-enter-active,
+.ct-slide-leave-active {
+  transition:
+    transform var(--duration-swap) var(--ease-morph),
+    opacity var(--duration-swap);
+}
+.ct-slide-enter-from,
+.ct-slide-leave-to {
+  transform: translateX(28px);
+  opacity: 0;
+}

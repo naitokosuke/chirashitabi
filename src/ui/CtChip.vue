@@ -1,0 +1,53 @@
+<script setup lang="ts" vapor>
+/**
+ * A rounded pill. `color` tints it; `selected` fills it.
+ * Pass `toggle` when it switches something on and off (sets aria-pressed).
+ */
+defineProps<{ color?: string; selected?: boolean; count?: number; toggle?: boolean }>();
+const emit = defineEmits<{ click: [event: MouseEvent] }>();
+</script>
+
+<template>
+  <button
+    class="ct-chip"
+    type="button"
+    :class="{ selected }"
+    :style="color ? `--tint: ${color}` : undefined"
+    :aria-pressed="toggle ? selected : undefined"
+    @click="(e) => emit('click', e)"
+  >
+    <slot></slot>
+    <span v-if="count != null" class="count">{{ count }}</span>
+  </button>
+</template>
+
+<style scoped>
+.ct-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--tint, var(--muted));
+  transition: background-color var(--duration-swap) ease,
+    color var(--duration-swap) ease,
+    border-color var(--duration-swap) ease;
+
+  &.selected {
+    background: var(--tint, var(--ink));
+    color: var(--on-accent);
+    border-color: transparent;
+  }
+}
+
+.count {
+  font-size: var(--font-2xs);
+  opacity: 0.7;
+}
+</style>

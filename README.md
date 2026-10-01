@@ -20,25 +20,35 @@ There is no room backend yet, so the app boots with the mock data in `src/mocks/
 ## Layout
 
 ```
-src/main.ts, App.vue, style.css   Boot and view switching (the canvas stays mounted underneath)
+src/app/            The app (`@/…`)
+  main.ts, App.vue, style.css   Boot and view switching (the canvas stays mounted underneath)
 
-src/views/
-  Canvas.vue   Pan / pinch / drag / long-press, card menu, adding notes
-  Map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add
-  Shiori.vue   The booklet (edit / read, appendix, a member's draft of a day)
-  Form.vue     Full-screen note form (new / edit, Google Maps link -> coordinates)
+  views/
+    Canvas.vue   Pan / pinch / drag / long-press, card menu, adding notes
+    Map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add
+    Shiori.vue   The booklet (edit / read, appendix, a member's draft of a day)
+    Form.vue     Full-screen note form (new / edit, Google Maps link -> coordinates)
 
-src/features/
-  members/ Everyone in the room, people and agents alike; who is using this device
-  notes/   Notes: store, types
-  sync/    Transport = the sync hook
-  trip/    The room's trip (name, days, currency, map center), notes on a day, budgets; formatting
-  tags/    Tag colors and the tag filter (store, filter bar)
-  place/   Google Maps links: parsing, safe hrefs
-  canvas/  Sticky note card, screen <-> world transform
-  worker/  WorkerApi: drafting a day, booklet export
+  features/
+    members/ Everyone in the room, people and agents alike; who is using this device
+    notes/   Notes: store, types
+    sync/    Transport = the sync hook
+    trip/    The room's trip (name, days, currency, map center), notes on a day, budgets; formatting
+    tags/    Tag colors and the tag filter (store, filter bar)
+    place/   Google Maps links: parsing, safe hrefs
+    canvas/  Sticky note card, screen <-> world transform
+    worker/  WorkerApi: drafting a day, booklet export
 
-src/mocks/  Mock room data (members, trip, notes) and a mock WorkerApi, installed at boot
+  mocks/   Mock room data (members, trip, notes) and a mock WorkerApi, installed at boot
+
+src/ui/             The design system (`@ui/…`): props, slots and events only, no app imports
+  styles/      tokens.css (colors, type, z-index, motion), base.css, transitions.css (ct-morph / ct-fade / ct-slide)
+  CtChip.vue        Pill, optionally tinted, selected or a toggle
+  CtSegmented.vue   Segmented control; the pill morphs to the choice
+  CtTabList.vue     Tabs; the underline slides and stretches to the tab
+  CtTabPanel.vue    Morphs its content in when its value changes
+  CtTabBar.vue      Bottom navigation; the highlight slides behind the current item
+  indicator.ts      Measures the selected child for those indicators
 ```
 
 ## Sync hook

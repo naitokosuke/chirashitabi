@@ -9,6 +9,7 @@ import { useTrip } from "@/features/trip/store";
 import { hhmm, longDate, money, shortDate } from "@/features/trip/format";
 import { useWorker, type DayDraft } from "@/features/worker/store";
 import { useMembers } from "@/features/members/store";
+import { CtSegmented, CtTabList, CtTabPanel, type CtOption } from "@ui/index";
 
 type Draft = DayDraft & { date: Temporal.PlainDate };
 
@@ -25,7 +26,26 @@ const day = computed(() =>
   tab.value === "appendix" ? null : (tab.value ?? trip.days[0]?.date ?? null),
 );
 const price = (amount: number) => money(amount, trip.currency);
-const isTab = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
+
+// tabs are keyed by the date's ISO string
+const APPENDIX = "appendix";
+const dayTabs = computed<CtOption[]>(() => [
+  ...trip.days.map((d) => ({ value: d.date.toString(), label: shortDate(d.date) })),
+  { value: APPENDIX, label: "Appendix" },
+]);
+const activeTab = computed(() => day.value?.toString() ?? APPENDIX);
+function showTab(value: string) {
+  tab.value = value === APPENDIX ? "appendix" : Temporal.PlainDate.from(value);
+}
+
+const MODES = [
+  { value: "edit", label: "Edit" },
+  { value: "read", label: "Read" },
+] as const satisfies readonly CtOption[];
+const mode = computed(() => (editing.value ? "edit" : "read"));
+function setMode(value: string) {
+  editing.value = value === "edit";
+}
 const picking = ref<Note | null>(null); // note being assigned from the tray
 const draft = ref<Draft | null>(null); // a member's draft of the open day
 
@@ -88,10 +108,13 @@ function adoptDraft() {
     <header class="head">
       <h1>Booklet</h1>
       <p class="sum"><template v-if="trip.days.length">{{ shortDate(trip.days[0]!.date) }} – {{ shortDate(trip.days.at(-1)!.date) }} · </template>{{ fixedCount }} confirmed · {{ price(totalFixed) }}<small v-if="totalAll > totalFixed"> ({{ price(totalAll) }} with maybes)</small></p>
-      <div aria-label="Mode" class="mode" role="group">
-        <button type="button" :class="{ on: editing }" @click="() => (editing = true)">Edit</button>
-        <button type="button" :class="{ on: !editing }" @click="() => (editing = false)">Read</button>
-      </div>
+      <CtSegmented
+        class="mode"
+        label="Mode"
+        :options="MODES"
+        :model-value="mode"
+        @update:model-value="setMode"
+      />
     </header>
 
     <!-- tray: memos without a day (edit mode only) -->
@@ -124,108 +147,108 @@ function adoptDraft() {
       </div>
     </section>
 
-    <nav class="tabs">
-      <button
-        v-for="d in trip.days"
-        :key="d.date.toString()"
-        type="button"
-        :class="{ on: isTab(d.date) }"
-        @click="() => (tab = d.date)"
-      >{{ shortDate(d.date) }}</button>
-      <button type="button" :class="{ on: tab === 'appendix' }" @click="() => (tab = 'appendix')">Appendix</button>
-    </nav>
+    <CtTabList
+      class="tabs"
+      label="Days"
+      :tabs="dayTabs"
+      :model-value="activeTab"
+      @update:model-value="showTab"
+    />
 
     <main class="body">
-      <!-- ---------- a day ---------- -->
-      <template v-if="day">
-        <h2 class="day">Day {{ dayIndex(day) }} <span>{{ longDate(day) }}</span></h2>
+      <!-- the page morphs when the day or the mode changes -->
+      <CtTabPanel :value="`${activeTab}:${mode}`">
+        <!-- ---------- a day ---------- -->
+        <template v-if="day">
+          <h2 class="day">Day {{ dayIndex(day) }} <span>{{ longDate(day) }}</span></h2>
 
-        <template v-if="editing">
-          <textarea
-            aria-label="A line about this day"
-            class="intro"
-            placeholder="A line about this day (shown at the top of the booklet)"
-            rows="2"
-            :value="trip.dayOf(day)?.intro"
-            @change="setIntro"
-          ></textarea>
-        </template>
-        <p v-else-if="trip.dayOf(day)?.intro" class="intro-read">{{ trip.dayOf(day)?.intro }}</p>
+          <template v-if="editing">
+            <textarea
+              aria-label="A line about this day"
+              class="intro"
+              placeholder="A line about this day (shown at the top of the booklet)"
+              rows="2"
+              :value="trip.dayOf(day)?.intro"
+              @change="setIntro"
+            ></textarea>
+          </template>
+          <p v-else-if="trip.dayOf(day)?.intro" class="intro-read">{{ trip.dayOf(day)?.intro }}</p>
 
-        <p v-if="trip.forDay(day).length === 0" class="muted empty">Nothing yet. Add some from “Notes without a day” above.</p>
+          <p v-if="trip.forDay(day).length === 0" class="muted empty">Nothing yet. Add some from “Notes without a day” above.</p>
 
-        <ol class="items">
-          <li v-for="n in trip.forDay(day)" :key="n.id" class="item" :class="n.status">
-            <template v-if="editing">
-              <input
-                aria-label="Time"
-                class="time"
-                type="time"
-                :value="n.time ? hhmm(n.time) : ''"
-                @change="(e: Event) => setTime(n, e)"
-              />
-              <div class="main">
-                <p class="t">{{ n.title }}</p>
-                <p v-if="n.body" class="b">{{ n.body }}</p>
-                <div class="row">
-                  <button
-                    class="status"
-                    type="button"
-                    :class="n.status"
-                    @click="() => cycleStatus(n)"
-                  >{{ STATUS[n.status ?? "idea"] }}</button>
-                  <span v-if="n.budget" class="muted">{{ price(n.budget) }}</span>
-                  <button class="unassign" type="button" @click="() => assign(n, null)">Remove day</button>
+          <ol class="items">
+            <li v-for="n in trip.forDay(day)" :key="n.id" class="item" :class="n.status">
+              <template v-if="editing">
+                <input
+                  aria-label="Time"
+                  class="time"
+                  type="time"
+                  :value="n.time ? hhmm(n.time) : ''"
+                  @change="(e: Event) => setTime(n, e)"
+                />
+                <div class="main">
+                  <p class="t">{{ n.title }}</p>
+                  <p v-if="n.body" class="b">{{ n.body }}</p>
+                  <div class="row">
+                    <button
+                      class="status"
+                      type="button"
+                      :class="n.status"
+                      @click="() => cycleStatus(n)"
+                    >{{ STATUS[n.status ?? "idea"] }}</button>
+                    <span v-if="n.budget" class="muted">{{ price(n.budget) }}</span>
+                    <button class="unassign" type="button" @click="() => assign(n, null)">Remove day</button>
+                  </div>
                 </div>
-              </div>
-            </template>
-            <template v-else-if="n.status !== 'idea'">
-              <span class="time-read">{{ n.time ? hhmm(n.time) : "Anytime" }}</span>
-              <div class="main">
-                <p class="t">{{ n.title }}</p>
-                <p class="meta"><span v-if="n.body">{{ n.body }}</span><span v-if="n.budget"> · {{ price(n.budget) }}</span><a
-                    v-if="safeUrl(n.mapsUrl)"
-                    :href="safeUrl(n.mapsUrl)"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  > · Map</a></p>
-              </div>
-            </template>
-          </li>
-        </ol>
+              </template>
+              <template v-else-if="n.status !== 'idea'">
+                <span class="time-read">{{ n.time ? hhmm(n.time) : "Anytime" }}</span>
+                <div class="main">
+                  <p class="t">{{ n.title }}</p>
+                  <p class="meta"><span v-if="n.body">{{ n.body }}</span><span v-if="n.budget"> · {{ price(n.budget) }}</span><a
+                      v-if="safeUrl(n.mapsUrl)"
+                      :href="safeUrl(n.mapsUrl)"
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    > · Map</a></p>
+                </div>
+              </template>
+            </li>
+          </ol>
 
-        <!-- read mode: candidates at the end of the day -->
-        <template v-if="!editing && trip.forDay(day, 'idea').length">
-          <h3 class="maybe">If there is time</h3>
-          <ul class="maybe-list"><li v-for="n in trip.forDay(day, 'idea')" :key="n.id">{{ n.title }}<span v-if="n.budget" class="muted"> · {{ price(n.budget) }}</span></li></ul>
+          <!-- read mode: candidates at the end of the day -->
+          <template v-if="!editing && trip.forDay(day, 'idea').length">
+            <h3 class="maybe">If there is time</h3>
+            <ul class="maybe-list"><li v-for="n in trip.forDay(day, 'idea')" :key="n.id">{{ n.title }}<span v-if="n.budget" class="muted"> · {{ price(n.budget) }}</span></li></ul>
+          </template>
+
+          <!-- a member's draft of the day (edit mode) -->
+          <template v-if="editing && worker.api && trip.forDay(day).length">
+            <div
+              v-if="draft && draft.date.equals(day)"
+              class="draft"
+              :style="`--who: ${members.colorOf(draft.by)}`"
+            >
+              <div class="h"><span aria-hidden="true" class="dot"></span>{{ members.nameOf(draft.by) }}<small>draft</small></div>
+              <p>{{ draft.reason }}</p>
+              <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}</li></ol>
+              <div class="act"><button class="ok" type="button" @click="adoptDraft">Set times and confirm</button><button class="no" type="button" @click="() => (draft = null)">Dismiss</button></div>
+            </div>
+            <button v-else class="ask" type="button" @click="askForDraft">Draft the order and times</button>
+          </template>
+
+          <p v-if="trip.budgetOf(day)" class="daytotal">Budget for the day {{ price(trip.budgetOf(day)) }}<small v-if="trip.budgetOf(day, false) > trip.budgetOf(day)"> ({{ price(trip.budgetOf(day, false)) }} with maybes)</small></p>
         </template>
 
-        <!-- a member's draft of the day (edit mode) -->
-        <template v-if="editing && worker.api && trip.forDay(day).length">
-          <div
-            v-if="draft && draft.date.equals(day)"
-            class="draft"
-            :style="`--who: ${members.colorOf(draft.by)}`"
-          >
-            <div class="h"><span aria-hidden="true" class="dot"></span>{{ members.nameOf(draft.by) }}<small>draft</small></div>
-            <p>{{ draft.reason }}</p>
-            <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}</li></ol>
-            <div class="act"><button class="ok" type="button" @click="adoptDraft">Set times and confirm</button><button class="no" type="button" @click="() => (draft = null)">Dismiss</button></div>
-          </div>
-          <button v-else class="ask" type="button" @click="askForDraft">Draft the order and times</button>
+        <!-- ---------- appendix ---------- -->
+        <template v-else>
+          <section v-for="t in APPENDIX_TAGS" :key="t" class="appendix">
+            <h2 class="day" :style="`color:${tags.tagColor(t)}`">#{{ t }}</h2>
+            <ul class="check"><li v-for="n in trip.byTag(t)" :key="n.id"><label><input type="checkbox" />{{ n.title }}<span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
+            <p v-if="trip.byTag(t).length === 0" class="muted">No notes with this tag yet</p>
+          </section>
         </template>
-
-        <p v-if="trip.budgetOf(day)" class="daytotal">Budget for the day {{ price(trip.budgetOf(day)) }}<small v-if="trip.budgetOf(day, false) > trip.budgetOf(day)"> ({{ price(trip.budgetOf(day, false)) }} with maybes)</small></p>
-      </template>
-
-      <!-- ---------- appendix ---------- -->
-      <template v-else>
-        <section v-for="t in APPENDIX_TAGS" :key="t" class="appendix">
-          <h2 class="day" :style="`color:${tags.tagColor(t)}`">#{{ t }}</h2>
-          <ul class="check"><li v-for="n in trip.byTag(t)" :key="n.id"><label><input type="checkbox" />{{ n.title }}<span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
-          <p v-if="trip.byTag(t).length === 0" class="muted">No notes with this tag yet</p>
-        </section>
-      </template>
+      </CtTabPanel>
     </main>
 
     <footer v-if="!editing && worker.api" class="foot">
@@ -273,23 +296,6 @@ h1 {
   /* next to the title; .sum comes first in the markup and takes the row below */
   grid-row: 1;
   grid-column: 2;
-  display: flex;
-  background: var(--surface);
-  border: 1.5px solid var(--line);
-  border-radius: 999px;
-  padding: 3px;
-  button {
-    min-height: 30px;
-    padding: 0 12px;
-    border-radius: 999px;
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-    &.on {
-      background: var(--ink);
-      color: var(--bg);
-    }
-  }
 }
 
 .muted {
@@ -384,27 +390,8 @@ h1 {
 }
 
 .tabs {
-  display: flex;
-  gap: 4px;
-  padding: 8px 16px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  button {
-    flex-shrink: 0;
-    min-height: 36px;
-    padding: 0 12px;
-    border-radius: 999px;
-    border: 1.5px solid var(--line);
-    background: var(--surface);
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-    &.on {
-      background: var(--red);
-      color: var(--on-accent);
-      border-color: transparent;
-    }
-  }
+  flex-shrink: 0;
+  margin: 4px 16px 0;
 }
 
 .body {

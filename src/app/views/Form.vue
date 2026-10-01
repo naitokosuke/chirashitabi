@@ -4,6 +4,7 @@ import { useNotes } from "@/features/notes/store";
 import { COLORS, type Note, type NoteInput } from "@/features/notes/types";
 import { useTags } from "@/features/tags/store";
 import { parseMapsUrl } from "@/features/place/google-maps";
+import { CtChip } from "@ui/index";
 
 const props = defineProps<{ editing: Note | null; at?: { lat: number; lng: number } | null }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
@@ -124,14 +125,14 @@ function submit() {
       <div>
         <label class="l" :for="`${id}-tag`">Tags</label>
         <div class="tagbox">
-          <button
+          <CtChip
             v-for="t in form.tags"
             :key="t"
-            class="chip on"
-            type="button"
-            :style="`--tag:${tags.tagColor(t)}`"
+            class="chip"
+            selected
+            :color="tags.tagColor(t)"
             @click="() => removeTag(t)"
-          >#{{ t }} ×</button>
+          >#{{ t }} ×</CtChip>
           <input
             :id="`${id}-tag`"
             v-model="tagInput"
@@ -143,13 +144,7 @@ function submit() {
         </div>
         <div class="recent">
           <template v-for="t in tags.tagList.slice(0, 8)" :key="t.name">
-            <button
-              v-if="!form.tags.includes(t.name)"
-              class="chip"
-              type="button"
-              :style="`--tag:${t.color}`"
-              @click="() => addTag(t.name)"
-            >#{{ t.name }}</button>
+            <CtChip v-if="!form.tags.includes(t.name)" :color="t.color" @click="() => addTag(t.name)">#{{ t.name }}</CtChip>
           </template>
         </div>
       </div>

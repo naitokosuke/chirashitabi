@@ -15,7 +15,12 @@ export default defineConfig({
     },
   },
   fmt: { vize: true },
-  resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
+  resolve: {
+    alias: {
+      "@ui": fileURLToPath(new URL("./src/ui", import.meta.url)),
+      "@": fileURLToPath(new URL("./src/app", import.meta.url)),
+    },
+  },
   server: {
     // later: proxy /api to `wrangler dev` so the WebSocket room works locally
     proxy: { "/api": { target: "http://localhost:8787", ws: true } },
