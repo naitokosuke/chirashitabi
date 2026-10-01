@@ -7,13 +7,15 @@ import { CtSegmented, CtTabList, CtTabPanel, type CtOption } from "../../ui/inde
 
 import { formatMoney } from "../shared/money";
 
+import Message from "../features/i18n/Message.vue";
+import { useI18n } from "../features/i18n/useI18n";
 import { useMembers } from "../features/members/useMembers";
 import { ARRIVAL_TAG, PACKING_TAG, type Memo, type Scheduled } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
 import { safeUrl } from "../features/place/google-maps";
 import { useTags } from "../features/tags/useTags";
 import { fromHhmm, hhmm, longDate, shortDate } from "../features/trip/format";
-import { assignTo, cycleStatus, draftUpdates, STATUS_LABEL } from "../features/trip/itinerary";
+import { assignTo, cycleStatus, draftUpdates } from "../features/trip/itinerary";
 import { useTrip } from "../features/trip/useTrip";
 import type { DayDraft } from "../features/worker/types";
 import { useWorker } from "../features/worker/useWorker";
@@ -25,30 +27,32 @@ const tags = useTags();
 const trip = useTrip();
 const worker = useWorker();
 const members = useMembers();
+const i18n = useI18n();
 /** A picked day, the appendix, or null for "the first day" */
 const tab = ref<Temporal.PlainDate | "appendix" | null>(null);
 /** The open day, or null on the appendix tab (or while the trip has no days) */
 const day = computed(() =>
   tab.value === "appendix" ? null : (tab.value ?? trip.days[0]?.date ?? null),
 );
-const price = (amount: number) => formatMoney(amount, trip.currency);
+const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
+const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 
 // tabs are keyed by the date's ISO string
 const APPENDIX = "appendix";
 const dayTabs = computed<CtOption[]>(() => [
-  ...trip.days.map((d) => ({ value: d.date.toString(), label: shortDate(d.date) })),
-  { value: APPENDIX, label: "Appendix" },
+  ...trip.days.map((d) => ({ value: d.date.toString(), label: short(d.date) })),
+  { value: APPENDIX, label: i18n.t("shiori.appendix") },
 ]);
 const activeTab = computed(() => day.value?.toString() ?? APPENDIX);
 function showTab(value: string) {
   tab.value = value === APPENDIX ? "appendix" : Temporal.PlainDate.from(value);
 }
 
-const MODES = [
-  { value: "edit", label: "Edit" },
-  { value: "read", label: "Read" },
-] as const satisfies readonly CtOption[];
-type Mode = (typeof MODES)[number]["value"];
+type Mode = "edit" | "read";
+const modes = computed((): CtOption<Mode>[] => [
+  { value: "edit", label: i18n.t("common.edit") },
+  { value: "read", label: i18n.t("shiori.read") },
+]);
 const mode = ref<Mode>("edit");
 const editing = computed(() => mode.value === "edit");
 const picking = ref<Memo | null>(null); // note being assigned from the tray
@@ -100,15 +104,15 @@ function adoptDraft() {
 <template>
   <div class="shiori">
     <header class="head">
-      <h1>Booklet</h1>
-      <p class="sum"><template v-if="trip.days.length">{{ shortDate(trip.days[0]!.date) }} – {{ shortDate(trip.days.at(-1)!.date) }} · </template>{{ trip.fixedCount }} confirmed · {{ price(totalFixed) }}<small v-if="totalAll > totalFixed"> ({{ price(totalAll) }} with maybes)</small></p>
-      <CtSegmented v-model="mode" class="mode" label="Mode" :options="MODES" />
+      <h1>{{ i18n.t("nav.booklet") }}</h1>
+      <p class="sum"><template v-if="trip.days.length">{{ short(trip.days[0]!.date) }} – {{ short(trip.days.at(-1)!.date) }} · </template>{{ i18n.t("shiori.summary", { fixed: trip.fixedCount, total: price(totalFixed) }) }}<small v-if="totalAll > totalFixed">{{ i18n.t("shiori.withMaybes", { total: price(totalAll) }) }}</small></p>
+      <CtSegmented v-model="mode" class="mode" :label="i18n.t('shiori.mode')" :options="modes" />
     </header>
 
     <!-- tray: memos without a day (edit mode only) -->
     <section v-if="editing" class="tray">
-      <div class="tray-head"><span>Notes without a day · {{ trip.unassigned.length }}</span><span class="muted">Tap to pick a day</span></div>
-      <div v-if="trip.unassigned.length === 0" class="muted empty">Every note has a day</div>
+      <div class="tray-head"><span>{{ i18n.t("shiori.trayTitle", { count: trip.unassigned.length }) }}</span><span class="muted">{{ i18n.t("shiori.trayHint") }}</span></div>
+      <div v-if="trip.unassigned.length === 0" class="muted empty">{{ i18n.t("shiori.trayEmpty") }}</div>
       <div v-else class="tray-row">
         <button
           v-for="n in trip.unassigned"
@@ -124,20 +128,20 @@ function adoptDraft() {
         </button>
       </div>
       <div v-if="picking" class="pick">
-        <span class="pick-label">Put “{{ picking.title }}” on</span>
+        <span class="pick-label">{{ i18n.t("shiori.putOn", { title: picking.title }) }}</span>
         <button
           v-for="d in trip.days"
           :key="d.date.toString()"
           type="button"
           @click="() => assign(picking!, d.date)"
-        >{{ shortDate(d.date) }}</button>
-        <button class="later" type="button" @click="() => (picking = null)">Later</button>
+        >{{ short(d.date) }}</button>
+        <button class="later" type="button" @click="() => (picking = null)">{{ i18n.t("shiori.later") }}</button>
       </div>
     </section>
 
     <CtTabList
       class="tabs"
-      label="Days"
+      :label="i18n.t('shiori.days')"
       :tabs="dayTabs"
       :model-value="activeTab"
       @update:model-value="showTab"
@@ -148,29 +152,36 @@ function adoptDraft() {
       <CtTabPanel :value="`${activeTab}:${mode}`">
         <!-- ---------- a day ---------- -->
         <template v-if="day">
-          <h2 class="day">Day {{ trip.dayNumber(day) }} <span>{{ longDate(day) }}</span></h2>
+          <h2 class="day">
+            <Message
+              id="shiori.dayHeading"
+              :params="{ n: trip.dayNumber(day), date: longDate(day, i18n.locale) }"
+            >
+              <template #date="{ text }"><span>{{ text }}</span></template>
+            </Message>
+          </h2>
 
           <template v-if="editing">
             <textarea
-              aria-label="A line about this day"
               class="intro"
-              placeholder="A line about this day (shown at the top of the booklet)"
               rows="2"
+              :aria-label="i18n.t('shiori.intro')"
+              :placeholder="i18n.t('shiori.introPlaceholder')"
               :value="trip.dayOf(day)?.intro"
               @change="setIntro"
             ></textarea>
           </template>
           <p v-else-if="trip.dayOf(day)?.intro" class="intro-read">{{ trip.dayOf(day)?.intro }}</p>
 
-          <p v-if="trip.forDay(day).length === 0" class="muted empty">Nothing yet. Add some from “Notes without a day” above.</p>
+          <p v-if="trip.forDay(day).length === 0" class="muted empty">{{ i18n.t("shiori.dayEmpty") }}</p>
 
           <ol class="items">
             <li v-for="n in trip.forDay(day)" :key="n.id" class="item" :class="n.schedule.status">
               <template v-if="editing">
                 <input
-                  aria-label="Time"
                   class="time"
                   type="time"
+                  :aria-label="i18n.t('shiori.time')"
                   :value="n.schedule.time ? hhmm(n.schedule.time) : ''"
                   @change="(e: Event) => setTime(n, e)"
                 />
@@ -183,14 +194,14 @@ function adoptDraft() {
                       type="button"
                       :class="n.schedule.status"
                       @click="() => nextStatus(n)"
-                    >{{ STATUS_LABEL[n.schedule.status] }}</button>
+                    >{{ i18n.t(`status.${n.schedule.status}`) }}</button>
                     <span v-if="n.budget" class="muted">{{ price(n.budget) }}</span>
-                    <button class="unassign" type="button" @click="() => assign(n, null)">Remove day</button>
+                    <button class="unassign" type="button" @click="() => assign(n, null)">{{ i18n.t("shiori.removeDay") }}</button>
                   </div>
                 </div>
               </template>
               <template v-else-if="n.schedule.status !== 'idea'">
-                <span class="time-read">{{ n.schedule.time ? hhmm(n.schedule.time) : "Anytime" }}</span>
+                <span class="time-read">{{ n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime") }}</span>
                 <div class="main">
                   <p class="t">{{ n.title }}</p>
                   <p class="meta"><span v-if="n.body">{{ n.body }}</span><span v-if="n.budget"> · {{ price(n.budget) }}</span><a
@@ -198,7 +209,7 @@ function adoptDraft() {
                       :href="safeUrl(n.mapsUrl)"
                       rel="noopener noreferrer"
                       target="_blank"
-                    > · Map</a></p>
+                    > · {{ i18n.t("shiori.mapLink") }}</a></p>
                 </div>
               </template>
             </li>
@@ -206,7 +217,7 @@ function adoptDraft() {
 
           <!-- read mode: candidates at the end of the day -->
           <template v-if="!editing && trip.forDay(day, 'idea').length">
-            <h3 class="maybe">If there is time</h3>
+            <h3 class="maybe">{{ i18n.t("shiori.ifTime") }}</h3>
             <ul class="maybe-list"><li v-for="n in trip.forDay(day, 'idea')" :key="n.id">{{ n.title }}<span v-if="n.budget" class="muted"> · {{ price(n.budget) }}</span></li></ul>
           </template>
 
@@ -217,15 +228,15 @@ function adoptDraft() {
               class="draft"
               :style="`--who: ${members.colorOf(draft.by)}`"
             >
-              <div class="h"><span aria-hidden="true" class="dot"></span>{{ members.nameOf(draft.by) }}<small>draft</small></div>
+              <div class="h"><span aria-hidden="true" class="dot"></span>{{ members.nameOf(draft.by) }}<small>{{ i18n.t("shiori.draft") }}</small></div>
               <p>{{ draft.reason }}</p>
               <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}</li></ol>
-              <div class="act"><button class="ok" type="button" @click="adoptDraft">Set times and confirm</button><button class="no" type="button" @click="() => (draft = null)">Dismiss</button></div>
+              <div class="act"><button class="ok" type="button" @click="adoptDraft">{{ i18n.t("shiori.adoptDraft") }}</button><button class="no" type="button" @click="() => (draft = null)">{{ i18n.t("common.dismiss") }}</button></div>
             </div>
-            <button v-else class="ask" type="button" @click="askForDraft">Draft the order and times</button>
+            <button v-else class="ask" type="button" @click="askForDraft">{{ i18n.t("shiori.askDraft") }}</button>
           </template>
 
-          <p v-if="trip.budgetOf(day)" class="daytotal">Budget for the day {{ price(trip.budgetOf(day)) }}<small v-if="trip.budgetOf(day, false) > trip.budgetOf(day)"> ({{ price(trip.budgetOf(day, false)) }} with maybes)</small></p>
+          <p v-if="trip.budgetOf(day)" class="daytotal">{{ i18n.t("shiori.dayTotal", { total: price(trip.budgetOf(day)) }) }}<small v-if="trip.budgetOf(day, false) > trip.budgetOf(day)">{{ i18n.t("shiori.withMaybes", { total: price(trip.budgetOf(day, false)) }) }}</small></p>
         </template>
 
         <!-- ---------- appendix ---------- -->
@@ -233,14 +244,14 @@ function adoptDraft() {
           <section v-for="t in APPENDIX_TAGS" :key="t" class="appendix">
             <h2 class="day" :style="`color:${tags.tagColor(t)}`">#{{ t }}</h2>
             <ul class="check"><li v-for="n in trip.byTag(t)" :key="n.id"><label><input type="checkbox" />{{ n.title }}<span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
-            <p v-if="trip.byTag(t).length === 0" class="muted">No notes with this tag yet</p>
+            <p v-if="trip.byTag(t).length === 0" class="muted">{{ i18n.t("shiori.tagEmpty") }}</p>
           </section>
         </template>
       </CtTabPanel>
     </main>
 
     <footer v-if="!editing && worker.api" class="foot">
-      <button class="export" type="button" @click="exportBooklet">Export</button>
+      <button class="export" type="button" @click="exportBooklet">{{ i18n.t("shiori.export") }}</button>
     </footer>
   </div>
 </template>

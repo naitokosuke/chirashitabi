@@ -11,6 +11,7 @@ import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
 
 import { CtChip } from "../../ui/index";
 
+import { useI18n } from "../features/i18n/useI18n";
 import {
   blankInput,
   inputFromNote,
@@ -27,6 +28,7 @@ const props = defineProps<{ target: FormTarget }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
 const store = useNotes();
 const tags = useTags();
+const i18n = useI18n();
 const id = useId();
 const editing = computed(() => props.target.kind === "edit");
 
@@ -101,24 +103,24 @@ function submit() {
           stroke-width="2.5"
           viewBox="0 0 24 24"
           width="16"
-        ><path d="M15 5l-7 7 7 7" /></svg>Canvas
+        ><path d="M15 5l-7 7 7 7" /></svg>{{ i18n.t("nav.canvas") }}
       </button>
-      <h2>{{ editing ? "Edit note" : "New note" }}</h2>
-      <label v-if="!editing"><input v-model="keepOpen" type="checkbox" />Add another</label>
+      <h2>{{ i18n.t(editing ? "form.titleEdit" : "form.titleNew") }}</h2>
+      <label v-if="!editing"><input v-model="keepOpen" type="checkbox" />{{ i18n.t("form.addAnother") }}</label>
     </div>
     <div class="body">
       <div>
-        <label class="l" :for="`${id}-text`">Note</label>
+        <label class="l" :for="`${id}-text`">{{ i18n.t("form.note") }}</label>
         <textarea
           :id="`${id}-text`"
           ref="textEl"
           v-model="text"
-          placeholder="Places to go, food to try, anything that comes to mind"
           rows="4"
+          :placeholder="i18n.t('form.notePlaceholder')"
         ></textarea>
       </div>
       <div>
-        <label class="l" :for="`${id}-tag`">Tags</label>
+        <label class="l" :for="`${id}-tag`">{{ i18n.t("form.tags") }}</label>
         <div class="tagbox">
           <CtChip
             v-for="t in form.tags"
@@ -132,7 +134,7 @@ function submit() {
             :id="`${id}-tag`"
             v-model="tagInput"
             enterkeyhint="done"
-            placeholder="Add a tag…"
+            :placeholder="i18n.t('form.tagPlaceholder')"
             @keydown.enter.prevent="commitTag"
             @blur="commitTag"
           />
@@ -144,24 +146,20 @@ function submit() {
         </div>
       </div>
       <div>
-        <label class="l" :for="`${id}-maps`">Place</label>
+        <label class="l" :for="`${id}-maps`">{{ i18n.t("form.place") }}</label>
         <input
           :id="`${id}-maps`"
           v-model="mapsUrl"
           class="url"
           inputmode="url"
-          placeholder="Paste a Google Maps link"
           type="url"
+          :placeholder="i18n.t('form.mapsPlaceholder')"
           @change="onMapsUrl"
         />
-        <p class="pinstate">{{
-            hasPin()
-              ? "This drops a pin on the map"
-              : "No coordinates? Long-press on the map view to place it"
-          }}</p>
+        <p class="pinstate">{{ i18n.t(hasPin() ? "form.pinned" : "form.unpinned") }}</p>
       </div>
       <div>
-        <span :id="`${id}-color`" class="l">Color</span>
+        <span :id="`${id}-color`" class="l">{{ i18n.t("form.color") }}</span>
         <div class="colors" role="group" :aria-labelledby="`${id}-color`">
           <button
             v-for="c in COLORS"
@@ -176,8 +174,8 @@ function submit() {
       </div>
     </div>
     <div class="foot">
-      <button class="save" type="submit" :disabled="!text.trim()">{{ editing ? "Save" : "Save to canvas" }}</button>
-      <p v-if="!editing" class="hint">It pops up in the middle of where you were looking on the canvas</p>
+      <button class="save" type="submit" :disabled="!text.trim()">{{ i18n.t(editing ? "form.save" : "form.saveToCanvas") }}</button>
+      <p v-if="!editing" class="hint">{{ i18n.t("form.hint") }}</p>
     </div>
   </form>
 </template>

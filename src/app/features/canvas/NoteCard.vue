@@ -1,4 +1,5 @@
 <script setup lang="ts" vapor>
+import { useI18n } from "../i18n/useI18n";
 import { useMembers } from "../members/useMembers";
 import type { Note } from "../notes/types";
 import type { Visibility } from "../tags/types";
@@ -8,6 +9,7 @@ defineProps<{ note: Note; dragging: boolean; pop: boolean; visibility: Visibilit
 defineEmits<{ adopt: []; remove: [] }>();
 const tags = useTags();
 const members = useMembers();
+const i18n = useI18n();
 </script>
 
 <template>
@@ -21,10 +23,10 @@ const members = useMembers();
     <template v-if="note.kind === 'suggestion'">
       <div class="h">
         <span aria-hidden="true" class="dot"></span>
-        {{ members.nameOf(note.by) }}<small>suggestion</small>
+        {{ members.nameOf(note.by) }}<small>{{ i18n.t("note.suggestion") }}</small>
       </div>
       <p class="t">{{ note.title }}</p>
-      <div class="act"><button class="ok" type="button" @click.stop="() => $emit('adopt')">Adopt</button><button class="no" type="button" @click.stop="() => $emit('remove')">Dismiss</button></div>
+      <div class="act"><button class="ok" type="button" @click.stop="() => $emit('adopt')">{{ i18n.t("note.adopt") }}</button><button class="no" type="button" @click.stop="() => $emit('remove')">{{ i18n.t("common.dismiss") }}</button></div>
     </template>
     <template v-else>
       <p class="t">{{ note.title }}</p>

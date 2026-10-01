@@ -1,8 +1,9 @@
 <script setup lang="ts" vapor>
-import { ref } from "vue";
+import { computed, ref } from "vue";
 
 import { CtTabBar, type CtOption } from "../ui/index";
 
+import { useI18n } from "./features/i18n/useI18n";
 import type { Memo, NoteInput } from "./features/notes/types";
 import type { LatLng } from "./features/place/types";
 import Canvas, { place } from "./views/Canvas.vue";
@@ -10,12 +11,13 @@ import Form, { type FormTarget } from "./views/Form.vue";
 import Map from "./views/Map.vue";
 import Shiori from "./views/Shiori.vue";
 
-const VIEWS = [
-  { value: "canvas", label: "Canvas" },
-  { value: "map", label: "Map" },
-  { value: "shiori", label: "Booklet" },
-] as const satisfies readonly CtOption[];
-type View = (typeof VIEWS)[number]["value"];
+const i18n = useI18n();
+type View = "canvas" | "map" | "shiori";
+const views = computed((): CtOption<View>[] => [
+  { value: "canvas", label: i18n.t("nav.canvas") },
+  { value: "map", label: i18n.t("nav.map") },
+  { value: "shiori", label: i18n.t("nav.booklet") },
+]);
 
 const tab = ref<View>("canvas");
 /** The form sheet: closed, or open on a new memo or an existing one */
@@ -58,7 +60,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
       <Form v-if="form" :target="form" @close="closeForm" @save="onSave" />
     </Transition>
   </div>
-  <CtTabBar v-model="tab" class="nav" label="Views" :items="VIEWS">
+  <CtTabBar v-model="tab" class="nav" :label="i18n.t('nav.label')" :items="views">
     <template #icon="{ value }">
       <svg
         v-if="value === 'canvas'"

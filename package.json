@@ -4,6 +4,7 @@
   "type": "module",
   "dependencies": {
     "maplibre-gl": "^6.11.2",
+    "messageformat": "^4.0.0",
     "pinia": "^4.0.3",
     "temporal-polyfill-lite": "^0.4.3",
     "vue": "3.6.0-rc.10"
