@@ -75,14 +75,14 @@ function onSave(input: NoteInput, keepOpen: boolean) {
   <!-- The canvas stays mounted underneath so pan/zoom survives a trip to the form or the booklet -->
   <div class="screen">
     <Canvas
-      @write="send({ type: 'writeRequested' })"
-      @edit="send({ type: 'editRequested', note: $event })"
+      @write="() => send({ type: 'writeRequested' })"
+      @edit="(note) => send({ type: 'editRequested', note })"
     />
     <Transition name="ct-morph">
       <Map
         v-if="state.tab === 'map'"
-        @write="send({ type: 'writeAtPinRequested', pin: $event })"
-        @edit="send({ type: 'editRequested', note: $event })"
+        @write="(pin) => send({ type: 'writeAtPinRequested', pin })"
+        @edit="(note) => send({ type: 'editRequested', note })"
       />
     </Transition>
     <Transition name="ct-morph">
@@ -92,7 +92,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
       <Form
         v-if="state.form"
         :target="state.form"
-        @close="send({ type: 'formClosed' })"
+        @close="() => send({ type: 'formClosed' })"
         @save="onSave"
       />
     </Transition>
@@ -102,7 +102,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
     :model-value="state.tab"
     :label="i18n.t('nav.label')"
     :items="views"
-    @update:model-value="send({ type: 'tabSelected', tab: $event })"
+    @update:model-value="(tab) => send({ type: 'tabSelected', tab })"
   >
     <template #icon="{ value }">
       <svg
