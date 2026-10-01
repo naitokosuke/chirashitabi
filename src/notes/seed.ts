@@ -1,4 +1,8 @@
+import { Temporal } from "temporal-polyfill-lite";
 import type { Note } from "./types";
+
+const day = (s: string) => Temporal.PlainDate.from(s);
+const at = (s: string) => Temporal.PlainTime.from(s);
 
 let i = 0;
 const n = (p: Partial<Note> & Pick<Note, "title" | "x" | "y">): Note => ({
@@ -10,7 +14,7 @@ const n = (p: Partial<Note> & Pick<Note, "title" | "x" | "y">): Note => ({
   rot: 0,
   by: "yuki",
   status: "idea",
-  updatedAt: Date.now(),
+  updatedAt: Temporal.Now.instant(),
   ...p,
 });
 
@@ -25,8 +29,8 @@ export const seed = (): Note[] => [
     y: 40,
     rot: -2,
     by: "ken",
-    date: "2026-11-03",
-    time: "12:30",
+    date: day("2026-11-03"),
+    time: at("12:30"),
     status: "fixed",
     budget: 700,
     mapsUrl: "https://maps.google.com/?q=鼎泰豐",
@@ -41,8 +45,8 @@ export const seed = (): Note[] => [
     x: 230,
     y: 52,
     rot: 1.5,
-    date: "2026-11-03",
-    time: "16:00",
+    date: day("2026-11-03"),
+    time: at("16:00"),
     status: "fixed",
     mapsUrl: "https://maps.google.com/?q=九份",
   }),
@@ -55,8 +59,8 @@ export const seed = (): Note[] => [
     x: 60,
     y: 180,
     rot: 1,
-    date: "2026-11-03",
-    time: "20:30",
+    date: day("2026-11-03"),
+    time: at("20:30"),
     status: "fixed",
     budget: 400,
   }),
@@ -71,7 +75,7 @@ export const seed = (): Note[] => [
     y: 190,
     rot: -1,
     by: "ken",
-    date: "2026-11-03",
+    date: day("2026-11-03"),
     status: "idea",
     budget: 500,
   }),
@@ -85,8 +89,8 @@ export const seed = (): Note[] => [
     x: 50,
     y: 360,
     rot: 2,
-    date: "2026-11-04",
-    time: "10:00",
+    date: day("2026-11-04"),
+    time: at("10:00"),
     status: "fixed",
     budget: 1500,
   }),
@@ -101,7 +105,7 @@ export const seed = (): Note[] => [
     y: 370,
     rot: -2.5,
     by: "ken",
-    date: "2026-11-04",
+    date: day("2026-11-04"),
     status: "idea",
     budget: 600,
   }),

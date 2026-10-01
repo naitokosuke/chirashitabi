@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { nextTick, onMounted, reactive, ref, useTemplateRef } from "vue";
+import { nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
 import { useNotes } from "@/notes/store";
 import type { Note, NoteInput } from "@/notes/types";
 import { parseMapsUrl } from "@/map/google-maps";
@@ -7,8 +7,9 @@ import { parseMapsUrl } from "@/map/google-maps";
 const props = defineProps<{ editing: Note | null; at?: { lat: number; lng: number } | null }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
 const store = useNotes();
+const id = useId();
 
-const form = reactive<NoteInput>(
+const form = ref<NoteInput>(
   props.editing
     ? {
         title: props.editing.title,
@@ -28,17 +29,17 @@ const form = reactive<NoteInput>(
         lng: props.at?.lng,
       },
 );
-const mapsUrl = ref(form.mapsUrl ?? "");
+const mapsUrl = ref(form.value.mapsUrl ?? "");
 function onMapsUrl() {
-  form.mapsUrl = mapsUrl.value.trim() || undefined;
-  const c = form.mapsUrl ? parseMapsUrl(form.mapsUrl) : null;
+  form.value.mapsUrl = mapsUrl.value.trim() || undefined;
+  const c = form.value.mapsUrl ? parseMapsUrl(form.value.mapsUrl) : null;
   if (c) {
-    form.lat = c.lat;
-    form.lng = c.lng;
+    form.value.lat = c.lat;
+    form.value.lng = c.lng;
   }
 }
-const hasPin = () => form.lat != null && form.lng != null;
-const text = ref([form.title, form.body].filter(Boolean).join("\n"));
+const hasPin = () => form.value.lat != null && form.value.lng != null;
+const text = ref([form.value.title, form.value.body].filter(Boolean).join("\n"));
 const tagInput = ref("");
 const keepOpen = ref(false);
 const textEl = useTemplateRef<HTMLTextAreaElement>("textEl");
@@ -46,7 +47,7 @@ onMounted(() => nextTick(() => textEl.value?.focus()));
 
 function addTag(t: string) {
   t = t.replace(/^#/, "").trim();
-  if (t && !form.tags.includes(t)) form.tags.push(t);
+  if (t && !form.value.tags.includes(t)) form.value.tags.push(t);
 }
 function commitTag() {
   if (tagInput.value.trim()) {
@@ -55,7 +56,10 @@ function commitTag() {
   }
 }
 function removeTag(t: string) {
-  form.tags.splice(form.tags.indexOf(t), 1);
+  form.value.tags.splice(form.value.tags.indexOf(t), 1);
+}
+function setColor(c: string) {
+  form.value.color = c;
 }
 
 function submit() {
@@ -67,11 +71,11 @@ function submit() {
   const input: NoteInput = {
     title,
     body: rest.join("\n"),
-    tags: [...new Set([...form.tags, ...inline])],
-    color: form.color,
-    mapsUrl: form.mapsUrl,
-    lat: form.lat,
-    lng: form.lng,
+    tags: [...new Set([...form.value.tags, ...inline])],
+    color: form.value.color,
+    mapsUrl: form.value.mapsUrl,
+    lat: form.value.lat,
+    lng: form.value.lng,
   };
   if (props.editing) {
     store.update(props.editing.id, input);
@@ -89,7 +93,7 @@ function submit() {
 <template>
   <form class="formview" @submit.prevent="submit">
     <div class="head">
-      <button class="back" type="button" @click="emit('close')">
+      <button class="back" type="button" @click="() => emit('close')">
         <svg
           fill="none"
           height="16"
@@ -102,21 +106,21 @@ function submit() {
         ><path d="M15 5l-7 7 7 7" /></svg>キャンバス
       </button>
       <h2>{{ editing ? "メモを編集" : "メモを追加" }}</h2>
-      <label v-if="!editing"><input type="checkbox" v-model="keepOpen">続けて追加</label>
+      <label v-if="!editing"><input v-model="keepOpen" type="checkbox" />続けて追加</label>
     </div>
     <div class="body">
       <div>
-        <label class="l" for="f-text">メモ</label>
+        <label class="l" :for="`${id}-text`">メモ</label>
         <textarea
-          id="f-text"
+          :id="`${id}-text`"
           ref="textEl"
-          rows="4"
           v-model="text"
           placeholder="行きたい場所、食べたいもの、思いついたこと"
+          rows="4"
         ></textarea>
       </div>
       <div>
-        <label class="l" for="f-tag">タグ</label>
+        <label class="l" :for="`${id}-tag`">タグ</label>
         <div class="tagbox">
           <button
             v-for="t in form.tags"
@@ -124,16 +128,16 @@ function submit() {
             class="chip on"
             type="button"
             :style="`--tag:${store.tagColor(t)}`"
-            @click="removeTag(t)"
+            @click="() => removeTag(t)"
           >#{{ t }} ×</button>
           <input
-            id="f-tag"
+            :id="`${id}-tag`"
             v-model="tagInput"
             enterkeyhint="done"
             placeholder="タグを入力…"
             @keydown.enter.prevent="commitTag"
             @blur="commitTag"
-          >
+          />
         </div>
         <div class="recent">
           <template v-for="t in store.tagList.slice(0, 8)" :key="t.name">
@@ -142,27 +146,27 @@ function submit() {
               class="chip"
               type="button"
               :style="`--tag:${t.color}`"
-              @click="addTag(t.name)"
+              @click="() => addTag(t.name)"
             >#{{ t.name }}</button>
           </template>
         </div>
       </div>
       <div>
-        <label class="l" for="f-maps">場所</label>
+        <label class="l" :for="`${id}-maps`">場所</label>
         <input
-          id="f-maps"
-          class="url"
-          type="url"
+          :id="`${id}-maps`"
           v-model="mapsUrl"
+          class="url"
           inputmode="url"
           placeholder="Google マップのリンクを貼る"
+          type="url"
           @change="onMapsUrl"
-        >
+        />
         <p class="pinstate">{{ hasPin() ? "地図にピンが立ちます" : "座標が取れないときは地図ビューで長押しして置けます" }}</p>
       </div>
       <div>
-        <label class="l">色</label>
-        <div class="colors">
+        <span :id="`${id}-color`" class="l">色</span>
+        <div class="colors" role="group" :aria-labelledby="`${id}-color`">
           <button
             v-for="c in store.COLORS"
             :key="c"
@@ -170,7 +174,7 @@ function submit() {
             :class="{ on: form.color === c }"
             :style="`background:${c}`"
             :aria-label="c"
-            @click="form.color = c"
+            @click="() => setColor(c)"
           ></button>
         </div>
       </div>
@@ -186,7 +190,7 @@ function submit() {
 .formview {
   position: absolute;
   inset: 0;
-  z-index: 20;
+  z-index: var(--z-sheet);
   background: var(--bg);
   display: flex;
   flex-direction: column;
@@ -197,12 +201,19 @@ function submit() {
   align-items: center;
   gap: 10px;
   padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 8px;
-}
-
-.head h2 {
-  margin: 0;
-  font-size: 19px;
-  font-weight: 900;
+  & h2 {
+    margin: 0;
+    font-size: var(--font-3xl);
+    font-weight: 900;
+  }
+  & label {
+    margin-inline-start: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--font-sm);
+    color: var(--muted);
+  }
 }
 
 .back {
@@ -211,20 +222,11 @@ function submit() {
   border-radius: 999px;
   border: 1.5px solid var(--line);
   background: var(--surface);
-  font-size: 13px;
+  font-size: var(--font-sm);
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-}
-
-.head label {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--muted);
 }
 
 .body {
@@ -237,7 +239,7 @@ function submit() {
 }
 
 .l {
-  font-size: 13px;
+  font-size: var(--font-sm);
   font-weight: 700;
   color: var(--muted);
   display: block;
@@ -247,7 +249,7 @@ function submit() {
 textarea {
   width: 100%;
   font: inherit;
-  font-size: 17px;
+  font-size: var(--font-xl);
   padding: 12px;
   border: 1.5px solid var(--line);
   border-radius: 12px;
@@ -260,7 +262,7 @@ textarea {
 .url {
   width: 100%;
   font: inherit;
-  font-size: 15px;
+  font-size: var(--font-base);
   padding: 10px 12px;
   border: 1.5px solid var(--line);
   border-radius: 12px;
@@ -270,7 +272,7 @@ textarea {
 
 .pinstate {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: var(--font-xs);
   color: var(--muted);
 }
 
@@ -284,22 +286,20 @@ textarea {
   border: 1.5px solid var(--line);
   border-radius: 12px;
   background: var(--surface);
-}
-
-.tagbox input {
-  flex: 1;
-  min-width: 80px;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 15px;
-  color: var(--ink);
-  height: 32px;
-  outline: none;
-}
-
-.tagbox .chip {
-  min-height: 32px;
+  & input {
+    flex: 1;
+    min-width: 80px;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: var(--font-base);
+    color: var(--ink);
+    height: 32px;
+    outline: none;
+  }
+  & .chip {
+    min-height: 32px;
+  }
 }
 
 .recent {
@@ -312,17 +312,15 @@ textarea {
 .colors {
   display: flex;
   gap: 10px;
-}
-
-.colors button {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 3px solid transparent;
-}
-
-.colors button.on {
-  border-color: var(--ink);
+  & button {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    &.on {
+      border-color: var(--ink);
+    }
+  }
 }
 
 .foot {
@@ -338,8 +336,8 @@ textarea {
   height: 52px;
   border-radius: 999px;
   background: var(--red);
-  color: #fff;
-  font-size: 17px;
+  color: var(--on-accent);
+  font-size: var(--font-xl);
   font-weight: 700;
 }
 
@@ -350,7 +348,7 @@ textarea {
 .hint {
   margin: 0;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--font-xs);
   color: var(--muted);
 }
 </style>

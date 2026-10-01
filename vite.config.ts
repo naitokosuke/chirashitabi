@@ -8,7 +8,7 @@ export default defineConfig({
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
     options: { typeAware: true, typeCheck: true },
-    vize: { preset: "essential" },
+    vize: { preset: "opinionated" },
   },
   fmt: { vize: true },
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },

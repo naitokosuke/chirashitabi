@@ -11,7 +11,7 @@ const store = useNotes();
 const { view, clamp, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
 const worldStyle = computed(
-  () => `transform: translate(${view.tx}px, ${view.ty}px) scale(${view.s})`,
+  () => `transform: translate(${view.value.tx}px, ${view.value.ty}px) scale(${view.value.s})`,
 );
 
 // ---- pointer state: plain variables, never reactive (changes every frame) ----
@@ -49,9 +49,9 @@ function onDown(e: PointerEvent) {
     pinch = {
       dist: Math.hypot(a.x - b.x, a.y - b.y),
       mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-      s: view.s,
-      tx: view.tx,
-      ty: view.ty,
+      s: view.value.s,
+      tx: view.value.tx,
+      ty: view.value.ty,
     };
     return;
   }
@@ -74,7 +74,7 @@ function onDown(e: PointerEvent) {
       }
     }, 420);
   } else {
-    pan = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty };
+    pan = { x: e.clientX, y: e.clientY, tx: view.value.tx, ty: view.value.ty };
   }
 }
 
@@ -87,9 +87,9 @@ function onMove(e: PointerEvent) {
       mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
     const ns = clamp((pinch.s * dist) / pinch.dist),
       k = ns / pinch.s;
-    view.s = ns;
-    view.tx = mid.x - (pinch.mid.x - pinch.tx) * k;
-    view.ty = mid.y - (pinch.mid.y - pinch.ty) * k;
+    view.value.s = ns;
+    view.value.tx = mid.x - (pinch.mid.x - pinch.tx) * k;
+    view.value.ty = mid.y - (pinch.mid.y - pinch.ty) * k;
     return;
   }
   if (drag) {
@@ -113,8 +113,8 @@ function onMove(e: PointerEvent) {
     return;
   }
   if (pan) {
-    view.tx = pan.tx + (e.clientX - pan.x);
-    view.ty = pan.ty + (e.clientY - pan.y);
+    view.value.tx = pan.tx + (e.clientX - pan.x);
+    view.value.ty = pan.ty + (e.clientY - pan.y);
   }
 }
 
@@ -142,8 +142,8 @@ function onWheel(e: WheelEvent) {
   e.preventDefault();
   if (e.ctrlKey || e.metaKey) zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.01));
   else {
-    view.tx -= e.deltaX;
-    view.ty -= e.deltaY;
+    view.value.tx -= e.deltaX;
+    view.value.ty -= e.deltaY;
   }
 }
 
@@ -152,6 +152,17 @@ function openMenu(note: Note, sx: number, sy: number) {
   navigator.vibrate?.(10);
   const r = vp.value!.getBoundingClientRect();
   menu.value = { note, x: Math.min(sx - 80, r.width - 330), y: Math.max(sy - 70, 90) };
+}
+function setMenuColor(color: string) {
+  if (menu.value) store.update(menu.value.note.id, { color });
+}
+function duplicateFromMenu() {
+  if (menu.value) store.duplicate(menu.value.note.id);
+  menu.value = null;
+}
+function removeFromMenu() {
+  if (menu.value) store.remove(menu.value.note.id);
+  menu.value = null;
 }
 
 // ---- fit ----
@@ -177,6 +188,13 @@ function showToast(text: string, undo?: string) {
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => (toast.value = null), 3200);
 }
+function undoToast() {
+  if (toast.value?.undo) store.remove(toast.value.undo);
+  toast.value = null;
+}
+function write() {
+  emit("write");
+}
 function place(input: NoteInput, quiet = false) {
   const r = vp.value!.getBoundingClientRect();
   const c = toWorld(r.width / 2, r.height / 2);
@@ -199,8 +217,8 @@ onMounted(() => emit("ready", place));
 onMounted(() =>
   nextTick(() => {
     const r = vp.value!.getBoundingClientRect();
-    view.tx = (r.width - 400) / 2;
-    view.ty = 90;
+    view.value.tx = (r.width - 400) / 2;
+    view.value.ty = 90;
   }),
 );
 </script>
@@ -226,8 +244,8 @@ onMounted(() =>
           :pop="popId === n.id"
           :dim="store.mode === 'dim' && !store.matches(n)"
           :hidden="store.mode === 'only' && !store.matches(n)"
-          @adopt="store.adopt(n.id)"
-          @remove="store.remove(n.id)"
+          @adopt="() => store.adopt(n.id)"
+          @remove="() => store.remove(n.id)"
         />
         <div v-if="ring" class="ring" :style="`transform: translate(${ring.x}px, ${ring.y}px)`"></div>
       </div>
@@ -235,28 +253,34 @@ onMounted(() =>
 
     <FilterBar />
 
-    <div class="jump"><button @click="fitAll">全体</button></div>
+    <div class="jump"><button type="button" @click="fitAll">全体</button></div>
 
     <div v-if="toast" class="toast">
       <span>{{ toast.text }}</span>
-      <button v-if="toast.undo" @click="store.remove(toast.undo); toast = null">取り消す</button>
+      <button v-if="toast.undo" type="button" @click="undoToast">取り消す</button>
     </div>
 
-    <div v-if="menu" class="menu" :style="`left:${menu.x}px; top:${menu.y}px`" @pointerdown.stop>
+    <div
+      v-if="menu"
+      class="menu"
+      :style="`inset-inline-start:${menu.x}px; inset-block-start:${menu.y}px`"
+      @pointerdown.stop
+    >
       <button
         v-for="c in store.COLORS"
         :key="c"
         class="sw"
+        type="button"
         :class="{ on: menu.note.color === c }"
         :style="`background:${c}`"
         :aria-label="c"
-        @click="store.update(menu!.note.id, { color: c })"
+        @click="() => setMenuColor(c)"
       ></button>
-      <button @click="store.duplicate(menu!.note.id); menu = null">複製</button>
-      <button class="del" @click="store.remove(menu!.note.id); menu = null">削除</button>
+      <button type="button" @click="duplicateFromMenu">複製</button>
+      <button class="del" type="button" @click="removeFromMenu">削除</button>
     </div>
 
-    <button aria-label="メモを書く" class="fab" @click="emit('write')">
+    <button aria-label="メモを書く" class="fab" type="button" @click="write">
       <svg
         fill="none"
         height="26"
@@ -287,24 +311,23 @@ onMounted(() =>
   cursor: grab;
   background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px);
   background-size: 22px 22px;
-}
-
-.viewport.panning {
-  cursor: grabbing;
+  &.panning {
+    cursor: grabbing;
+  }
 }
 
 .world {
   position: absolute;
-  left: 0;
-  top: 0;
+  inset-inline-start: 0;
+  inset-block-start: 0;
   transform-origin: 0 0;
   will-change: transform;
 }
 
 .ring {
   position: absolute;
-  left: 0;
-  top: 0;
+  inset-inline-start: 0;
+  inset-block-start: 0;
   width: 192px;
   height: 110px;
   border: 3px solid var(--red);
@@ -326,14 +349,14 @@ onMounted(() =>
 
 .fab {
   position: absolute;
-  right: 16px;
-  bottom: 20px;
-  z-index: 5;
+  inset-inline-end: 16px;
+  inset-block-end: 20px;
+  z-index: var(--z-chrome);
   width: 58px;
   height: 58px;
   border-radius: 50%;
   background: var(--red);
-  color: #fff;
+  color: var(--on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -342,27 +365,25 @@ onMounted(() =>
 
 .jump {
   position: absolute;
-  left: 16px;
-  bottom: 28px;
-  z-index: 5;
-}
-
-.jump button {
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: var(--surface);
-  border: 1.5px solid var(--line);
-  font-size: 13px;
-  font-weight: 700;
+  inset-inline-start: 16px;
+  inset-block-end: 28px;
+  z-index: var(--z-chrome);
+  & button {
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    font-size: var(--font-sm);
+    font-weight: 700;
+  }
 }
 
 .toast {
   position: absolute;
-  left: 16px;
-  right: 90px;
-  bottom: 92px;
-  z-index: 5;
+  inset-inline: 16px 90px;
+  inset-block-end: 92px;
+  z-index: var(--z-chrome);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -371,20 +392,19 @@ onMounted(() =>
   border-radius: 14px;
   background: var(--ink);
   color: var(--bg);
-  font-size: 14px;
+  font-size: var(--font-md);
   font-weight: 700;
   box-shadow: 0 6px 18px rgba(28,34,56,.3);
-}
-
-.toast button {
-  color: #ffd9de;
-  font-weight: 700;
-  font-size: 13px;
+  & button {
+    color: var(--pink-soft);
+    font-weight: 700;
+    font-size: var(--font-sm);
+  }
 }
 
 .menu {
   position: absolute;
-  z-index: 6;
+  z-index: var(--z-menu);
   background: var(--surface);
   border: 1.5px solid var(--line);
   border-radius: 14px;
@@ -392,32 +412,28 @@ onMounted(() =>
   display: flex;
   gap: 4px;
   box-shadow: 0 8px 20px rgba(28,34,56,.2);
-}
-
-.menu button {
-  min-height: 40px;
-  padding: 0 12px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.menu button.del {
-  color: var(--red);
-}
-
-.menu .sw {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  margin: 6px 3px;
-  border: 2px solid transparent;
-  padding: 0;
-  min-height: 0;
-}
-
-.menu .sw.on {
-  border-color: var(--ink);
+  & button {
+    min-height: 40px;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-size: var(--font-md);
+    font-weight: 700;
+    &.del {
+      color: var(--red);
+    }
+  }
+  & .sw {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    margin: 6px 3px;
+    border: 2px solid transparent;
+    padding: 0;
+    min-height: 0;
+    &.on {
+      border-color: var(--ink);
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,4 +1,14 @@
+import type { Temporal } from "temporal-polyfill-lite";
+
 export type NoteKind = "note" | "claude";
+export type NoteStatus = "idea" | "fixed" | "done";
+
+export const MEMBERS = {
+  yuki: "#3c6ee0",
+  ken: "#d7263d",
+  claude: "#D97757",
+} as const satisfies Record<string, string>;
+export type Member = keyof typeof MEMBERS;
 
 export interface Note {
   id: string;
@@ -10,25 +20,28 @@ export interface Note {
   x: number;
   y: number;
   rot: number;
-  by: string;
+  by: Member;
   // optional, added later for the itinerary
-  date?: string;
-  time?: string;
+  date?: Temporal.PlainDate;
+  time?: Temporal.PlainTime;
   budget?: number | null;
   mapsUrl?: string;
-  status?: "idea" | "fixed" | "done";
+  status?: NoteStatus;
   lat?: number;
   lng?: number;
-  updatedAt: number;
+  updatedAt: Temporal.Instant;
 }
 
 export type NoteInput = Pick<Note, "title" | "body" | "tags" | "color"> &
   Partial<Pick<Note, "lat" | "lng" | "mapsUrl">>;
 
 export interface Day {
-  date: string; // YYYY-MM-DD
+  date: Temporal.PlainDate;
   intro: string; // 2-3 lines written for the booklet, not a note
 }
+
+/** "12:30" — for labels and `<input type="time">` values */
+export const hhmm = (t: Temporal.PlainTime) => t.toString({ smallestUnit: "minute" });
 
 export const COLORS = ["#fff1b8", "#ffd9de", "#d8f0e6", "#dbe7ff", "#ead9ff", "#ffffff"];
 export const TAG_COLORS = [
@@ -40,8 +53,3 @@ export const TAG_COLORS = [
   "#b85c1a",
   "#0f7a8a",
 ];
-export const MEMBERS: Record<string, string> = {
-  yuki: "#3c6ee0",
-  ken: "#d7263d",
-  claude: "#D97757",
-};

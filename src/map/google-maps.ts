@@ -13,3 +13,13 @@ export function parseMapsUrl(url: string): { lat: number; lng: number } | null {
 }
 export const googleMapsLink = (lat: number, lng: number) =>
   `https://www.google.com/maps?q=${lat},${lng}`;
+
+/**
+ * A pasted link, or undefined unless it is http(s). Notes come from the other
+ * person in the room, so a `javascript:` URL must never reach an href.
+ */
+export function safeUrl(url: string | undefined): string | undefined {
+  if (!url || !URL.canParse(url)) return undefined;
+  const u = new URL(url);
+  return u.protocol === "https:" || u.protocol === "http:" ? u.href : undefined;
+}

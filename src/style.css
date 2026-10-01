@@ -14,6 +14,35 @@
   --oat: #e3dacc;
   --slate: #141413;
   --navh: calc(64px + env(safe-area-inset-bottom, 0px));
+
+  /* Fixed regardless of theme: sticky notes are always light paper */
+  --on-accent: #fff;
+  --paper: #fff1b8;
+  --paper-ink: #1c2238;
+  --paper-muted: #4b5563;
+  --pink-soft: #ffd9de;
+  --stone: #73726c;
+  --stone-light: #9aa09c;
+
+  --font-2xs: 11px;
+  --font-xs: 12px;
+  --font-sm: 13px;
+  --font-md: 14px;
+  --font-base: 15px;
+  --font-lg: 16px;
+  --font-xl: 17px;
+  --font-2xl: 18px;
+  --font-3xl: 19px;
+  --font-4xl: 22px;
+
+  /* Stacking, low to high */
+  --z-float: 2; /* map overlays */
+  --z-float-top: 3;
+  --z-chrome: 5; /* filter bar, jump/fab buttons, toast */
+  --z-menu: 6;
+  --z-drag: 10; /* the card being dragged */
+  --z-sheet: 20; /* full-screen form */
+
   box-sizing: border-box;
 }
 @media (prefers-color-scheme: dark) {

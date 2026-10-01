@@ -1,19 +1,32 @@
 <script setup lang="ts" vapor>
-import { onBeforeUnmount, onMounted, ref, watch, watchEffect, useTemplateRef } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect, useTemplateRef } from "vue";
 import * as maplibregl from "maplibre-gl";
 import { Map as MLMap, Marker } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
+import { Temporal } from "temporal-polyfill-lite";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useNotes } from "@/notes/store";
-import { MEMBERS, type Note } from "@/notes/types";
-import { googleMapsLink } from "./google-maps";
+import { MEMBERS, hhmm, type Note } from "@/notes/types";
+import { googleMapsLink, safeUrl } from "./google-maps";
 
 const emit = defineEmits<{ write: [at: { lat: number; lng: number }]; edit: [note: Note] }>();
 const store = useNotes();
 const el = useTemplateRef<HTMLElement>("el");
 const selected = ref<Note | null>(null);
-const day = ref<string | null>(null); // show a day's route
+const day = ref<Temporal.PlainDate | null>(null); // show a day's route
+const isDay = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
+const toggleDay = (date: Temporal.PlainDate) => (day.value = isDay(date) ? null : date);
 const noPin = ref(0);
+const showAllDays = () => (day.value = null);
+const closeCard = () => (selected.value = null);
+const editSelected = () => {
+  if (selected.value) emit("edit", selected.value);
+};
+const selectedLink = computed(() => {
+  const n = selected.value;
+  if (!n) return undefined;
+  return n.mapsUrl || googleMapsLink(n.lat!, n.lng!);
+});
 
 // free vector tiles, no key. Swap the style URL for your own if you self-host.
 const STYLE = "https://tiles.openfreemap.org/styles/liberty";
@@ -76,15 +89,12 @@ onBeforeUnmount(() => {
 
 function pinEl(n: Note) {
   const d = document.createElement("button");
+  d.type = "button";
   d.className = "pin";
   d.setAttribute("aria-label", n.title);
   d.style.setProperty(
     "--pin",
-    n.kind === "claude"
-      ? "#D97757"
-      : n.tags[0]
-        ? store.tagColor(n.tags[0])
-        : (MEMBERS[n.by] ?? "#1c2238"),
+    n.kind === "claude" ? "var(--clay)" : n.tags[0] ? store.tagColor(n.tags[0]) : MEMBERS[n.by],
   );
   d.innerHTML = `<span class="dot"></span><span class="lbl">${escapeHtml(n.title)}</span>`;
   d.addEventListener("click", (e) => {
@@ -116,7 +126,7 @@ function syncMarkers() {
     } else m.setLngLat([n.lng, n.lat]);
     const e = m.getElement();
     e.classList.toggle("dim", dim);
-    e.classList.toggle("hide", !visible);
+    e.style.display = visible ? "" : "none";
     e.classList.toggle("on", selected.value?.id === n.id);
     e.querySelector(".lbl")!.textContent = n.title;
   }
@@ -166,10 +176,10 @@ watchEffect(() => {
   void selected.value;
   syncMarkers();
 });
-watch([day, () => store.notes.map((n) => n.time + (n.status ?? "") + n.date)], syncRoute);
+watch([day, () => store.notes.map((n) => `${n.time} ${n.status} ${n.date}`)], syncRoute);
 
-const short = (date: string) =>
-  new Date(date + "T00:00:00").toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
+const short = (date: Temporal.PlainDate) =>
+  date.toLocaleString("ja-JP", { month: "numeric", day: "numeric" });
 const yen = (n: number) => "NT$ " + n.toLocaleString("ja-JP");
 function fitAll() {
   const pts = store.notes
@@ -189,18 +199,19 @@ function fitAll() {
 
     <div class="top">
       <div class="days">
-        <button :class="{ on: day === null }" @click="day = null">全部</button>
+        <button type="button" :class="{ on: day === null }" @click="showAllDays">全部</button>
         <button
           v-for="d in store.days"
-          :key="d.date"
-          :class="{ on: day === d.date }"
-          @click="day = day === d.date ? null : d.date"
+          :key="d.date.toString()"
+          type="button"
+          :class="{ on: isDay(d.date) }"
+          @click="() => toggleDay(d.date)"
         >{{ short(d.date) }}の道順</button>
       </div>
       <p v-if="noPin" class="nopin">場所が未設定のメモ {{ noPin }} 件 · 地図を長押しで置けます</p>
     </div>
 
-    <div class="jump"><button @click="fitAll">全体</button></div>
+    <div class="jump"><button type="button" @click="fitAll">全体</button></div>
 
     <div v-if="selected" class="card" :style="`--card:${selected.color}`">
       <p class="t">{{ selected.title }}</p>
@@ -208,16 +219,12 @@ function fitAll() {
       <p class="meta">
         <span v-for="t in selected.tags" :key="t" :style="`color:${store.tagColor(t)}`">#{{ t }} </span>
         <span v-if="selected.budget">{{ yen(selected.budget) }} </span>
-        <span v-if="selected.date">{{ short(selected.date) }} {{ selected.time ?? "" }}</span>
+        <span v-if="selected.date">{{ short(selected.date) }} {{ selected.time ? hhmm(selected.time) : "" }}</span>
       </p>
       <div class="act">
-        <a
-          :href="selected.mapsUrl || googleMapsLink(selected.lat!, selected.lng!)"
-          rel="noopener"
-          target="_blank"
-        >Google マップで開く</a>
-        <button v-if="selected.kind !== 'claude'" @click="emit('edit', selected!)">編集</button>
-        <button aria-label="閉じる" class="x" @click="selected = null">×</button>
+        <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">Google マップで開く</a>
+        <button v-if="selected.kind !== 'claude'" type="button" @click="editSelected">編集</button>
+        <button aria-label="閉じる" class="x" type="button" @click="closeCard">×</button>
       </div>
     </div>
   </div>
@@ -227,6 +234,55 @@ function fitAll() {
 .mapview {
   position: absolute;
   inset: 0;
+
+  /* marker elements are built with innerHTML inside the map container */
+  & :deep(.pin) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    transition: opacity .2s;
+
+    & .dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      background: var(--pin);
+      border: 2.5px solid var(--on-accent);
+      box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    }
+
+    & .lbl {
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: var(--font-2xs);
+      font-weight: 700;
+      color: var(--paper-ink);
+      background: rgba(255,255,255,.9);
+      padding: 1px 6px;
+      border-radius: 999px;
+    }
+
+    &.on .dot {
+      transform: rotate(-45deg) scale(1.3);
+    }
+
+    &.dim {
+      opacity: .25;
+      pointer-events: none;
+    }
+  }
+
+  & :deep(.maplibregl-ctrl-bottom-right) {
+    inset-block-end: 24px;
+  }
 }
 
 .map {
@@ -236,19 +292,18 @@ function fitAll() {
 
 .top {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index: 2;
+  inset-inline: 0;
+  inset-block-start: 0;
+  z-index: var(--z-float);
   padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 0;
   pointer-events: none;
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
 
-.top > * {
-  pointer-events: auto;
+  & > * {
+    pointer-events: auto;
+  }
 }
 
 .days {
@@ -256,34 +311,34 @@ function fitAll() {
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
-}
 
-.days::-webkit-scrollbar {
-  display: none;
-}
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
-.days button {
-  flex-shrink: 0;
-  min-height: 36px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1.5px solid var(--line);
-  background: var(--surface);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--muted);
-}
+  & button {
+    flex-shrink: 0;
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    background: var(--surface);
+    font-size: var(--font-sm);
+    font-weight: 700;
+    color: var(--muted);
 
-.days button.on {
-  background: var(--red);
-  color: #fff;
-  border-color: transparent;
+    &.on {
+      background: var(--red);
+      color: var(--on-accent);
+      border-color: transparent;
+    }
+  }
 }
 
 .nopin {
   margin: 0;
   align-self: flex-start;
-  font-size: 12px;
+  font-size: var(--font-xs);
   color: var(--ink);
   background: var(--surface);
   border: 1.5px solid var(--line);
@@ -293,126 +348,70 @@ function fitAll() {
 
 .jump {
   position: absolute;
-  left: 16px;
-  bottom: 28px;
-  z-index: 2;
-}
+  inset-inline-start: 16px;
+  inset-block-end: 28px;
+  z-index: var(--z-float);
 
-.jump button {
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: var(--surface);
-  border: 1.5px solid var(--line);
-  font-size: 13px;
-  font-weight: 700;
+  & button {
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    font-size: var(--font-sm);
+    font-weight: 700;
+  }
 }
 
 .card {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 80px;
-  z-index: 3;
+  inset-inline: 12px;
+  inset-block-end: 80px;
+  z-index: var(--z-float-top);
   padding: 12px 14px;
   border-radius: 14px;
   background: var(--surface);
   border: 1.5px solid var(--line);
   border-left: 6px solid var(--card);
   box-shadow: 0 8px 20px rgba(28,34,56,.2);
-}
 
-.card .t {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-}
+  & .t {
+    margin: 0;
+    font-size: var(--font-lg);
+    font-weight: 700;
+  }
 
-.card .b {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: var(--muted);
-}
+  & .b {
+    margin: 2px 0 0;
+    font-size: var(--font-sm);
+    color: var(--muted);
+  }
 
-.card .meta {
-  margin: 4px 0 0;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted);
-}
+  & .meta {
+    margin: 4px 0 0;
+    font-size: var(--font-xs);
+    font-weight: 700;
+    color: var(--muted);
+  }
 
-.card .act {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-  font-size: 13px;
-  font-weight: 700;
-}
+  & .act {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: var(--font-sm);
+    font-weight: 700;
 
-.card .act a {
-  color: var(--jade);
-  text-decoration: none;
-}
+    & a {
+      color: var(--jade);
+      text-decoration: none;
+    }
 
-.card .act .x {
-  margin-left: auto;
-  font-size: 18px;
-  color: var(--muted);
-}
-</style>
-
-<style>
-/* marker elements live outside the component root, so these are global */
-.pin {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  transition: opacity .2s;
-}
-
-.pin .dot {
-  width: 18px;
-  height: 18px;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  background: var(--pin);
-  border: 2.5px solid #fff;
-  box-shadow: 0 2px 6px rgba(0,0,0,.3);
-}
-
-.pin .lbl {
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 11px;
-  font-weight: 700;
-  color: #1c2238;
-  background: rgba(255,255,255,.9);
-  padding: 1px 6px;
-  border-radius: 999px;
-}
-
-.pin.on .dot {
-  transform: rotate(-45deg) scale(1.3);
-}
-
-.pin.dim {
-  opacity: .25;
-  pointer-events: none;
-}
-
-.pin.hide {
-  display: none;
-}
-
-.maplibregl-ctrl-bottom-right {
-  bottom: 24px;
+    & .x {
+      margin-inline-start: auto;
+      font-size: var(--font-2xl);
+      color: var(--muted);
+    }
+  }
 }
 </style>

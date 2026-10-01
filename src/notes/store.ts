@@ -1,10 +1,14 @@
 import { defineStore } from "pinia";
-import { computed, reactive, ref, shallowRef } from "vue";
-import { COLORS, TAG_COLORS, type Day, type Note, type NoteInput } from "./types";
+import { computed, ref, shallowRef } from "vue";
+import { Temporal } from "temporal-polyfill-lite";
+import { COLORS, TAG_COLORS, type Day, type Member, type Note, type NoteInput } from "./types";
 import { seed } from "./seed";
 
-export const ME = "yuki";
+export const ME: Member = "yuki";
 const uid = () => Math.random().toString(36).slice(2, 10);
+const now = () => Temporal.Now.instant();
+const TRIP_START = Temporal.PlainDate.from("2026-11-03");
+const TRIP_DAYS = 4;
 
 /**
  * Transport is the only thing that changes when the Cloudflare room arrives:
@@ -19,19 +23,16 @@ export type Mutation =
   | { type: "note:update"; id: string; patch: Partial<Note> }
   | { type: "note:move"; id: string; x: number; y: number } // throttled while dragging
   | { type: "note:delete"; id: string }
-  | { type: "day:intro"; date: string; intro: string };
+  | { type: "day:intro"; date: Temporal.PlainDate; intro: string };
 
 export const useNotes = defineStore("notes", () => {
-  // Array of plain objects: cards read x/y through the array, so moving one card
-  // only touches that object. shallowRef would skip updates; reactive is right here.
-  const notes = reactive<Note[]>(seed());
+  // Deep ref on purpose: cards read x/y through the array, so moving one card
+  // only touches that object. shallowRef would skip those nested updates.
+  const notes = ref<Note[]>(seed());
   const transport = shallowRef<Transport>({ send: () => {} });
-  const days = reactive<Day[]>([
-    { date: "2026-11-03", intro: "" },
-    { date: "2026-11-04", intro: "" },
-    { date: "2026-11-05", intro: "" },
-    { date: "2026-11-06", intro: "" },
-  ]);
+  const days = ref<Day[]>(
+    Array.from({ length: TRIP_DAYS }, (_, i) => ({ date: TRIP_START.add({ days: i }), intro: "" })),
+  );
 
   // ---- tags & filter (view state, never synced) ----
   const tagColorMap = new Map<string, string>();
@@ -41,15 +42,17 @@ export const useNotes = defineStore("notes", () => {
   }
   const tagList = computed(() => {
     const c = new Map<string, number>();
-    for (const n of notes) for (const t of n.tags) c.set(t, (c.get(t) ?? 0) + 1);
+    for (const n of notes.value) for (const t of n.tags) c.set(t, (c.get(t) ?? 0) + 1);
     return [...c]
       .sort((a, b) => b[1] - a[1])
       .map(([name, count]) => ({ name, count, color: tagColor(name) }));
   });
-  const selected = reactive(new Set<string>());
+  const selected = ref(new Set<string>());
   const mode = ref<"dim" | "only">("dim");
-  const toggleTag = (t: string) => (selected.has(t) ? selected.delete(t) : selected.add(t));
-  const matches = (n: Note) => selected.size === 0 || n.tags.some((t) => selected.has(t));
+  const toggleTag = (t: string) =>
+    selected.value.has(t) ? selected.value.delete(t) : selected.value.add(t);
+  const matches = (n: Note) =>
+    selected.value.size === 0 || n.tags.some((t) => selected.value.has(t));
 
   // ---- mutations (local first, then transport) ----
   function add(input: NoteInput, at: { x: number; y: number }): Note {
@@ -57,20 +60,20 @@ export const useNotes = defineStore("notes", () => {
       id: uid(),
       kind: "note",
       by: ME,
-      updatedAt: Date.now(),
+      updatedAt: now(),
       x: at.x + (Math.random() * 20 - 10),
       y: at.y + (Math.random() * 20 - 10),
       rot: Math.random() * 4 - 2,
       ...input,
     };
-    notes.push(n);
+    notes.value.push(n);
     transport.value.send({ type: "note:add", note: n });
     return n;
   }
   function update(id: string, patch: Partial<Note>) {
     const n = byId(id);
     if (!n) return;
-    Object.assign(n, patch, { updatedAt: Date.now() });
+    Object.assign(n, patch, { updatedAt: now() });
     transport.value.send({ type: "note:update", id, patch });
   }
   function move(id: string, x: number, y: number, final = false) {
@@ -78,12 +81,12 @@ export const useNotes = defineStore("notes", () => {
     if (!n) return;
     n.x = x;
     n.y = y;
-    if (final) n.updatedAt = Date.now();
+    if (final) n.updatedAt = now();
     transport.value.send({ type: "note:move", id, x, y });
   }
   function remove(id: string) {
-    const i = notes.findIndex((n) => n.id === id);
-    if (i >= 0) notes.splice(i, 1);
+    const i = notes.value.findIndex((n) => n.id === id);
+    if (i >= 0) notes.value.splice(i, 1);
     transport.value.send({ type: "note:delete", id });
   }
   function duplicate(id: string) {
@@ -97,36 +100,42 @@ export const useNotes = defineStore("notes", () => {
   function adopt(id: string) {
     update(id, { kind: "note", color: "#ffffff", tags: ["Claude"] });
   }
-  const byId = (id: string) => notes.find((n) => n.id === id);
+  const byId = (id: string) => notes.value.find((n) => n.id === id);
 
   // ---- booklet (しおり) helpers ----
   const unassigned = computed(() =>
-    notes.filter((n) => n.kind === "note" && !n.date && !n.tags.includes("持ち物")),
+    notes.value.filter((n) => n.kind === "note" && !n.date && !n.tags.includes("持ち物")),
   );
-  const timeKey = (n: Note) => (n.time ? n.time : "99:99");
-  const forDay = (date: string, status?: Note["status"]) =>
-    notes
+  const onDay = (n: Note, date: Temporal.PlainDate) => n.date?.equals(date) ?? false;
+  // untimed items ("いつでも") go last; ties fall back to edit order
+  const byTime = (a: Note, b: Note) =>
+    (a.time && b.time ? Temporal.PlainTime.compare(a.time, b.time) : +!a.time - +!b.time) ||
+    Temporal.Instant.compare(a.updatedAt, b.updatedAt);
+  const forDay = (date: Temporal.PlainDate, status?: Note["status"]) =>
+    notes.value
       .filter(
-        (n) => n.kind === "note" && n.date === date && (!status || (n.status ?? "idea") === status),
+        (n) => n.kind === "note" && onDay(n, date) && (!status || (n.status ?? "idea") === status),
       )
-      .sort((a, b) => timeKey(a).localeCompare(timeKey(b)) || a.updatedAt - b.updatedAt);
-  const byTag = (tag: string) => notes.filter((n) => n.kind === "note" && n.tags.includes(tag));
-  const budgetOf = (date?: string, onlyFixed = true) =>
-    notes
+      .sort(byTime);
+  const byTag = (tag: string) =>
+    notes.value.filter((n) => n.kind === "note" && n.tags.includes(tag));
+  const budgetOf = (date?: Temporal.PlainDate, onlyFixed = true) =>
+    notes.value
       .filter(
         (n) =>
-          n.kind === "note" && (!date || n.date === date) && (!onlyFixed || n.status === "fixed"),
+          n.kind === "note" && (!date || onDay(n, date)) && (!onlyFixed || n.status === "fixed"),
       )
       .reduce((s, n) => s + (n.budget ?? 0), 0);
-  function setIntro(date: string, intro: string) {
-    const d = days.find((d) => d.date === date);
+  const dayOf = (date: Temporal.PlainDate) => days.value.find((d) => d.date.equals(date));
+  function setIntro(date: Temporal.PlainDate, intro: string) {
+    const d = dayOf(date);
     if (d) d.intro = intro;
     transport.value.send({ type: "day:intro", date, intro });
   }
 
   /** Called by the room when an authoritative snapshot arrives. */
   function apply(snapshot: Note[]) {
-    notes.splice(0, notes.length, ...snapshot);
+    notes.value = snapshot;
   }
 
   return {
@@ -152,6 +161,7 @@ export const useNotes = defineStore("notes", () => {
     forDay,
     byTag,
     budgetOf,
+    dayOf,
     setIntro,
   };
 });

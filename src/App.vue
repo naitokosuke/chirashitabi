@@ -21,6 +21,21 @@ function write(note: Note | null = null, coords: { lat: number; lng: number } | 
   at.value = coords;
   form.value = true;
 }
+function newNote() {
+  write();
+}
+function editNote(note: Note) {
+  write(note);
+}
+function writeAt(coords: { lat: number; lng: number }) {
+  write(null, coords);
+}
+function closeForm() {
+  form.value = false;
+}
+function showTab(t: "canvas" | "map" | "shiori") {
+  tab.value = t;
+}
 function onSave(input: NoteInput, keepOpen: boolean) {
   if (keepOpen) {
     place?.(input, true);
@@ -35,19 +50,19 @@ function onSave(input: NoteInput, keepOpen: boolean) {
 <template>
   <!-- The canvas stays mounted underneath so pan/zoom survives a trip to the form or the booklet -->
   <div class="screen">
-    <CanvasView @ready="onCanvasReady" @write="write()" @edit="write($event)" />
+    <CanvasView @ready="onCanvasReady" @write="newNote" @edit="editNote" />
     <Transition name="fade">
-      <MapView v-if="tab === 'map'" @write="write(null, $event)" @edit="write($event)" />
+      <MapView v-if="tab === 'map'" @write="writeAt" @edit="editNote" />
     </Transition>
     <Transition name="fade">
       <ShioriView v-if="tab === 'shiori'" />
     </Transition>
     <Transition name="slide">
-      <FormView v-if="form" :editing="editing" :at="at" @close="form = false" @save="onSave" />
+      <FormView v-if="form" :editing :at @close="closeForm" @save="onSave" />
     </Transition>
   </div>
   <nav aria-label="ビュー" class="nav">
-    <button :class="{ on: tab === 'canvas' }" @click="tab = 'canvas'">
+    <button type="button" :class="{ on: tab === 'canvas' }" @click="() => showTab('canvas')">
       <svg
         fill="none"
         height="22"
@@ -60,7 +75,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
       ><rect height="8" rx="1.5" width="8" x="3" y="4" /><rect height="6" rx="1.5" width="8" x="13" y="7" /><rect height="6" rx="1.5" width="9" x="6" y="14" /></svg>
       キャンバス
     </button>
-    <button :class="{ on: tab === 'map' }" @click="tab = 'map'">
+    <button type="button" :class="{ on: tab === 'map' }" @click="() => showTab('map')">
       <svg
         fill="none"
         height="22"
@@ -73,7 +88,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
       ><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
       地図
     </button>
-    <button :class="{ on: tab === 'shiori' }" @click="tab = 'shiori'">
+    <button type="button" :class="{ on: tab === 'shiori' }" @click="() => showTab('shiori')">
       <svg
         fill="none"
         height="22"
@@ -93,15 +108,14 @@ function onSave(input: NoteInput, keepOpen: boolean) {
 .screen {
   position: absolute;
   inset: 0;
-  bottom: var(--navh);
+  inset-block-end: var(--navh);
   overflow: hidden;
 }
 
 .nav {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset-inline: 0;
+  inset-block-end: 0;
   height: var(--navh);
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -109,23 +123,21 @@ function onSave(input: NoteInput, keepOpen: boolean) {
   padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
   background: var(--surface);
   border-top: 1.5px solid var(--line);
-}
-
-.nav button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  border-radius: 12px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.nav button.on {
-  background: color-mix(in srgb, var(--red) 12%, var(--surface));
-  color: var(--red);
+  & button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border-radius: 12px;
+    color: var(--muted);
+    font-size: var(--font-xs);
+    font-weight: 700;
+    &.on {
+      background: color-mix(in srgb, var(--red) 12%, var(--surface));
+      color: var(--red);
+    }
+  }
 }
 
 .fade-enter-active, .fade-leave-active {

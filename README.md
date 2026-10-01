@@ -37,6 +37,17 @@ Vize の Vapor 出力は今のところ、テンプレート ref が `ref()` に
 全コンポーネントが `<script setup vapor>`。VDOM 専用のものを混ぜたくなったら
 `main.ts` を `createApp(App).use(vaporInteropPlugin)` に変えるだけ。
 
+## 書き方の約束
+
+- 状態は `reactive` を使わず `ref` に統一する
+- 日付・時刻は `Date` や文字列ではなく Temporal（[temporal-polyfill-lite](https://github.com/fabon-f/temporal-polyfill-lite) をグローバルを書き換えずに import）
+  - 日付 `Temporal.PlainDate`、時刻 `Temporal.PlainTime`、更新時刻 `Temporal.Instant`
+  - 比較は `===` ではなく `equals()` / `compare()`。表示は `toLocaleString` と `hhmm()`（`notes/types.ts`）
+- メンバー（`Member`）やステータス（`NoteStatus`）も `string` ではなくユニオン型
+- lint は Vize の `opinionated` プリセット。CSS の値は `style.css` のトークン（色・文字サイズ・z-index）を使う
+- メモのリンクは相手が書いたものなので、`href` には必ず `safeUrl()`（`map/google-maps.ts`）を通す。
+  Vize の `vue/no-unsafe-url` はこの名前（`safeUrl` / `sanitizeUrl` など）をテンプレートで直接呼んだときだけ検証済みと見なす
+
 ## 同期の差し込み口
 
 `notes/store.ts` の `transport.send(mutation)` が唯一の出口で、いまは何もしない。
@@ -46,6 +57,9 @@ Cloudflare 側（Durable Object + WebSocket）ができたら、
 2. サーバーからのスナップショットを `store.apply(notes)` に渡す
 
 で接続できる。ドラッグ中の `note:move` は 80ms 間隔に間引いてある。
+
+Temporal の値は `JSON.stringify` で ISO 文字列になる（`"2026-11-03"`、`"12:30:00"`）。
+受け取った側はそのままだと文字列なので、`apply` に渡す前に `Temporal.PlainDate.from` などで戻すこと。
 
 ## サクサクのための約束
 

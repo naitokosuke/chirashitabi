@@ -1,6 +1,12 @@
 <script setup lang="ts" vapor>
 import { useNotes } from "@/notes/store";
 const store = useNotes();
+function setMode(mode: "dim" | "only") {
+  store.mode = mode;
+}
+function clearTags() {
+  store.selected.clear();
+}
 </script>
 
 <template>
@@ -8,19 +14,20 @@ const store = useNotes();
     <div class="row">
       <h1>ちらしたび<span class="room">台湾たび</span></h1>
       <div aria-label="絞り込みの見せ方" class="mode" role="group">
-        <button :class="{ on: store.mode === 'dim' }" @click="store.mode = 'dim'">薄くする</button>
-        <button :class="{ on: store.mode === 'only' }" @click="store.mode = 'only'">だけ表示</button>
+        <button type="button" :class="{ on: store.mode === 'dim' }" @click="() => setMode('dim')">薄くする</button>
+        <button type="button" :class="{ on: store.mode === 'only' }" @click="() => setMode('only')">だけ表示</button>
       </div>
     </div>
     <div class="chips">
-      <button v-if="store.selected.size" class="chip clear" @click="store.selected.clear()">× 解除</button>
+      <button v-if="store.selected.size" class="chip clear" type="button" @click="clearTags">× 解除</button>
       <button
         v-for="t in store.tagList"
         :key="t.name"
         class="chip"
+        type="button"
         :class="{ on: store.selected.has(t.name) }"
         :style="`--tag:${t.color}`"
-        @click="store.toggleTag(t.name)"
+        @click="() => store.toggleTag(t.name)"
       >#{{ t.name }}<span class="n">{{ t.count }}</span></button>
     </div>
   </div>
@@ -29,19 +36,18 @@ const store = useNotes();
 <style scoped>
 .bar {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index: 5;
+  inset-inline: 0;
+  inset-block-start: 0;
+  z-index: var(--z-chrome);
   padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
-}
 
-.bar > * {
-  pointer-events: auto;
+  & > * {
+    pointer-events: auto;
+  }
 }
 
 .row {
@@ -52,7 +58,7 @@ const store = useNotes();
 
 h1 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--font-2xl);
   font-weight: 900;
   color: var(--red);
   background: var(--bg);
@@ -64,7 +70,7 @@ h1 {
 }
 
 .room {
-  font-size: 13px;
+  font-size: var(--font-sm);
   font-weight: 700;
   color: var(--muted);
 }
@@ -75,21 +81,21 @@ h1 {
   border: 1.5px solid var(--line);
   border-radius: 999px;
   padding: 3px;
-  margin-left: auto;
-}
+  margin-inline-start: auto;
 
-.mode button {
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--muted);
-}
+  & button {
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: var(--font-sm);
+    font-weight: 700;
+    color: var(--muted);
 
-.mode button.on {
-  background: var(--ink);
-  color: var(--bg);
+    &.on {
+      background: var(--ink);
+      color: var(--bg);
+    }
+  }
 }
 
 .chips {
@@ -99,10 +105,10 @@ h1 {
   scrollbar-width: none;
   padding-bottom: 2px;
   -webkit-overflow-scrolling: touch;
-}
 
-.chips::-webkit-scrollbar {
-  display: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .chip.clear {
