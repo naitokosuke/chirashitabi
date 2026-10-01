@@ -1,3 +1,12 @@
+<script lang="ts">
+import { setWorkerUrl } from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+
+// MapLibre looks for its worker next to its own module, which bundling moves away from.
+// Let Vite bundle the worker (it imports maplibre-gl-shared.mjs) and say where it is.
+setWorkerUrl(workerUrl);
+</script>
+
 <script setup lang="ts" vapor>
 import type { Temporal } from "temporal-polyfill-lite";
 
