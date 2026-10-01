@@ -10,7 +10,7 @@ What a new language, say Traditional Chinese for the people we travel to Taiwan 
 
 The type checker then reports every id the new file is missing, and `vp test` parses each of its messages, since the parse test runs over `LOCALES`.
 
-Dates and money need nothing; `trip/format.ts` and `shared/money.ts` hand the locale to `Intl`.
+Dates and money need nothing; `features/trip/format.ts` and `shared/money.ts` hand the locale to `Intl`.
 
 ## The tag
 

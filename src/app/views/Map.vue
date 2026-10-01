@@ -9,7 +9,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import { formatMoney } from "../shared/money";
 
-import { useI18n } from "../features/i18n/useI18n";
+import { useI18n } from "../i18n/useI18n";
+
 import { useMembers } from "../features/members/useMembers";
 import type { Memo, Note } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";

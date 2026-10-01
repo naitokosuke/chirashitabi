@@ -33,6 +33,7 @@ export default defineConfig({
         { groupName: "pinia", elementNamePattern: ["pinia"] },
         { groupName: "ui", elementNamePattern: ["**/ui/**"] },
         { groupName: "shared", elementNamePattern: ["**/shared/**"] },
+        { groupName: "i18n", elementNamePattern: ["**/i18n/**"] },
       ],
       groups: [
         "builtin",
@@ -42,6 +43,7 @@ export default defineConfig({
         "external",
         "ui",
         "shared",
+        "i18n",
         "parent",
         ["sibling", "index"],
         "unknown",

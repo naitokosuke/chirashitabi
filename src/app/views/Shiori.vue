@@ -7,8 +7,9 @@ import { CtSegmented, CtTabList, CtTabPanel, type CtOption } from "../../ui/inde
 
 import { formatMoney } from "../shared/money";
 
-import Message from "../features/i18n/Message.vue";
-import { useI18n } from "../features/i18n/useI18n";
+import Message from "../i18n/Message.vue";
+import { useI18n } from "../i18n/useI18n";
+
 import { useMembers } from "../features/members/useMembers";
 import { ARRIVAL_TAG, PACKING_TAG, type Memo, type Scheduled } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";

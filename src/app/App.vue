@@ -3,7 +3,8 @@ import { computed, ref } from "vue";
 
 import { CtTabBar, type CtOption } from "../ui/index";
 
-import { useI18n } from "./features/i18n/useI18n";
+import { useI18n } from "./i18n/useI18n";
+
 import type { Memo, NoteInput } from "./features/notes/types";
 import type { LatLng } from "./features/place/types";
 import Canvas, { place } from "./views/Canvas.vue";
