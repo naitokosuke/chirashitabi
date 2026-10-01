@@ -29,14 +29,15 @@ src/app/            The app (`@/…`)
     Shiori.vue   The booklet (edit / read, appendix, a member's draft of a day)
     Form.vue     Full-screen note form (new / edit, Google Maps link -> coordinates)
 
-  features/
+  features/  Stores and components, plus pure .ts modules for the logic the views run
     members/ Everyone in the room, people and agents alike; who is using this device
-    notes/   Notes: store, types
+    notes/   Notes: store, types; input (the form's text -> title, body, tags)
     sync/    Transport = the sync hook
-    trip/    The room's trip (name, days, currency, map center), notes on a day, budgets; formatting
+    trip/    The room's trip (name, days, currency, map center); itinerary (notes on a day,
+             status, budgets, assigning a day, adopting a draft); formatting
     tags/    Tag colors and the tag filter (store, filter bar)
-    place/   Google Maps links: parsing, safe hrefs
-    canvas/  Sticky note card, screen <-> world transform
+    place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON
+    canvas/  Sticky note card; transform (screen <-> world, zoom, pinch, fit); the animated viewport
     worker/  WorkerApi: drafting a day, booklet export
 
   mocks/   Mock room data (members, trip, notes) and a mock WorkerApi, installed at boot

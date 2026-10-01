@@ -23,3 +23,17 @@ export function safeUrl(url: string | undefined): string | undefined {
   const u = new URL(url);
   return u.protocol === "https:" || u.protocol === "http:" ? u.href : undefined;
 }
+
+/**
+ * What a pasted link sets on a note: the link itself (blank clears it), and
+ * the coordinates when they can be read from it. Unreadable links keep the pin.
+ */
+export function placeFromUrl(raw: string): { mapsUrl?: string; lat?: number; lng?: number } {
+  const mapsUrl = raw.trim() || undefined;
+  const c = mapsUrl ? parseMapsUrl(mapsUrl) : null;
+  return c ? { mapsUrl, ...c } : { mapsUrl };
+}
+
+/** Where "Open in Google Maps" goes: the pasted link, else the pin */
+export const placeLink = (p: { mapsUrl?: string; lat: number; lng: number }) =>
+  p.mapsUrl || googleMapsLink(p.lat, p.lng);

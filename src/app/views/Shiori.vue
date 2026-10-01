@@ -3,10 +3,17 @@ import { computed, ref } from "vue";
 import { Temporal } from "temporal-polyfill-lite";
 import { safeUrl } from "@/features/place/google-maps";
 import { useNotes } from "@/features/notes/store";
-import { ARRIVAL_TAG, PACKING_TAG, type Note, type NoteStatus } from "@/features/notes/types";
+import { ARRIVAL_TAG, PACKING_TAG, type Note } from "@/features/notes/types";
 import { useTags } from "@/features/tags/store";
 import { useTrip } from "@/features/trip/store";
-import { hhmm, longDate, money, shortDate } from "@/features/trip/format";
+import { fromHhmm, hhmm, longDate, money, shortDate } from "@/features/trip/format";
+import {
+  assignTo,
+  draftUpdates,
+  nextStatus,
+  statusOf,
+  STATUS_LABEL,
+} from "@/features/trip/itinerary";
 import { useWorker, type DayDraft } from "@/features/worker/store";
 import { useMembers } from "@/features/members/store";
 import { CtSegmented, CtTabList, CtTabPanel, type CtOption } from "@ui/index";
@@ -49,21 +56,13 @@ function setMode(value: string) {
 const picking = ref<Note | null>(null); // note being assigned from the tray
 const draft = ref<Draft | null>(null); // a member's draft of the open day
 
-const STATUS: Record<NoteStatus, string> = { idea: "Maybe", fixed: "Confirmed", done: "Done" };
 const APPENDIX_TAGS = [PACKING_TAG, ARRIVAL_TAG];
-
-const dayIndex = (date: Temporal.PlainDate) => trip.days.findIndex((d) => d.date.equals(date)) + 1;
 
 const totalFixed = computed(() => trip.budgetOf(undefined, true));
 const totalAll = computed(() => trip.budgetOf(undefined, false));
-const fixedCount = computed(() => store.notes.filter((n) => n.status === "fixed").length);
 
 function assign(n: Note, date: Temporal.PlainDate | null) {
-  store.update(n.id, {
-    date: date ?? undefined,
-    time: date ? n.time : undefined,
-    status: date ? (n.status ?? "idea") : "idea",
-  });
+  store.update(n.id, assignTo(n, date));
   picking.value = null;
   if (date) tab.value = date;
 }
@@ -71,12 +70,10 @@ function togglePick(n: Note) {
   picking.value = picking.value?.id === n.id ? null : n;
 }
 function cycleStatus(n: Note) {
-  const next: Record<NoteStatus, NoteStatus> = { idea: "fixed", fixed: "done", done: "idea" };
-  store.update(n.id, { status: next[n.status ?? "idea"] });
+  store.update(n.id, { status: nextStatus(n) });
 }
 function setTime(n: Note, e: Event) {
-  const value = (e.target as HTMLInputElement).value;
-  store.update(n.id, { time: value ? Temporal.PlainTime.from(value) : undefined });
+  store.update(n.id, { time: fromHhmm((e.target as HTMLInputElement).value) });
 }
 function setIntro(e: Event) {
   if (!day.value) return;
@@ -94,9 +91,7 @@ function exportBooklet() {
 
 function adoptDraft() {
   if (!draft.value) return;
-  for (const { note, time } of draft.value.items) {
-    if (time) store.update(note.id, { time, status: "fixed" });
-  }
+  for (const { id, patch } of draftUpdates(draft.value)) store.update(id, patch);
   // keep an intro someone already wrote
   trip.setIntro(draft.value.date, trip.dayOf(draft.value.date)?.intro || draft.value.intro);
   draft.value = null;
@@ -107,7 +102,7 @@ function adoptDraft() {
   <div class="shiori">
     <header class="head">
       <h1>Booklet</h1>
-      <p class="sum"><template v-if="trip.days.length">{{ shortDate(trip.days[0]!.date) }} – {{ shortDate(trip.days.at(-1)!.date) }} · </template>{{ fixedCount }} confirmed · {{ price(totalFixed) }}<small v-if="totalAll > totalFixed"> ({{ price(totalAll) }} with maybes)</small></p>
+      <p class="sum"><template v-if="trip.days.length">{{ shortDate(trip.days[0]!.date) }} – {{ shortDate(trip.days.at(-1)!.date) }} · </template>{{ trip.fixedCount }} confirmed · {{ price(totalFixed) }}<small v-if="totalAll > totalFixed"> ({{ price(totalAll) }} with maybes)</small></p>
       <CtSegmented
         class="mode"
         label="Mode"
@@ -160,7 +155,7 @@ function adoptDraft() {
       <CtTabPanel :value="`${activeTab}:${mode}`">
         <!-- ---------- a day ---------- -->
         <template v-if="day">
-          <h2 class="day">Day {{ dayIndex(day) }} <span>{{ longDate(day) }}</span></h2>
+          <h2 class="day">Day {{ trip.dayNumber(day) }} <span>{{ longDate(day) }}</span></h2>
 
           <template v-if="editing">
             <textarea
@@ -195,7 +190,7 @@ function adoptDraft() {
                       type="button"
                       :class="n.status"
                       @click="() => cycleStatus(n)"
-                    >{{ STATUS[n.status ?? "idea"] }}</button>
+                    >{{ STATUS_LABEL[statusOf(n)] }}</button>
                     <span v-if="n.budget" class="muted">{{ price(n.budget) }}</span>
                     <button class="unassign" type="button" @click="() => assign(n, null)">Remove day</button>
                   </div>

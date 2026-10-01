@@ -28,6 +28,9 @@ export const useTags = defineStore("tags", () => {
     selected.value.has(t) ? selected.value.delete(t) : selected.value.add(t);
   const matches = (n: Note) =>
     selected.value.size === 0 || n.tags.some((t) => selected.value.has(t));
+  /** Notes outside the filter: faded in "dim" mode, gone in "only" mode */
+  const isDimmed = (n: Note) => mode.value === "dim" && !matches(n);
+  const isHidden = (n: Note) => mode.value === "only" && !matches(n);
 
-  return { tagColor, tagList, selected, mode, toggleTag, matches };
+  return { tagColor, tagList, selected, mode, toggleTag, matches, isDimmed, isHidden };
 });

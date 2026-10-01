@@ -1,9 +1,10 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { Temporal } from "temporal-polyfill-lite";
+import type { Temporal } from "temporal-polyfill-lite";
 import { useNotes } from "@/features/notes/store";
-import { PACKING_TAG, type Note } from "@/features/notes/types";
+import type { NoteStatus } from "@/features/notes/types";
 import { useSync } from "@/features/sync/store";
+import * as itinerary from "./itinerary";
 
 export interface Day {
   date: Temporal.PlainDate;
@@ -18,12 +19,6 @@ export interface TripSnapshot {
   center: { lat: number; lng: number }; // where the map opens
 }
 
-const onDay = (n: Note, date: Temporal.PlainDate) => n.date?.equals(date) ?? false;
-// untimed items ("Anytime") go last; ties fall back to edit order
-const byTime = (a: Note, b: Note) =>
-  (a.time && b.time ? Temporal.PlainTime.compare(a.time, b.time) : +!a.time - +!b.time) ||
-  Temporal.Instant.compare(a.updatedAt, b.updatedAt);
-
 /** The trip's days, and the notes placed on them. */
 export const useTrip = defineStore("trip", () => {
   const store = useNotes();
@@ -33,24 +28,14 @@ export const useTrip = defineStore("trip", () => {
   const currency = ref("USD");
   const center = ref<TripSnapshot["center"] | null>(null);
 
-  const unassigned = computed(() =>
-    store.notes.filter((n) => n.kind === "note" && !n.date && !n.tags.includes(PACKING_TAG)),
-  );
-  const forDay = (date: Temporal.PlainDate, status?: Note["status"]) =>
-    store.notes
-      .filter(
-        (n) => n.kind === "note" && onDay(n, date) && (!status || (n.status ?? "idea") === status),
-      )
-      .sort(byTime);
-  const byTag = (tag: string) =>
-    store.notes.filter((n) => n.kind === "note" && n.tags.includes(tag));
+  const unassigned = computed(() => itinerary.unassigned(store.notes));
+  const forDay = (date: Temporal.PlainDate, status?: NoteStatus) =>
+    itinerary.forDay(store.notes, date, status);
+  const byTag = (tag: string) => itinerary.byTag(store.notes, tag);
   const budgetOf = (date?: Temporal.PlainDate, onlyFixed = true) =>
-    store.notes
-      .filter(
-        (n) =>
-          n.kind === "note" && (!date || onDay(n, date)) && (!onlyFixed || n.status === "fixed"),
-      )
-      .reduce((s, n) => s + (n.budget ?? 0), 0);
+    itinerary.budgetOf(store.notes, date, onlyFixed);
+  const fixedCount = computed(() => itinerary.fixedCount(store.notes));
+  const dayNumber = (date: Temporal.PlainDate) => itinerary.dayNumber(days.value, date);
 
   const dayOf = (date: Temporal.PlainDate) => days.value.find((d) => d.date.equals(date));
   function setIntro(date: Temporal.PlainDate, intro: string) {
@@ -76,6 +61,8 @@ export const useTrip = defineStore("trip", () => {
     forDay,
     byTag,
     budgetOf,
+    fixedCount,
+    dayNumber,
     dayOf,
     setIntro,
     apply,

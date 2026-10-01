@@ -21,6 +21,14 @@ import { COLORS } from "@/features/notes/types";
 import { useTags } from "@/features/tags/store";
 import { useTrip } from "@/features/trip/store";
 import { useViewport } from "@/features/canvas/viewport";
+import {
+  distance,
+  fitView,
+  pinchTo,
+  startPinch,
+  type PinchStart,
+  type Pt,
+} from "@/features/canvas/transform";
 import NoteCard from "@/features/canvas/NoteCard.vue";
 import FilterBar from "@/features/tags/FilterBar.vue";
 
@@ -28,14 +36,13 @@ const emit = defineEmits<{ write: []; edit: [note: Note] }>();
 const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
-const { view, clamp, toWorld, zoomAt, animateTo } = useViewport();
+const { view, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
 const worldStyle = computed(
   () => `transform: translate(${view.value.tx}px, ${view.value.ty}px) scale(${view.value.s})`,
 );
 
 // ---- pointer state: plain variables, never reactive (changes every frame) ----
-type Pt = { x: number; y: number };
 const pointers = new Map<number, Pt>();
 let drag: {
   note: Note;
@@ -47,7 +54,7 @@ let drag: {
   lastSend: number;
 } | null = null;
 let pan: { x: number; y: number; tx: number; ty: number } | null = null;
-let pinch: { dist: number; mid: Pt; s: number; tx: number; ty: number } | null = null;
+let pinch: PinchStart | null = null;
 let pressTimer: number | undefined;
 const draggingId = ref<string | null>(null);
 const menu = ref<{ note: Note; x: number; y: number } | null>(null);
@@ -66,13 +73,7 @@ function onDown(e: PointerEvent) {
     const [a, b] = [...pointers.values()];
     endDrag();
     clearTimeout(pressTimer);
-    pinch = {
-      dist: Math.hypot(a.x - b.x, a.y - b.y),
-      mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-      s: view.value.s,
-      tx: view.value.tx,
-      ty: view.value.ty,
-    };
+    pinch = startPinch(view.value, a, b);
     return;
   }
   const note = noteAt(e.target);
@@ -103,17 +104,11 @@ function onMove(e: PointerEvent) {
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pinch && pointers.size === 2) {
     const [a, b] = [...pointers.values()];
-    const dist = Math.hypot(a.x - b.x, a.y - b.y),
-      mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    const ns = clamp((pinch.s * dist) / pinch.dist),
-      k = ns / pinch.s;
-    view.value.s = ns;
-    view.value.tx = mid.x - (pinch.mid.x - pinch.tx) * k;
-    view.value.ty = mid.y - (pinch.mid.y - pinch.ty) * k;
+    view.value = pinchTo(pinch, a, b);
     return;
   }
   if (drag) {
-    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6) {
+    if (!drag.moved && distance({ x: e.clientX, y: e.clientY }, { x: drag.sx, y: drag.sy }) > 6) {
       drag.moved = true;
       draggingId.value = drag.note.id;
       clearTimeout(pressTimer);
@@ -186,16 +181,9 @@ function removeFromMenu() {
 
 // ---- fit ----
 function fitAll() {
-  if (!store.notes.length) return;
   const r = vp.value!.getBoundingClientRect();
-  const xs = store.notes.map((n) => n.x),
-    ys = store.notes.map((n) => n.y);
-  const minX = Math.min(...xs) - 30,
-    maxX = Math.max(...xs) + 220,
-    minY = Math.min(...ys) - 30,
-    maxY = Math.max(...ys) + 160;
-  const s = clamp(Math.min(r.width / (maxX - minX), (r.height - 200) / (maxY - minY)));
-  animateTo((r.width - (maxX + minX) * s) / 2, 120 + (r.height - 200 - (maxY + minY) * s) / 2, s);
+  const to = fitView(store.notes, r.width, r.height);
+  if (to) animateTo(to);
 }
 
 // ---- adding from the form: place at viewport center, pop ----
@@ -263,8 +251,8 @@ onMounted(() =>
           :note="n"
           :dragging="draggingId === n.id"
           :pop="popId === n.id"
-          :dim="tags.mode === 'dim' && !tags.matches(n)"
-          :hidden="tags.mode === 'only' && !tags.matches(n)"
+          :dim="tags.isDimmed(n)"
+          :hidden="tags.isHidden(n)"
           @adopt="() => store.adopt(n.id)"
           @remove="() => store.remove(n.id)"
         />

@@ -1,4 +1,4 @@
-import type { Temporal } from "temporal-polyfill-lite";
+import { Temporal } from "temporal-polyfill-lite";
 
 /** "Tue, 11/3" */
 export const longDate = (date: Temporal.PlainDate) =>
@@ -15,3 +15,5 @@ export const money = (amount: number, currency: string) =>
     currency,
     maximumFractionDigits: 0,
   }).format(amount);
+/** The value of an `<input type="time">`; empty means no time */
+export const fromHhmm = (value: string) => (value ? Temporal.PlainTime.from(value) : undefined);

@@ -2,16 +2,17 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect, useTemplateRef } from "vue";
 import * as maplibregl from "maplibre-gl";
 import { Map as MLMap, Marker } from "maplibre-gl";
-import type { FeatureCollection } from "geojson";
-import { Temporal } from "temporal-polyfill-lite";
+import type { Temporal } from "temporal-polyfill-lite";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useNotes } from "@/features/notes/store";
 import { useMembers } from "@/features/members/store";
-import { PACKING_TAG, type Note } from "@/features/notes/types";
+import type { Note } from "@/features/notes/types";
 import { useTags } from "@/features/tags/store";
 import { useTrip } from "@/features/trip/store";
 import { hhmm, money, shortDate } from "@/features/trip/format";
-import { googleMapsLink, safeUrl } from "@/features/place/google-maps";
+import { placeLink, safeUrl } from "@/features/place/google-maps";
+import { isPinned, lngLat, needsPin, type Pinned } from "@/features/place/pin";
+import { boundsOf, routeLine, routeStops } from "@/features/place/route";
 
 const emit = defineEmits<{ write: [at: { lat: number; lng: number }]; edit: [note: Note] }>();
 const store = useNotes();
@@ -20,21 +21,17 @@ const trip = useTrip();
 const members = useMembers();
 const price = (amount: number) => money(amount, trip.currency);
 const el = useTemplateRef<HTMLElement>("el");
-const selected = ref<Note | null>(null);
+const selected = ref<Pinned<Note> | null>(null);
 const day = ref<Temporal.PlainDate | null>(null); // show a day's route
 const isDay = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
 const toggleDay = (date: Temporal.PlainDate) => (day.value = isDay(date) ? null : date);
-const noPin = ref(0);
+const noPin = computed(() => store.notes.filter(needsPin).length);
 const showAllDays = () => (day.value = null);
 const closeCard = () => (selected.value = null);
 const editSelected = () => {
   if (selected.value) emit("edit", selected.value);
 };
-const selectedLink = computed(() => {
-  const n = selected.value;
-  if (!n) return undefined;
-  return n.mapsUrl || googleMapsLink(n.lat!, n.lng!);
-});
+const selectedLink = computed(() => (selected.value ? placeLink(selected.value) : undefined));
 
 // free vector tiles, no key. Swap the style URL for your own if you self-host.
 const STYLE = "https://tiles.openfreemap.org/styles/liberty";
@@ -59,7 +56,7 @@ onMounted(() => {
     "bottom-right",
   );
   map.on("load", () => {
-    map!.addSource("route", { type: "geojson", data: emptyLine() });
+    map!.addSource("route", { type: "geojson", data: routeLine([]) });
     map!.addLayer({
       id: "route",
       type: "line",
@@ -95,7 +92,7 @@ onBeforeUnmount(() => {
   map = null;
 });
 
-function pinEl(n: Note) {
+function pinEl(n: Pinned<Note>) {
   const d = document.createElement("button");
   d.type = "button";
   d.className = "pin";
@@ -104,37 +101,34 @@ function pinEl(n: Note) {
     "--pin",
     n.kind === "note" && n.tags[0] ? tags.tagColor(n.tags[0]) : members.colorOf(n.by),
   );
-  d.innerHTML = `<span class="dot"></span><span class="lbl">${escapeHtml(n.title)}</span>`;
+  const dot = document.createElement("span"),
+    lbl = document.createElement("span");
+  dot.className = "dot";
+  lbl.className = "lbl";
+  lbl.textContent = n.title;
+  d.append(dot, lbl);
   d.addEventListener("click", (e) => {
     e.stopPropagation();
     selected.value = n;
-    map?.easeTo({ center: [n.lng!, n.lat!], duration: 300 });
+    map?.easeTo({ center: lngLat(n), duration: 300 });
   });
   return d;
 }
-const escapeHtml = (s: string) =>
-  s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 function syncMarkers() {
   if (!map) return;
   const seen = new Set<string>();
-  let missing = 0;
   for (const n of store.notes) {
-    if (n.lat == null || n.lng == null) {
-      if (n.kind === "note" && !n.tags.includes(PACKING_TAG)) missing++;
-      continue;
-    }
+    if (!isPinned(n)) continue;
     seen.add(n.id);
-    const visible = tags.mode === "only" ? tags.matches(n) : true;
-    const dim = tags.mode === "dim" && !tags.matches(n);
     let m = markers.get(n.id);
     if (!m) {
-      m = new Marker({ element: pinEl(n), anchor: "bottom" }).setLngLat([n.lng, n.lat]).addTo(map);
+      m = new Marker({ element: pinEl(n), anchor: "bottom" }).setLngLat(lngLat(n)).addTo(map);
       markers.set(n.id, m);
-    } else m.setLngLat([n.lng, n.lat]);
+    } else m.setLngLat(lngLat(n));
     const e = m.getElement();
-    e.classList.toggle("dim", dim);
-    e.style.display = visible ? "" : "none";
+    e.classList.toggle("dim", tags.isDimmed(n));
+    e.style.display = tags.isHidden(n) ? "none" : "";
     e.classList.toggle("on", selected.value?.id === n.id);
     e.querySelector(".lbl")!.textContent = n.title;
   }
@@ -143,32 +137,14 @@ function syncMarkers() {
       m.remove();
       markers.delete(id);
     }
-  noPin.value = missing;
 }
-const emptyLine = () => ({ type: "FeatureCollection", features: [] }) as FeatureCollection;
 function syncRoute() {
   if (!map?.getSource("route")) return;
   const src = map.getSource("route") as maplibregl.GeoJSONSource;
-  if (!day.value) {
-    src.setData(emptyLine());
-    return;
-  }
-  const pts = trip
-    .forDay(day.value)
-    .filter((n) => n.status !== "idea" && n.lat != null)
-    .map((n) => [n.lng!, n.lat!]);
-  src.setData({
-    type: "FeatureCollection",
-    features:
-      pts.length > 1
-        ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: pts } }]
-        : [],
-  });
-  if (pts.length) {
-    const b = pts.reduce(
-      (b, p) => b.extend(p as [number, number]),
-      new maplibregl.LngLatBounds(pts[0] as [number, number], pts[0] as [number, number]),
-    );
+  const stops = day.value ? routeStops(trip.forDay(day.value)) : [];
+  src.setData(routeLine(stops));
+  const b = boundsOf(stops);
+  if (b) {
     map.fitBounds(b, {
       padding: { top: 140, bottom: 160, left: 40, right: 40 },
       duration: 500,
@@ -187,14 +163,8 @@ watchEffect(() => {
 watch([day, () => store.notes.map((n) => `${n.time} ${n.status} ${n.date}`)], syncRoute);
 
 function fitAll() {
-  const pts = store.notes
-    .filter((n) => n.lat != null)
-    .map((n) => [n.lng!, n.lat!] as [number, number]);
-  if (!pts.length || !map) return;
-  map.fitBounds(
-    pts.reduce((b, p) => b.extend(p), new maplibregl.LngLatBounds(pts[0], pts[0])),
-    { padding: 80, duration: 500 },
-  );
+  const b = boundsOf(store.notes.filter(isPinned).map(lngLat));
+  if (b) map?.fitBounds(b, { padding: 80, duration: 500 });
 }
 </script>
 

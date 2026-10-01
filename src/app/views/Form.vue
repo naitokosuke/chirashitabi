@@ -2,8 +2,16 @@
 import { nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
 import { useNotes } from "@/features/notes/store";
 import { COLORS, type Note, type NoteInput } from "@/features/notes/types";
+import {
+  blankInput,
+  inputFromNote,
+  normalizeTag,
+  noteText,
+  parseNoteText,
+} from "@/features/notes/input";
 import { useTags } from "@/features/tags/store";
-import { parseMapsUrl } from "@/features/place/google-maps";
+import { placeFromUrl } from "@/features/place/google-maps";
+import { isPinned } from "@/features/place/pin";
 import { CtChip } from "@ui/index";
 
 const props = defineProps<{ editing: Note | null; at?: { lat: number; lng: number } | null }>();
@@ -13,43 +21,21 @@ const tags = useTags();
 const id = useId();
 
 const form = ref<NoteInput>(
-  props.editing
-    ? {
-        title: props.editing.title,
-        body: props.editing.body,
-        tags: [...props.editing.tags],
-        color: props.editing.color,
-        mapsUrl: props.editing.mapsUrl,
-        lat: props.editing.lat,
-        lng: props.editing.lng,
-      }
-    : {
-        title: "",
-        body: "",
-        tags: [...tags.selected],
-        color: COLORS[0],
-        lat: props.at?.lat,
-        lng: props.at?.lng,
-      },
+  props.editing ? inputFromNote(props.editing) : blankInput(tags.selected, props.at),
 );
 const mapsUrl = ref(form.value.mapsUrl ?? "");
 function onMapsUrl() {
-  form.value.mapsUrl = mapsUrl.value.trim() || undefined;
-  const c = form.value.mapsUrl ? parseMapsUrl(form.value.mapsUrl) : null;
-  if (c) {
-    form.value.lat = c.lat;
-    form.value.lng = c.lng;
-  }
+  Object.assign(form.value, placeFromUrl(mapsUrl.value));
 }
-const hasPin = () => form.value.lat != null && form.value.lng != null;
-const text = ref([form.value.title, form.value.body].filter(Boolean).join("\n"));
+const hasPin = () => isPinned(form.value);
+const text = ref(noteText(form.value));
 const tagInput = ref("");
 const keepOpen = ref(false);
 const textEl = useTemplateRef<HTMLTextAreaElement>("textEl");
 onMounted(() => nextTick(() => textEl.value?.focus()));
 
-function addTag(t: string) {
-  t = t.replace(/^#/, "").trim();
+function addTag(raw: string) {
+  const t = normalizeTag(raw);
   if (t && !form.value.tags.includes(t)) form.value.tags.push(t);
 }
 function commitTag() {
@@ -67,13 +53,11 @@ function setColor(c: string) {
 
 function submit() {
   commitTag();
-  const [first, ...rest] = text.value.trim().split("\n");
-  const inline = [...text.value.matchAll(/#([^\s#]+)/g)].map((m) => m[1]);
-  const title = first.replace(/#[^\s#]+/g, "").trim() || first;
+  const { title, body, tags: inline } = parseNoteText(text.value);
   onMapsUrl();
   const input: NoteInput = {
     title,
-    body: rest.join("\n"),
+    body,
     tags: [...new Set([...form.value.tags, ...inline])],
     color: form.value.color,
     mapsUrl: form.value.mapsUrl,
