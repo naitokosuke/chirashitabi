@@ -228,10 +228,12 @@ function fitAll() {
   const to = fitted();
   if (to) animateTo(to);
 }
-function fitted() {
+function fitted(minScale = 0) {
   const r = vp.value!.getBoundingClientRect();
-  return fitView(store.notes, r.width, r.height);
+  return fitView(store.notes, r.width, r.height, minScale);
 }
+/** The first look never shrinks a card past readable; the fit button still shows everything */
+const FIRST_LOOK_MIN_SCALE = 0.8;
 
 // ---- adding from the form: place at viewport center, pop ----
 /** The card that just landed, and where the ring around it goes */
@@ -290,14 +292,18 @@ onBeforeUnmount(() => (placeOnMounted = undefined));
 onMounted(() =>
   nextTick(() => {
     const r = vp.value!.getBoundingClientRect();
-    view.value = fitted() ?? { tx: (r.width - 164) / 2, ty: r.height / 2 - 60, s: 1 };
+    view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? {
+      tx: (r.width - 164) / 2,
+      ty: r.height / 2 - 60,
+      s: 1,
+    };
   }),
 );
 // Notes that arrive later (the room's first snapshot) get the same first look, once
 watch(
   () => store.notes.length > 0,
   (has, had) => {
-    if (has && !had) nextTick(() => (view.value = fitted() ?? view.value));
+    if (has && !had) nextTick(() => (view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value));
   },
 );
 </script>
