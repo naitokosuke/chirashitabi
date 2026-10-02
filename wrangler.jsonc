@@ -1,0 +1,44 @@
+// The Cloudflare side. docs/auth-and-security.md says why each line is the way it is.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chirashitabi",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-30",
+
+  // The one hostname behind Access, and the public booklet host. Nothing else:
+  // workers.dev and preview URLs would sit outside the Access application.
+  "routes": [
+    { "pattern": "chirashitabi.app", "custom_domain": true },
+    { "pattern": "shiori.chirashitabi.app", "custom_domain": true },
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+
+  // The Worker runs before the assets binding on every request, so it can branch on
+  // the hostname; with the default, assets would be served on the booklet host too.
+  "assets": {
+    "directory": "dist",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "single-page-application",
+  },
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOMS", "class_name": "RoomsIndex" },
+      { "name": "ROOM", "class_name": "Room" },
+    ],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomsIndex", "Room"] }],
+
+  // None of these is a secret; identify() checks the Access JWT against them.
+  "vars": {
+    "ACCESS_TEAM_DOMAIN": "floral-sky-5f24.cloudflareaccess.com",
+    "ACCESS_AUD": "283aabc752ef29220bf9efc1ca77335383ed2f8753a1e65e45801fbe44f4f65d",
+    "APP_HOST": "chirashitabi.app",
+    "BOOKLET_HOST": "shiori.chirashitabi.app",
+  },
+
+  // Workers Logs is metered past its free tier; nothing is switched on by accident.
+  "observability": { "enabled": false },
+}

@@ -61,6 +61,12 @@ src/ui/             The design system: props, slots and events only, no app impo
   composables/   useIndicator: measures the selected child so an indicator can slide to it
   index.ts, types.ts   The public entry and the shared CtOption type
 
+worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run check:worker` type-checks it)
+  index.ts          Branches on the hostname, then identify -> Origin check -> the room API
+  access.ts         AccessVerifier: the Access JWT -> a verified e-mail (signature, aud, iss, exp, nbf)
+  rooms-index.ts    RoomsIndex: e-mail -> { room, member id }; the only place an e-mail is stored
+  room.ts           Room: the member table (people and the agent), and the WebSocket
+
 docs/               Design notes: auth-and-security.md (one hostname behind Access, rooms and members, agents,
                     paid-API budgets, what stays public)
 ```

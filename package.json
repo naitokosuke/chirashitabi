@@ -2,6 +2,9 @@
   "name": "chirashitabi",
   "private": true,
   "type": "module",
+  "scripts": {
+    "check:worker": "wrangler types && tsc -p worker"
+  },
   "dependencies": {
     "maplibre-gl": "^6.11.2",
     "messageformat": "^4.0.0",
@@ -17,7 +20,8 @@
     "typescript": "^5.9.2",
     "vite": "catalog:",
     "vite-plugin-singlefile": "^2.3.3",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "wrangler": "^4.145.0"
   },
   "devEngines": {
     "packageManager": {
