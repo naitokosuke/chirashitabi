@@ -173,7 +173,7 @@ function onUp(e: PointerEvent) {
 // ---- keyboard: a focused card opens on Enter, its menu on the context-menu key or Shift+F10; Esc closes the menu ----
 function onKey(e: KeyboardEvent) {
   if (e.key === "Escape" && menu.value) {
-    menu.value = null;
+    closeMenu();
     return;
   }
   const note = noteAt(e.target);
@@ -201,23 +201,55 @@ function onWheel(e: WheelEvent) {
 function openMenu(note: Note) {
   navigator.vibrate?.(10);
   const r = vp.value!.getBoundingClientRect();
-  const card = vp
-    .value!.querySelector<HTMLElement>(`[data-id="${note.id}"]`)
-    ?.getBoundingClientRect();
+  const card = cardEl(note)?.getBoundingClientRect();
   if (!card) return;
-  const x = Math.max(8, Math.min(card.left - r.left, r.width - MENU_W - 8));
-  const below = card.bottom - r.top + 8;
-  const y = below + MENU_H > r.height - 100 ? card.top - r.top - MENU_H - 8 : below;
-  menu.value = { note, x, y: Math.max(y, 90) };
+  menu.value = {
+    note,
+    x: Math.max(8, card.left - r.left),
+    y: Math.max(card.bottom - r.top + 8, 90),
+  };
+  // once it is drawn: measure it, keep it on screen (above the card near the bottom), and move focus in
+  nextTick(() => {
+    const m = menuEl.value;
+    if (!m || !menu.value) return;
+    const w = m.offsetWidth;
+    const h = m.offsetHeight;
+    const x = Math.max(8, Math.min(card.left - r.left, r.width - w - 8));
+    const below = card.bottom - r.top + 8;
+    const y = below + h > r.height - 100 ? card.top - r.top - h - 8 : below;
+    menu.value = { ...menu.value, x, y: Math.max(y, 90) };
+    m.querySelector<HTMLElement>("button")?.focus();
+  });
 }
-const MENU_W = 300;
-const MENU_H = 104;
+const menuEl = useTemplateRef<HTMLElement>("menuEl");
+const cardEl = (note: Note) => vp.value?.querySelector<HTMLElement>(`[data-id="${note.id}"]`);
+/** Close the menu; focus returns to its card when the keyboard was in the menu */
+function closeMenu() {
+  const note = menu.value?.note;
+  const hadFocus = menuEl.value?.contains(document.activeElement) ?? false;
+  menu.value = null;
+  if (note && hadFocus) cardEl(note)?.focus();
+}
+/** Left and right walk the menu's buttons, as in any toolbar; Esc closes it (one handler: two on one element collide) */
+function onMenuKey(e: KeyboardEvent) {
+  if (e.key === "Escape") {
+    e.stopPropagation();
+    closeMenu();
+    return;
+  }
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  const buttons = [...(menuEl.value?.querySelectorAll<HTMLElement>("button") ?? [])];
+  const i = buttons.indexOf(document.activeElement as HTMLElement);
+  const next = buttons[(i + (e.key === "ArrowRight" ? 1 : buttons.length - 1)) % buttons.length];
+  e.preventDefault();
+  next?.focus();
+}
 function setMenuColor(color: NoteColor) {
   if (menu.value) store.recolor(menu.value.note.id, color);
 }
 function duplicateFromMenu() {
   if (menu.value) store.duplicate(menu.value.note.id);
-  menu.value = null;
+  closeMenu();
 }
 function removeFromMenu() {
   if (menu.value) remove(menu.value.note);
@@ -351,12 +383,13 @@ watch(
 
     <div
       v-if="menu"
+      ref="menuEl"
       class="menu"
       role="toolbar"
       :aria-label="menu.note.title"
       :style="`inset-inline-start:${menu.x}px; inset-block-start:${menu.y}px`"
       @pointerdown.stop
-      @keydown.escape="() => (menu = null)"
+      @keydown="onMenuKey"
     >
       <button
         v-for="c in COLORS"

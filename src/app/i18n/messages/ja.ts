@@ -74,6 +74,8 @@ export const ja: Messages = {
   "form.save": "保存",
   "form.saveToCanvas": "キャンバスに貼る",
   "form.hint": "キャンバスで見ていたあたりの真ん中に貼られます",
+  "form.saveHere": "この場所に貼る",
+  "form.hintHere": "地図のこの場所にピンが立ちます。キャンバスにも同じ付箋が貼られます",
 
   "map.all": "すべて",
   "map.route": "{$date} のルート",

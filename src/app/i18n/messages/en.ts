@@ -76,6 +76,8 @@ export const en = {
   "form.save": "Save",
   "form.saveToCanvas": "Save to canvas",
   "form.hint": "It pops up in the middle of where you were looking on the canvas",
+  "form.saveHere": "Pin it here",
+  "form.hintHere": "It becomes a pin at this place on the map, and a note on the canvas too",
 
   "map.all": "All",
   "map.route": "Route {$date}",

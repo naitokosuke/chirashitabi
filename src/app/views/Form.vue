@@ -27,7 +27,8 @@ import { useTags } from "../features/tags/useTags";
 import backIcon from "../icons/back.svg";
 import Icon from "../icons/Icon.vue";
 
-const props = defineProps<{ target: FormTarget }>();
+/** `from`: the tab the sheet was opened over, so the back control and the copy speak of it */
+const props = defineProps<{ target: FormTarget; from: "canvas" | "map" | "shiori" }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
 const store = useNotes();
 const tags = useTags();
@@ -55,8 +56,17 @@ onMounted(() => nextTick(() => textEl.value?.focus()));
 function onKey(e: KeyboardEvent) {
   if (e.key === "Escape") emit("close");
 }
+// Focus goes back where it came from once the sheet is gone and the layer under it is live again
+const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 onMounted(() => window.addEventListener("keydown", onKey));
-onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", onKey);
+  if (opener && opener !== document.body) setTimeout(() => opener.isConnected && opener.focus());
+});
+
+const BACK = { canvas: "nav.canvas", map: "nav.map", shiori: "nav.booklet" } as const;
+/** From the map with a place: the note is a pin there (and a card on the desk) */
+const atPlace = computed(() => props.from === "map" && hasPin());
 
 function addTag(raw: string) {
   const t = normalizeTag(raw);
@@ -104,7 +114,7 @@ function submit() {
   <form class="formview" @submit.prevent="submit">
     <div class="head">
       <button class="back" type="button" @click="() => emit('close')">
-        <Icon :size="16" :src="backIcon" />{{ i18n.t("nav.canvas") }}
+        <Icon :size="16" :src="backIcon" />{{ i18n.t(BACK[from]) }}
       </button>
       <h2>{{ i18n.t(editing ? "form.titleEdit" : "form.titleNew") }}</h2>
       <label v-if="!editing"><input v-model="keepOpen" type="checkbox" />{{ i18n.t("form.addAnother") }}</label>
@@ -176,8 +186,8 @@ function submit() {
       </div>
     </div>
     <div class="foot">
-      <button class="save" type="submit" :disabled="!text.trim()">{{ i18n.t(editing ? "form.save" : "form.saveToCanvas") }}</button>
-      <p v-if="!editing" class="hint">{{ i18n.t("form.hint") }}</p>
+      <button class="save" type="submit" :disabled="!text.trim()">{{ i18n.t(editing ? "form.save" : atPlace ? "form.saveHere" : "form.saveToCanvas") }}</button>
+      <p v-if="!editing" class="hint">{{ i18n.t(atPlace ? "form.hintHere" : "form.hint") }}</p>
     </div>
   </form>
 </template>
