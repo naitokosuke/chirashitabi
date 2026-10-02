@@ -49,7 +49,7 @@ import { useI18n } from "../i18n/useI18n";
 import NoteCard from "../features/canvas/NoteCard.vue";
 import { distance, fitView, pinchTo, startPinch, type Pt } from "../features/canvas/transform";
 import { useViewport } from "../features/canvas/useViewport";
-import { COLORS, type NoteColor, type NoteId } from "../features/notes/types";
+import { COLOR_NAMES, COLORS, type NoteColor, type NoteId } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
 import FilterBar from "../features/tags/FilterBar.vue";
 import { useTags } from "../features/tags/useTags";
@@ -170,6 +170,23 @@ function onUp(e: PointerEvent) {
   setGesture(IDLE);
 }
 
+// ---- keyboard: a focused card opens on Enter, its menu on the context-menu key or Shift+F10; Esc closes the menu ----
+function onKey(e: KeyboardEvent) {
+  if (e.key === "Escape" && menu.value) {
+    menu.value = null;
+    return;
+  }
+  const note = noteAt(e.target);
+  if (!note || note.kind !== "memo") return;
+  if (e.key === "Enter") {
+    e.preventDefault();
+    emit("edit", note);
+  } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+    e.preventDefault();
+    openMenu(note);
+  }
+}
+
 function onWheel(e: WheelEvent) {
   e.preventDefault();
   if (e.ctrlKey || e.metaKey) zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.01));
@@ -272,12 +289,15 @@ watch(
     <div
       ref="vp"
       class="viewport"
+      role="application"
+      :aria-label="i18n.t('nav.canvas')"
       :class="{ panning }"
       @pointerdown="onDown"
       @pointermove="onMove"
       @pointerup="onUp"
       @pointercancel="onUp"
       @wheel="onWheel"
+      @keydown="onKey"
     >
       <div class="world" :style="worldStyle">
         <NoteCard
@@ -306,8 +326,11 @@ watch(
     <div
       v-if="menu"
       class="menu"
+      role="toolbar"
+      :aria-label="menu.note.title"
       :style="`inset-inline-start:${menu.x}px; inset-block-start:${menu.y}px`"
       @pointerdown.stop
+      @keydown.escape="() => (menu = null)"
     >
       <button
         v-for="c in COLORS"
@@ -316,7 +339,8 @@ watch(
         type="button"
         :class="{ on: menu.note.color === c }"
         :style="`background:${c}`"
-        :aria-label="c"
+        :aria-label="i18n.t(COLOR_NAMES[c])"
+        :aria-pressed="menu.note.color === c"
         @click="() => setMenuColor(c)"
       ></button>
       <button type="button" @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</button>
@@ -343,7 +367,8 @@ watch(
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  overflow: hidden;
+  /* clip, not hidden: focusing an off-screen card must not scroll the viewport under the transform */
+  overflow: clip;
   cursor: grab;
   background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px);
   background-size: 22px 22px;

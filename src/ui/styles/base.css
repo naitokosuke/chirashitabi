@@ -25,4 +25,19 @@ button {
   background: none;
   cursor: pointer;
   padding: 0;
+  &:disabled {
+    cursor: default;
+  }
+}
+/* Keyboard focus is drawn in ink, outside the edge, on everything */
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+::selection {
+  background: color-mix(in srgb, var(--blue) 25%, transparent);
+}
+:root {
+  caret-color: var(--ink);
+  accent-color: var(--ink);
 }

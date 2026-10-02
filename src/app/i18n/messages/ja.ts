@@ -13,6 +13,13 @@ export const ja: Messages = {
 
   "member.someone": "だれか",
 
+  "color.yellow": "きいろ",
+  "color.pink": "ピンク",
+  "color.mint": "ミント",
+  "color.sky": "みずいろ",
+  "color.lilac": "ライラック",
+  "color.white": "しろ",
+
   "rooms.yours": "あなたの旅",
   "rooms.none": "まだ旅がありません",
   "rooms.new": "新しい旅",

@@ -7,7 +7,7 @@ export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; n
 </script>
 
 <script setup lang="ts" vapor>
-import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, useTemplateRef } from "vue";
 
 import { CtChip } from "../../ui/index";
 
@@ -20,7 +20,7 @@ import {
   noteText,
   parseNoteText,
 } from "../features/notes/input";
-import { COLORS, type NoteColor, type NoteInput } from "../features/notes/types";
+import { COLOR_NAMES, COLORS, type NoteColor, type NoteInput } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
 import { placeFromUrl } from "../features/place/google-maps";
 import { useTags } from "../features/tags/useTags";
@@ -50,6 +50,13 @@ const tagInput = ref("");
 const keepOpen = ref(false);
 const textEl = useTemplateRef<HTMLTextAreaElement>("textEl");
 onMounted(() => nextTick(() => textEl.value?.focus()));
+
+// Esc closes the sheet, the way it closes anything that covers something
+function onKey(e: KeyboardEvent) {
+  if (e.key === "Escape") emit("close");
+}
+onMounted(() => window.addEventListener("keydown", onKey));
+onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
 
 function addTag(raw: string) {
   const t = normalizeTag(raw);
@@ -161,7 +168,8 @@ function submit() {
             type="button"
             :class="{ on: form.color === c }"
             :style="`background:${c}`"
-            :aria-label="c"
+            :aria-label="i18n.t(COLOR_NAMES[c])"
+            :aria-pressed="form.color === c"
             @click="() => setColor(c)"
           ></button>
         </div>
@@ -281,6 +289,11 @@ textarea {
   border: 1.5px solid var(--line);
   border-radius: 10px;
   background: var(--surface);
+  /* the box is the field: it takes the focus ring for the input inside it */
+  &:focus-within {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
   & input {
     flex: 1;
     min-width: 80px;
