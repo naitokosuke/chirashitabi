@@ -84,19 +84,22 @@ function onSave(input: NoteInput, keepOpen: boolean) {
 <template>
   <!-- The canvas stays mounted underneath so pan/zoom survives a trip to the form or the booklet -->
   <div v-if="inRoom" class="screen">
+    <!-- a covered layer is inert: no focus, no clicks, no screen-reader path into it -->
     <Canvas
+      :inert="state.tab !== 'canvas' || state.form !== null"
       @write="() => send({ type: 'writeRequested' })"
       @edit="(note) => send({ type: 'editRequested', note })"
     />
     <Transition name="ct-morph">
       <Map
         v-if="state.tab === 'map'"
+        :inert="state.form !== null"
         @write="(pin) => send({ type: 'writeAtPinRequested', pin })"
         @edit="(note) => send({ type: 'editRequested', note })"
       />
     </Transition>
     <Transition name="ct-morph">
-      <Shiori v-if="state.tab === 'shiori'" />
+      <Shiori v-if="state.tab === 'shiori'" :inert="state.form !== null" />
     </Transition>
     <Transition name="ct-slide">
       <Form

@@ -20,6 +20,9 @@ const i18n = useI18n();
     :class="{ suggestion: note.kind === 'suggestion', dragging, pop, dim: visibility === 'dimmed' }"
     :style="`transform: translate(${note.x}px, ${note.y}px) rotate(${note.rot}deg); --card: ${note.color}; --who: ${members.colorOf(note.by)}`"
     :data-id="note.id"
+    :tabindex="note.kind === 'memo' && visibility !== 'dimmed' ? 0 : undefined"
+    :role="note.kind === 'memo' ? 'button' : undefined"
+    :aria-label="note.kind === 'memo' ? note.title : undefined"
   >
     <template v-if="note.kind === 'suggestion'">
       <div class="h">
@@ -102,7 +105,6 @@ const i18n = useI18n();
   color: var(--slate);
   border: 1px solid var(--oat);
   width: 186px;
-  border-radius: 10px;
   & .h {
     display: flex;
     align-items: center;

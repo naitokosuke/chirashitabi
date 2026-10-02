@@ -15,6 +15,13 @@ export const en = {
 
   "member.someone": "Someone",
 
+  "color.yellow": "Yellow",
+  "color.pink": "Pink",
+  "color.mint": "Mint",
+  "color.sky": "Sky",
+  "color.lilac": "Lilac",
+  "color.white": "White",
+
   "rooms.yours": "Your trips",
   "rooms.none": "No trips yet",
   "rooms.new": "New trip",

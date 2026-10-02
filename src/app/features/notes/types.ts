@@ -11,6 +11,16 @@ export const COLORS = ["#fff1b8", "#ffd9de", "#d8f0e6", "#dbe7ff", "#ead9ff", "#
 /** A card's paper: one of the palette, never a free CSS value */
 export type NoteColor = (typeof COLORS)[number];
 
+/** How each paper is called, for a swatch's label (message ids) */
+export const COLOR_NAMES = {
+  "#fff1b8": "color.yellow",
+  "#ffd9de": "color.pink",
+  "#d8f0e6": "color.mint",
+  "#dbe7ff": "color.sky",
+  "#ead9ff": "color.lilac",
+  "#ffffff": "color.white",
+} as const satisfies Record<NoteColor, string>;
+
 export type NoteStatus = "idea" | "fixed" | "done";
 
 /** Where a note sits on a day. Off the itinerary there is no time or status to speak of */

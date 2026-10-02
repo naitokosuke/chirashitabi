@@ -72,6 +72,10 @@ function assign(n: Memo, date: Temporal.PlainDate | null) {
 function togglePick(n: Memo) {
   picking.value = picking.value?.id === n.id ? null : n;
 }
+/** The tray's pick row: the picked memo goes on this day */
+function putPickedOn(date: Temporal.PlainDate) {
+  if (picking.value) assign(picking.value, date);
+}
 function nextStatus(n: Scheduled) {
   store.update(n.id, { schedule: cycleStatus(n.schedule) });
 }
@@ -134,7 +138,7 @@ function adoptDraft() {
           v-for="d in trip.days"
           :key="d.date.toString()"
           type="button"
-          @click="() => assign(picking!, d.date)"
+          @click="() => putPickedOn(d.date)"
         >{{ short(d.date) }}</button>
         <button class="later" type="button" @click="() => (picking = null)">{{ i18n.t("shiori.later") }}</button>
       </div>

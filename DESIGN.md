@@ -227,7 +227,7 @@ Lifted. A thing on the desk that can be picked up casts a soft, offset shadow in
 
 ## Shapes
 
-Two families of corner. Paper has a small radius (6px for a sticky, 10px for a suggestion), the way a cut sheet does. Tools are pills (999px) when they are a single row (chips, switches, buttons, the jump control), and softly rounded panels (10–14px) when they hold several things (menu 14px, toast 14px, inputs 10px, tab highlight 12px). The write button is a circle. Every tool is edged with a 1.5px Ruled Line unless it is filled; a filled tool has no edge. Stickies sit at a slight rotation (±2°) that is theirs for life, so the desk never looks like a grid.
+Two families of corner. Paper has a small radius (6px, sticky and suggestion alike), the way a cut sheet does. Tools are pills (999px) when they are a single row (chips, switches, buttons, the jump control), and softly rounded panels (10–14px) when they hold several things (menu 14px, toast 14px, inputs 10px, tab highlight 12px). The write button is a circle. Every tool is edged with a 1.5px Ruled Line unless it is filled; a filled tool has no edge. Stickies sit at a slight rotation (±2°) that is theirs for life, so the desk never looks like a grid.
 
 ## Components
 
