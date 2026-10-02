@@ -48,6 +48,7 @@ import Icon from "./icons/Icon.vue";
 import mapIcon from "./icons/map.svg";
 import shioriIcon from "./icons/shiori.svg";
 import { useRoom } from "./features/sync/useRoom";
+import Toast from "./features/toast/Toast.vue";
 import Canvas, { place } from "./views/Canvas.vue";
 import Form from "./views/Form.vue";
 import Map from "./views/Map.vue";
@@ -72,12 +73,14 @@ function send(event: AppEvent) {
 }
 function onSave(input: NoteInput, keepOpen: boolean) {
   if (keepOpen) {
-    place(input, true);
+    place(input, "quiet");
     return;
   }
+  // written over the canvas it pops there; from another tab it lands quietly and the toast says where
+  const how = state.value.tab === "canvas" ? "pop" : "away";
   send({ type: "formClosed" });
-  // let the canvas come back first, then pop
-  setTimeout(() => place(input), 220);
+  // let the sheet leave first, then place
+  setTimeout(() => place(input, how), 220);
 }
 </script>
 
@@ -112,6 +115,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
     </Transition>
   </div>
   <Rooms v-else @enter="(id) => room.connect(id)" />
+  <Toast v-if="inRoom" :inert="state.form !== null" />
   <CtTabBar
     v-if="inRoom"
     class="nav"

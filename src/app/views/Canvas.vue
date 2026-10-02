@@ -4,14 +4,17 @@ import type { Memo, Note, NoteInput } from "../features/notes/types";
 
 // Module scope is shared with every importer. The canvas is mounted once and
 // never unmounted, so one slot is enough.
-let placeOnMounted: ((input: NoteInput, quiet: boolean) => Memo) | undefined;
+let placeOnMounted: ((input: NoteInput, how: PlaceHow) => Memo) | undefined;
+
+/** `pop`: the canvas is in view; `quiet`: the form stays open; `away`: written from another tab */
+export type PlaceHow = "pop" | "quiet" | "away";
 
 /**
- * Put a note at the centre of the canvas and pop it (`quiet`: toast only).
+ * Put a note at the centre of the canvas; the shell's toast confirms it wherever the user is.
  * `import Canvas, { place } from "./Canvas.vue"`
  */
-export function place(input: NoteInput, quiet = false): Memo | undefined {
-  return placeOnMounted?.(input, quiet);
+export function place(input: NoteInput, how: PlaceHow = "pop"): Memo | undefined {
+  return placeOnMounted?.(input, how);
 }
 
 /** A card held by a finger; (ox, oy) is where on the card it was grabbed */
@@ -51,6 +54,7 @@ import { distance, fitView, pinchTo, startPinch, type Pt } from "../features/can
 import { useViewport } from "../features/canvas/useViewport";
 import { COLOR_NAMES, COLORS, type NoteColor, type NoteId } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
+import { useToast } from "../features/toast/useToast";
 import FilterBar from "../features/tags/FilterBar.vue";
 import { useTags } from "../features/tags/useTags";
 import { useTrip } from "../features/trip/useTrip";
@@ -59,6 +63,7 @@ import plusIcon from "../icons/plus.svg";
 
 const emit = defineEmits<{ write: []; edit: [note: Memo] }>();
 const store = useNotes();
+const toast = useToast();
 const tags = useTags();
 const trip = useTrip();
 const i18n = useI18n();
@@ -270,51 +275,49 @@ const FIRST_LOOK_MIN_SCALE = 0.8;
 // ---- adding from the form: place at viewport center, pop ----
 /** The card that just landed, and where the ring around it goes */
 const pop = ref<{ id: NoteId; x: number; y: number } | null>(null);
-/** `undo` takes back the note just added; `restore` brings back the one just deleted */
-const toast = ref<{ text: string; undo?: NoteId; restore?: NoteId } | null>(null);
-let toastTimer: number | undefined;
-function showToast(text: string, action: { undo?: NoteId; restore?: NoteId } = {}) {
-  settleToast();
-  toast.value = { text, ...action };
-  toastTimer = window.setTimeout(settleToast, 3200);
-}
-/** The toast goes, and a deletion it was holding open becomes real */
-function settleToast() {
-  clearTimeout(toastTimer);
-  const t = toast.value;
-  toast.value = null;
-  if (t?.restore !== undefined && pendingDelete.value.delete(t.restore)) store.remove(t.restore);
-}
-function undoToast() {
-  const t = toast.value;
-  clearTimeout(toastTimer);
-  toast.value = null;
-  if (t?.undo !== undefined) store.remove(t.undo);
-  if (t?.restore !== undefined) pendingDelete.value.delete(t.restore);
-}
+/** The shell's toast takes back a note just added */
+const undoAdd = (id: NoteId) => ({ undo: () => store.remove(id) });
 
 // ---- deleting: the card leaves at once; the room hears about it once the toast is gone ----
 const pendingDelete = ref(new Set<NoteId>());
 const shownNotes = computed(() => store.notes.filter((n) => !pendingDelete.value.has(n.id)));
 function remove(note: Note) {
+  const card = cardEl(note);
+  const hadFocus =
+    card?.contains(document.activeElement) === true ||
+    menuEl.value?.contains(document.activeElement) === true;
   menu.value = null;
   pendingDelete.value.add(note.id);
-  showToast(i18n.t("canvas.deleted", { title: note.title }), { restore: note.id });
+  toast.show(i18n.t("canvas.deleted", { title: note.title }), {
+    undo: () => {
+      pendingDelete.value.delete(note.id);
+      // the card comes back where the keyboard left it
+      if (hadFocus) nextTick(() => cardEl(note)?.focus());
+    },
+    settle: () => {
+      if (pendingDelete.value.delete(note.id)) store.remove(note.id);
+    },
+  });
+  // keyboard users land on the undo, not on the page
+  if (hadFocus) nextTick(() => document.querySelector<HTMLElement>(".toast button")?.focus());
 }
 function write() {
   emit("write");
 }
-function placeAtCenter(input: NoteInput, quiet: boolean) {
+function placeAtCenter(input: NoteInput, how: PlaceHow) {
   const r = vp.value!.getBoundingClientRect();
   const c = toWorld(r.width / 2, r.height / 2);
   const n = store.add(input, { x: c.x - 82, y: c.y - 40 });
-  if (quiet) {
-    showToast(i18n.t("canvas.added", { title: n.title }), { undo: n.id });
-    return n;
+  if (how === "pop") {
+    pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
+    window.setTimeout(() => (pop.value = null), 900);
   }
-  pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
-  window.setTimeout(() => (pop.value = null), 900);
-  showToast(i18n.t("canvas.addedDrag", { title: n.title }), { undo: n.id });
+  const message = {
+    pop: "canvas.addedDrag",
+    quiet: "canvas.added",
+    away: "canvas.addedAway",
+  } as const;
+  toast.show(i18n.t(message[how], { title: n.title }), undoAdd(n.id));
   return n;
 }
 onMounted(() => (placeOnMounted = placeAtCenter));
@@ -375,11 +378,6 @@ watch(
     <FilterBar :room="trip.name" />
 
     <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
-
-    <div v-if="toast" class="toast" role="status">
-      <span>{{ toast.text }}</span>
-      <button v-if="toast.undo || toast.restore" type="button" @click="undoToast">{{ i18n.t("canvas.undo") }}</button>
-    </div>
 
     <div
       v-if="menu"
@@ -522,32 +520,6 @@ watch(
         border-color: var(--ink);
       }
     }
-  }
-}
-
-.toast {
-  position: absolute;
-  inset-inline: 16px 90px;
-  inset-block-end: 92px;
-  z-index: var(--z-chrome);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 14px;
-  background: var(--ink);
-  color: var(--bg);
-  font-size: var(--font-md);
-  font-weight: 700;
-  box-shadow: var(--shadow-float);
-  & button {
-    flex-shrink: 0;
-    white-space: nowrap;
-    min-height: var(--tap);
-    color: var(--toast-action);
-    font-weight: 700;
-    font-size: var(--font-sm);
   }
 }
 
