@@ -58,7 +58,7 @@ button {
   position: absolute;
   inset-block-start: 0;
   inset-inline-start: 0;
-  border-block-end: 2px solid var(--red);
+  border-block-end: 2px solid var(--ink);
   pointer-events: none;
 
   &.ready {

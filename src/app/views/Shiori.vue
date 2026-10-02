@@ -317,11 +317,12 @@ function adoptDraft() {
   align-items: center;
 }
 
+/* a page title is ink; red stays for the stamp, the current tab and delete */
 h1 {
   margin: 0;
   font-size: var(--font-4xl);
   font-weight: 700;
-  color: var(--accent-text);
+  color: var(--ink);
 }
 
 .sum {
@@ -329,7 +330,7 @@ h1 {
   grid-column: 1 / -1;
   font-size: var(--font-sm);
   color: var(--muted);
-  small {
+  & small {
     font-size: var(--font-xs);
   }
 }
@@ -368,7 +369,8 @@ h1 {
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 4px 0 6px;
+  padding: 4px 24px 6px 0;
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   &::-webkit-scrollbar {
     display: none;
   }
@@ -600,7 +602,7 @@ h1 {
   font-variant-numeric: tabular-nums;
   padding: 4px 4px;
   border: 1.5px solid color-mix(in srgb, var(--paper-ink) 25%, transparent);
-  border-radius: 8px;
+  border-radius: 10px;
   background: color-mix(in srgb, #fff 55%, transparent);
   color: var(--paper-ink);
   text-align: center;
@@ -748,7 +750,7 @@ h1 {
       color: var(--on-accent);
     }
     .no {
-      border: .5px solid rgba(31,30,29,.3);
+      border: 1px solid var(--oat);
     }
   }
 }

@@ -154,7 +154,7 @@ const i18n = useI18n();
       color: var(--on-accent);
     }
     & .no {
-      border: .5px solid rgba(31,30,29,.3);
+      border: 1px solid var(--oat);
     }
   }
 }
