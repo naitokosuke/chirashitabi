@@ -2,42 +2,37 @@
 name: chirashitabi
 description: Sticky notes scattered on a desk, becoming a trip
 colors:
-  desk: "#f3f5f1"
-  desk-dot: "#cfd5cc"
+  desk: "oklch(0.968 0.003 260)"
+  desk-dot: "oklch(0.86 0.005 260)"
   tool-white: "#ffffff"
-  pen-navy: "#1c2238"
-  pencil-gray: "#4b5563"
-  ruled-line: "#d9ded6"
-  stamp-red: "#d7263d"
-  jade: "#2e8b6e"
-  gold: "#e0a100"
-  blue: "#3c6ee0"
-  ivory-card: "#faf9f5"
-  oat-edge: "#e3dacc"
-  slate-ink: "#141413"
-  post-it-yellow: "#fff1b8"
-  post-it-pink: "#ffd9de"
-  post-it-mint: "#d8f0e6"
-  post-it-sky: "#dbe7ff"
-  post-it-lilac: "#ead9ff"
-  post-it-white: "#ffffff"
-  stone: "#73726c"
-  stone-light: "#9aa09c"
-  desk-dark: "#1b1f1c"
-  desk-dot-dark: "#2e3430"
-  tool-dark: "#262b28"
-  pen-dark: "#eef1ec"
-  pencil-dark: "#a7aeaa"
-  ruled-line-dark: "#3a403c"
+  ink: "oklch(0.23 0.01 260)"
+  muted: "oklch(0.48 0.01 260)"
+  line: "oklch(0.905 0.004 260)"
+  danger: "oklch(0.53 0.19 27)"
+  paper-yellow: "oklch(0.95 0.07 100)"
+  paper-pink: "oklch(0.935 0.035 12)"
+  paper-mint: "oklch(0.94 0.035 165)"
+  paper-sky: "oklch(0.935 0.033 245)"
+  paper-lilac: "oklch(0.935 0.035 300)"
+  paper-white: "oklch(0.995 0 0)"
+  paper-ink: "oklch(0.23 0.01 260)"
+  paper-muted: "oklch(0.45 0.01 260)"
+  desk-dark: "oklch(0.185 0.004 260)"
+  desk-dot-dark: "oklch(0.3 0.005 260)"
+  tool-dark: "oklch(0.23 0.005 260)"
+  ink-dark: "oklch(0.94 0.004 260)"
+  muted-dark: "oklch(0.72 0.008 260)"
+  line-dark: "oklch(0.31 0.006 260)"
+  danger-dark: "oklch(0.72 0.15 27)"
 typography:
   title:
     fontFamily: "Noto Sans JP, Noto Sans CJK JP, Hiragino Sans, Hiragino Kaku Gothic ProN, Yu Gothic UI, Meiryo, system-ui, sans-serif"
-    fontSize: "19px"
+    fontSize: "18px"
     fontWeight: 700
     lineHeight: 1.3
   heading:
     fontFamily: "Noto Sans JP, Noto Sans CJK JP, Hiragino Sans, Hiragino Kaku Gothic ProN, Yu Gothic UI, Meiryo, system-ui, sans-serif"
-    fontSize: "17px"
+    fontSize: "18px"
     fontWeight: 700
     lineHeight: 1.35
   body:
@@ -65,6 +60,7 @@ rounded:
   control: "10px"
   tab: "12px"
   panel: "14px"
+  fab: "18px"
   pill: "999px"
 spacing:
   xs: "4px"
@@ -74,54 +70,59 @@ spacing:
   xl: "16px"
   xxl: "20px"
 components:
+  app-bar:
+    backgroundColor: "{colors.desk}"
+    textColor: "{colors.ink}"
+    typography: "{typography.label}"
+    height: "52px"
   chip:
     backgroundColor: "{colors.tool-white}"
-    textColor: "{colors.pencil-gray}"
+    textColor: "{colors.muted}"
     typography: "{typography.label}"
     rounded: "{rounded.pill}"
     padding: "0 12px"
     height: "36px"
   chip-selected:
-    backgroundColor: "{colors.pen-navy}"
+    backgroundColor: "{colors.ink}"
     textColor: "{colors.tool-white}"
     typography: "{typography.label}"
     rounded: "{rounded.pill}"
     padding: "0 12px"
     height: "36px"
   button-primary:
-    backgroundColor: "{colors.pen-navy}"
+    backgroundColor: "{colors.ink}"
     textColor: "{colors.tool-white}"
     typography: "{typography.label}"
     rounded: "{rounded.pill}"
     padding: "12px 18px"
   button-fab:
-    backgroundColor: "{colors.stamp-red}"
+    backgroundColor: "{colors.ink}"
     textColor: "{colors.tool-white}"
-    rounded: "{rounded.pill}"
-    size: "58px"
+    rounded: "{rounded.fab}"
+    size: "56px"
   input:
     backgroundColor: "{colors.tool-white}"
-    textColor: "{colors.pen-navy}"
+    textColor: "{colors.ink}"
     typography: "{typography.body}"
     rounded: "{rounded.control}"
     padding: "10px 12px"
   note-card:
-    backgroundColor: "{colors.post-it-yellow}"
-    textColor: "{colors.pen-navy}"
+    backgroundColor: "{colors.paper-yellow}"
+    textColor: "{colors.paper-ink}"
     typography: "{typography.note}"
     rounded: "{rounded.note}"
     padding: "12px"
     width: "164px"
   suggestion-card:
-    backgroundColor: "{colors.ivory-card}"
-    textColor: "{colors.slate-ink}"
+    backgroundColor: "{colors.paper-white}"
+    textColor: "{colors.paper-ink}"
     typography: "{typography.label}"
-    rounded: "{rounded.control}"
+    rounded: "0"
     padding: "12px"
     width: "186px"
   toast:
-    backgroundColor: "{colors.pen-navy}"
-    textColor: "{colors.desk}"
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.tool-white}"
     rounded: "{rounded.panel}"
     padding: "10px 14px"
 ---
@@ -130,171 +131,189 @@ components:
 
 ## Overview
 
-**Creative North Star: "Stickies on the Desk" (机の上の付箋)**
+**Creative North Star: "Graphite on Paper" (紙と鉛筆)**
 
-The screen is a desk: a soft green-gray surface with the faint dot grid of graph paper, and on it, paper. Ideas are sticky notes in pastel paper colors, scattered at slight angles, each with a small colored dot saying whose hand it came from. The agent's suggestions are a different stock, ivory with an oat edge, so a machine's note is recognizably paper too but never mistaken for a person's. Everything that is not paper is a tool left on the desk: pill-shaped chips and switches, a tab bar at the bottom, a red stamp of a button for writing. Tools are drawn with thin ruled lines and sit flat; paper lifts.
+The screen is a desk, and the desk is neutral: a cool, almost colorless gray with the faint dot grid of graph paper. On it, paper. Ideas are sticky notes in six tinted stocks, scattered at slight angles, each with a small dot saying whose hand it came from. Everything that is not paper is a tool drawn in one ink: white chips and panels on a hairline, and a single filled ink tile for writing. Color belongs to the paper and to nobody else; the tools stay graphite so the notes are what you see.
 
-The voice is warm and paper-like. Rounded letterforms, pastel stock, rounded corners everywhere a hand would touch, and one moment of play when a new note pops onto the desk. Beyond that moment the interface stays quiet: this is an Operate surface, two people getting a trip planned, and the tool should disappear into the task. Density is relaxed on the canvas and tighter in the booklet, where a day is a list to be read on a phone.
+The voice is quiet. One ink, one neutral desk, one family of paper, and one moment of play when a new note pops onto the desk. This is an Operate surface, two people getting a trip planned, and the tool should disappear into the task. Density is relaxed on the canvas and tighter in the booklet; the memo tab is the note form and nothing else, always open for the next thought.
 
 **Key Characteristics:**
 
 - A desk, not a page: a dotted surface you pan and pinch, with paper on it
-- Paper colors are the only saturated fills; chrome is white, line and navy
-- One accent, stamp red, spent on the few things that start an action
-- Pills for tools, soft small radii for paper, soft offset shadows only on what lifts
-- Rounded Japanese-first typography in a fixed pixel scale, never fluid
+- Paper is the only color; chrome is white, hairline and ink
+- No accent hue: the "on" state and the one primary action are ink; red appears only when something is destroyed
+- One bar, the same on every view: switching views changes what is under it, never where it is
+- Fixed pixel type in the device's own Japanese gothic, never fluid
 
 ## Colors
 
-Pastel paper on a green-gray desk, written in navy ink, with a red stamp for the one thing to do next.
+A neutral desk, white tools, one ink, and tinted paper. Nothing in the chrome is cream, warm or tinted: a warm off-white reads as a template's default, and here the paper carries all the warmth there is.
 
-### Primary
+### Ink
 
-- **Stamp Red** (#d7263d): the write button, the current tab's text and the tint behind it, delete. It starts things or warns; it never decorates, and it never marks a selection (the map's day chips select in navy like everything else). Also the default color of the second member.
-
-### Secondary
-
-- **Pen Navy** (#1c2238): all ink. Text, the selected state of chips and the segmented switch, the primary button, the toast. Navy is the "on" color for tools, so red can stay rare.
-- **Member colors** (Blue #3c6ee0, Stamp Red #d7263d, Jade #2e8b6e, Gold #e0a100 and the others a person picks): each member's signature, seen as the dot on their notes, the dot on a suggestion, and the tint of tags they are filtering on. A member color may fill a chip when that chip is about them.
-
-### Tertiary
-
-- **Post-it Yellow** (#fff1b8), **Post-it Pink** (#ffd9de), **Post-it Mint** (#d8f0e6), **Post-it Sky** (#dbe7ff), **Post-it Lilac** (#ead9ff), **Post-it White** (#ffffff): the six paper stocks a note can be. Always light, in both themes; paper does not go dark. Ink on paper is always Pen Navy.
-- **Ivory Card** (#faf9f5) with **Oat Edge** (#e3dacc) and **Slate Ink** (#141413): the agent's suggestion card. Warmer and plainer than a sticky, with a visible edge, so a suggestion reads as a different kind of paper.
+- **Ink** (`--ink`, oklch 0.23 0.01 260): all text, every selected state (a chip, the segmented switch's label, the current tab), the write button, the primary button, the toast, focus rings. Ink is the only "on" color.
+- **Muted** (`--muted`): secondary text, resting tool labels, hints. At least 4.5:1 on the desk and on white.
 
 ### Neutral
 
-- **Desk** (#f3f5f1) with **Desk Dot** (#cfd5cc): the canvas and every full-screen background; the dot grid is only on the canvas.
-- **Tool White** (#ffffff): chips, switches, menus, inputs, the tab bar.
-- **Ruled Line** (#d9ded6): the 1.5px edge of every tool.
-- **Pencil Gray** (#4b5563): secondary text and the resting color of tool labels.
-- **Stone** (#73726c) and **Stone Light** (#9aa09c): the quietest text (hints, "suggestion", empty states) and the color of nobody.
-- Dark theme (`prefers-color-scheme: dark`, unless `data-theme="light"`): Desk becomes #1b1f1c, Desk Dot #2e3430, Tool White #262b28, Pen Navy #eef1ec, Pencil Gray #a7aeaa, Ruled Line #3a403c. Paper, member colors and Stamp Red do not change.
+- **Desk** (`--bg`) with **Desk Dot** (`--dot`): every full-screen background and the app bar; the dot grid is only on the canvas.
+- **Tool White** (`--surface`): chips, menus, inputs, panels.
+- **Line** (`--line`): the 1px hairline edge of every tool and the app bar's bottom edge.
+- **Wash** (`--wash`, ink at 6–8%): the segmented switch's track, the current tab's highlight, a hovered menu item.
+- Dark theme (`prefers-color-scheme: dark`, unless `data-theme="light"`): the same roles, re-chosen rather than inverted: a near-black desk, a lifted tool gray, light ink. The write button turns light with dark ink on it (`--on-ink`).
+
+### Paper
+
+- **Yellow, Pink, Mint, Sky, Lilac, White** (`--paper-*`): six stocks at one lightness and an equal, low chroma, so they read as one family. Yellow carries a little more chroma and leans toward green, because at low chroma a warm yellow turns into cream. On the dark desk each steps down in lightness so it does not glare; it stays light.
+- **Paper Ink** and **Paper Muted** (`--paper-ink`, `--paper-muted`): text on paper, always dark, in either theme.
+- The room stores a paper as one of six hex values (`COLORS` in `notes/types.ts`). The screen paints the theme's token for it (`PAPERS`), so the palette can change without touching stored notes.
+
+### Signal
+
+- **Danger** (`--danger`): the text of a delete. Nowhere else.
+- **Member colors**: a member's dot on their notes, suggestions and drafts. A dot, never a fill, a border or text.
 
 ### Named Rules
 
-**The Paper Stays Light Rule.** A note's background is one of the six stocks and is never themed; the desk and the tools change with the theme, the paper on them does not.
+**The Paper Is the Color Rule.** Tinted surfaces are paper and nothing else. Tags, statuses, links, the stamp, headings and buttons are ink or muted ink.
 
-**The One Stamp Rule.** Stamp Red appears where an action begins (the write button, the current tab) or where something is destroyed. Never as a border, a heading color or a decoration.
+**The One Ink Rule.** There is no accent hue. Selected is ink; primary is an ink fill; a link is ink with an underline.
 
-**The Whose-Hand Rule.** A member's color says "by whom" and nothing else: the dot on a card, the dot by a suggestion, the tint of a tag chip. It never fills a surface that is not about that member.
+**The Red Means Gone Rule.** `--danger` is spent on deleting. Not on writing, not on the current tab, not on a heading.
 
-**The Mixed Ink Rule.** A tag's or a member's color is never text as it is. As text on a tool it is mixed toward the tool's ink (`color-mix(in oklch, var(--tint) var(--tint-mix), var(--tint-base))`: 78% toward Pen Navy on the light desk, 62% toward white on the dark one); as text on paper, 68% toward the paper's ink; as a fill carrying white text, 70–85% toward navy. Gold needs 28 points more ink than the others. Stamp Red as text is `--accent-text` (lightened on the dark desk), a link's green is `--link`, the toast's action is `--toast-action`. Every pair measures at least 4.5:1 in both themes; the dark desk is composed with these tokens, not inverted.
+**The Whose-Hand Rule.** A member's color says "by whom" as a small dot, and nothing else.
 
 ## Typography
 
 **Display Font:** the device's own Japanese gothic (Noto Sans JP / Noto Sans CJK JP on Android, Hiragino Sans on iPhone and Mac, Yu Gothic UI / Meiryo on Windows)
 **Body Font:** the same (one voice for everything; nothing is downloaded)
 
-**Character:** A plain modern gothic, Japanese first, the one each phone already speaks. Headings are the same face at 700; size and weight carry the hierarchy, never a second family. The warmth lives in the paper, its colors and its shadows, not in the letterforms. A web font was dropped on purpose: a Japanese face is hundreds of kilobytes of render-blocking slices, swaps mid-read, and is missing offline on the trip.
+**Character:** A plain modern gothic, Japanese first, the one each phone already speaks. Size and weight carry the hierarchy, never a second family.
 
 ### Hierarchy
 
-- **Title** (700, 19px, 1.3): the wordmark `chirashitabi` and a sheet's title (new note, the booklet's day heading).
-- **Heading** (700, 17–18px, 1.35): section headings inside a view (a day in the booklet, a group on the rooms screen).
-- **Body** (400, 16px, 1.5): reading text in the booklet and in forms.
-- **Note** (700, 15px, 1.4): a sticky's title; its body is Caption in Pencil Gray.
-- **Label** (700, 13px, 1.3): chips, buttons, the segmented switch, menu items (14px when a menu needs the room).
-- **Caption** (400, 12px, 1.4): a note's body, tags (700), hints, the tab bar's labels, counts (11px).
+- **Display** (700, 32px, 1.2): the trip's name on the home view (on the desk it is the trip tag's 22px). The only size above the fixed scale's top step.
+- **Title** (700, 18px, 1.3): a sheet's or the memo tab's title, the wordmark on the home view.
+- **Heading** (700, 18px, 1.35): a day in the booklet, a group on the rooms screen.
+- **Body** (400, 16px, 1.5): reading text in the booklet and in forms; 17px in the note field.
+- **Note** (700, 15px, 1.4): a sticky's title; its body is Caption in Paper Muted.
+- **Label** (700, 13px, 1.3): chips, buttons, the segmented switch, menu items.
+- **Caption** (400, 12px, 1.4): a note's body, tags (700), hints, the tab bar's labels, counts.
 
 ### Named Rules
 
-**The Fixed Scale Rule.** Sizes are the pixel steps in `tokens.css` (11, 12, 13, 14, 15, 16, 17, 18, 19, 22). No `clamp()`, no viewport units; this is a tool viewed at arm's length on a phone.
+**The Fixed Scale Rule.** Sizes are the pixel steps in `tokens.css` (12, 13, 14, 15, 16, 17, 18, 19, 22, and 32 for Display). No `clamp()`, no viewport units.
 
-**The Weight Carries It Rule.** Hierarchy comes from size and from 400 / 700 in one family. A second family, a web font, uppercase tracking or gradient text is not in the vocabulary.
-
-**The No Download Rule.** Type is never fetched. The stack names Noto first so Android shows it, and every other platform falls to its own Japanese gothic; there is no `@font-face` and no font host.
+**The No Download Rule.** Type is never fetched; there is no `@font-face` and no font host (owner's decision, for load time and offline reading on the trip).
 
 ## Layout
 
-A full-screen app shell: the active view fills the screen above a 64px bottom tab bar (plus the home-indicator inset). The canvas is a pannable, pinchable world of absolutely positioned cards over a 22px dot grid; the map and the booklet morph in over it so the canvas keeps its position. The note form and the rooms screen are full-screen sheets.
+A full-screen app shell: a 64px tab bar at the bottom (plus the home-indicator inset), and above it one box that holds every view. Every view opens with the same **app bar**: one 52px row holding what the view is about (the home view's wordmark, the canvas's tag chips, the memo tab's title, the map's day chips, the booklet's day tabs), with anything that must not scroll pinned at its end. There is no title row: where the trip goes is said on the home view and by the trip tag on the desk. The row keeps its height whatever it holds, so the bar is pixel-identical from view to view and only what is under it changes. The tab bar has five items: home, canvas, memo, map, booklet; the app opens on the canvas.
 
-Spacing is a small set of steps (4, 6, 10, 12, 16, 20px). Tools keep 6px between items and 12px of inner horizontal padding; sheets use 12–20px gutters. Touch targets are at least 36px tall (chips) and the primary ones 40–58px. The floating write button sits at the bottom right of the canvas, in the thumb zone, 16px from the edge. Responsive behavior is structural: the layout is phone-first and simply has more desk on a laptop.
+Views are built the first time they are opened and then kept: switching only says which one is painted, and nothing reloads (the map keeps its tiles, the booklet its scroll, the canvas its pan and zoom). A hidden view is inert, and takes no part in a View Transition.
+
+Changes of place run through **View Transitions** (`useViewTransition`, `transitions.css`), never through re-rendering with a CSS fade. Only named regions morph; the tab bar and anything outside them render live at once. Changing tabs cross-fades the screen box (`ct-screen`, 180ms); the bar is the same picture before and after, so only the view under it changes. Changing the booklet's day slides its page 16px the way the tabs run while cross-fading (`ct-page`, 220ms, typed `forward` or `backward`); edit/read cross-fades the page without sliding. A named region is always a box that clips its own content (a scroll container), since a snapshot is not clipped by its ancestors. Under reduced motion, without the API, or with the page hidden, the change simply happens. The note form appears two ways: as the memo tab, where it wears the app bar like any view, and as the one sheet, opened by the write button on the canvas or the map, which slides in over everything with a header the height of the app bar.
+
+Content that is read or filled in (the booklet, the form) sits in a 648px column centered on wide screens; the canvas and the map use the whole box. Spacing is a small set of steps (4, 6, 10, 12, 16, 20px), 16px gutters. The write button sits at the bottom end, 16px from both edges; the fit button sits at the bottom start, level with its middle.
 
 ## Elevation & Depth
 
-Lifted. A thing on the desk that can be picked up casts a soft, offset shadow in the ink's own color; the desk itself is flat. Paper (notes, suggestions) and anything that floats over the desk (menus, the toast, the write button, the card drag) lift; chips, the segmented switch, inputs and tool buttons lift gently, one step, on their 1.5px line. The four shadows are tokens in `tokens.css` (`--shadow-tool`, `--shadow-paper`, `--shadow-lift`, `--shadow-float`).
-
-### Shadow Vocabulary
-
-- **Resting tool** (`box-shadow: 0 1px 2px rgba(28, 34, 56, 0.06), 0 2px 6px rgba(28, 34, 56, 0.08)`): a chip, a switch, an input, a tool button.
-- **Resting paper** (`box-shadow: 0 3px 10px rgba(28, 34, 56, 0.14)`): a sticky on the desk.
-- **Lifted paper** (`box-shadow: 0 14px 28px rgba(28, 34, 56, 0.28)`): a card while it is dragged.
-- **Floating tool** (`box-shadow: 0 8px 20px rgba(28, 34, 56, 0.2)`): the card menu; the toast at `0 6px 18px / 0.3`.
-- **The stamp** (`box-shadow: 0 6px 16px rgba(215, 38, 61, 0.35)`): the write button's shadow is tinted with its own red.
-
-### Named Rules
-
-**The Ink Shadow Rule.** Shadows are Pen Navy at low alpha, offset downward with a soft blur. Never black, never a zero-offset halo, never a hard block.
+Paper lifts; tools barely do. Shadows are neutral (a dark gray, never a hue), offset downward with a soft blur. The four steps are tokens: `--shadow-tool` (a chip resting, a hairline lift), `--shadow-paper` (a sticky on the desk), `--shadow-lift` (a card being dragged, a hovered write button), `--shadow-float` (menus, the toast, the write button). The dark theme uses black at higher alpha.
 
 **The Lift Means Pick-Up Rule.** Dragging raises the shadow and nothing else; the card does not scale or glow.
 
 ## Shapes
 
-Two families of corner, and one deliberate exception. A person's sticky has a small radius (6px), the way a cut sheet does; the agent's suggestion is square (0), cut straight, so a machine's note is told from a person's by its corners alone. Tools are pills (999px) when they are a single row (chips, switches, buttons, the jump control), and softly rounded panels (10–14px) when they hold several things (menu 14px, toast 14px, inputs 10px, tab highlight 12px). The write button is a circle. Every tool is edged with a 1.5px Ruled Line unless it is filled; a filled tool has no edge. Stickies sit at a slight rotation (±2°) that is theirs for life, so the desk never looks like a grid.
+A person's sticky has a small radius (6px); the agent's suggestion and draft are square (0) with a dashed hairline inset from the edge, so a machine's note is told from a person's by its corners. Tools are pills when they are a single row (chips, switches, buttons), panels at 10–14px when they hold several things (inputs 10px, menus, the toast and the tray 14px). The write button is an 18px-radius tile, not a circle. Stickies keep a slight rotation (±2°) on the desk; in the booklet they are level.
 
 ## Components
 
+### App bar (`CtAppBar`)
+
+The desk's color with a 1px line under it, one 52px row. The default slot fills it: a `CtChipRow` (one scrolling row of chips that fades at its end), the day tabs (their underline sits on the bar's own edge), or a title. The `end` slot is pinned outside anything that scrolls: the booklet's edit/read switch. Something that appears at the end narrows the row; it never pushes the row's chips along.
+
+### Tag filter
+
+The canvas's bar is the tag chips. While a tag is picked, two chips appear pinned at the row's end: "only these" (a toggle: off dims the other notes, on hides them) and a dashed "clear". Before a tag is picked neither means anything, so neither is shown.
+
+### Trip tag
+
+Where the trip goes, as an object lying on the desk that is plainly not a note: a luggage tag in ink (`--ink` fill, `--on-ink` text), level where stickies tilt, with a punched hole where a sticky has its author's dot, the trip's name at 22px and its dates under it. It sits in desk coordinates and pans and zooms with the notes, under them; clicks pass through it to the desk. It is placed once the desk's notes are known, centred over the pile and hanging just above it (`tagSpot`), or above where the first note will land on an empty desk, and then stays put. A fit counts it as one more card, so "fit all" always shows it.
+
+### Home
+
+The first tab, shown rather than listed. The bar holds the wordmark `chirashitabi`. Under it: the trip's name in Display, its dates and length; a face per member (the initial on their color, deepened to carry white; the one place a member color fills, since the face is about them). Then the days side by side on a white panel, each a stack of its notes drawn as slips of their own paper, maybes faded on a dashed edge, the date and weekday under it. Then one bar of the plan's progress in three inks (confirmed, maybe, no day) with a small legend of counts; the budget in 22px with the maybes in small; and a tool button to open another trip. No row of labels and figures, and no "you".
+
+### Write button (`CtFab`)
+
+An ink tile, 56px, 18px radius, a 24px plus in `--on-ink`, `--shadow-float`, lifting to `--shadow-lift` on hover. On the canvas and the map. It is the only filled tool on a view.
+
 ### Buttons
 
-- **Shape:** pill (999px) for text buttons; a 58px circle for the write button.
-- **Primary:** Pen Navy fill, Tool White label, 12px 18px padding; disabled at 40% opacity.
-- **Write (FAB):** Stamp Red fill, white glyph, red-tinted shadow, bottom-right of the canvas.
-- **Tool button:** Tool White fill, 1.5px Ruled Line, Label type in Pencil Gray (the jump control, menu items); a destructive menu item is Stamp Red text.
-- **Hover / Focus:** color and background transition over 280ms; focus rings are currently the browser's and are to be drawn in Pen Navy.
+- **Primary:** ink fill, `--on-ink` label, pill; disabled at 35–40% opacity.
+- **Tool button:** Tool White, 1px line, Label in Muted (fit, back, menu items); hover turns the label to ink.
+- **Destructive:** a menu item in `--danger` text.
 
-### Chips
+### Chips (`CtChip`)
 
-- **Style:** pill, 36px tall, Tool White with a Ruled Line edge, Label type in Pencil Gray; a `--tint` (a member or tag color) colors the text.
-- **State:** selected fills with the tint (or Pen Navy) and turns the text white, edge gone. A count sits after the label at 11px, 70% opacity. Toggle chips announce `aria-pressed`.
+Pill, 36px tall, Tool White on a 1px line, Label in Muted. Selected fills with ink and turns the text `--on-ink`. A count follows at 12px, 60% opacity. Toggle chips announce `aria-pressed`. A "clear" chip has a dashed edge.
 
 ### Segmented switch
 
-- **Style:** a Tool White pill with a Ruled Line edge; a Pen Navy pill indicator slides to the chosen option (350ms, `--ease-morph`), the chosen label turns Desk-colored.
+A wash-colored track; the chosen option is a white pill with a hairline and a tool shadow that slides to it (350ms, `--ease-morph`); the chosen label is ink, the others Muted.
 
 ### Tab bar
 
-- **Style:** three equal columns, icon over a 12px label, Pencil Gray at rest; the current item turns Stamp Red and a 12px-radius highlight of red at 12% over Tool White slides behind it.
+Five equal columns (home, canvas, memo, map, booklet), icon over a 12px label in Muted; the current item turns ink and a 12px-radius wash slides behind it.
 
-### Cards / Containers
+### Sticky note
 
-- **Sticky note:** 164px wide, 6px radius, one of the six stocks, 12px padding; title in Note type, body in Caption (Pencil Gray), tags as `#tag` in the tag's color, a 9px dot of the author's color at the top right. Resting-paper shadow; lifted while dragged; dimmed to 22% and desaturated when filtered out.
-- **Suggestion:** 186px wide, square corners (the agent's mark), Ivory Card with a 1px Oat Edge, Slate Ink; a header of the author's dot and name with "suggestion" in Stone at the end, the text at 400, then two pill buttons: adopt (filled with the author's color) and dismiss (hairline edge).
-- **Menu:** Tool White, 14px radius, 6px padding, Ruled Line edge, floating-tool shadow; items are 40px pills.
-- **Toast:** Pen Navy, 14px radius, text in Desk color, the undo action in Post-it Pink.
+164px, 6px radius, one of the six stocks, 12px padding; title in Note, body in Caption (Paper Muted), tags as `#tag` in Paper Muted, an 8px dot of the author's color at the top end. Dimmed to 22% and desaturated when filtered out.
 
-### The booklet's strip
+### Suggestion
 
-- A day is a vertical strip of the same stickies as the canvas, pinned in time order and **level** (only the desk tilts; the booklet is for reading), each keeping its paper color, with a darker fold of the same paper as a time tab along its left edge (the time input lives in that tab in edit mode). Confirmed notes are opaque; in read mode maybes are gathered under "if there is time" on a faded paper with ink at full; a done note is stamped (a rotated jade-inked word in a rule) and its title steps to the paper's quieter ink. The agent's draft is its square ivory card. The appendix is a checklist on the notes' own paper. Nothing in the booklet is a white tool card; the day tabs, the mode switch and the badges stay tools.
+186px, square, Paper White with a dashed hairline inset 5px; a header of the author's dot and name with "suggestion" in Paper Muted; two pills: adopt (Paper Ink fill) and dismiss (hairline).
 
-### Inputs / Fields
+### Map pin
 
-- **Style:** Tool White, 1.5px Ruled Line, 10px radius, 10px 12px padding, Body type; labels above in Label size, Pencil Gray.
-- **Focus:** browser default today; to be a Pen Navy edge.
+The note's own paper as the pin's fill, a 2px Paper Ink edge, its title on a white label. A day's route is a dashed Paper Ink line. The tiles are light in both themes.
 
-### Navigation
+### Booklet
 
-- The bottom tab bar (above) is the only navigation; the back control on a sheet is an icon-and-word button in the sheet's header.
+A day is a vertical strip of the same stickies, level, each with a fold of the same paper (lightness only) along its start edge holding the time. Status is one ink in three steps: maybe is a dashed outline, confirmed is filled, done is outlined and the paper is stamped "done" in ink. In read mode the maybes gather under "if there is time" on paper faded toward white. The trip's sums and, in edit mode, the tray of notes without a day (a white panel) sit above the page and do not scroll or slide with it; only the day's page morphs. The agent's draft is its square, dashed white card.
+
+### Memo tab
+
+The note form, docked as a view: the app bar with the form's title, then the same fields and the same "save to canvas" button as the sheet. The note field takes focus whenever the tab comes up. Saving puts the note on the canvas (the toast says so and offers the undo) and empties the form for the next one; the tab itself never shows stickies, only the canvas does.
+
+### Inputs
+
+Tool White, 1px line, 10px radius, 10px 12px padding, Body; labels above in Label, Muted. Focus is a 2px ink ring outside the edge.
+
+### Toast
+
+Ink, 14px radius, `--on-ink` text, centered above the write button's row (at most 480px wide); its action is the same color, underlined.
 
 ### The pop
 
-When a note is written it appears at the center of where the canvas was looking, scaling from 30% with an 8° tilt, overshooting to 108% and settling (500ms, `cubic-bezier(.2, 1.4, .4, 1)`), while a red ring expands and fades around it. This is the one authored moment; under `prefers-reduced-motion` both are off.
+When a note is written over the canvas it appears where the canvas was looking, scaling from 30% with an 8° tilt, overshooting to 108% and settling (500ms, `cubic-bezier(.2, 1.4, .4, 1)`), while an ink ring at half strength expands and fades around it. This is the one authored moment; under `prefers-reduced-motion` both are off.
 
 ## Do's and Don'ts
 
 ### Do:
 
-- **Do** keep paper light in both themes and write on it in Pen Navy.
-- **Do** spend Stamp Red on at most one or two things per screen: the thing that starts, the thing that destroys.
-- **Do** give a member's color exactly one meaning: whose.
-- **Do** make tools pills and panels with a 1.5px Ruled Line, or a solid Pen Navy fill, never both.
+- **Do** keep every tinted surface paper, and write on it in Paper Ink.
+- **Do** mark selection and the primary action in ink, and only in ink.
+- **Do** give every view the app bar, at its fixed height, with no title row above it.
+- **Do** keep a view mounted once opened and switch by visibility, so nothing reloads or blinks.
 - **Do** keep every size on the fixed pixel scale and every transition at 280–350ms with `--ease-morph`.
-- **Do** cast shadows in Pen Navy at low alpha, offset down, when something lifts; lift chips, switches and sheets gently in the same vocabulary.
 
 ### Don't:
 
+- **Don't** add an accent hue, a cream or ivory surface, a tinted chrome, or a color per tag.
+- **Don't** use red for anything but deleting.
+- **Don't** remount a view, or fade it with CSS, when the tab changes; morph through a View Transition.
+- **Don't** let anything that holds for the whole view slide with a page that changes under it.
 - **Don't** add a second typeface, uppercase tracking, gradient text or an eyebrow label above a heading.
-- **Don't** theme a sticky's background or draw it with a hard offset shadow.
-- **Don't** use a member color as a surface, border or heading color outside of "by whom".
 - **Don't** fill the canvas with same-size cards in a grid; stickies keep their scatter and their tilt.
-- **Don't** reach for a modal; the app's sheets are full-screen and everything else is inline or a floating menu.
+- **Don't** reach for a modal; the form is a full-screen sheet and everything else is inline or a floating menu.

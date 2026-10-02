@@ -21,6 +21,19 @@ export const COLOR_NAMES = {
   "#ffffff": "color.white",
 } as const satisfies Record<NoteColor, string>;
 
+/**
+ * How each paper is drawn. The hex is what the room stores and stays as it is; the
+ * screen paints the theme's token for it, so the palette can change without a migration.
+ */
+export const PAPERS = {
+  "#fff1b8": "var(--paper-yellow)",
+  "#ffd9de": "var(--paper-pink)",
+  "#d8f0e6": "var(--paper-mint)",
+  "#dbe7ff": "var(--paper-sky)",
+  "#ead9ff": "var(--paper-lilac)",
+  "#ffffff": "var(--paper-white)",
+} as const satisfies Record<NoteColor, string>;
+
 export type NoteStatus = "idea" | "fixed" | "done";
 
 /** Where a note sits on a day. Off the itinerary there is no time or status to speak of */

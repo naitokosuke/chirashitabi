@@ -47,16 +47,26 @@ import {
   watch,
 } from "vue";
 
+import { CtAppBar, CtFab } from "../../ui/index";
+
 import { useI18n } from "../i18n/useI18n";
 
 import NoteCard from "../features/canvas/NoteCard.vue";
-import { distance, fitView, pinchTo, startPinch, type Pt } from "../features/canvas/transform";
+import {
+  distance,
+  fitView,
+  pinchTo,
+  startPinch,
+  tagSpot,
+  type Pt,
+} from "../features/canvas/transform";
 import { useViewport } from "../features/canvas/useViewport";
-import { COLOR_NAMES, COLORS, type NoteColor, type NoteId } from "../features/notes/types";
+import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteId } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
 import { useToast } from "../features/toast/useToast";
 import FilterBar from "../features/tags/FilterBar.vue";
 import { useTags } from "../features/tags/useTags";
+import { shortDate } from "../features/trip/format";
 import { useTrip } from "../features/trip/useTrip";
 import Icon from "../icons/Icon.vue";
 import plusIcon from "../icons/plus.svg";
@@ -67,6 +77,13 @@ const toast = useToast();
 const tags = useTags();
 const trip = useTrip();
 const i18n = useI18n();
+/** "11/3 – 11/6", or nothing while the room has no days */
+const dates = computed(() => {
+  const first = trip.days[0]?.date;
+  const last = trip.days.at(-1)?.date;
+  if (first === undefined || last === undefined) return "";
+  return `${shortDate(first, i18n.locale)} – ${shortDate(last, i18n.locale)}`;
+});
 const { view, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
 const worldStyle = computed(
@@ -211,7 +228,7 @@ function openMenu(note: Note) {
   menu.value = {
     note,
     x: Math.max(8, card.left - r.left),
-    y: Math.max(card.bottom - r.top + 8, 90),
+    y: Math.max(card.bottom - r.top + 8, 8),
   };
   // once it is drawn: measure it, keep it on screen (above the card near the bottom), and move focus in
   nextTick(() => {
@@ -222,7 +239,7 @@ function openMenu(note: Note) {
     const x = Math.max(8, Math.min(card.left - r.left, r.width - w - 8));
     const below = card.bottom - r.top + 8;
     const y = below + h > r.height - 100 ? card.top - r.top - h - 8 : below;
-    menu.value = { ...menu.value, x, y: Math.max(y, 90) };
+    menu.value = { ...menu.value, x, y: Math.max(y, 8) };
     m.querySelector<HTMLElement>("button")?.focus();
   });
 }
@@ -267,7 +284,20 @@ function fitAll() {
 }
 function fitted(minScale = 0) {
   const r = vp.value!.getBoundingClientRect();
-  return fitView(store.notes, r.width, r.height, minScale);
+  // the trip's tag counts as one more card, so a fit always shows it
+  const at = tagAt.value;
+  const tag = at === null ? [] : [{ x: at.x - 82, y: at.y - 40 }];
+  return fitView([...store.notes, ...tag], r.width, r.height, minScale);
+}
+
+// ---- the trip's tag: where the trip goes, an object on the desk that is not a note ----
+/** Its middle, in desk coordinates. Set once the desk's notes are known, then left where it is */
+const tagAt = shallowRef<Pt | null>(null);
+/** Where a new card lands right now: the middle of the view */
+function landing(): Pt {
+  const r = vp.value!.getBoundingClientRect();
+  const c = toWorld(r.width / 2, r.height / 2);
+  return { x: c.x, y: c.y };
 }
 /** The first look never shrinks a card past readable; the fit button still shows everything */
 const FIRST_LOOK_MIN_SCALE = 0.8;
@@ -327,86 +357,98 @@ onBeforeUnmount(() => (placeOnMounted = undefined));
 onMounted(() =>
   nextTick(() => {
     const r = vp.value!.getBoundingClientRect();
-    view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? {
-      tx: (r.width - 164) / 2,
-      ty: r.height / 2 - 60,
-      s: 1,
-    };
+    if (store.notes.length > 0) {
+      tagAt.value = tagSpot(store.notes, landing());
+      view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value;
+      return;
+    }
+    view.value = { tx: (r.width - 164) / 2, ty: r.height / 2 - 60, s: 1 };
+    tagAt.value = tagSpot([], landing());
   }),
 );
-// Notes that arrive later (the room's first snapshot) get the same first look, once
+// Notes that arrive later (the room's first snapshot) get the same first look, once, and the tag moves over them
 watch(
   () => store.notes.length > 0,
   (has, had) => {
-    if (has && !had) nextTick(() => (view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value));
+    if (!has || had) return;
+    nextTick(() => {
+      tagAt.value = tagSpot(store.notes, landing());
+      view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value;
+    });
   },
 );
 </script>
 
 <template>
   <div class="canvas">
-    <div
-      ref="vp"
-      class="viewport"
-      role="application"
-      :aria-label="i18n.t('nav.canvas')"
-      :class="{ panning }"
-      @pointerdown="onDown"
-      @pointermove="onMove"
-      @pointerup="onUp"
-      @pointercancel="onUp"
-      @wheel="onWheel"
-      @keydown="onKey"
-    >
-      <div class="world" :style="worldStyle">
-        <NoteCard
-          v-for="n in shownNotes"
-          :key="n.id"
-          :note="n"
-          :dragging="draggingId === n.id"
-          :pop="pop?.id === n.id"
-          :visibility="tags.visibility(n)"
-          @adopt="() => store.adopt(n.id)"
-          @remove="() => remove(n)"
-        />
-        <div v-if="pop" class="ring" :style="`--x: ${pop.x}px; --y: ${pop.y}px`"></div>
+    <CtAppBar><FilterBar /></CtAppBar>
+
+    <div class="desk">
+      <p v-if="store.notes.length === 0" class="empty">{{ i18n.t("canvas.empty") }}</p>
+
+      <div
+        ref="vp"
+        class="viewport"
+        role="application"
+        :aria-label="i18n.t('nav.canvas')"
+        :class="{ panning }"
+        @pointerdown="onDown"
+        @pointermove="onMove"
+        @pointerup="onUp"
+        @pointercancel="onUp"
+        @wheel="onWheel"
+        @keydown="onKey"
+      >
+        <div class="world" :style="worldStyle">
+          <!-- where the trip goes: a luggage tag lying on the desk, under the notes, panning with them -->
+          <div v-if="tagAt !== null" class="tag" :style="`--x: ${tagAt.x}px; --y: ${tagAt.y}px`">
+            <span aria-hidden="true" class="hole"></span>
+            <p class="name">{{ trip.name }}</p>
+            <p v-if="dates" class="dates">{{ dates }}</p>
+          </div>
+          <NoteCard
+            v-for="n in shownNotes"
+            :key="n.id"
+            :note="n"
+            :dragging="draggingId === n.id"
+            :pop="pop?.id === n.id"
+            :visibility="tags.visibility(n)"
+            @adopt="() => store.adopt(n.id)"
+            @remove="() => remove(n)"
+          />
+          <div v-if="pop" class="ring" :style="`--x: ${pop.x}px; --y: ${pop.y}px`"></div>
+        </div>
       </div>
+
+      <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
+
+      <div
+        v-if="menu"
+        ref="menuEl"
+        class="menu"
+        role="toolbar"
+        :aria-label="menu.note.title"
+        :style="`inset-inline-start:${menu.x}px; inset-block-start:${menu.y}px`"
+        @pointerdown.stop
+        @keydown="onMenuKey"
+      >
+        <button
+          v-for="c in COLORS"
+          :key="c"
+          class="sw"
+          type="button"
+          :class="{ on: menu.note.color === c }"
+          :style="`background:${PAPERS[c]}`"
+          :aria-label="i18n.t(COLOR_NAMES[c])"
+          :aria-pressed="menu.note.color === c"
+          @click="() => setMenuColor(c)"
+        ></button>
+        <button type="button" @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</button>
+        <button class="del" type="button" @click="removeFromMenu">{{ i18n.t("canvas.delete") }}</button>
+      </div>
+
+      <CtFab :label="i18n.t('canvas.write')" @click="write"><Icon :size="24" :src="plusIcon" /></CtFab>
     </div>
-
-    <p v-if="store.notes.length === 0" class="empty">{{ i18n.t("canvas.empty") }}</p>
-
-    <FilterBar :room="trip.name" />
-
-    <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
-
-    <div
-      v-if="menu"
-      ref="menuEl"
-      class="menu"
-      role="toolbar"
-      :aria-label="menu.note.title"
-      :style="`inset-inline-start:${menu.x}px; inset-block-start:${menu.y}px`"
-      @pointerdown.stop
-      @keydown="onMenuKey"
-    >
-      <button
-        v-for="c in COLORS"
-        :key="c"
-        class="sw"
-        type="button"
-        :class="{ on: menu.note.color === c }"
-        :style="`background:${c}`"
-        :aria-label="i18n.t(COLOR_NAMES[c])"
-        :aria-pressed="menu.note.color === c"
-        @click="() => setMenuColor(c)"
-      ></button>
-      <button type="button" @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</button>
-      <button class="del" type="button" @click="removeFromMenu">{{ i18n.t("canvas.delete") }}</button>
-    </div>
-
-    <button class="fab" :aria-label="i18n.t('canvas.write')" type="button" @click="write">
-      <Icon :size="26" :src="plusIcon" />
-    </button>
   </div>
 </template>
 
@@ -415,6 +457,15 @@ watch(
   position: absolute;
   inset: 0;
   isolation: isolate; /* keep the canvas chrome's z-index inside this view */
+  display: flex;
+  flex-direction: column;
+}
+
+/* everything under the bar: the dotted desk and what floats on it */
+.desk {
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 .viewport {
@@ -448,7 +499,7 @@ watch(
   inset-block-start: 0;
   width: 192px;
   height: 110px;
-  border: 3px solid var(--red);
+  border: 2px solid color-mix(in oklch, var(--ink) 50%, transparent);
   border-radius: 14px;
   pointer-events: none;
   transform: translate(var(--x), var(--y));
@@ -467,25 +518,55 @@ watch(
   }
 }
 
-.fab {
+/*
+ * The trip's tag: a luggage tag in ink, level, with a punched hole and the trip's name. Not
+ * paper, so never mistaken for a note: ink instead of a tint, no tilt, a hole instead of a dot.
+ * Clicks go through it to the desk, so it pans like the desk does.
+ */
+.tag {
   position: absolute;
-  inset-inline-end: 16px;
-  inset-block-end: 20px;
-  z-index: var(--z-chrome);
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  background: var(--red);
-  color: var(--on-accent);
+  inset-inline-start: 0;
+  inset-block-start: 0;
+  transform: translate(var(--x), var(--y)) translate(-50%, -50%);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 6px 16px rgba(215,38,61,.35);
-  transition: box-shadow var(--duration-swap) ease;
-  @media (hover: hover) {
-    &:hover {
-      box-shadow: 0 10px 22px rgba(215,38,61,.4);
-    }
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 320px;
+  padding: 12px 22px 12px 40px;
+  border-radius: 12px 18px 18px 12px;
+  background: var(--ink);
+  color: var(--on-ink);
+  box-shadow: var(--shadow-paper);
+  pointer-events: none;
+  white-space: nowrap;
+  & p {
+    margin: 0;
+  }
+  & .hole {
+    position: absolute;
+    inset-inline-start: 14px;
+    inset-block-start: 50%;
+    translate: 0 -50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--bg);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.35);
+  }
+  & .name {
+    font-size: var(--font-4xl);
+    font-weight: 700;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  & .dates {
+    margin-block-start: 2px;
+    font-size: var(--font-sm);
+    font-weight: 700;
+    opacity: 0.7;
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -493,31 +574,34 @@ watch(
 .empty {
   position: absolute;
   inset-inline: 24px;
-  inset-block-start: 40%;
+  inset-block-start: 62%;
+  margin: 0;
   text-align: center;
-  color: var(--stone);
+  color: var(--muted);
   font-size: var(--font-md);
   font-weight: 700;
   pointer-events: none;
 }
 
+/* level with the write button's middle */
 .jump {
   position: absolute;
   inset-inline-start: 16px;
-  inset-block-end: 28px;
+  inset-block-end: 24px;
   z-index: var(--z-chrome);
   & button {
     min-height: 40px;
     padding: 0 14px;
     border-radius: 999px;
     background: var(--surface);
-    border: 1.5px solid var(--line);
+    border: 1px solid var(--line);
     box-shadow: var(--shadow-tool);
     font-size: var(--font-sm);
     font-weight: 700;
+    color: var(--muted);
     @media (hover: hover) {
       &:hover {
-        border-color: var(--ink);
+        color: var(--ink);
       }
     }
   }
@@ -529,7 +613,7 @@ watch(
   z-index: var(--z-menu);
   max-width: calc(100% - 16px);
   background: var(--surface);
-  border: 1.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: 14px;
   padding: 6px;
   display: flex;
@@ -543,11 +627,11 @@ watch(
     font-size: var(--font-md);
     font-weight: 700;
     &.del {
-      color: var(--accent-text);
+      color: var(--danger);
     }
     @media (hover: hover) {
       &:hover {
-        background: color-mix(in srgb, var(--ink) 8%, transparent);
+        background: var(--wash);
       }
     }
   }
@@ -556,11 +640,13 @@ watch(
     height: var(--tap);
     border-radius: 50%;
     margin: 2px;
-    border: 2px solid transparent;
     padding: 0;
     min-height: 0;
+    /* a hairline keeps white paper visible on the white menu */
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
     &.on {
-      border-color: var(--ink);
+      outline: 2px solid var(--ink);
+      outline-offset: 2px;
     }
   }
 }

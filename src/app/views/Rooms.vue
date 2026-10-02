@@ -193,11 +193,11 @@ onMounted(() => {
 }
 
 .state {
-  color: var(--stone);
+  color: var(--muted);
 }
 
 .empty {
-  color: var(--stone);
+  color: var(--muted);
 }
 
 ul {
@@ -227,7 +227,7 @@ form {
   & label, & .l {
     margin-top: 10px;
     font-size: var(--font-sm);
-    color: var(--stone);
+    color: var(--muted);
   }
 
   & input, & select {
@@ -277,7 +277,7 @@ form {
 .primary {
   padding: 12px 18px;
   font-weight: 700;
-  color: var(--surface);
+  color: var(--on-ink);
   background: var(--ink);
   border: 0;
   border-radius: 999px;

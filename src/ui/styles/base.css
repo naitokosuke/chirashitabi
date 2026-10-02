@@ -46,7 +46,7 @@ button {
   outline-offset: 2px;
 }
 ::selection {
-  background: color-mix(in srgb, var(--blue) 25%, transparent);
+  background: color-mix(in oklch, var(--ink) 16%, transparent);
 }
 :root {
   caret-color: var(--ink);

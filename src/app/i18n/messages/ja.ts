@@ -7,7 +7,9 @@ export const ja: Messages = {
   "common.dismiss": "見送る",
 
   "nav.label": "画面",
+  "nav.home": "ホーム",
   "nav.canvas": "キャンバス",
+  "nav.memo": "メモ",
   "nav.map": "地図",
   "nav.booklet": "しおり",
 
@@ -40,10 +42,17 @@ export const ja: Messages = {
   "status.fixed": "確定",
   "status.done": "済み",
 
-  "filter.label": "絞り込み方",
-  "filter.dim": "ほかを薄く",
   "filter.only": "これだけ",
   "filter.clear": "× クリア",
+  "filter.none": "メモに #タグ を書くと、ここで絞り込めます",
+
+  "home.days": "{$count :integer}日間",
+  "home.day": "{$date} · {$count :integer} 件",
+  "home.fixed": "確定",
+  "home.maybe": "候補",
+  "home.loose": "日付なし",
+  "home.budget": "予算",
+  "home.leave": "別の旅を開く",
 
   "canvas.undo": "取り消す",
   "canvas.duplicate": "複製",
@@ -53,7 +62,7 @@ export const ja: Messages = {
   "canvas.addedAway": "「{$title}」をキャンバスに貼りました",
   "canvas.addedDrag": "「{$title}」を追加しました。ドラッグで移動、長押しで色・複製・削除",
   "canvas.deleted": "「{$title}」を削除しました",
-  "canvas.empty": "まだ何もない机です。赤いボタンから最初の思いつきを散らしましょう",
+  "canvas.empty": "まだ何もない机です。＋ から最初の思いつきを散らしましょう",
 
   "note.suggestion": "提案",
   "note.adopt": "メモにする",
@@ -75,6 +84,7 @@ export const ja: Messages = {
   "form.save": "保存",
   "form.saveToCanvas": "キャンバスに貼る",
   "form.hint": "キャンバスで見ていたあたりの真ん中に貼られます",
+  "form.hintDocked": "貼ったメモはキャンバスに並びます",
   "form.saveHere": "この場所に貼る",
   "form.hintHere": "地図のこの場所にピンが立ちます。キャンバスにも同じ付箋が貼られます",
   "form.saveNoPlace": "貼る",

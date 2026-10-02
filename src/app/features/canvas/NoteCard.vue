@@ -2,13 +2,11 @@
 import { useI18n } from "../../i18n/useI18n";
 
 import { useMembers } from "../members/useMembers";
-import type { Note } from "../notes/types";
+import { PAPERS, type Note } from "../notes/types";
 import type { Visibility } from "../tags/types";
-import { useTags } from "../tags/useTags";
 
 defineProps<{ note: Note; dragging: boolean; pop: boolean; visibility: Visibility }>();
 defineEmits<{ adopt: []; remove: [] }>();
-const tags = useTags();
 const members = useMembers();
 const i18n = useI18n();
 </script>
@@ -18,7 +16,7 @@ const i18n = useI18n();
     v-show="visibility !== 'hidden'"
     class="card"
     :class="{ suggestion: note.kind === 'suggestion', dragging, pop, dim: visibility === 'dimmed' }"
-    :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --card: ${note.color}; --who: ${members.colorOf(note.by)}`"
+    :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --card: ${PAPERS[note.color]}; --who: ${members.colorOf(note.by)}`"
     :data-id="note.id"
     :tabindex="note.kind === 'memo' && visibility !== 'dimmed' ? 0 : undefined"
     :role="note.kind === 'memo' ? 'button' : undefined"
@@ -35,7 +33,7 @@ const i18n = useI18n();
     <template v-else>
       <p class="t">{{ note.title }}</p>
       <p v-if="note.body" class="b">{{ note.body }}</p>
-      <p v-if="note.tags.length" class="tags"><span v-for="t in note.tags" :key="t" :style="`--tag:${tags.tagColor(t)}`">#{{ t }}</span></p>
+      <p v-if="note.tags.length" class="tags"><span v-for="t in note.tags" :key="t">#{{ t }}</span></p>
       <span class="who"></span>
     </template>
   </div>
@@ -49,7 +47,7 @@ const i18n = useI18n();
   width: 164px;
   padding: 12px;
   border-radius: 6px;
-  background: var(--card, var(--paper));
+  background: var(--card, var(--paper-white));
   color: var(--paper-ink);
   box-shadow: var(--shadow-paper);
   /* the card's place and tilt live in variables so the pop can scale it where it lands */
@@ -87,31 +85,28 @@ const i18n = useI18n();
   margin: 6px 0 0;
   font-size: var(--font-xs);
   font-weight: 700;
+  color: var(--paper-muted);
   display: flex;
   flex-wrap: wrap;
   gap: 2px 8px;
-  /* a tag's color on paper: pulled toward the paper's ink so every stock carries it */
-  & span {
-    color: color-mix(in oklch, var(--tag) var(--tint-paper-mix), var(--paper-ink));
-  }
 }
 
 .who {
   position: absolute;
   inset-block-start: 8px;
   inset-inline-end: 8px;
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--who);
 }
 
+/* a machine's note: plain white stock cut straight, with a dashed edge, never a person's soft corner */
 .card.suggestion {
-  background: var(--ivory);
-  color: var(--slate);
-  border: 1px solid var(--oat);
+  background: var(--paper-white);
+  outline: 1px dashed color-mix(in oklch, var(--paper-ink) 30%, transparent);
+  outline-offset: -5px;
   width: 186px;
-  /* square: a machine's note is cut straight, a person's has the paper's soft corner */
   border-radius: 0;
   & .h {
     display: flex;
@@ -121,8 +116,8 @@ const i18n = useI18n();
     font-weight: 700;
     margin-block-end: 4px;
     & .dot {
-      width: 9px;
-      height: 9px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: var(--who);
     }
@@ -130,7 +125,7 @@ const i18n = useI18n();
       margin-inline-start: auto;
       font-size: var(--font-2xs);
       font-weight: 400;
-      color: var(--stone);
+      color: var(--paper-muted);
     }
   }
   & .t {
@@ -149,12 +144,12 @@ const i18n = useI18n();
       font-weight: 700;
     }
     & .ok {
-      /* the member's color, deepened so white reads on it whatever the member picked */
-      background: color-mix(in oklch, var(--who) 70%, #1c2238);
-      color: var(--on-accent);
+      background: var(--paper-ink);
+      color: var(--paper-white);
     }
     & .no {
-      border: 1px solid var(--oat);
+      color: var(--paper-muted);
+      box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 18%, transparent);
     }
   }
 }
