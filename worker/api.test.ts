@@ -171,6 +171,7 @@ const memo = (id: string, title = "Din Tai Fung") => ({
   pin: null,
   schedule: null,
   budget: null,
+  checked: false,
 });
 
 describe("the gate", () => {
@@ -399,6 +400,7 @@ describe("the socket", () => {
         pin: null,
         schedule: null,
         budget: null,
+        checked: false,
       },
     ]);
     expect(c.snapshot.trip.days[1]).toEqual({ date: "2026-11-04", intro: "Jiufen day" });
@@ -408,6 +410,29 @@ describe("the socket", () => {
       name: "Yuki K",
       color: "#112233",
     });
+    for (const s of [a, b, c]) s.ws.close(1000, "done");
+  });
+
+  test("a tick in the appendix reaches the other member and stays; an older client's note is unticked", async () => {
+    const { roomId } = await createRoom(ME);
+    await invite(roomId, ME, PARTNER);
+    const a = await connect(roomId, ME);
+    const b = await connect(roomId, PARTNER);
+    const { checked: _, ...older } = { ...memo("p1", "Passport"), tags: ["Packing"] };
+    a.send({ type: "note:add", note: older });
+    await b.next();
+    a.send({ type: "note:update", id: "p1", patch: { checked: true } });
+    const got = await b.next();
+    expect(got.type === "mutation" && got.mutation).toEqual({
+      type: "note:update",
+      id: "p1",
+      patch: { checked: true },
+    });
+    const c = await connect(roomId, PARTNER);
+    expect(c.snapshot.notes.map((n) => n.kind === "memo" && n.checked)).toEqual([true]);
+    a.send({ type: "note:update", id: "p1", patch: { checked: "yes" } });
+    const refused = await a.next();
+    expect(refused).toEqual({ type: "rejected", reason: "not a mutation" });
     for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
 

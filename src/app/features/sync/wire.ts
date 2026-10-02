@@ -49,6 +49,7 @@ export function reviveNote(n: WireNote): Note {
     pin: n.pin,
     schedule: n.schedule === null ? null : schedule(n.schedule),
     budget: n.budget,
+    checked: n.checked,
   };
 }
 

@@ -84,6 +84,10 @@ function putPickedOn(date: Temporal.PlainDate) {
 function nextStatus(n: Scheduled) {
   store.update(n.id, { schedule: cycleStatus(n.schedule) });
 }
+/** A tick in the appendix: shared with the room, so the partner sees the bag is packed */
+function setChecked(n: Memo, e: Event) {
+  store.update(n.id, { checked: (e.target as HTMLInputElement).checked });
+}
 function setTime(n: Scheduled, e: Event) {
   const time = fromHhmm((e.target as HTMLInputElement).value);
   store.update(n.id, { schedule: { ...n.schedule, time } });
@@ -203,7 +207,7 @@ function adoptDraft() {
                   type="time"
                   :aria-label="i18n.t('shiori.time')"
                   :value="n.schedule.time ? hhmm(n.schedule.time) : ''"
-                  @change="(e: Event) => setTime(n, e)"
+                  @change="(e) => setTime(n, e)"
                 />
                 <span v-else class="time-read">{{ n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime") }}</span>
               </div>
@@ -271,7 +275,12 @@ function adoptDraft() {
         <template v-else>
           <section v-for="t in APPENDIX_TAGS" :key="t" class="appendix">
             <h2 class="day tagged" :style="`--tag:${tags.tagColor(t)}`">#{{ t }}</h2>
-            <ul class="check"><li v-for="n in trip.byTag(t)" :key="n.id" :style="`--card:${n.color}`"><label><input type="checkbox" />{{ n.title }}<span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
+            <ul class="check"><li
+                v-for="n in trip.byTag(t)"
+                :key="n.id"
+                :class="{ checked: n.checked }"
+                :style="`--card:${n.color}`"
+              ><label><input type="checkbox" :checked="n.checked" @change="(e) => setChecked(n, e)" /><span class="t">{{ n.title }}</span><span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
             <p v-if="trip.byTag(t).length === 0" class="muted">{{ i18n.t("shiori.tagEmpty") }}</p>
           </section>
         </template>
@@ -649,12 +658,14 @@ h1 {
 }
 
 /* read mode's maybes: the paper fades (lighter stock, less color), the ink stays at full */
-.maybes .paper {
-  background: color-mix(in srgb, var(--card, var(--paper)) 55%, var(--surface));
-  filter: saturate(0.7);
-  box-shadow: var(--shadow-tool);
-  .tab {
-    background: color-mix(in srgb, var(--card, var(--paper)) 70%, var(--paper-ink) 8%);
+.maybes {
+  .paper {
+    background: color-mix(in srgb, var(--card, var(--paper)) 55%, var(--surface));
+    filter: saturate(0.7);
+    box-shadow: var(--shadow-tool);
+    .tab {
+      background: color-mix(in srgb, var(--card, var(--paper)) 70%, var(--paper-ink) 8%);
+    }
   }
 }
 
@@ -777,6 +788,12 @@ h1 {
     margin: 0;
     flex-shrink: 0;
     accent-color: var(--paper-ink);
+  }
+  /* ticked: struck through in the paper's quieter ink, still readable */
+  .checked .t {
+    color: var(--paper-muted);
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
   }
 }
 

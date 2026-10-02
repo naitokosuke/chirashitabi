@@ -43,6 +43,7 @@ export const adopted = (s: Suggestion): Memo => ({
   pin: null,
   schedule: null,
   budget: null,
+  checked: false,
 });
 
 /** Tags shown on a card; suggestions have none */

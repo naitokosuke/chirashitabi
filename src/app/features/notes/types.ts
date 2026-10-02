@@ -51,6 +51,8 @@ export interface Memo extends CardBase {
   pin: LatLng | null;
   schedule: Schedule | null;
   budget: number | null;
+  /** Ticked off on a list (the booklet's appendix), shared with the room; separate from a day's status */
+  checked: boolean;
 }
 
 /** A suggestion waits to be adopted (becoming a memo) or dismissed; anyone can make one */
