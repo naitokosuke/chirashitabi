@@ -1,5 +1,9 @@
 minimumReleaseAgeExclude:
   - vite@8.3.2
+# wrangler's runtime (workerd) and bundler (esbuild) fetch a native binary on install
+allowBuilds:
+  esbuild: true
+  workerd: true
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.0.0
   vite-plus: 1.0.0
