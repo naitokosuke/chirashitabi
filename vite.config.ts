@@ -1,4 +1,11 @@
+import { existsSync, readFileSync } from "node:fs";
+
 import { defineConfig } from "@vizejs/vite-plugin/vite-plus";
+
+// scripts/dev-access.mjs stands in for Access on a laptop and leaves a signed token here
+const devToken = existsSync(".dev-token.local")
+  ? readFileSync(".dev-token.local", "utf8").trim()
+  : null;
 
 export default defineConfig({
   compiler: { vapor: true },
@@ -55,7 +62,13 @@ export default defineConfig({
     },
   },
   server: {
-    // later: proxy /api to `wrangler dev` so the WebSocket room works locally
-    proxy: { "/api": { target: "http://localhost:8787", ws: true } },
+    // /api goes to `wrangler dev`, carrying the dev Access token when the stub is running
+    proxy: {
+      "/api": {
+        target: "http://localhost:8787",
+        ws: true,
+        headers: devToken === null ? {} : { "Cf-Access-Jwt-Assertion": devToken },
+      },
+    },
   },
 });

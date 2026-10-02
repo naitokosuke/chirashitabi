@@ -15,6 +15,21 @@ export const en = {
 
   "member.someone": "Someone",
 
+  "rooms.yours": "Your trips",
+  "rooms.none": "No trips yet",
+  "rooms.new": "New trip",
+  "rooms.name": "Trip name",
+  "rooms.namePlaceholder": "Taiwan trip",
+  "rooms.firstDay": "First day",
+  "rooms.days": "Days",
+  "rooms.currency": "Currency",
+  "rooms.you": "Your name",
+  "rooms.color": "Your color",
+  "rooms.create": "Create",
+  "rooms.connecting": "Connecting…",
+  "rooms.failed": "Could not reach the room.",
+  "rooms.retry": "Try again",
+
   "status.idea": "Maybe",
   "status.fixed": "Confirmed",
   "status.done": "Done",

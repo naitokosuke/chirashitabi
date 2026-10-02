@@ -4,7 +4,9 @@ import { ref } from "vue";
 
 import { defineStore } from "pinia";
 
+import type { MemberId } from "../members/types";
 import { useMembers } from "../members/useMembers";
+import type { Mutation } from "../sync/types";
 import { useSync } from "../sync/useSync";
 
 import { adopted, duplicateInput } from "./input";
@@ -86,5 +88,42 @@ export const useNotes = defineStore("notes", () => {
     notes.value = snapshot;
   }
 
-  return { notes, add, update, recolor, move, remove, duplicate, adopt, byId, apply };
+  /** A note mutation the room relays from a member (us too, after a reconnect): applied, never sent */
+  function receive(m: Mutation, by: MemberId, at: Temporal.Instant) {
+    switch (m.type) {
+      case "note:add":
+        if (byId(m.note.id) === undefined) notes.value.push({ ...m.note, by, updatedAt: at });
+        return;
+      case "note:update": {
+        const n = byId(m.id);
+        if (n?.kind === "memo") Object.assign(n, m.patch, { updatedAt: at });
+        return;
+      }
+      case "note:recolor": {
+        const n = byId(m.id);
+        if (n !== undefined) Object.assign(n, { color: m.color, updatedAt: at });
+        return;
+      }
+      case "note:move": {
+        const n = byId(m.id);
+        if (n !== undefined) Object.assign(n, { x: m.x, y: m.y, updatedAt: at });
+        return;
+      }
+      case "note:delete": {
+        const i = notes.value.findIndex((n) => n.id === m.id);
+        if (i >= 0) notes.value.splice(i, 1);
+        return;
+      }
+      case "note:adopt": {
+        const i = notes.value.findIndex((n) => n.id === m.id);
+        const n = notes.value[i];
+        if (n?.kind === "suggestion") notes.value[i] = { ...adopted(n), updatedAt: at };
+        return;
+      }
+      default:
+        return; // not a note's
+    }
+  }
+
+  return { notes, add, update, recolor, move, remove, duplicate, adopt, byId, apply, receive };
 });

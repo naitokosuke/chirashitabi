@@ -39,6 +39,12 @@ export const useTrip = defineStore("trip", () => {
     sync.send({ type: "day:intro", date, intro });
   }
 
+  /** A day's intro as the room relays it: applied, never sent */
+  function receive(date: Temporal.PlainDate, intro: string) {
+    const d = dayOf(date);
+    if (d !== undefined) d.intro = intro;
+  }
+
   /** Called by the room when an authoritative snapshot arrives. */
   function apply(snapshot: TripSnapshot) {
     name.value = snapshot.name;
@@ -60,6 +66,7 @@ export const useTrip = defineStore("trip", () => {
     dayNumber,
     dayOf,
     setIntro,
+    receive,
     apply,
   };
 });

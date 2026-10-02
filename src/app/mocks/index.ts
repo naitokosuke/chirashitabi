@@ -1,5 +1,6 @@
 import { useMembers } from "../features/members/useMembers";
 import { useNotes } from "../features/notes/useNotes";
+import { useRoom } from "../features/sync/useRoom";
 import { useTrip } from "../features/trip/useTrip";
 import { useWorker } from "../features/worker/useWorker";
 
@@ -16,4 +17,5 @@ export function installMocks() {
   useTrip().apply(mockTrip());
   useNotes().apply(mockNotes());
   useWorker().api = mockWorker();
+  useRoom().offline();
 }
