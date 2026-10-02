@@ -1,5 +1,6 @@
 import { AccessVerifier, Unauthenticated } from "./access";
 import { Room } from "./room";
+import { parseProfile, parseTrip } from "./wire";
 
 export { Room };
 export { RoomsIndex } from "./rooms-index";
@@ -26,6 +27,7 @@ export default {
 /** Published booklets only; nothing here is behind Access, so nothing here may cost anything */
 const booklet = () => new Response("Not Found", { status: 404 });
 
+const status = (code: number, text: string) => new Response(text, { status: code });
 const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws)$/;
 
 async function api(request: Request, env: Env, url: URL): Promise<Response> {
@@ -35,41 +37,43 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   } catch (e) {
     if (!(e instanceof Unauthenticated)) throw e;
     console.warn(`401: ${e.message}`);
-    return new Response("Unauthorized", { status: 401 });
+    return status(401, "Unauthorized");
   }
 
   // Access checks the cookie, not where the request came from. Every API call is a POST
   // with JSON (so the browser always sends Origin) or an upgrade; anything else is refused.
-  if (request.headers.get("Origin") !== url.origin)
-    return new Response("Forbidden", { status: 403 });
+  if (request.headers.get("Origin") !== url.origin) return status(403, "Forbidden");
   const upgrade = request.headers.get("Upgrade") === "websocket";
   if (
     !upgrade &&
     (request.method !== "POST" || request.headers.get("Content-Type") !== "application/json")
   ) {
-    return new Response("Forbidden", { status: 403 });
+    return status(403, "Forbidden");
   }
 
   const index = env.ROOMS.getByName("index");
 
   if (url.pathname === "/api/rooms") {
-    if (upgrade) return new Response("Forbidden", { status: 403 });
+    if (upgrade) return status(403, "Forbidden");
+    const body = await json(request);
+    const trip = parseTrip(body?.trip);
+    const me = parseProfile(body?.me);
+    if (trip === null || me === null) return status(400, "Bad Request");
     const roomId = crypto.randomUUID();
-    const memberId = await env.ROOM.getByName(roomId).create();
-    if (!(await index.add(email, roomId, memberId)))
-      return new Response("Conflict", { status: 409 });
+    const memberId = await env.ROOM.getByName(roomId).create(trip, me);
+    if (!(await index.add(email, roomId, memberId))) return status(409, "Conflict");
     return Response.json({ roomId, memberId });
   }
 
   const m = ROOM.exec(url.pathname);
-  if (m === null) return new Response("Not Found", { status: 404 });
+  if (m === null) return status(404, "Not Found");
   const [, roomId, action] = m as unknown as [string, string, "invite" | "ws"];
   const memberId = await index.resolve(email, roomId);
-  if (memberId === null) return new Response("Forbidden", { status: 403 });
+  if (memberId === null) return status(403, "Forbidden");
   const room = env.ROOM.getByName(roomId);
 
   if (action === "ws") {
-    if (!upgrade) return new Response("Forbidden", { status: 403 });
+    if (!upgrade) return status(403, "Forbidden");
     // Only the upgrade goes through fetch, with the resolved member in a header of our own
     return room.fetch(
       new Request(request.url, {
@@ -78,14 +82,25 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
     );
   }
 
-  const body = (await request.json()) as { email?: unknown };
-  if (typeof body.email !== "string" || body.email === "")
-    return new Response("Bad Request", { status: 400 });
-  if ((await index.resolve(body.email, roomId)) !== null)
-    return new Response("Conflict", { status: 409 });
-  const invitee = await room.invite(memberId);
-  if (invitee === null) return new Response("Conflict", { status: 409 });
-  if (!(await index.add(body.email, roomId, invitee)))
-    return new Response("Conflict", { status: 409 });
-  return Response.json({ memberId: invitee });
+  const body = await json(request);
+  const invitee = parseProfile(body);
+  const inviteeEmail = body?.email;
+  if (invitee === null || typeof inviteeEmail !== "string" || inviteeEmail === "") {
+    return status(400, "Bad Request");
+  }
+  if ((await index.resolve(inviteeEmail, roomId)) !== null) return status(409, "Conflict");
+  const id = await room.invite(memberId, invitee);
+  if (id === null) return status(409, "Conflict");
+  if (!(await index.add(inviteeEmail, roomId, id))) return status(409, "Conflict");
+  return Response.json({ memberId: id });
+}
+
+/** The JSON body as a record, or null when it is not one */
+async function json(request: Request): Promise<Record<string, unknown> | null> {
+  try {
+    const v: unknown = await request.json();
+    return typeof v === "object" && v !== null ? (v as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
 }

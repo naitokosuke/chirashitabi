@@ -1,5 +1,7 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
+import type { HexColor } from "../../shared/color";
+
 import type { Memo, MemoPatch, NoteColor, NoteId } from "../notes/types";
 
 /**
@@ -17,4 +19,5 @@ export type Mutation =
   | { type: "note:adopt"; id: NoteId } // a suggestion becomes a memo
   | { type: "note:move"; id: NoteId; x: number; y: number } // throttled while dragging
   | { type: "note:delete"; id: NoteId }
-  | { type: "day:intro"; date: Temporal.PlainDate; intro: string };
+  | { type: "day:intro"; date: Temporal.PlainDate; intro: string }
+  | { type: "member:profile"; name: string; color: HexColor }; // how the sender wants to be shown

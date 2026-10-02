@@ -4,6 +4,8 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { createTestHarness, type TestHarness } from "wrangler";
 
+import type { ServerMessage } from "./wire";
+
 // The Worker runs in workerd through wrangler's test harness. Access is stood in for by
 // signing tokens with a throwaway key and serving its public half from a local stub.
 const TEAM = "floral-sky-5f24.cloudflareaccess.com";
@@ -101,15 +103,75 @@ async function post(
   });
 }
 
+const TRIP = {
+  name: "Taiwan trip",
+  days: ["2026-11-03", "2026-11-04", "2026-11-05"],
+  currency: "TWD",
+  center: { lat: 25.05, lng: 121.54 },
+};
+const YUKI = { name: "Yuki", color: "#3c6ee0" };
+const KEN = { name: "Ken", color: "#d7263d" };
+
 async function createRoom(email: string) {
-  const res = await post("/api/rooms", email);
+  const res = await post("/api/rooms", email, { trip: TRIP, me: YUKI });
   expect(res.status).toBe(200);
   return (await res.json()) as { roomId: string; memberId: string };
 }
 
+const invite = (roomId: string, by: string, email: string, profile = KEN) =>
+  post(`/api/rooms/${roomId}/invite`, by, { email, ...profile });
+
 const ME = "me@example.com";
 const PARTNER = "partner@example.com";
 const STRANGER = "stranger@example.com"; // allowed by Access, in no room
+
+/** A member's socket, with its messages queued for the test to read in order */
+async function connect(roomId: string, email: string) {
+  const res = await server.fetch(`${APP}/api/rooms/${roomId}/ws`, {
+    headers: { Upgrade: "websocket", Origin: APP, "Cf-Access-Jwt-Assertion": await token(email) },
+  });
+  expect(res.status).toBe(101);
+  const ws = res.webSocket;
+  if (ws === null || ws === undefined) throw new Error("no socket on the response");
+  ws.accept();
+  const queue: ServerMessage[] = [];
+  const waiting: ((m: ServerMessage) => void)[] = [];
+  ws.addEventListener("message", (e) => {
+    const m = JSON.parse(String(e.data)) as ServerMessage;
+    const w = waiting.shift();
+    if (w === undefined) queue.push(m);
+    else w(m);
+  });
+  const next = () =>
+    new Promise<ServerMessage>((resolve, reject) => {
+      const m = queue.shift();
+      if (m !== undefined) return resolve(m);
+      waiting.push(resolve);
+      setTimeout(() => reject(new Error("no message within 2s")), 2000);
+    });
+  const send = (m: unknown) => ws.send(typeof m === "string" ? m : JSON.stringify(m));
+  const snapshot = await next();
+  if (snapshot.type !== "snapshot") throw new Error(`first message was ${snapshot.type}`);
+  return { ws, next, send, snapshot, idle: () => expect(queue).toEqual([]) };
+}
+
+const memo = (id: string, title = "Din Tai Fung") => ({
+  id,
+  kind: "memo",
+  title,
+  color: "#fff1b8",
+  x: 10,
+  y: 20,
+  rot: 0,
+  by: "forged",
+  updatedAt: "1999-01-01T00:00:00Z",
+  body: "",
+  tags: ["Food"],
+  mapsUrl: null,
+  pin: null,
+  schedule: null,
+  budget: null,
+});
 
 describe("the gate", () => {
   test("no token is 401, whatever else is right", async () => {
@@ -146,17 +208,22 @@ describe("the gate", () => {
 });
 
 describe("rooms", () => {
-  test("create mints the creator and the agent, and records the membership", async () => {
+  test("create sets the trip up, mints the creator and the agent, and records the membership", async () => {
     const { roomId, memberId } = await createRoom(ME);
     expect(roomId).toMatch(/^[0-9a-f-]{36}$/);
 
     const worker = server.getWorker();
     const room = await worker.getDurableObjectStorage("Room", { name: roomId });
-    const members = await room.exec("SELECT id, kind, creator FROM members ORDER BY kind");
-    expect(members).toEqual([
-      { id: "agent:claude", kind: "agent", creator: 0 },
-      { id: memberId, kind: "person", creator: 1 },
+    expect(await room.exec("SELECT id, kind, creator, name FROM members ORDER BY kind")).toEqual([
+      { id: "agent:claude", kind: "agent", creator: 0, name: "Claude" },
+      { id: memberId, kind: "person", creator: 1, name: "Yuki" },
     ]);
+    expect(await room.exec("SELECT name, currency FROM trip")).toEqual([
+      { name: "Taiwan trip", currency: "TWD" },
+    ]);
+    expect(await room.exec("SELECT date FROM days ORDER BY position")).toEqual(
+      TRIP.days.map((date) => ({ date })),
+    );
 
     const index = await worker.getDurableObjectStorage("RoomsIndex", { name: "index" });
     const rows = await index.exec(
@@ -166,83 +233,87 @@ describe("rooms", () => {
     expect(rows).toEqual([{ email: ME, member_id: memberId }]);
   });
 
+  test.each([
+    ["no trip", { me: YUKI }],
+    ["no profile", { trip: TRIP }],
+    ["a currency Intl does not know", { trip: { ...TRIP, currency: "XXX" }, me: YUKI }],
+    ["a day that is not a date", { trip: { ...TRIP, days: ["2026-11-31"] }, me: YUKI }],
+    ["a color that is not hex", { trip: TRIP, me: { ...YUKI, color: "red" } }],
+    ["a blank name", { trip: TRIP, me: { ...YUKI, name: "  " } }],
+  ])("create refuses %s", async (_, body) => {
+    expect((await post("/api/rooms", ME, body)).status).toBe(400);
+  });
+
   test("the e-mail is matched case-insensitively", async () => {
     const { roomId } = await createRoom("Mixed.Case@Example.com");
-    const res = await post(`/api/rooms/${roomId}/invite`, "mixed.case@example.com", {
-      email: PARTNER,
-    });
-    expect(res.status).toBe(200);
+    expect((await invite(roomId, "mixed.case@example.com", PARTNER)).status).toBe(200);
   });
 
   test("invite is for members only, and a room holds two people", async () => {
     const { roomId } = await createRoom(ME);
 
-    expect((await post(`/api/rooms/${roomId}/invite`, STRANGER, { email: PARTNER })).status).toBe(
-      403,
-    );
-    expect((await post(`/api/rooms/${roomId}/invite`, ME, { email: "" })).status).toBe(400);
+    expect((await invite(roomId, STRANGER, PARTNER)).status).toBe(403);
+    expect((await invite(roomId, ME, "")).status).toBe(400);
+    expect((await post(`/api/rooms/${roomId}/invite`, ME, { email: PARTNER })).status).toBe(400); // no profile
 
-    const ok = await post(`/api/rooms/${roomId}/invite`, ME, { email: PARTNER });
+    const ok = await invite(roomId, ME, PARTNER);
     expect(ok.status).toBe(200);
     const { memberId: partner } = (await ok.json()) as { memberId: string };
 
-    expect((await post(`/api/rooms/${roomId}/invite`, ME, { email: PARTNER })).status).toBe(409);
-    const third = await post(`/api/rooms/${roomId}/invite`, PARTNER, {
-      email: "third@example.com",
-    });
-    expect(third.status).toBe(409); // the room is full
+    expect((await invite(roomId, ME, PARTNER)).status).toBe(409);
+    expect((await invite(roomId, PARTNER, "third@example.com")).status).toBe(409); // the room is full
 
     const room = await server.getWorker().getDurableObjectStorage("Room", { name: roomId });
     const people = await room.exec(
-      "SELECT id FROM members WHERE kind = 'person' ORDER BY creator DESC",
+      "SELECT id, name FROM members WHERE kind = 'person' ORDER BY creator DESC",
     );
-    expect(people.map((r) => r.id)).toEqual([expect.any(String), partner]);
+    expect(people).toEqual([
+      { id: expect.any(String), name: "Yuki" },
+      { id: partner, name: "Ken" },
+    ]);
   });
 
   test("an unknown room is 404, a room one is not in is 403", async () => {
     const { roomId } = await createRoom(ME);
-    expect((await post(`/api/rooms/not-a-room-id/invite`, ME, { email: PARTNER })).status).toBe(
-      404,
-    );
-    expect(
-      (await post(`/api/rooms/${crypto.randomUUID()}/invite`, ME, { email: PARTNER })).status,
-    ).toBe(403);
-    expect((await post(`/api/rooms/${roomId}/invite`, STRANGER, { email: PARTNER })).status).toBe(
-      403,
-    );
+    expect((await invite("not-a-room-id", ME, PARTNER)).status).toBe(404);
+    expect((await invite(crypto.randomUUID(), ME, PARTNER)).status).toBe(403);
+    expect((await invite(roomId, STRANGER, PARTNER)).status).toBe(403);
   });
 
   test("an e-mail may hold ten rooms", async () => {
     const email = "collector@example.com";
     for (let i = 0; i < 10; i++) await createRoom(email);
-    expect((await post("/api/rooms", email)).status).toBe(409);
+    expect((await post("/api/rooms", email, { trip: TRIP, me: YUKI })).status).toBe(409);
   });
 });
 
 describe("the socket", () => {
-  const open = async (roomId: string, email: string) =>
-    server.fetch(`${APP}/api/rooms/${roomId}/ws`, {
-      headers: { Upgrade: "websocket", Origin: APP, "Cf-Access-Jwt-Assertion": await token(email) },
+  test("a member connects and gets the snapshot: who they are, who is here, the trip, no notes", async () => {
+    const { roomId, memberId } = await createRoom(ME);
+    const { snapshot, ws } = await connect(roomId, ME);
+    expect(snapshot).toEqual({
+      type: "snapshot",
+      me: memberId,
+      members: [
+        { id: memberId, kind: "person", name: "Yuki", color: "#3c6ee0" },
+        { id: "agent:claude", kind: "agent", name: "Claude", color: "#d97757" },
+      ],
+      trip: { ...TRIP, days: TRIP.days.map((date) => ({ date, intro: "" })) },
+      notes: [],
     });
-
-  test("a member connects and hears the echo", async () => {
-    const { roomId } = await createRoom(ME);
-    const res = await open(roomId, ME);
-    expect(res.status).toBe(101);
-    const ws = res.webSocket;
-    if (ws === null || ws === undefined) throw new Error("no socket on the response");
-    ws.accept();
-    const echoed = new Promise<string>((resolve) =>
-      ws.addEventListener("message", (e) => resolve(String(e.data))),
-    );
-    ws.send("hi");
-    expect(await echoed).toBe("hi");
     ws.close(1000, "done");
   });
 
   test("not a member: no socket", async () => {
     const { roomId } = await createRoom(ME);
-    expect((await open(roomId, STRANGER)).status).toBe(403);
+    const res = await server.fetch(`${APP}/api/rooms/${roomId}/ws`, {
+      headers: {
+        Upgrade: "websocket",
+        Origin: APP,
+        "Cf-Access-Jwt-Assertion": await token(STRANGER),
+      },
+    });
+    expect(res.status).toBe(403);
   });
 
   test("the upgrade needs the Origin too", async () => {
@@ -251,5 +322,125 @@ describe("the socket", () => {
       headers: { Upgrade: "websocket", "Cf-Access-Jwt-Assertion": await token(ME) },
     });
     expect(res.status).toBe(403);
+  });
+
+  test("a note one member adds reaches the other, stamped by the room, and is in the next snapshot", async () => {
+    const { roomId, memberId: yuki } = await createRoom(ME);
+    const { memberId: ken } = (await (await invite(roomId, ME, PARTNER)).json()) as {
+      memberId: string;
+    };
+    const a = await connect(roomId, ME);
+    const b = await connect(roomId, PARTNER);
+    expect(b.snapshot.me).toBe(ken);
+
+    a.send({ type: "note:add", note: memo("n1") });
+    const got = await b.next();
+    expect(got.type).toBe("mutation");
+    if (got.type !== "mutation") return;
+    expect(got.by).toBe(yuki);
+    expect(got.mutation.type).toBe("note:add");
+    if (got.mutation.type !== "note:add") return;
+    expect(got.mutation.note.by).toBe(yuki); // not "forged"
+    expect(got.mutation.note.updatedAt).toBe(got.updatedAt);
+    expect(Date.parse(got.updatedAt)).toBeGreaterThan(Date.parse("2026-01-01"));
+    a.idle(); // the sender applied it locally and hears nothing back
+
+    const c = await connect(roomId, PARTNER);
+    expect(c.snapshot.notes).toEqual([{ ...memo("n1"), by: yuki, updatedAt: got.updatedAt }]);
+    for (const s of [a, b, c]) s.ws.close(1000, "done");
+  });
+
+  test("updates, moves, recolors, adoption, deletion and the day intro all land", async () => {
+    const { roomId, memberId: yuki } = await createRoom(ME);
+    await invite(roomId, ME, PARTNER);
+    const a = await connect(roomId, ME);
+    const b = await connect(roomId, PARTNER);
+    const after = async (m: Record<string, unknown>) => {
+      a.send(m);
+      const got = await b.next();
+      if (got.type !== "mutation") throw new Error(got.type);
+      return got.mutation;
+    };
+
+    await after({ type: "note:add", note: memo("n1") });
+    await after({
+      type: "note:add",
+      note: { ...memo("s1", "Try the night market"), kind: "suggestion" },
+    });
+    expect(
+      await after({ type: "note:update", id: "n1", patch: { body: "lunch", budget: 600 } }),
+    ).toEqual({
+      type: "note:update",
+      id: "n1",
+      patch: { body: "lunch", budget: 600 },
+    });
+    await after({ type: "note:move", id: "n1", x: 300, y: 400 });
+    await after({ type: "note:recolor", id: "n1", color: "#dbe7ff" });
+    await after({ type: "note:adopt", id: "s1" });
+    await after({ type: "day:intro", date: "2026-11-04", intro: "Jiufen day" });
+    await after({ type: "member:profile", name: "Yuki K", color: "#112233" });
+    await after({ type: "note:delete", id: "n1" });
+
+    const c = await connect(roomId, ME);
+    expect(c.snapshot.notes).toEqual([
+      {
+        id: "s1",
+        kind: "memo",
+        title: "Try the night market",
+        color: "#ffffff",
+        x: 10,
+        y: 20,
+        rot: 0,
+        by: yuki,
+        updatedAt: expect.any(String),
+        body: "",
+        tags: [],
+        mapsUrl: null,
+        pin: null,
+        schedule: null,
+        budget: null,
+      },
+    ]);
+    expect(c.snapshot.trip.days[1]).toEqual({ date: "2026-11-04", intro: "Jiufen day" });
+    expect(c.snapshot.members[0]).toEqual({
+      id: yuki,
+      kind: "person",
+      name: "Yuki K",
+      color: "#112233",
+    });
+    for (const s of [a, b, c]) s.ws.close(1000, "done");
+  });
+
+  test("what the room refuses, with the reason, and nobody else hears", async () => {
+    const { roomId } = await createRoom(ME);
+    await invite(roomId, ME, PARTNER);
+    const a = await connect(roomId, ME);
+    const b = await connect(roomId, PARTNER);
+    const refused = async (m: unknown) => {
+      a.send(m);
+      const got = await a.next();
+      if (got.type !== "rejected") throw new Error(got.type);
+      return got.reason;
+    };
+
+    expect(await refused("not json")).toBe("not JSON");
+    expect(await refused({ type: "note:eat", id: "n1" })).toBe("not a mutation");
+    expect(await refused({ type: "note:add", note: { ...memo("n1"), color: "red" } })).toBe(
+      "not a mutation",
+    );
+    expect(await refused({ type: "note:update", id: "n1", patch: { by: "me" } })).toBe(
+      "not a mutation",
+    );
+    expect(await refused({ type: "note:update", id: "nope", patch: { body: "x" } })).toBe(
+      "no such note",
+    );
+    expect(await refused({ type: "day:intro", date: "2026-12-25", intro: "x" })).toBe(
+      "no such day",
+    );
+    expect(await refused({ type: "note:add", note: memo("big", "x".repeat(40_000)) })).toBe(
+      "too large",
+    );
+    b.idle();
+    for (const s of [a, b]) s.ws.close(1000, "done");
   });
 });
