@@ -659,10 +659,10 @@ h1 {
   color: var(--muted);
 }
 
-/* read mode's maybes: the paper fades (lighter stock, less color), the ink stays at full */
+/* read mode's maybes: the paper fades toward white stock in either theme (Paper Stays Light), the ink stays at full */
 .maybes {
   .paper {
-    background: color-mix(in srgb, var(--card, var(--paper)) 55%, var(--surface));
+    background: color-mix(in srgb, var(--card, var(--paper)) 55%, #fff);
     filter: saturate(0.7);
     box-shadow: var(--shadow-tool);
     .tab {
