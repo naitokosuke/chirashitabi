@@ -206,8 +206,8 @@ function onMemoSaved(input: NoteInput) {
    * And no part in a View Transition: a named region inside (the booklet's page) would be
    * snapshotted on its own, without this opacity, and show over the view that is up.
    */
-  & :deep(*) {
-    view-transition-name: none !important;
+  .screen > & :deep(*) {
+    view-transition-name: none;
   }
 }
 

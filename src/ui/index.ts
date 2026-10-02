@@ -1,10 +1,13 @@
 export type { CtOption } from "./types";
+export { usePageTurn } from "./composables/usePageTurn";
 export { useViewTransition } from "./composables/useViewTransition";
 export { default as CtAppBar } from "./components/bar/CtAppBar.vue";
 export { default as CtChip } from "./components/chip/CtChip.vue";
 export { default as CtChipRow } from "./components/chip/CtChipRow.vue";
 export { default as CtFab } from "./components/fab/CtFab.vue";
 export { default as CtSegmented } from "./components/segmented/CtSegmented.vue";
+export type { MorphPart as CtMorphPart } from "./components/text/glyphs";
+export { default as CtTextMorph } from "./components/text/CtTextMorph.vue";
 export { default as CtTabBar } from "./components/tab/CtTabBar.vue";
 export { default as CtTabList } from "./components/tab/CtTabList.vue";
 export { default as CtTabPanel } from "./components/tab/CtTabPanel.vue";

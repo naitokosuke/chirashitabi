@@ -15,6 +15,8 @@
   --danger: oklch(0.53 0.19 27);
   /* what is written on the one filled tool, the ink one (the write button, the primary button) */
   --on-ink: #fff;
+  /* what is written on a member's color, deepened to carry it; the same in both themes */
+  --on-tint: #fff;
 
   /*
    * Paper. Six stocks at one lightness and a low, equal chroma, so they read as one family

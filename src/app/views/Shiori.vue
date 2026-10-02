@@ -1,20 +1,21 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, ref } from "vue";
+import { computed, ref, useTemplateRef } from "vue";
 
 import {
   CtAppBar,
   CtSegmented,
   CtTabList,
   CtTabPanel,
-  useViewTransition,
+  CtTextMorph,
+  usePageTurn,
+  type CtMorphPart,
   type CtOption,
 } from "../../ui/index";
 
 import { formatMoney } from "../shared/money";
 
-import Message from "../i18n/Message.vue";
 import { useI18n } from "../i18n/useI18n";
 
 import { useMembers } from "../features/members/useMembers";
@@ -40,14 +41,23 @@ const trip = useTrip();
 const worker = useWorker();
 const members = useMembers();
 const i18n = useI18n();
-/** A picked day, the appendix, or null for "today if the trip is on, else the first day" */
-const tab = ref<Temporal.PlainDate | "appendix" | null>(null);
+type Tab = Temporal.PlainDate | "appendix" | null;
+/**
+ * A picked day, the appendix, or null for "today if the trip is on, else the first day".
+ * `picked` answers the tap at once (the tabs, the heading); `tab` is what the page shows,
+ * and follows once the old page has cleared (see showTab).
+ */
+const picked = ref<Tab>(null);
+const tab = ref<Tab>(null);
 const today = Temporal.Now.plainDateISO();
 const openingDay = computed(
   () => trip.days.find((d) => d.date.equals(today))?.date ?? trip.days[0]?.date ?? null,
 );
-/** The open day, or null on the appendix tab (or while the trip has no days) */
-const day = computed(() => (tab.value === "appendix" ? null : (tab.value ?? openingDay.value)));
+const dayOfTab = (t: Tab) => (t === "appendix" ? null : (t ?? openingDay.value));
+/** The day on the page, or null on the appendix tab (or while the trip has no days) */
+const day = computed(() => dayOfTab(tab.value));
+/** The day the tabs and the heading show, ahead of the page by the time it takes to turn */
+const pickedDay = computed(() => dayOfTab(picked.value));
 const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 
@@ -60,21 +70,28 @@ const dayTabs = computed<CtOption[]>(() => [
   })),
   { value: APPENDIX, label: i18n.t("shiori.appendix") },
 ]);
-const activeTab = computed(() => day.value?.toString() ?? APPENDIX);
-const viewTransition = useViewTransition();
-/** The page slides the way the tabs run: to a later day forward, to an earlier one backward */
+const activeTab = computed(() => pickedDay.value?.toString() ?? APPENDIX);
+/** "1日目 11/3(火)" with the date in its own tone, or "付録" */
+const heading = computed((): CtMorphPart[] => {
+  const date = pickedDay.value;
+  if (date === null) return [{ text: i18n.t("shiori.appendix") }];
+  return i18n
+    .parts("shiori.dayHeading", { n: trip.dayNumber(date), date: longDate(date, i18n.locale) })
+    .map((s) => (s.kind === "text" ? { text: s.text } : { text: s.text, tone: "date" }));
+});
+const page = useTemplateRef<HTMLElement>("page");
+const turn = usePageTurn(page);
+/** The tabs and the heading move at once; the page clears, then the day's pieces are laid down */
 function showTab(value: string) {
-  const at = (v: string) => dayTabs.value.findIndex((t) => t.value === v);
-  const step = at(value) - at(activeTab.value);
-  if (step === 0) return;
-  viewTransition(
-    () => (tab.value = value === APPENDIX ? "appendix" : Temporal.PlainDate.from(value)),
-    [step > 0 ? "forward" : "backward"],
-  );
+  if (value === activeTab.value) return;
+  const next: Tab = value === APPENDIX ? "appendix" : Temporal.PlainDate.from(value);
+  picked.value = next;
+  void turn(() => (tab.value = next));
 }
-/** Edit and read are the same page written two ways: it cross-fades, without sliding */
+/** Edit and read are the same page written two ways: the switch answers at once, the page turns */
 function setMode(next: Mode) {
-  viewTransition(() => (mode.value = next));
+  pickedMode.value = next;
+  void turn(() => (mode.value = next));
 }
 
 type Mode = "edit" | "read";
@@ -82,6 +99,8 @@ const modes = computed((): CtOption<Mode>[] => [
   { value: "edit", label: i18n.t("common.edit") },
   { value: "read", label: i18n.t("shiori.read") },
 ]);
+/** `pickedMode` is the switch, at once; `mode` is the page and the tray, once the page turns */
+const pickedMode = ref<Mode>("edit");
 const mode = ref<Mode>("edit");
 const editing = computed(() => mode.value === "edit");
 const picking = ref<Memo | null>(null); // note being assigned from the tray
@@ -153,7 +172,7 @@ function adoptDraft() {
       </template>
       <template #end>
         <CtSegmented
-          :model-value="mode"
+          :model-value="pickedMode"
           :label="i18n.t('shiori.mode')"
           :options="modes"
           @update:model-value="setMode"
@@ -195,25 +214,20 @@ function adoptDraft() {
           <button class="later" type="button" @click="() => (picking = null)">{{ i18n.t("shiori.later") }}</button>
         </div>
       </section>
+
+      <!-- the open day's heading stays put while its page slides; only the characters that change move -->
+      <h2 class="day" :aria-label="heading.map((p) => p.text).join('')"><CtTextMorph :parts="heading" /></h2>
     </div>
 
-    <main class="body">
+    <main ref="page" class="body">
       <!-- the page (this scrolling body) morphs when the day or the mode changes: see showTab -->
       <CtTabPanel>
         <!-- ---------- a day ---------- -->
         <template v-if="day">
-          <h2 class="day">
-            <Message
-              id="shiori.dayHeading"
-              :params="{ n: trip.dayNumber(day), date: longDate(day, i18n.locale) }"
-            >
-              <template #date="{ text }"><span>{{ text }}</span></template>
-            </Message>
-          </h2>
-
           <template v-if="editing">
             <textarea
               class="intro"
+              data-turn
               rows="2"
               :aria-label="i18n.t('shiori.intro')"
               :placeholder="i18n.t('shiori.introPlaceholder')"
@@ -221,9 +235,9 @@ function adoptDraft() {
               @change="setIntro"
             ></textarea>
           </template>
-          <p v-else-if="trip.dayOf(day)?.intro" class="intro-read">{{ trip.dayOf(day)?.intro }}</p>
+          <p v-else-if="trip.dayOf(day)?.intro" class="intro-read" data-turn>{{ trip.dayOf(day)?.intro }}</p>
 
-          <p v-if="trip.forDay(day).length === 0" class="muted empty">{{ i18n.t("shiori.dayEmpty") }}</p>
+          <p v-if="trip.forDay(day).length === 0" class="muted empty" data-turn>{{ i18n.t("shiori.dayEmpty") }}</p>
 
           <!-- the day is a strip of the same stickies as the canvas, pinned in time order -->
           <ol class="strip">
@@ -231,6 +245,7 @@ function adoptDraft() {
               v-for="n in editing ? trip.forDay(day) : trip.forDay(day).filter((m) => m.schedule.status !== 'idea')"
               :key="n.id"
               class="paper"
+              data-turn
               :class="n.schedule.status"
               :style="`--card:${PAPERS[n.color]}`"
               :data-stamp="i18n.t('status.done')"
@@ -271,12 +286,13 @@ function adoptDraft() {
 
           <!-- read mode: the maybes, faded, at the end of the strip -->
           <template v-if="!editing && trip.forDay(day, 'idea').length">
-            <h3 class="maybe">{{ i18n.t("shiori.ifTime") }}</h3>
+            <h3 class="maybe" data-turn>{{ i18n.t("shiori.ifTime") }}</h3>
             <ol class="strip maybes">
               <li
                 v-for="n in trip.forDay(day, 'idea')"
                 :key="n.id"
                 class="paper idea"
+                data-turn
                 :style="`--card:${PAPERS[n.color]}`"
               >
                 <div class="tab"><span class="time-read">{{ n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime") }}</span></div>
@@ -293,6 +309,7 @@ function adoptDraft() {
             <div
               v-if="draft && draft.date.equals(day)"
               class="draft"
+              data-turn
               :style="`--who: ${members.colorOf(draft.by)}`"
             >
               <div class="h"><span aria-hidden="true" class="dot"></span>{{ members.nameOf(draft.by) }}<small>{{ i18n.t("shiori.draft") }}</small></div>
@@ -300,23 +317,24 @@ function adoptDraft() {
               <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}</li></ol>
               <div class="act"><button class="ok" type="button" @click="adoptDraft">{{ i18n.t("shiori.adoptDraft") }}</button><button class="no" type="button" @click="() => (draft = null)">{{ i18n.t("common.dismiss") }}</button></div>
             </div>
-            <button v-else class="ask" type="button" @click="askForDraft">{{ i18n.t("shiori.askDraft") }}</button>
+            <button v-else class="ask" data-turn type="button" @click="askForDraft">{{ i18n.t("shiori.askDraft") }}</button>
           </template>
 
-          <p v-if="trip.budgetOf(day)" class="daytotal">{{ i18n.t("shiori.dayTotal", { total: price(trip.budgetOf(day)) }) }}<small v-if="trip.budgetOf(day, false) > trip.budgetOf(day)">{{ i18n.t("shiori.withMaybes", { total: price(trip.budgetOf(day, false)) }) }}</small></p>
+          <p v-if="trip.budgetOf(day)" class="daytotal" data-turn>{{ i18n.t("shiori.dayTotal", { total: price(trip.budgetOf(day)) }) }}<small v-if="trip.budgetOf(day, false) > trip.budgetOf(day)">{{ i18n.t("shiori.withMaybes", { total: price(trip.budgetOf(day, false)) }) }}</small></p>
         </template>
 
         <!-- ---------- appendix ---------- -->
         <template v-else>
           <section v-for="t in APPENDIX_TAGS" :key="t" class="appendix">
-            <h2 class="day">#{{ t }}</h2>
+            <h2 class="day" data-turn>#{{ t }}</h2>
             <ul class="check"><li
                 v-for="n in trip.byTag(t)"
                 :key="n.id"
+                data-turn
                 :class="{ checked: n.checked }"
                 :style="`--card:${PAPERS[n.color]}`"
               ><label><input type="checkbox" :checked="n.checked" @change="(e) => setChecked(n, e)" /><span class="t">{{ n.title }}</span><span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
-            <p v-if="trip.byTag(t).length === 0" class="muted">{{ i18n.t("shiori.tagEmpty") }}</p>
+            <p v-if="trip.byTag(t).length === 0" class="muted" data-turn>{{ i18n.t("shiori.tagEmpty") }}</p>
           </section>
         </template>
       </CtTabPanel>
@@ -467,19 +485,20 @@ function adoptDraft() {
   flex: 1;
   overflow-y: auto;
   padding: 0 max(16px, calc((100% - 648px) / 2)) 24px;
-  /* the page that morphs between days (transitions.css); the scrolling box clips its own snapshot */
-  view-transition-name: ct-page;
 }
 
 .day {
   margin: 20px 0 10px;
   font-size: var(--font-2xl);
   font-weight: 700;
-  span {
+  /* the open day's heading, at the foot of the lead, over the page */
+  .lead & {
+    margin: 14px 0 10px;
+  }
+  /* the date after "1日目", quieter; its characters are the morph's own */
+  & :deep(.date) {
     font-size: var(--font-md);
-    font-weight: 700;
     color: var(--muted);
-    margin-inline-start: 8px;
   }
 }
 
