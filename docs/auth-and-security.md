@@ -140,8 +140,8 @@ Claude is called inside `draftDay` with a key held as a Worker secret; the brows
 The Anthropic console gets a monthly spend limit for the workspace.
 
 Clef runs through the Workers AI binding, so there is no key to leak.
-The account is on the Workers Paid plan (for Durable Object and R2 limits), and on that plan Workers AI has no hard cap: past the free 10,000 Neurons a day it is pay as you go.
-Access alone does not bound it.
+The account stays on the Workers Free plan, which hard-caps Workers AI at 10,000 Neurons a day (further calls fail) and still runs SQLite-backed Durable Objects, R2's free tier and WebSockets; two people never reach its 100,000 requests a day.
+On the Paid plan the cap disappears and Workers AI becomes pay as you go, so moving to Paid is a cost decision, not an upgrade, and the budget below is what bounds Clef then.
 
 Google Maps splits in two.
 A future Places lookup from the Worker uses a secret key.
