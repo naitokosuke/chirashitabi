@@ -60,6 +60,9 @@ src/ui/             The design system: props, slots and events only, no app impo
                  CtTabBar: bottom navigation, the highlight slides behind the current item
   composables/   useIndicator: measures the selected child so an indicator can slide to it
   index.ts, types.ts   The public entry and the shared CtOption type
+
+docs/               Design notes: auth-and-security.md (one hostname behind Access, rooms and members, agents,
+                    paid-API budgets, what stays public)
 ```
 
 ## Sync hook
@@ -85,4 +88,4 @@ Currencies and member colors arrive as plain strings too; `currencyCode` and `he
 - Coordinates come from the Google Maps link pasted into the form. Short `maps.app.goo.gl` links need the Worker
   to follow the redirect before `parseMapsUrl` sees them (not implemented yet; see `features/place/google-maps.ts`).
 - When there are no coordinates, long-press the map to place the note.
-- Google Maps is only an "open" link. There is room for an iframe (Maps Embed API, free, needs a key) on a single note's detail.
+- Google Maps is only an "open" link; no Google key ever ships to the browser (see `docs/auth-and-security.md`).

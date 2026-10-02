@@ -2,6 +2,7 @@ node_modules
 dist
 dist-single
 .wrangler
+.dev.vars*
 worker-configuration.d.ts
 .DS_Store
 *.local
