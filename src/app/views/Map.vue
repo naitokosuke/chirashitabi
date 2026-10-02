@@ -212,7 +212,7 @@ function fitAll() {
       <p class="t">{{ selected.title }}</p>
       <p v-if="selected.body" class="b">{{ selected.body }}</p>
       <p class="meta">
-        <span v-for="t in selected.tags" :key="t" :style="`color:${tags.tagColor(t)}`">#{{ t }} </span>
+        <span v-for="t in selected.tags" :key="t" class="tag" :style="`--tag:${tags.tagColor(t)}`">#{{ t }} </span>
         <span v-if="selected.budget">{{ price(selected.budget) }} </span>
         <span v-if="selected.schedule">{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
       </p>
@@ -328,9 +328,10 @@ function fitAll() {
     font-weight: 700;
     color: var(--muted);
 
+    /* selection is ink, as on the canvas; red stays for the stamp */
     &.on {
-      background: var(--red);
-      color: var(--on-accent);
+      background: var(--ink);
+      color: var(--bg);
       border-color: transparent;
     }
   }
@@ -407,6 +408,13 @@ function fitAll() {
     font-size: var(--font-xs);
     font-weight: 700;
     color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 8px;
+
+    & .tag {
+      color: color-mix(in oklch, var(--tag) var(--tint-mix), var(--tint-base));
+    }
   }
 
   & .act {
@@ -427,7 +435,7 @@ function fitAll() {
     }
 
     & a {
-      color: var(--jade);
+      color: var(--link);
       text-decoration: none;
     }
 

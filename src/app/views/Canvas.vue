@@ -461,7 +461,7 @@ watch(
     flex-shrink: 0;
     white-space: nowrap;
     min-height: var(--tap);
-    color: var(--pink-soft);
+    color: var(--toast-action);
     font-weight: 700;
     font-size: var(--font-sm);
   }
@@ -487,7 +487,7 @@ watch(
     font-size: var(--font-md);
     font-weight: 700;
     &.del {
-      color: var(--red);
+      color: var(--accent-text);
     }
   }
   & .sw {
