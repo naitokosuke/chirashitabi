@@ -109,6 +109,8 @@ const i18n = useI18n();
   color: var(--slate);
   border: 1px solid var(--oat);
   width: 186px;
+  /* square: a machine's note is cut straight, a person's has the paper's soft corner */
+  border-radius: 0;
   & .h {
     display: flex;
     align-items: center;
