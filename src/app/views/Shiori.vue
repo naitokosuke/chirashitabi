@@ -424,9 +424,14 @@ h1 {
   margin-inline-end: 4px;
 }
 
+/* the only row with outer margins instead of inner padding: its width leaves room for both gutters */
 .tabs {
   flex-shrink: 0;
-  margin: 4px 16px 0;
+  width: calc(100% - 32px);
+  max-width: calc(680px - 32px);
+  margin: 4px auto 0;
+  /* a row that keeps going says so, like the desk's chip row */
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
 
 .body {
