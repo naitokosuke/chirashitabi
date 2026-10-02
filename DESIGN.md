@@ -242,7 +242,7 @@ Where the trip goes, as an object lying on the desk that is plainly not a note: 
 
 ### Home
 
-The first tab. The bar holds the wordmark `chirashitabi`. Under it: the trip's name in Display and its dates and length; the members with their dots (you marked "you"); two white lists, the notes (all, with a day, confirmed, the confirmed budget with the maybes in small) and each day's count; and a tool button to open another trip, which leaves the room for the rooms screen.
+The first tab, shown rather than listed. The bar holds the wordmark `chirashitabi`. Under it: the trip's name in Display, its dates and length; a face per member (the initial on their color, deepened to carry white; the one place a member color fills, since the face is about them). Then the days side by side on a white panel, each a stack of its notes drawn as slips of their own paper, maybes faded on a dashed edge, the date and weekday under it. Then one bar of the plan's progress in three inks (confirmed, maybe, no day) with a small legend of counts; the budget in 22px with the maybes in small; and a tool button to open another trip. No row of labels and figures, and no "you".
 
 ### Write button (`CtFab`)
 
