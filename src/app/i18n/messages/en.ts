@@ -42,8 +42,8 @@ export const en = {
   "status.done": "Done",
 
   "filter.label": "How to filter",
-  "filter.dim": "Dim",
-  "filter.only": "Only",
+  "filter.dim": "Dim others",
+  "filter.only": "Only these",
   "filter.clear": "× Clear",
 
   "canvas.undo": "Undo",
@@ -51,10 +51,11 @@ export const en = {
   "canvas.delete": "Delete",
   "canvas.write": "Write a note",
   "canvas.added": "Added “{$title}”",
-  "canvas.addedDrag": "Added “{$title}”. Drag it anywhere",
+  "canvas.addedDrag": "Added “{$title}”. Drag to move; long-press for color, copy or delete",
+  "canvas.deleted": "Deleted “{$title}”",
 
   "note.suggestion": "suggestion",
-  "note.adopt": "Adopt",
+  "note.adopt": "Make it a note",
 
   "form.titleNew": "New note",
   "form.titleEdit": "Edit note",

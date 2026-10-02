@@ -220,8 +220,7 @@ function duplicateFromMenu() {
   menu.value = null;
 }
 function removeFromMenu() {
-  if (menu.value) store.remove(menu.value.note.id);
-  menu.value = null;
+  if (menu.value) remove(menu.value.note);
 }
 
 // ---- fit ----
@@ -237,17 +236,36 @@ function fitted() {
 // ---- adding from the form: place at viewport center, pop ----
 /** The card that just landed, and where the ring around it goes */
 const pop = ref<{ id: NoteId; x: number; y: number } | null>(null);
-/** `undo` takes back the note just added */
-const toast = ref<{ text: string; undo?: NoteId } | null>(null);
+/** `undo` takes back the note just added; `restore` brings back the one just deleted */
+const toast = ref<{ text: string; undo?: NoteId; restore?: NoteId } | null>(null);
 let toastTimer: number | undefined;
-function showToast(text: string, undo?: NoteId) {
-  toast.value = { text, undo };
+function showToast(text: string, action: { undo?: NoteId; restore?: NoteId } = {}) {
+  settleToast();
+  toast.value = { text, ...action };
+  toastTimer = window.setTimeout(settleToast, 3200);
+}
+/** The toast goes, and a deletion it was holding open becomes real */
+function settleToast() {
   clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => (toast.value = null), 3200);
+  const t = toast.value;
+  toast.value = null;
+  if (t?.restore !== undefined && pendingDelete.value.delete(t.restore)) store.remove(t.restore);
 }
 function undoToast() {
-  if (toast.value?.undo) store.remove(toast.value.undo);
+  const t = toast.value;
+  clearTimeout(toastTimer);
   toast.value = null;
+  if (t?.undo !== undefined) store.remove(t.undo);
+  if (t?.restore !== undefined) pendingDelete.value.delete(t.restore);
+}
+
+// ---- deleting: the card leaves at once; the room hears about it once the toast is gone ----
+const pendingDelete = ref(new Set<NoteId>());
+const shownNotes = computed(() => store.notes.filter((n) => !pendingDelete.value.has(n.id)));
+function remove(note: Note) {
+  menu.value = null;
+  pendingDelete.value.add(note.id);
+  showToast(i18n.t("canvas.deleted", { title: note.title }), { restore: note.id });
 }
 function write() {
   emit("write");
@@ -257,12 +275,12 @@ function placeAtCenter(input: NoteInput, quiet: boolean) {
   const c = toWorld(r.width / 2, r.height / 2);
   const n = store.add(input, { x: c.x - 82, y: c.y - 40 });
   if (quiet) {
-    showToast(i18n.t("canvas.added", { title: n.title }), n.id);
+    showToast(i18n.t("canvas.added", { title: n.title }), { undo: n.id });
     return n;
   }
   pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
   window.setTimeout(() => (pop.value = null), 900);
-  showToast(i18n.t("canvas.addedDrag", { title: n.title }), n.id);
+  showToast(i18n.t("canvas.addedDrag", { title: n.title }), { undo: n.id });
   return n;
 }
 onMounted(() => (placeOnMounted = placeAtCenter));
@@ -301,14 +319,14 @@ watch(
     >
       <div class="world" :style="worldStyle">
         <NoteCard
-          v-for="n in store.notes"
+          v-for="n in shownNotes"
           :key="n.id"
           :note="n"
           :dragging="draggingId === n.id"
           :pop="pop?.id === n.id"
           :visibility="tags.visibility(n)"
           @adopt="() => store.adopt(n.id)"
-          @remove="() => store.remove(n.id)"
+          @remove="() => remove(n)"
         />
         <div v-if="pop" class="ring" :style="`transform: translate(${pop.x}px, ${pop.y}px)`"></div>
       </div>
@@ -318,9 +336,9 @@ watch(
 
     <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
 
-    <div v-if="toast" class="toast">
+    <div v-if="toast" class="toast" role="status">
       <span>{{ toast.text }}</span>
-      <button v-if="toast.undo" type="button" @click="undoToast">{{ i18n.t("canvas.undo") }}</button>
+      <button v-if="toast.undo || toast.restore" type="button" @click="undoToast">{{ i18n.t("canvas.undo") }}</button>
     </div>
 
     <div

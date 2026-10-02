@@ -12,7 +12,7 @@ export type AppState = { tab: View; form: FormTarget | null };
 export type AppEvent =
   | { type: "tabSelected"; tab: View }
   | { type: "writeRequested" }
-  | { type: "writeAtPinRequested"; pin: LatLng }
+  | { type: "writeAtPinRequested"; pin: LatLng | null } // null: from the map's stamp, no place yet
   | { type: "editRequested"; note: Memo }
   | { type: "formClosed" };
 
