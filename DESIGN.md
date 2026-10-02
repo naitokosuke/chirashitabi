@@ -229,7 +229,7 @@ Lifted. A thing on the desk that can be picked up casts a soft, offset shadow in
 
 ## Shapes
 
-Two families of corner. Paper has a small radius (6px, sticky and suggestion alike), the way a cut sheet does. Tools are pills (999px) when they are a single row (chips, switches, buttons, the jump control), and softly rounded panels (10–14px) when they hold several things (menu 14px, toast 14px, inputs 10px, tab highlight 12px). The write button is a circle. Every tool is edged with a 1.5px Ruled Line unless it is filled; a filled tool has no edge. Stickies sit at a slight rotation (±2°) that is theirs for life, so the desk never looks like a grid.
+Two families of corner, and one deliberate exception. A person's sticky has a small radius (6px), the way a cut sheet does; the agent's suggestion is square (0), cut straight, so a machine's note is told from a person's by its corners alone. Tools are pills (999px) when they are a single row (chips, switches, buttons, the jump control), and softly rounded panels (10–14px) when they hold several things (menu 14px, toast 14px, inputs 10px, tab highlight 12px). The write button is a circle. Every tool is edged with a 1.5px Ruled Line unless it is filled; a filled tool has no edge. Stickies sit at a slight rotation (±2°) that is theirs for life, so the desk never looks like a grid.
 
 ## Components
 
@@ -257,7 +257,7 @@ Two families of corner. Paper has a small radius (6px, sticky and suggestion ali
 ### Cards / Containers
 
 - **Sticky note:** 164px wide, 6px radius, one of the six stocks, 12px padding; title in Note type, body in Caption (Pencil Gray), tags as `#tag` in the tag's color, a 9px dot of the author's color at the top right. Resting-paper shadow; lifted while dragged; dimmed to 22% and desaturated when filtered out.
-- **Suggestion:** 186px wide, 10px radius, Ivory Card with a 1px Oat Edge, Slate Ink; a header of the author's dot and name with "suggestion" in Stone at the end, the text at 400, then two pill buttons: adopt (filled with the author's color) and dismiss (hairline edge).
+- **Suggestion:** 186px wide, square corners (the agent's mark), Ivory Card with a 1px Oat Edge, Slate Ink; a header of the author's dot and name with "suggestion" in Stone at the end, the text at 400, then two pill buttons: adopt (filled with the author's color) and dismiss (hairline edge).
 - **Menu:** Tool White, 14px radius, 6px padding, Ruled Line edge, floating-tool shadow; items are 40px pills.
 - **Toast:** Pen Navy, 14px radius, text in Desk color, the undo action in Post-it Pink.
 
