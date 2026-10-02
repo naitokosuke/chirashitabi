@@ -21,8 +21,9 @@ export const initialState: AppState = { tab: "canvas", form: null };
 /** The state after an event; pure, so effects such as placing a memo stay with the caller */
 export function next(state: AppState, event: AppEvent): AppState {
   switch (event.type) {
+    // the tab bar stays live over the sheet: picking a tab puts the sheet away and goes there
     case "tabSelected":
-      return { ...state, tab: event.tab };
+      return { tab: event.tab, form: null };
     case "writeRequested":
       return { ...state, form: { kind: "new", pin: null } };
     case "writeAtPinRequested":
@@ -160,7 +161,6 @@ function onMemoSaved(input: NoteInput) {
   <CtTabBar
     v-if="inRoom"
     class="nav"
-    :inert="state.form !== null"
     :model-value="state.tab"
     :label="i18n.t('nav.label')"
     :items="views"
