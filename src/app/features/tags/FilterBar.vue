@@ -69,7 +69,7 @@ function clearTags() {
 h1 {
   margin: 0;
   font-size: var(--font-2xl);
-  font-weight: 900;
+  font-weight: 700;
   color: var(--accent-text);
   background: var(--bg);
   padding: 4px 10px;
