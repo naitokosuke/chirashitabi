@@ -80,6 +80,9 @@ src/ui/             The design system: props, slots and events only, no app impo
 
 scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop (see "Running against the Worker")
 
+.claude/skills/impeccable/   A text-only copy of the Impeccable design skill (SKILL.md + reference/, no scripts
+                             or hooks); PROVENANCE.md says what is left out and why
+
 worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run check:worker` type-checks it)
   index.ts          Branches on the hostname, then identify -> Origin check -> the room API
   access.ts         AccessVerifier: the Access JWT -> a verified e-mail (signature, aud, iss, exp, nbf)
