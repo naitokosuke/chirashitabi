@@ -9,6 +9,8 @@ export interface AccessConfig {
   teamDomain: string;
   /** The application's AUD tag; a token for any other application on the team must not pass */
   aud: string;
+  /** Where the signing keys are fetched from; tests and local runs point it at a stub. Defaults to the team's. */
+  certsUrl?: string;
 }
 
 export class Unauthenticated extends Error {}
@@ -37,7 +39,8 @@ export class AccessVerifier {
 
   constructor(
     private readonly config: AccessConfig,
-    private readonly fetchImpl: typeof fetch = fetch,
+    // Wrapped: workerd's fetch refuses to run with another `this`, which a class field would give it
+    private readonly fetchImpl: typeof fetch = (input, init) => fetch(input, init),
     private readonly now: () => number = Date.now,
   ) {}
 
@@ -98,7 +101,8 @@ export class AccessVerifier {
   }
 
   private async fetchKeys(): Promise<Keys> {
-    const res = await this.fetchImpl(`https://${this.config.teamDomain}/cdn-cgi/access/certs`);
+    const url = this.config.certsUrl ?? `https://${this.config.teamDomain}/cdn-cgi/access/certs`;
+    const res = await this.fetchImpl(url);
     if (!res.ok) throw new Error(`certs ${res.status}`);
     const { keys } = (await res.json()) as { keys: Jwk[] };
     const byKid = new Map<string, CryptoKey>();

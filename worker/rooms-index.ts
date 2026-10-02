@@ -41,18 +41,19 @@ export class RoomsIndex extends DurableObject<Env> {
       .map((r) => r.room_id);
   }
 
-  /** Records a membership the room has already minted. Throws when `email` is at its room cap. */
-  add(email: string, roomId: string, memberId: string): void {
+  /** Records a membership the room has already minted; false when `email` is at its room cap */
+  add(email: string, roomId: string, memberId: string): boolean {
     const e = email.toLowerCase();
     const count = this.ctx.storage.sql
       .exec<{ n: number }>("SELECT COUNT(*) AS n FROM memberships WHERE email = ?", e)
       .one().n;
-    if (count >= RoomsIndex.MAX_ROOMS_PER_EMAIL) throw new Error("room cap reached");
+    if (count >= RoomsIndex.MAX_ROOMS_PER_EMAIL) return false;
     this.ctx.storage.sql.exec(
       "INSERT INTO memberships (email, room_id, member_id) VALUES (?, ?, ?)",
       e,
       roomId,
       memberId,
     );
+    return true;
   }
 }

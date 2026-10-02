@@ -1,11 +1,16 @@
 import { AccessVerifier, Unauthenticated } from "./access";
+import { Room } from "./room";
 
-export { Room } from "./room";
+export { Room };
 export { RoomsIndex } from "./rooms-index";
 
 let verifier: AccessVerifier | null = null;
 const access = (env: Env) =>
-  (verifier ??= new AccessVerifier({ teamDomain: env.ACCESS_TEAM_DOMAIN, aud: env.ACCESS_AUD }));
+  (verifier ??= new AccessVerifier({
+    teamDomain: env.ACCESS_TEAM_DOMAIN,
+    aud: env.ACCESS_AUD,
+    certsUrl: env.ACCESS_CERTS_URL,
+  }));
 
 export default {
   async fetch(request, env): Promise<Response> {
@@ -28,8 +33,9 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   try {
     email = await access(env).identify(request);
   } catch (e) {
-    if (e instanceof Unauthenticated) return new Response("Unauthorized", { status: 401 });
-    throw e;
+    if (!(e instanceof Unauthenticated)) throw e;
+    console.warn(`401: ${e.message}`);
+    return new Response("Unauthorized", { status: 401 });
   }
 
   // Access checks the cookie, not where the request came from. Every API call is a POST
@@ -50,7 +56,8 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
     if (upgrade) return new Response("Forbidden", { status: 403 });
     const roomId = crypto.randomUUID();
     const memberId = await env.ROOM.getByName(roomId).create();
-    await index.add(email, roomId, memberId);
+    if (!(await index.add(email, roomId, memberId)))
+      return new Response("Conflict", { status: 409 });
     return Response.json({ roomId, memberId });
   }
 
@@ -63,13 +70,22 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
 
   if (action === "ws") {
     if (!upgrade) return new Response("Forbidden", { status: 403 });
-    return room.openSocket(memberId);
+    // Only the upgrade goes through fetch, with the resolved member in a header of our own
+    return room.fetch(
+      new Request(request.url, {
+        headers: { Upgrade: "websocket", [Room.MEMBER_HEADER]: memberId },
+      }),
+    );
   }
 
   const body = (await request.json()) as { email?: unknown };
   if (typeof body.email !== "string" || body.email === "")
     return new Response("Bad Request", { status: 400 });
+  if ((await index.resolve(body.email, roomId)) !== null)
+    return new Response("Conflict", { status: 409 });
   const invitee = await room.invite(memberId);
-  await index.add(body.email, roomId, invitee);
+  if (invitee === null) return new Response("Conflict", { status: 409 });
+  if (!(await index.add(body.email, roomId, invitee)))
+    return new Response("Conflict", { status: 409 });
   return Response.json({ memberId: invitee });
 }
