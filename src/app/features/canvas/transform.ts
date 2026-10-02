@@ -45,7 +45,7 @@ export function pinchTo(start: PinchStart, a: Pt, b: Pt): View {
 }
 
 /** A view that shows every card (top-left corners at `points`) inside a width × height viewport */
-export function fitView(points: Pt[], width: number, height: number): View | null {
+export function fitView(points: Pt[], width: number, height: number, minScale = 0): View | null {
   if (points.length === 0) return null;
   const xs = points.map((p) => p.x),
     ys = points.map((p) => p.y);
@@ -53,7 +53,10 @@ export function fitView(points: Pt[], width: number, height: number): View | nul
     maxX = Math.max(...xs) + 220,
     minY = Math.min(...ys) - 30,
     maxY = Math.max(...ys) + 160;
-  const s = clampScale(Math.min(width / (maxX - minX), (height - 200) / (maxY - minY)));
+  // below `minScale` the cards would be too small to read: stop there, centered on the pile
+  const s = clampScale(
+    Math.max(minScale, Math.min(width / (maxX - minX), (height - 200) / (maxY - minY))),
+  );
   return {
     tx: (width - (maxX + minX) * s) / 2,
     ty: 120 + (height - 200 - (maxY + minY) * s) / 2,

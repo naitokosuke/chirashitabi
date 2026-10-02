@@ -232,7 +232,7 @@ function adoptDraft() {
           <!-- read mode: the maybes, faded, at the end of the strip -->
           <template v-if="!editing && trip.forDay(day, 'idea').length">
             <h3 class="maybe">{{ i18n.t("shiori.ifTime") }}</h3>
-            <ol class="strip">
+            <ol class="strip maybes">
               <li
                 v-for="n in trip.forDay(day, 'idea')"
                 :key="n.id"
@@ -498,13 +498,9 @@ h1 {
   &:nth-child(even) {
     --tilt: 0.6deg;
   }
-  &.idea {
-    opacity: 0.6;
-    filter: saturate(0.6);
-  }
-  /* done: stamped, and the ink fades */
-  &.done .main {
-    opacity: 0.55;
+  /* done: stamped, and the title steps back to the paper's quieter ink; nothing goes translucent */
+  &.done .t {
+    color: var(--paper-muted);
   }
   &.done::after {
     content: attr(data-stamp);
@@ -649,6 +645,16 @@ h1 {
   margin: 18px 6px 6px;
   font-size: var(--font-md);
   color: var(--muted);
+}
+
+/* read mode's maybes: the paper fades (lighter stock, less color), the ink stays at full */
+.maybes .paper {
+  background: color-mix(in srgb, var(--card, var(--paper)) 55%, var(--surface));
+  filter: saturate(0.7);
+  box-shadow: var(--shadow-tool);
+  .tab {
+    background: color-mix(in srgb, var(--card, var(--paper)) 70%, var(--paper-ink) 8%);
+  }
 }
 
 .daytotal {

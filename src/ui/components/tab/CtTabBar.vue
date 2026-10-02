@@ -66,7 +66,8 @@ button {
   transition: color var(--duration-swap) ease;
 
   &[aria-current="page"] {
-    color: var(--accent-text);
+    /* on its own red-tinted highlight the accent needs a touch more ink to reach 4.5:1 */
+    color: color-mix(in oklch, var(--accent-text) 86%, var(--ink));
   }
 
   @media (hover: hover) {
