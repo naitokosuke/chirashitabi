@@ -48,6 +48,10 @@ Access has two ways to protect a Worker, and only one of them works here.
 A Worker-level policy (the one-click "Enable Cloudflare Access" on the Worker, scoped to previews only or to all hostnames) answers every WebSocket upgrade with 403 before authentication; the Workers docs list this as a current limitation and point WebSocket Workers to a hostname-based application instead.
 So the Access application is a self-hosted one targeting the bare custom hostname, no path, with Allow policies only (no Bypass, no Service Auth), which handles the upgrade: 302 to login when unauthenticated, proxied through when authenticated.
 
+A self-hosted application's domain "must belong to an active zone in your Cloudflare account", and `workers.dev` is Cloudflare's zone, not ours.
+So the design needs a registered domain; on `workers.dev` alone the only Access available is the Worker-level policy, which cannot carry the WebSocket.
+A `.com` at Cloudflare Registrar is about $10 a year at cost.
+
 A hostname application covers only that hostname.
 The Worker is also reachable on its `workers.dev` subdomain and on preview URLs, so the `workers.dev` route is disabled in `wrangler.jsonc` and preview URLs are turned off; both are checked before the first secret is bound.
 
