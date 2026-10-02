@@ -32,6 +32,8 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomsIndex", "Room"] }],
 
   // None of these is a secret; identify() checks the Access JWT against them.
+  // ACCESS_CERTS_URL is deliberately absent: the keys come from the team domain. Only the
+  // tests set it, to a stub that serves a throwaway key.
   "vars": {
     "ACCESS_TEAM_DOMAIN": "floral-sky-5f24.cloudflareaccess.com",
     "ACCESS_AUD": "283aabc752ef29220bf9efc1ca77335383ed2f8753a1e65e45801fbe44f4f65d",

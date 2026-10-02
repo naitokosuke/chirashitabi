@@ -66,6 +66,8 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
   access.ts         AccessVerifier: the Access JWT -> a verified e-mail (signature, aud, iss, exp, nbf)
   rooms-index.ts    RoomsIndex: e-mail -> { room, member id }; the only place an e-mail is stored
   room.ts           Room: the member table (people and the agent), and the WebSocket
+  api.test.ts       The Worker in workerd via wrangler's test harness, Access stood in for by a throwaway key
+  env.d.ts          ACCESS_CERTS_URL, the one var only the tests set
 
 docs/               Design notes: auth-and-security.md (one hostname behind Access, rooms and members, agents,
                     paid-API budgets, what stays public)

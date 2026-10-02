@@ -35,23 +35,33 @@ export class Room extends DurableObject<Env> {
     return creator;
   }
 
-  /** Called with the inviter's resolved id; mints the invitee's id */
-  invite(by: string): string {
+  /** Called with the inviter's resolved id; mints the invitee's id, or null when the room is full */
+  invite(by: string): string | null {
     this.assertMember(by);
-    if (this.count("person") >= Room.MAX_PEOPLE) throw new Error("room is full");
+    if (this.count("person") >= Room.MAX_PEOPLE) return null;
     const id = crypto.randomUUID();
     this.ctx.storage.sql.exec("INSERT INTO members (id, kind) VALUES (?, 'person')", id);
     return id;
   }
 
-  /** The WebSocket for a member; the Worker has already resolved `memberId` */
-  async openSocket(memberId: string): Promise<Response> {
+  /**
+   * The WebSocket upgrade. A socket cannot cross an RPC call, so this is the one
+   * thing that arrives as a request; the Worker has resolved the member and says
+   * who it is in a header nothing outside the Worker can set.
+   */
+  override fetch(request: Request): Response {
+    const memberId = request.headers.get(Room.MEMBER_HEADER);
+    if (request.headers.get("Upgrade") !== "websocket" || memberId === null) {
+      return new Response("Bad Request", { status: 400 });
+    }
     this.assertMember(memberId);
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
     this.ctx.acceptWebSocket(server, [memberId]);
     return new Response(null, { status: 101, webSocket: client });
   }
+
+  static readonly MEMBER_HEADER = "X-Chirashitabi-Member";
 
   webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
     // Mutations arrive here next; for now each socket hears its own echo.

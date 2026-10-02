@@ -18,5 +18,6 @@ jobs:
       # names in `types`, and the type-aware lint in `check` reads that tsconfig
       - run: vp run check:worker
       - run: vp run check
-      - run: vp test
+      # build before test: the Worker's integration tests start it with its assets directory
       - run: vp build
+      - run: vp test
