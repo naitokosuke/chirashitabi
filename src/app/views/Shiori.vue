@@ -130,6 +130,7 @@ function adoptDraft() {
           class="tray-card"
           type="button"
           :class="{ picking: picking?.id === n.id }"
+          :aria-pressed="picking?.id === n.id"
           :style="`background:${n.color}`"
           @click="() => togglePick(n)"
         >
@@ -487,22 +488,17 @@ h1 {
   gap: 12px;
 }
 
-/* A sticky, the same paper as on the canvas, with a time tab along its left edge */
+/* A sticky, the same paper as on the canvas, with a time tab along its left edge; level, for reading (only the desk tilts) */
 .paper {
-  --tilt: -0.8deg;
   position: relative;
   display: flex;
   border-radius: 6px;
   background: var(--card, var(--paper));
   color: var(--paper-ink);
   box-shadow: var(--shadow-paper);
-  transform: rotate(var(--tilt));
   /* on paper, tints are mixed toward the paper's ink, whatever the desk */
   --tint-base: var(--paper-ink);
   --tint-mix: 68%;
-  &:nth-child(even) {
-    --tilt: 0.6deg;
-  }
   /* done: stamped, and the title steps back to the paper's quieter ink; nothing goes translucent */
   &.done .t {
     color: var(--paper-muted);
@@ -760,13 +756,6 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  li {
-    --tilt: -0.6deg;
-    transform: rotate(var(--tilt));
-    &:nth-child(even) {
-      --tilt: 0.5deg;
-    }
-  }
   label {
     display: flex;
     gap: 12px;

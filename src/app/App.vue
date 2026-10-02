@@ -105,6 +105,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
       <Form
         v-if="state.form"
         :target="state.form"
+        :from="state.tab"
         @close="() => send({ type: 'formClosed' })"
         @save="onSave"
       />
@@ -114,6 +115,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
   <CtTabBar
     v-if="inRoom"
     class="nav"
+    :inert="state.form !== null"
     :model-value="state.tab"
     :label="i18n.t('nav.label')"
     :items="views"
