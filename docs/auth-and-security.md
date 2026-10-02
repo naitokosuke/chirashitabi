@@ -37,6 +37,10 @@ A change to the mechanisms is fine as long as every line here still holds; a rev
 
 ## One hostname
 
+The domain is `chirashitabi.app`, registered at Cloudflare Registrar, so its zone is in our account.
+The app lives on `chirashitabi.app` and the public booklet on `shiori.chirashitabi.app`, both Custom Domains of the one Worker (`routes` with `custom_domain: true` in `wrangler.jsonc`; Cloudflare creates the DNS records and certificates).
+`.app` is HSTS-preloaded, so browsers never try plain HTTP against it.
+
 The Worker serves the SPA from its static assets binding and answers the API and the WebSocket on the same hostname, and Cloudflare Access protects that one hostname.
 `run_worker_first` is `true`, so the Worker code runs before the assets binding on every request and branches on `Host` first; it calls `env.ASSETS.fetch` only for the app hostname.
 With the default, matching asset paths are served without running the Worker, on every hostname the Worker is bound to.
@@ -49,8 +53,7 @@ A Worker-level policy (the one-click "Enable Cloudflare Access" on the Worker, s
 So the Access application is a self-hosted one targeting the bare custom hostname, no path, with Allow policies only (no Bypass, no Service Auth), which handles the upgrade: 302 to login when unauthenticated, proxied through when authenticated.
 
 A self-hosted application's domain "must belong to an active zone in your Cloudflare account", and `workers.dev` is Cloudflare's zone, not ours.
-So the design needs a registered domain; on `workers.dev` alone the only Access available is the Worker-level policy, which cannot carry the WebSocket.
-A `.com` at Cloudflare Registrar is about $10 a year at cost.
+That is why the design needs a registered domain; on `workers.dev` alone the only Access available is the Worker-level policy, which cannot carry the WebSocket.
 
 A hostname application covers only that hostname.
 The Worker is also reachable on its `workers.dev` subdomain and on preview URLs, so the `workers.dev` route is disabled in `wrangler.jsonc` and preview URLs are turned off; both are checked before the first secret is bound.
@@ -191,7 +194,7 @@ The Worker is fetching a URL the user typed, so the fetch is fenced.
 
 ## What stays outside Access
 
-Access guards a hostname, so anything meant to be public lives on a second custom hostname bound to the same Worker.
+Access guards a hostname, so anything meant to be public lives on `shiori.chirashitabi.app`, the second Custom Domain of the same Worker.
 On that hostname the Worker serves only published booklets from R2; no API route and no WebSocket is bound to it.
 
 The booklet that `exportBooklet` publishes is read-only and may be shown to people outside the room.
