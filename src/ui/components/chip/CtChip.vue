@@ -35,13 +35,15 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
   box-shadow: var(--shadow-tool);
   font-size: var(--font-sm);
   font-weight: 700;
-  color: var(--tint, var(--muted));
+  /* the tint as text, pulled toward the tool's ink so it reads on either desk */
+  color: color-mix(in oklch, var(--tint, var(--muted)) var(--tint-mix), var(--tint-base));
   transition: background-color var(--duration-swap) ease,
     color var(--duration-swap) ease,
     border-color var(--duration-swap) ease;
 
   &.selected {
-    background: var(--tint, var(--ink));
+    /* filled: the tint deepened enough to carry white text */
+    background: color-mix(in oklch, var(--tint, var(--ink)) 85%, #1c2238);
     color: var(--on-accent);
     border-color: transparent;
   }

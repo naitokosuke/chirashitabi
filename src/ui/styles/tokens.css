@@ -33,6 +33,21 @@
   --font-3xl: 19px;
   --font-4xl: 22px;
 
+  /*
+   * A tag's or a member's color never paints text as it is: as text on a tool it is
+   * mixed toward the tool's ink (deeper on a light desk, lighter on a dark one), and
+   * as text on paper, which is always light, toward the paper's ink.
+   *   color: color-mix(in oklch, var(--tint) var(--tint-mix), var(--tint-base));
+   */
+  --tint-mix: 78%;
+  --tint-base: var(--ink);
+  --tint-paper-mix: 68%;
+  /* Stamp Red as text, and a link's green: deep enough for 4.5:1 on their surfaces */
+  --accent-text: var(--red);
+  --link: color-mix(in oklch, var(--jade) 82%, var(--ink));
+  /* The toast is ink with the desk's color on it; its action is a paper color on the ink */
+  --toast-action: var(--pink-soft);
+
   /* Depth: ink-colored, offset down, soft. Paper lifts; a tool on the desk lifts gently */
   --shadow-tool: 0 1px 2px rgba(28, 34, 56, 0.06), 0 2px 6px rgba(28, 34, 56, 0.08);
   --shadow-paper: 0 3px 10px rgba(28, 34, 56, 0.14);
@@ -63,6 +78,12 @@
     --ink: #eef1ec;
     --muted: #a7aeaa;
     --line: #3a403c;
+    /* a dark desk: tints lighten toward white instead of deepening toward ink */
+    --tint-mix: 62%;
+    --tint-base: #fff;
+    --accent-text: color-mix(in oklch, var(--red) 68%, #fff);
+    --link: color-mix(in oklch, var(--jade) 62%, #fff);
+    --toast-action: color-mix(in oklch, var(--red) 82%, #000);
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -150,7 +150,7 @@ Pastel paper on a green-gray desk, written in navy ink, with a red stamp for the
 
 ### Primary
 
-- **Stamp Red** (#d7263d): the write button, the current tab's text and the tint behind it, delete. It starts things or warns; it never decorates. Also the default color of the second member.
+- **Stamp Red** (#d7263d): the write button, the current tab's text and the tint behind it, delete. It starts things or warns; it never decorates, and it never marks a selection (the map's day chips select in navy like everything else). Also the default color of the second member.
 
 ### Secondary
 
@@ -178,6 +178,8 @@ Pastel paper on a green-gray desk, written in navy ink, with a red stamp for the
 **The One Stamp Rule.** Stamp Red appears where an action begins (the write button, the current tab) or where something is destroyed. Never as a border, a heading color or a decoration.
 
 **The Whose-Hand Rule.** A member's color says "by whom" and nothing else: the dot on a card, the dot by a suggestion, the tint of a tag chip. It never fills a surface that is not about that member.
+
+**The Mixed Ink Rule.** A tag's or a member's color is never text as it is. As text on a tool it is mixed toward the tool's ink (`color-mix(in oklch, var(--tint) var(--tint-mix), var(--tint-base))`: 78% toward Pen Navy on the light desk, 62% toward white on the dark one); as text on paper, 68% toward the paper's ink; as a fill carrying white text, 70–85% toward navy. Gold needs 28 points more ink than the others. Stamp Red as text is `--accent-text` (lightened on the dark desk), a link's green is `--link`, the toast's action is `--toast-action`. Every pair measures at least 4.5:1 in both themes; the dark desk is composed with these tokens, not inverted.
 
 ## Typography
 

@@ -129,7 +129,7 @@ function adoptDraft() {
           @click="() => togglePick(n)"
         >
           <span class="t">{{ n.title }}</span>
-          <span class="tags"><span v-for="t in n.tags" :key="t" :style="`color:${tags.tagColor(t)}`">#{{ t }}</span></span>
+          <span class="tags"><span v-for="t in n.tags" :key="t" :style="`--tag:${tags.tagColor(t)}`">#{{ t }}</span></span>
         </button>
       </div>
       <div v-if="picking" class="pick">
@@ -247,7 +247,7 @@ function adoptDraft() {
         <!-- ---------- appendix ---------- -->
         <template v-else>
           <section v-for="t in APPENDIX_TAGS" :key="t" class="appendix">
-            <h2 class="day" :style="`color:${tags.tagColor(t)}`">#{{ t }}</h2>
+            <h2 class="day tagged" :style="`--tag:${tags.tagColor(t)}`">#{{ t }}</h2>
             <ul class="check"><li v-for="n in trip.byTag(t)" :key="n.id"><label><input type="checkbox" />{{ n.title }}<span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
             <p v-if="trip.byTag(t).length === 0" class="muted">{{ i18n.t("shiori.tagEmpty") }}</p>
           </section>
@@ -283,7 +283,7 @@ h1 {
   margin: 0;
   font-size: var(--font-4xl);
   font-weight: 900;
-  color: var(--red);
+  color: var(--accent-text);
 }
 
 .sum {
@@ -357,11 +357,14 @@ h1 {
     line-height: 1.35;
   }
   .tags {
-    font-size: var(--font-2xs);
+    font-size: var(--font-xs);
     font-weight: 700;
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
+    span {
+      color: color-mix(in oklch, var(--tag) var(--tint-paper-mix), var(--paper-ink));
+    }
   }
 }
 
@@ -408,6 +411,9 @@ h1 {
   margin: 8px 0 10px;
   font-size: var(--font-2xl);
   font-weight: 900;
+  &.tagged {
+    color: color-mix(in oklch, var(--tag) var(--tint-mix), var(--tint-base));
+  }
   span {
     font-size: var(--font-md);
     font-weight: 700;
@@ -478,7 +484,7 @@ h1 {
     display: inline-block;
     padding: 8px 6px;
     margin: -8px -6px;
-    color: var(--jade);
+    color: var(--link);
     font-weight: 700;
     text-decoration: none;
   }
@@ -522,13 +528,18 @@ h1 {
   font-size: var(--font-xs);
   font-weight: 700;
   background: var(--line);
+  border: 1.5px solid transparent;
+  /* confirmed and done are a tinted pill with an edge and ink-mixed text, not white on gold */
   &.fixed {
-    background: var(--gold);
-    color: var(--on-accent);
+    background: color-mix(in srgb, var(--gold) 18%, var(--surface));
+    border-color: var(--gold);
+    /* gold is a light hue: it needs more ink than the other tints to read as text */
+    color: color-mix(in oklch, var(--gold) calc(var(--tint-mix) - 28%), var(--tint-base));
   }
   &.done {
-    background: var(--jade);
-    color: var(--on-accent);
+    background: color-mix(in srgb, var(--jade) 18%, var(--surface));
+    border-color: var(--jade);
+    color: color-mix(in oklch, var(--jade) var(--tint-mix), var(--tint-base));
   }
 }
 
@@ -626,7 +637,7 @@ h1 {
       font-weight: 600;
     }
     .ok {
-      background: var(--who);
+      background: color-mix(in oklch, var(--who) 70%, #1c2238);
       color: var(--on-accent);
     }
     .no {

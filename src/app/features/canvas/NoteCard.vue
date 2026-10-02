@@ -35,7 +35,7 @@ const i18n = useI18n();
     <template v-else>
       <p class="t">{{ note.title }}</p>
       <p v-if="note.body" class="b">{{ note.body }}</p>
-      <p v-if="note.tags.length" class="tags"><span v-for="t in note.tags" :key="t" :style="`color:${tags.tagColor(t)}`">#{{ t }}</span></p>
+      <p v-if="note.tags.length" class="tags"><span v-for="t in note.tags" :key="t" :style="`--tag:${tags.tagColor(t)}`">#{{ t }}</span></p>
       <span class="who"></span>
     </template>
   </div>
@@ -88,6 +88,10 @@ const i18n = useI18n();
   display: flex;
   flex-wrap: wrap;
   gap: 2px 8px;
+  /* a tag's color on paper: pulled toward the paper's ink so every stock carries it */
+  & span {
+    color: color-mix(in oklch, var(--tag) var(--tint-paper-mix), var(--paper-ink));
+  }
 }
 
 .who {
@@ -141,7 +145,8 @@ const i18n = useI18n();
       font-weight: 600;
     }
     & .ok {
-      background: var(--who);
+      /* the member's color, deepened so white reads on it whatever the member picked */
+      background: color-mix(in oklch, var(--who) 70%, #1c2238);
       color: var(--on-accent);
     }
     & .no {

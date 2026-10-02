@@ -66,7 +66,7 @@ button {
   transition: color var(--duration-swap) ease;
 
   &[aria-current="page"] {
-    color: var(--red);
+    color: var(--accent-text);
   }
 }
 </style>
