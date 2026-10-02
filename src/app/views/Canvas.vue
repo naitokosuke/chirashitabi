@@ -332,6 +332,8 @@ watch(
       </div>
     </div>
 
+    <p v-if="store.notes.length === 0" class="empty">{{ i18n.t("canvas.empty") }}</p>
+
     <FilterBar :room="trip.name" />
 
     <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
@@ -440,6 +442,24 @@ watch(
   align-items: center;
   justify-content: center;
   box-shadow: 0 6px 16px rgba(215,38,61,.35);
+  transition: box-shadow var(--duration-swap) ease;
+  @media (hover: hover) {
+    &:hover {
+      box-shadow: 0 10px 22px rgba(215,38,61,.4);
+    }
+  }
+}
+
+/* An empty desk says what to do first */
+.empty {
+  position: absolute;
+  inset-inline: 24px;
+  inset-block-start: 40%;
+  text-align: center;
+  color: var(--stone);
+  font-size: var(--font-md);
+  font-weight: 700;
+  pointer-events: none;
 }
 
 .jump {
@@ -456,6 +476,11 @@ watch(
     box-shadow: var(--shadow-tool);
     font-size: var(--font-sm);
     font-weight: 700;
+    @media (hover: hover) {
+      &:hover {
+        border-color: var(--ink);
+      }
+    }
   }
 }
 
@@ -506,6 +531,11 @@ watch(
     font-weight: 700;
     &.del {
       color: var(--accent-text);
+    }
+    @media (hover: hover) {
+      &:hover {
+        background: color-mix(in srgb, var(--ink) 8%, transparent);
+      }
     }
   }
   & .sw {

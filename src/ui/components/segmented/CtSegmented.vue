@@ -63,5 +63,11 @@ button {
   &[aria-checked="true"] {
     color: var(--bg);
   }
+
+  @media (hover: hover) {
+    &:not([aria-checked="true"]):hover {
+      color: var(--ink);
+    }
+  }
 }
 </style>

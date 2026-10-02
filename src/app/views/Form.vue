@@ -157,7 +157,7 @@ function submit() {
           :placeholder="i18n.t('form.mapsPlaceholder')"
           @change="onMapsUrl"
         />
-        <p class="pinstate">{{ i18n.t(hasPin() ? "form.pinned" : "form.unpinned") }}</p>
+        <p aria-live="polite" class="pinstate">{{ i18n.t(hasPin() ? "form.pinned" : mapsUrl.trim() ? "form.urlNoPin" : "form.unpinned") }}</p>
       </div>
       <div>
         <span :id="`${id}-color`" class="l">{{ i18n.t("form.color") }}</span>
@@ -352,6 +352,12 @@ textarea {
 
 .save:disabled {
   opacity: .4;
+}
+
+@media (hover: hover) {
+  .save:not(:disabled):hover {
+    box-shadow: 0 6px 16px rgba(215,38,61,.35);
+  }
 }
 
 .hint {

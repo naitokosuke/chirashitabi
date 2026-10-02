@@ -68,5 +68,11 @@ button {
   &[aria-current="page"] {
     color: var(--accent-text);
   }
+
+  @media (hover: hover) {
+    &:not([aria-current="page"]):hover {
+      color: var(--ink);
+    }
+  }
 }
 </style>
