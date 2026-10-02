@@ -28,6 +28,10 @@ button {
   &:disabled {
     cursor: default;
   }
+  /* a pressed tool sinks a touch; a hovered one answers */
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
 }
 /* Keyboard focus is drawn in ink, outside the edge, on everything */
 :focus-visible {

@@ -291,6 +291,12 @@ function adoptDraft() {
   display: flex;
   flex-direction: column;
   background: var(--bg);
+  /* a booklet is read at a page's width, on a laptop too */
+  & > * {
+    width: 100%;
+    max-width: 680px;
+    margin-inline: auto;
+  }
 }
 
 .head {

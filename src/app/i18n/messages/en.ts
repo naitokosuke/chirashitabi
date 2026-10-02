@@ -24,6 +24,7 @@ export const en = {
 
   "rooms.yours": "Your trips",
   "rooms.none": "No trips yet",
+  "rooms.loading": "Looking up your trips…",
   "rooms.new": "New trip",
   "rooms.name": "Trip name",
   "rooms.namePlaceholder": "Taiwan trip",
@@ -53,6 +54,7 @@ export const en = {
   "canvas.added": "Added “{$title}”",
   "canvas.addedDrag": "Added “{$title}”. Drag to move; long-press for color, copy or delete",
   "canvas.deleted": "Deleted “{$title}”",
+  "canvas.empty": "An empty desk. Tap the red button to scatter the first idea",
 
   "note.suggestion": "suggestion",
   "note.adopt": "Make it a note",
@@ -68,6 +70,8 @@ export const en = {
   "form.mapsPlaceholder": "Paste a Google Maps link",
   "form.pinned": "This drops a pin on the map",
   "form.unpinned": "No coordinates? Long-press on the map view to place it",
+  "form.urlNoPin":
+    "No coordinates in that link. Try the long link from “Share”, or long-press on the map to place it",
   "form.color": "Color",
   "form.save": "Save",
   "form.saveToCanvas": "Save to canvas",

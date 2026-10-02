@@ -267,7 +267,7 @@ function fitAll() {
     }
 
     & .lbl {
-      max-width: 120px;
+      max-width: 168px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;

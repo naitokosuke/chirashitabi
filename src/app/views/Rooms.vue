@@ -159,8 +159,9 @@ onMounted(() => {
 
     <section v-else>
       <h2>{{ i18n.t("rooms.yours") }}</h2>
-      <p v-if="rooms !== null && rooms.length === 0" class="empty">{{ i18n.t("rooms.none") }}</p>
-      <ul v-else-if="rooms !== null">
+      <p v-if="rooms === null" aria-live="polite" class="empty">{{ i18n.t("rooms.loading") }}</p>
+      <p v-else-if="rooms !== null && rooms.length === 0" class="empty">{{ i18n.t("rooms.none") }}</p>
+      <ul v-else>
         <li v-for="r in rooms" :key="r.id">
           <button class="open" type="button" @click="() => emit('enter', r.id)">{{ r.name }}</button>
         </li>
@@ -283,6 +284,12 @@ form {
 
   &:disabled {
     opacity: 0.4;
+  }
+
+  @media (hover: hover) {
+    &:not(:disabled):hover {
+      box-shadow: var(--shadow-float);
+    }
   }
 }
 </style>

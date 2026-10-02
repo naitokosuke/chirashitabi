@@ -41,6 +41,11 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
     color var(--duration-swap) ease,
     border-color var(--duration-swap) ease;
 
+  @media (hover: hover) {
+    &:hover {
+      border-color: color-mix(in oklch, var(--tint, var(--ink)) 60%, var(--line));
+    }
+  }
   &.selected {
     /* filled: the tint deepened enough to carry white text */
     background: color-mix(in oklch, var(--tint, var(--ink)) 85%, #1c2238);

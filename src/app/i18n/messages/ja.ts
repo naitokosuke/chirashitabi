@@ -22,6 +22,7 @@ export const ja: Messages = {
 
   "rooms.yours": "あなたの旅",
   "rooms.none": "まだ旅がありません",
+  "rooms.loading": "旅を探しています…",
   "rooms.new": "新しい旅",
   "rooms.name": "旅の名前",
   "rooms.namePlaceholder": "台湾旅行",
@@ -51,6 +52,7 @@ export const ja: Messages = {
   "canvas.added": "「{$title}」を追加しました",
   "canvas.addedDrag": "「{$title}」を追加しました。ドラッグで移動、長押しで色・複製・削除",
   "canvas.deleted": "「{$title}」を削除しました",
+  "canvas.empty": "まだ何もない机です。赤いボタンから最初の思いつきを散らしましょう",
 
   "note.suggestion": "提案",
   "note.adopt": "メモにする",
@@ -66,6 +68,8 @@ export const ja: Messages = {
   "form.mapsPlaceholder": "Google マップのリンクを貼り付け",
   "form.pinned": "地図にピンが立ちます",
   "form.unpinned": "座標がないときは、地図画面を長押しして置けます",
+  "form.urlNoPin":
+    "このリンクからは座標が読めません。「共有」の長いリンクを貼るか、地図画面を長押しして置けます",
   "form.color": "色",
   "form.save": "保存",
   "form.saveToCanvas": "キャンバスに貼る",
