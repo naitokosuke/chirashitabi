@@ -60,6 +60,9 @@ src/ui/             The design system: props, slots and events only, no app impo
                  CtTabBar: bottom navigation, the highlight slides behind the current item
   composables/   useIndicator: measures the selected child so an indicator can slide to it
   index.ts, types.ts   The public entry and the shared CtOption type
+
+docs/               Design notes: auth-and-security.md (one hostname behind Access, rooms and members, agents,
+                    paid-API budgets, what stays public)
 ```
 
 ## Sync hook

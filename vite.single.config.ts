@@ -45,5 +45,7 @@ function inlineWorkerUrls(): Plugin {
 
 export default defineConfig({
   plugins: [vize({ vapor: true }), inlineWorkerUrls(), viteSingleFile()],
+  // The single file is a demo on mock data; it never reaches a room backend.
+  define: { "import.meta.env.VITE_MOCK": '"true"' },
   build: { outDir: "dist-single" },
 });

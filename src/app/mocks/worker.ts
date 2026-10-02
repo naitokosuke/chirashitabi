@@ -17,6 +17,6 @@ export const mockWorker = (): WorkerApi => ({
     };
   },
   async exportBooklet() {
-    window.alert("In production this exports a static page to /r/<room>/shiori");
+    window.alert("In production this exports a static page to /r/<slug>/shiori");
   },
 });
