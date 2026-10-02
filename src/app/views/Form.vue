@@ -25,6 +25,7 @@ import { useNotes } from "../features/notes/useNotes";
 import { placeFromUrl } from "../features/place/google-maps";
 import { useTags } from "../features/tags/useTags";
 import backIcon from "../icons/back.svg";
+import closeIcon from "../icons/close.svg";
 import Icon from "../icons/Icon.vue";
 
 /** `from`: the tab the sheet was opened over, so the back control and the copy speak of it */
@@ -140,7 +141,7 @@ function submit() {
             selected
             :color="tags.tagColor(t)"
             @click="() => removeTag(t)"
-          >#{{ t }} ×</CtChip>
+          >#{{ t }} <Icon :size="12" :src="closeIcon" /></CtChip>
           <input
             :id="`${id}-tag`"
             v-model="tagInput"

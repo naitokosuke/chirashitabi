@@ -451,7 +451,7 @@ watch(
   width: 192px;
   height: 110px;
   border: 3px solid var(--red);
-  border-radius: 16px;
+  border-radius: 14px;
   pointer-events: none;
   transform: translate(var(--x), var(--y));
   animation: ring .7s ease-out .1s both;

@@ -32,6 +32,7 @@ import type { LatLng } from "../features/place/types";
 import { useTags } from "../features/tags/useTags";
 import { hhmm, shortDate } from "../features/trip/format";
 import { useTrip } from "../features/trip/useTrip";
+import closeIcon from "../icons/close.svg";
 import Icon from "../icons/Icon.vue";
 import plusIcon from "../icons/plus.svg";
 
@@ -246,7 +247,7 @@ function fitAll() {
       <div class="act">
         <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{ i18n.t("map.openInGoogleMaps") }}</a>
         <button type="button" @click="editSelected">{{ i18n.t("common.edit") }}</button>
-        <button class="x" type="button" :aria-label="i18n.t('common.close')" @click="closeCard">×</button>
+        <button class="x" type="button" :aria-label="i18n.t('common.close')" @click="closeCard"><Icon :size="18" :src="closeIcon" /></button>
       </div>
     </div>
   </div>
@@ -307,6 +308,13 @@ function fitAll() {
     inset-block-end: 24px;
   }
 
+  /* MapLibre's own buttons (geolocate, the compact attribution) at the same 36px as every other tool */
+  & :deep(.maplibregl-ctrl-group button),
+  & :deep(.maplibregl-ctrl-attrib-button) {
+    width: var(--tap);
+    height: var(--tap);
+  }
+
   /* the attribution would sit under the fit button otherwise */
   & :deep(.maplibregl-ctrl-bottom-left) {
     inset-block-end: 76px;
@@ -339,6 +347,9 @@ function fitAll() {
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
+  /* a row that keeps going says so, as on the desk */
+  padding-inline-end: 24px;
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 
   &::-webkit-scrollbar {
     display: none;
@@ -504,7 +515,6 @@ function fitAll() {
       margin-inline-start: auto;
       width: var(--tap);
       justify-content: center;
-      font-size: var(--font-2xl);
       color: var(--muted);
     }
   }

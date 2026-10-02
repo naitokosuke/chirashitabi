@@ -52,7 +52,7 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.optio
 
 button {
   position: relative;
-  min-height: 30px;
+  min-height: var(--tap); /* the button is what a thumb hits, not the pill around it */
   padding: 0 12px;
   border-radius: 999px;
   font-size: var(--font-sm);
