@@ -209,10 +209,11 @@ Spacing is a small set of steps (4, 6, 10, 12, 16, 20px). Tools keep 6px between
 
 ## Elevation & Depth
 
-Lifted. A thing on the desk that can be picked up casts a soft, offset shadow in the ink's own color; the desk and the ruled edges are flat. This is the committed direction: paper (notes, suggestions) and anything that floats over the desk (menus, the toast, the write button, the card drag) lift today; chips, the segmented switch, inputs and sheets still sit on their 1.5px line alone and are to be lifted gently in the same vocabulary.
+Lifted. A thing on the desk that can be picked up casts a soft, offset shadow in the ink's own color; the desk itself is flat. Paper (notes, suggestions) and anything that floats over the desk (menus, the toast, the write button, the card drag) lift; chips, the segmented switch, inputs and tool buttons lift gently, one step, on their 1.5px line. The four shadows are tokens in `tokens.css` (`--shadow-tool`, `--shadow-paper`, `--shadow-lift`, `--shadow-float`).
 
 ### Shadow Vocabulary
 
+- **Resting tool** (`box-shadow: 0 1px 2px rgba(28, 34, 56, 0.06), 0 2px 6px rgba(28, 34, 56, 0.08)`): a chip, a switch, an input, a tool button.
 - **Resting paper** (`box-shadow: 0 3px 10px rgba(28, 34, 56, 0.14)`): a sticky on the desk.
 - **Lifted paper** (`box-shadow: 0 14px 28px rgba(28, 34, 56, 0.28)`): a card while it is dragged.
 - **Floating tool** (`box-shadow: 0 8px 20px rgba(28, 34, 56, 0.2)`): the card menu; the toast at `0 6px 18px / 0.3`.

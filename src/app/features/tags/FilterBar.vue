@@ -94,11 +94,23 @@ h1 {
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding-bottom: 2px;
+  /* room for the chips' shadow, and a fade at the end so a row that continues looks like it does */
+  padding: 2px 24px 8px 2px;
+  margin-inline: -2px;
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   -webkit-overflow-scrolling: touch;
 
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* A phone: the room name goes under the wordmark instead of beside it */
+@media (width < 420px) {
+  h1 {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
   }
 }
 

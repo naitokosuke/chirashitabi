@@ -33,6 +33,7 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.optio
   border: 1.5px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
+  box-shadow: var(--shadow-tool);
 }
 
 .indicator {

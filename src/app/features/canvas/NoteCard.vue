@@ -48,11 +48,11 @@ const i18n = useI18n();
   border-radius: 6px;
   background: var(--card, var(--paper));
   color: var(--paper-ink);
-  box-shadow: 0 3px 10px rgba(28,34,56,.14);
+  box-shadow: var(--shadow-paper);
   transform-origin: center;
   transition: opacity .2s, filter .2s;
   &.dragging {
-    box-shadow: 0 14px 28px rgba(28,34,56,.28);
+    box-shadow: var(--shadow-lift);
     z-index: var(--z-drag);
     will-change: transform;
     transition: none;
@@ -132,7 +132,7 @@ const i18n = useI18n();
     gap: 6px;
     margin-block-start: 8px;
     & button {
-      min-height: 30px;
+      min-height: var(--tap);
       padding: 0 12px;
       border-radius: 999px;
       font-size: var(--font-xs);

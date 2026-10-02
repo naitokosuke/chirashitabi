@@ -41,6 +41,7 @@ import {
   ref,
   shallowRef,
   useTemplateRef,
+  watch,
 } from "vue";
 
 import { useI18n } from "../i18n/useI18n";
@@ -108,16 +109,15 @@ function onDown(e: PointerEvent) {
     return;
   }
   const w = toWorld(e.clientX, e.clientY);
-  const [sx, sy] = [e.clientX, e.clientY];
   setGesture({
     kind: "press",
     grab: { note, ox: w.x - note.x, oy: w.y - note.y },
-    sx,
-    sy,
+    sx: e.clientX,
+    sy: e.clientY,
     // only fires while still pressing: moving or lifting clears it
     timer: window.setTimeout(() => {
       setGesture(IDLE);
-      openMenu(note, sx, sy);
+      openMenu(note);
     }, 420),
   });
 }
@@ -180,11 +180,21 @@ function onWheel(e: WheelEvent) {
 }
 
 // ---- menu ----
-function openMenu(note: Note, sx: number, sy: number) {
+/** Below the card, so the card stays visible while its color is picked; above it near the bottom edge */
+function openMenu(note: Note) {
   navigator.vibrate?.(10);
   const r = vp.value!.getBoundingClientRect();
-  menu.value = { note, x: Math.min(sx - 80, r.width - 330), y: Math.max(sy - 70, 90) };
+  const card = vp
+    .value!.querySelector<HTMLElement>(`[data-id="${note.id}"]`)
+    ?.getBoundingClientRect();
+  if (!card) return;
+  const x = Math.max(8, Math.min(card.left - r.left, r.width - MENU_W - 8));
+  const below = card.bottom - r.top + 8;
+  const y = below + MENU_H > r.height - 100 ? card.top - r.top - MENU_H - 8 : below;
+  menu.value = { note, x, y: Math.max(y, 90) };
 }
+const MENU_W = 300;
+const MENU_H = 104;
 function setMenuColor(color: NoteColor) {
   if (menu.value) store.recolor(menu.value.note.id, color);
 }
@@ -199,9 +209,12 @@ function removeFromMenu() {
 
 // ---- fit ----
 function fitAll() {
-  const r = vp.value!.getBoundingClientRect();
-  const to = fitView(store.notes, r.width, r.height);
+  const to = fitted();
   if (to) animateTo(to);
+}
+function fitted() {
+  const r = vp.value!.getBoundingClientRect();
+  return fitView(store.notes, r.width, r.height);
 }
 
 // ---- adding from the form: place at viewport center, pop ----
@@ -238,12 +251,19 @@ function placeAtCenter(input: NoteInput, quiet: boolean) {
 onMounted(() => (placeOnMounted = placeAtCenter));
 onBeforeUnmount(() => (placeOnMounted = undefined));
 
+// The first look shows every card, whatever the screen; an empty desk opens with room to write
 onMounted(() =>
   nextTick(() => {
     const r = vp.value!.getBoundingClientRect();
-    view.value.tx = (r.width - 400) / 2;
-    view.value.ty = 90;
+    view.value = fitted() ?? { tx: (r.width - 164) / 2, ty: r.height / 2 - 60, s: 1 };
   }),
+);
+// Notes that arrive later (the room's first snapshot) get the same first look, once
+watch(
+  () => store.notes.length > 0,
+  (has, had) => {
+    if (has && !had) nextTick(() => (view.value = fitted() ?? view.value));
+  },
 );
 </script>
 
@@ -390,6 +410,7 @@ onMounted(() =>
     border-radius: 999px;
     background: var(--surface);
     border: 1.5px solid var(--line);
+    box-shadow: var(--shadow-tool);
     font-size: var(--font-sm);
     font-weight: 700;
   }
@@ -410,24 +431,30 @@ onMounted(() =>
   color: var(--bg);
   font-size: var(--font-md);
   font-weight: 700;
-  box-shadow: 0 6px 18px rgba(28,34,56,.3);
+  box-shadow: var(--shadow-float);
   & button {
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-height: var(--tap);
     color: var(--pink-soft);
     font-weight: 700;
     font-size: var(--font-sm);
   }
 }
 
+/* The card's menu: a row of paper colors, then the two actions; wraps on a narrow desk */
 .menu {
   position: absolute;
   z-index: var(--z-menu);
+  max-width: calc(100% - 16px);
   background: var(--surface);
   border: 1.5px solid var(--line);
   border-radius: 14px;
   padding: 6px;
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
-  box-shadow: 0 8px 20px rgba(28,34,56,.2);
+  box-shadow: var(--shadow-float);
   & button {
     min-height: 40px;
     padding: 0 12px;
@@ -439,10 +466,10 @@ onMounted(() =>
     }
   }
   & .sw {
-    width: 28px;
-    height: 28px;
+    width: var(--tap);
+    height: var(--tap);
     border-radius: 50%;
-    margin: 6px 3px;
+    margin: 2px;
     border: 2px solid transparent;
     padding: 0;
     min-height: 0;
