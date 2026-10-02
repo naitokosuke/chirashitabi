@@ -1,0 +1,241 @@
+# Data fetching
+
+How the app gets its data, and how it is to move onto Pinia Colada.
+Nothing here is implemented yet; the plan is staged so that each step ships on its own and the next one can be dropped if it stops paying for itself.
+
+## What there is today
+
+Two kinds of traffic, handled in two unrelated ways.
+
+The room is a WebSocket (`useRoom`).
+On connect the room sends one `snapshot` (members, trip, notes), then relays every accepted mutation to the other sockets as `mutation`, stamped with `by` and `updatedAt`.
+The sender never gets its own mutation back.
+A mutation the room refuses comes back as `rejected` with a reason and no id; the client closes the socket and the next snapshot is the truth.
+While the socket is down the client queues its own mutations (`pending`) and replays them on top of the next snapshot.
+The snapshot is applied into three Pinia stores (`useNotes`, `useTrip`, `useMembers`) whose state is deep reactive, and a mutation is applied by changing their objects in place.
+
+Everything else is HTTP or a promise.
+`Rooms.vue` fetches `/api/me` and posts `/api/rooms` by hand, with its own `rooms === null`, `listFailed` and `busy` flags.
+`WorkerApi.draftDay` and `exportBooklet` are awaited with no pending or error state at all.
+
+What the user sees of all this is uneven.
+"Connecting" and "failed" exist only on the rooms screen; inside a room a reconnect is invisible, and asking for a draft gives no sign that anything is happening.
+
+## Goals
+
+- One vocabulary for asynchronous state across HTTP and the room: pending, loading, error, and when the data was last known good.
+- The connection's state visible inside a room.
+- A local write shows at once and can be taken back precisely when the room refuses it, instead of throwing the whole state away.
+- No regression in what works now: dragging stays smooth, offline edits are still replayed, the mock build still runs without a server.
+- Vue's Vapor mode keeps working.
+
+## Non-goals
+
+- Persisting the cache for offline reading of the booklet.
+  It is a later step with `@pinia/colada-plugin-cache-persister` and is listed at the end.
+- Normalized entity caching.
+  The app has one collection per kind and no entity appears under two keys.
+- Replacing every Pinia store in one change.
+
+## What others do
+
+Pinia Colada has no guide for real-time data, so the practices below come mostly from TanStack Query and SWR, whose models it shares, and from collaborative apps.
+
+### Two ways to use a push channel with a query cache
+
+The first is invalidation: the server only says what changed, and the client calls `invalidateQueries` on that key so active queries refetch.
+TkDodo recommends it as the default because an event for a query nobody is watching costs nothing ([Using WebSockets with React Query](https://tkdodo.eu/blog/using-web-sockets-with-react-query)).
+Liveblocks' SWR guide does the same with a broadcast `REVALIDATE` event ([Revalidate API data with SWR](https://liveblocks.io/docs/guides/revalidate-api-data-with-swr)).
+
+The second is patching: the server sends the change itself and the client writes it with `setQueryData` or `setQueriesData`.
+TkDodo uses it for frequent small changes to a large dataset and finds it "a bit too dynamic", since an entity under several keys must be patched under each.
+RTK Query's streaming updates and Apollo's `subscribeToMore` are the same snapshot-plus-patches model in other libraries ([RTK Query streaming updates](https://redux.js.org/toolkit/rtk-query/usage/streaming-updates), [Hasura with Apollo subscriptions](https://hasura.io/docs/2.0/subscriptions/integrations/apollo-subscriptions/)).
+
+Our room has no HTTP endpoint to refetch from and every mutation already carries the full change, so it is the second model.
+Invalidation still has a place: a reconnect is an invalidation of the whole room, answered by the next snapshot.
+
+### Freshness comes from the socket, not from timers
+
+With a socket keeping data current, the advice is `staleTime: Infinity` and no refetch on focus or reconnect (TkDodo, above).
+SWR's equivalent is turning its automatic triggers off or using `useSWRImmutable` ([SWR revalidation](https://swr.vercel.app/docs/revalidation)).
+Both libraries' "reconnect" means the browser's `online` event, not the socket; SWR's own docs say a socket reconnect has to trigger the resync by hand ([SWR revalidation](https://swr.vercel.app/docs/revalidation), [TanStack network mode](https://tanstack.com/query/latest/docs/framework/react/guides/network-mode)).
+
+### The initial load races the first event
+
+tRPC's subscription docs warn to "set up the event listener before fetching events from your database", or events emitted during the fetch are lost ([tRPC subscriptions](https://trpc.io/docs/server/subscriptions)).
+The Supabase discussion on silent disconnects lands on the same rule, plus buffering events during the fetch and deduplicating them against the snapshot ([supabase/discussions#5641](https://github.com/orgs/supabase/discussions/5641)).
+RTK Query does the opposite (wait for the data, then listen) and so can drop events in between.
+
+Our snapshot and our mutations travel on the same ordered socket, and the room sends the snapshot as the first message of the connection, so this race does not exist here by construction.
+The design keeps it that way: nothing is ever fetched for the room over a second channel.
+
+### Reconnects leave gaps
+
+Every source agrees that events are missed while disconnected and that the fix is a resync after reconnecting: refetch, invalidate, or resume from a last event id ([dev.to, Real-time React](https://dev.to/maximusft/real-time-react-when-the-server-has-something-to-say-44f7), tRPC's `tracked()` above).
+Figma downloads a fresh copy, reapplies offline edits on top, then resumes ([How Figma's multiplayer technology works](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/)).
+That is what `useRoom` already does with the snapshot and `pending`, and it stays.
+Background tabs and sleeping phones drop sockets silently; Supabase recommends a heartbeat ([handling silent disconnections](https://supabase.com/docs/guides/troubleshooting/realtime-handling-silent-disconnections-in-backgrounded-applications-592794.md)).
+
+### Optimistic writes and their echo
+
+TanStack's cache recipe is `cancelQueries`, snapshot, `setQueryData` in `onMutate`, restore in `onError`, invalidate in `onSettled` ([TanStack optimistic updates](https://tanstack.com/query/latest/docs/framework/react/guides/optimistic-updates)).
+Pinia Colada's guide is the same, and only restores when the cache still holds the optimistic value, so a later change is not undone ([Pinia Colada optimistic updates](https://pinia-colada.esm.dev/guide/optimistic-updates.html)).
+With several mutations on the same data, invalidating in each `onSettled` flickers; TkDodo invalidates only when the last one settles ([Concurrent optimistic updates](https://tkdodo.eu/blog/concurrent-optimistic-updates-in-react-query)).
+
+Figma discards incoming changes that conflict with its own unacknowledged property changes, so an older value does not flash over a newer local one (Figma, above).
+Our room does not echo the sender, so there is no echo to drop, but a partner's change to a note we are editing can still land before ours is accepted.
+Doing what Figma does needs the room to acknowledge mutations, which it does not yet.
+
+### High-frequency updates stay out of the store
+
+The Yjs community's rule is that intermediate states do not belong in the document; commit on release ([Yjs forum](https://discuss.yjs.dev/t/how-to-minimize-yjs-store-size-for-an-editor-like-figma/1838)).
+Supabase sends cursors over Broadcast, not Presence, for the same reason ([presence rate limit](https://supabase.com/docs/guides/troubleshooting/realtime-client-presence-rate-limit-reached)).
+For us that means a card's position while it is being dragged is not cache data.
+
+### What Pinia Colada gives and asks
+
+The relevant APIs are `useQuery` with `staleTime`, `refetchOnWindowFocus` and `refetchOnReconnect`, `defineQueryOptions` for typed keys, `useMutation` with `onMutate`, `onError` and `onSettled`, and `useQueryCache()` with `setQueryData`, `setQueriesData`, `getQueryData`, `invalidateQueries`, `cancelQueries`, `ensure` and `setEntryState` ([query cache](https://pinia-colada.esm.dev/advanced/query-cache.html)).
+
+The cache is shallow.
+Each entry's state is a `shallowRef` and `data` is a `ShallowRef`, so an update must return a new array or object; changing one in place notifies nothing.
+That is the opposite of today's stores and is the main cost of moving.
+
+The maintainer's guidance for a realtime source is a small `useRealtimeQuery()` wrapping `useQuery`, whose query function awaits the first message and whose later messages are written with `setQueryData` ([posva/pinia-colada#118](https://github.com/posva/pinia-colada/discussions/118)); in the same thread he notes that with a realtime connection one "can likely go without Pinia Colada".
+Writing to the cache without a mutation is fine by him ([#379](https://github.com/posva/pinia-colada/discussions/379)), and an entry can be seeded with its options through `setEntryState(ensure(options), …)` ([#483](https://github.com/posva/pinia-colada/discussions/483)).
+Entries created only by `setQueryData` once crashed the retry plugin and the devtools; both are fixed ([#654](https://github.com/posva/pinia-colada/issues/654), [#618](https://github.com/posva/pinia-colada/issues/618)).
+A community plugin for Laravel Echo subscribes per cache entry, relaxes `staleTime` while connected and invalidates once on reconnect, which is the shape this design takes ([pinia-colada-plugin-laravel-echo](https://github.com/kirchDev/pinia-colada-plugin-laravel-echo)).
+
+Version 1.4.7 accepts `pinia ^4` and `vue ^3.5.41`.
+The maintainer says it works with Vapor because it has nothing to do with templates ([#510](https://github.com/posva/pinia-colada/discussions/510)); we have not run it under Vapor yet, and the first step checks that.
+
+## Design
+
+### Layers
+
+The socket, the reducers and the cache are separated so that each can be tested alone and the cache can be dropped without touching the other two.
+
+- `features/sync/socket.ts` is the connection and nothing else: connect, back off and retry, a heartbeat, the queue of mutations sent while down, and a status (`connecting`, `connected`, `reconnecting`, `failed`).
+  It is plain TypeScript, takes a `WebSocket` factory so tests can pass a fake, and calls back with each `ServerMessage`.
+- `features/notes/apply.ts`, `features/trip/apply.ts` and `features/members/apply.ts` are pure reducers: `(state, mutation) => state`, always returning new objects.
+  They are today's `receive` functions, made immutable, and they are the only place that knows what a mutation means.
+  The worker can reuse them later.
+- `features/room/queries.ts` defines one query per slice of the room and wires socket messages into the cache.
+- `useNotes`, `useTrip` and `useMembers` stay as the components' API, but read from the cache and write through it.
+
+### Keys
+
+One key per slice, each under the room's id, so a mutation re-renders only what reads that slice.
+
+```ts
+["room", roomId, "notes"];
+["room", roomId, "trip"];
+["room", roomId, "members"]; // with `me`
+```
+
+The HTTP data gets keys of its own.
+
+```ts
+["me", "rooms"]; // GET /api/me
+```
+
+### The room as queries
+
+Each slice is a `useQuery` whose query function resolves with that slice of the next snapshot.
+Until the first snapshot arrives its status is `pending`, which replaces the hand-made "connecting" check; if the socket gives up, the query function rejects and the status is `error`.
+
+```ts
+const roomQueryOptions = {
+  staleTime: Number.POSITIVE_INFINITY, // the socket keeps it fresh
+  gcTime: false, // a room's data is not dropped while the app runs
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false, // the socket reconnects and re-snapshots
+};
+```
+
+Messages are written into the cache as they arrive.
+
+- A `snapshot` replaces all three slices, then the queued mutations are applied on top through the same reducers and sent, as today.
+- A `mutation` from another member is `setQueryData(key, (old) => apply(old, mutation, by, updatedAt))` on the slice it concerns.
+- On reconnect nothing is invalidated by hand: the room's first message on the new socket is a snapshot, and it replaces everything.
+
+The browser's `online` event calls the socket's reconnect instead of refetching queries.
+
+### Local writes
+
+Until the room acknowledges mutations, a local write is a `setQueryData` through the reducer followed by the socket's `send`, inside the store action that exists today (`store.update`, `store.move` and so on).
+There is no `useMutation` here yet, because there is nothing for it to await: the room answers only with `rejected`, which carries no id.
+A rejection keeps today's behaviour, closing the socket so the next snapshot is the truth.
+
+### Dragging
+
+A card's position while it is dragged lives in a small local layer (`useDrag`: the note's id and its x and y), which the card renders over its cached position.
+Throttled `note:move` messages still go out so the partner sees the card travel, but they do not touch our cache.
+On release one `note:move` is written to the cache and sent.
+A partner's throttled moves arrive at about 12 a second and are written to the cache as they come; with notes in the tens this is a new array of small objects per message, and it is measured in the first step that moves notes, not assumed.
+
+### Connection state
+
+The socket's status is shown inside the room, not only on the rooms screen.
+"Reconnecting" is a quiet chip at the end of the app bar, with the time of the last snapshot; "failed" offers to retry.
+This comes from the socket, not from a query, because a reconnecting room still has good data to show.
+
+### HTTP and the Worker
+
+These are ordinary queries and mutations.
+
+- The rooms list is `useQuery` on `["me", "rooms"]` with the default `staleTime`, refetched on focus so a room the partner created appears.
+- Creating a room is `useMutation`, invalidating `["me", "rooms"]` in `onSettled`.
+- `draftDay` is `useMutation`, and the booklet shows its `isLoading` on the "ask for a draft" button.
+- `exportBooklet` is `useMutation`.
+
+No mutation retries.
+`draftDay` is a paid call, and `docs/auth-and-security.md` bounds what one person can spend; a retry must be the person's tap, never the library's.
+The retry plugin is not installed.
+
+### Mock build
+
+The mocks keep seeding data without a server, now with `setQueryData` on the three room keys.
+The single-file build has no Worker and so has no socket; its room queries never leave `pending` unless the mocks seed them, so the mocks must seed all three.
+
+## Steps
+
+Each step is one pull request and leaves the app working.
+
+### Pinia Colada for HTTP and the Worker
+
+Install `@pinia/colada`, register `PiniaColada`, and move the rooms list, room creation, `draftDay` and `exportBooklet` onto `useQuery` and `useMutation`.
+This is where Vapor compatibility is proven in the real app.
+The "ask for a draft" button gets its pending state.
+
+### Socket and reducers out of the stores
+
+Extract `features/sync/socket.ts` and the immutable reducers, with tests for the reducers and for the socket against a fake `WebSocket` (backoff, queue and replay, status).
+No cache yet and no change in behaviour; the stores call the reducers and assign the result.
+This step is worth doing even if the next one is dropped.
+
+### The room in the cache
+
+Define the three room queries, write socket messages into the cache, and make the stores read and write through it.
+Add the drag layer and the connection chip.
+Measure a partner's live drag before and after.
+If the cache adds cost without making the code clearer, stop here and keep the stores on the reducers from the previous step; the maintainer's own view is that a realtime app may not need the library for its realtime part.
+
+### Acknowledged mutations
+
+This one needs the Worker.
+Every client mutation carries an id; the room answers its sender with `ack` or `rejected` for that id, and relays as now.
+Local writes become `useMutation` whose mutation function awaits the ack, with the cache recipe: snapshot in `onMutate`, restore in `onError` only if the cache still holds our value, nothing to invalidate on success.
+Incoming changes that conflict with one of our unacknowledged ones are held back until it settles, as Figma does.
+A rejection then undoes one change instead of reloading the room.
+
+### Later
+
+`@pinia/colada-plugin-cache-persister` for reading the booklet offline on the trip, restricted to the room keys.
+
+## Open questions
+
+- Whether the three slices should be one `["room", roomId]` entry instead.
+  One entry makes the snapshot a single write; three keep a note's change from re-rendering the trip and members.
+  The design picks three and the third step can revisit it.
+- Whether the stores stay as a facade over the cache for good, or components call the queries directly once the move is done.
+- How long a held-back incoming change may wait for its ack before the client gives up on it and takes the room's version.
