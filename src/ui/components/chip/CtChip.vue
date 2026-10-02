@@ -1,9 +1,9 @@
 <script setup lang="ts" vapor>
 /**
- * A rounded pill. `color` tints it; `selected` fills it.
+ * A rounded pill; `selected` fills it with ink.
  * Pass `toggle` when it switches something on and off (sets aria-pressed).
  */
-defineProps<{ color?: string; selected?: boolean; count?: number; toggle?: boolean }>();
+defineProps<{ selected?: boolean; count?: number; toggle?: boolean }>();
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
 </script>
 
@@ -12,7 +12,6 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
     class="ct-chip"
     type="button"
     :class="{ selected }"
-    :style="color ? `--tint: ${color}` : undefined"
     :aria-pressed="toggle ? selected : undefined"
     @click="(e) => emit('click', e)"
   >
@@ -30,32 +29,32 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
   min-height: var(--tap);
   padding: 0 12px;
   border-radius: 999px;
-  border: 1.5px solid var(--line);
+  border: 1px solid var(--line);
   background: var(--surface);
-  box-shadow: var(--shadow-tool);
   font-size: var(--font-sm);
   font-weight: 700;
-  /* the tint as text, pulled toward the tool's ink so it reads on either desk */
-  color: color-mix(in oklch, var(--tint, var(--muted)) var(--tint-mix), var(--tint-base));
+  color: var(--muted);
   transition: background-color var(--duration-swap) ease,
     color var(--duration-swap) ease,
     border-color var(--duration-swap) ease;
 
   @media (hover: hover) {
-    &:hover {
-      border-color: color-mix(in oklch, var(--tint, var(--ink)) 60%, var(--line));
+    &:not(.selected):hover {
+      color: var(--ink);
+      border-color: color-mix(in oklch, var(--ink) 30%, var(--line));
     }
   }
+
   &.selected {
-    /* filled: the tint deepened enough to carry white text */
-    background: color-mix(in oklch, var(--tint, var(--ink)) 85%, #1c2238);
-    color: var(--on-accent);
-    border-color: transparent;
+    background: var(--ink);
+    color: var(--on-ink);
+    border-color: var(--ink);
   }
 }
 
 .count {
   font-size: var(--font-2xs);
-  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
 }
 </style>

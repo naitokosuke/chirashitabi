@@ -10,6 +10,7 @@ export const en = {
 
   "nav.label": "Views",
   "nav.canvas": "Canvas",
+  "nav.memo": "Memo",
   "nav.map": "Map",
   "nav.booklet": "Booklet",
 
@@ -46,6 +47,7 @@ export const en = {
   "filter.dim": "Dim others",
   "filter.only": "Only these",
   "filter.clear": "× Clear",
+  "filter.none": "Write a #tag on a note to filter by it here",
 
   "canvas.undo": "Undo",
   "canvas.duplicate": "Duplicate",
@@ -55,7 +57,7 @@ export const en = {
   "canvas.addedAway": "Added “{$title}” to the canvas",
   "canvas.addedDrag": "Added “{$title}”. Drag to move; long-press for color, copy or delete",
   "canvas.deleted": "Deleted “{$title}”",
-  "canvas.empty": "An empty desk. Tap the red button to scatter the first idea",
+  "canvas.empty": "An empty desk. Tap + to scatter the first idea",
 
   "note.suggestion": "suggestion",
   "note.adopt": "Make it a note",
@@ -77,6 +79,7 @@ export const en = {
   "form.save": "Save",
   "form.saveToCanvas": "Save to canvas",
   "form.hint": "It pops up in the middle of where you were looking on the canvas",
+  "form.hintDocked": "Each note you save goes on the canvas",
   "form.saveHere": "Pin it here",
   "form.hintHere": "It becomes a pin at this place on the map, and a note on the canvas too",
   "form.saveNoPlace": "Save",

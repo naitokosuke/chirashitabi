@@ -16,7 +16,7 @@ export const useMembers = defineStore("members", () => {
 
   const byId = (id: MemberId) => members.value.find((m) => m.id === id);
   const nameOf = (id: MemberId) => byId(id)?.name ?? i18n.t("member.someone");
-  const colorOf = (id: MemberId) => byId(id)?.color ?? "var(--stone-light)";
+  const colorOf = (id: MemberId) => byId(id)?.color ?? "var(--muted)";
 
   /** Called by the room when the member list arrives or changes. */
   function apply(snapshot: Member[]) {

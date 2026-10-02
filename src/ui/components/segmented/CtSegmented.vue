@@ -29,11 +29,9 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.optio
 .ct-segmented {
   position: relative;
   display: flex;
-  padding: 3px;
-  border: 1.5px solid var(--line);
+  padding: 2px;
   border-radius: 999px;
-  background: var(--surface);
-  box-shadow: var(--shadow-tool);
+  background: var(--wash);
 }
 
 .indicator {
@@ -41,7 +39,8 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.optio
   inset-block-start: 0;
   inset-inline-start: 0;
   border-radius: 999px;
-  background: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-tool), 0 0 0 1px var(--line);
   pointer-events: none;
 
   &.ready {
@@ -52,7 +51,7 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.optio
 
 button {
   position: relative;
-  min-height: var(--tap); /* the button is what a thumb hits, not the pill around it */
+  min-height: 32px; /* with the track's 2px it is the 36px a thumb is asked to hit */
   padding: 0 12px;
   border-radius: 999px;
   font-size: var(--font-sm);
@@ -61,7 +60,7 @@ button {
   transition: color var(--duration-swap) ease;
 
   &[aria-checked="true"] {
-    color: var(--bg);
+    color: var(--ink);
   }
 
   @media (hover: hover) {

@@ -43,7 +43,7 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.items
   inset-block-start: 0;
   inset-inline-start: 0;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--red) 12%, var(--surface));
+  background: var(--wash);
   pointer-events: none;
 
   &.ready {
@@ -66,8 +66,7 @@ button {
   transition: color var(--duration-swap) ease;
 
   &[aria-current="page"] {
-    /* on its own red-tinted highlight the accent needs a touch more ink to reach 4.5:1 */
-    color: color-mix(in oklch, var(--accent-text) 86%, var(--ink));
+    color: var(--ink);
   }
 
   @media (hover: hover) {

@@ -16,13 +16,11 @@ watch(
     const css = getComputedStyle(el);
     const duration = parseFloat(css.getPropertyValue("--duration-swap")) * 1000;
     if (!duration) return; // reduced motion
-    el.animate(
-      [
-        { opacity: 0, transform: "translateY(8px)" },
-        { opacity: 1, transform: "none" },
-      ],
-      { duration, easing: css.getPropertyValue("--ease-morph").trim() || "ease-out" },
-    );
+    // settles in from half visible and in place: a page that blinks out or slides reads as a flicker
+    el.animate([{ opacity: 0.5 }, { opacity: 1 }], {
+      duration: duration / 2,
+      easing: css.getPropertyValue("--ease-morph").trim() || "ease-out",
+    });
   },
 );
 </script>

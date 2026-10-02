@@ -16,14 +16,13 @@ import * as maplibregl from "maplibre-gl";
 import { Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { CtChip } from "../../ui/index";
+import { CtAppBar, CtChip, CtChipRow, CtFab } from "../../ui/index";
 
 import { formatMoney } from "../shared/money";
 
 import { useI18n } from "../i18n/useI18n";
 
-import { useMembers } from "../features/members/useMembers";
-import type { Memo, Note } from "../features/notes/types";
+import { PAPERS, type Memo, type Note } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
 import { placeLink, safeUrl } from "../features/place/google-maps";
 import { lngLat, needsPin, pinnedOf, type Pinned } from "../features/place/pin";
@@ -41,7 +40,6 @@ const emit = defineEmits<{ write: [pin: LatLng | null]; edit: [note: Memo] }>();
 const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
-const members = useMembers();
 const i18n = useI18n();
 const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
@@ -87,7 +85,8 @@ onMounted(() => {
       type: "line",
       source: "route",
       layout: { "line-join": "round", "line-cap": "round" },
-      paint: { "line-color": "#d7263d", "line-width": 3, "line-dasharray": [1.5, 1.5] },
+      // the paper's ink (MapLibre paints with a literal color, not a CSS variable); the tiles are light in both themes
+      paint: { "line-color": "#24272e", "line-width": 3, "line-dasharray": [1.5, 1.5] },
     });
     syncMarkers();
     syncRoute();
@@ -122,7 +121,6 @@ function pinEl(n: Pinned) {
   d.type = "button";
   d.className = "pin";
   d.setAttribute("aria-label", n.title);
-  d.style.setProperty("--pin", n.tags[0] ? tags.tagColor(n.tags[0]) : members.colorOf(n.by));
   const dot = document.createElement("span"),
     lbl = document.createElement("span");
   dot.className = "dot";
@@ -152,6 +150,8 @@ function syncMarkers() {
     e.classList.toggle("dim", visibility === "dimmed");
     e.style.display = visibility === "hidden" ? "none" : "";
     e.classList.toggle("on", selected.value?.id === n.id);
+    // the pin is the note's own paper, so a card on the desk and its pin are told apart by nothing
+    e.style.setProperty("--pin", PAPERS[n.color]);
     e.querySelector(".lbl")!.textContent = n.title;
   }
   for (const [id, m] of markers)
@@ -168,7 +168,7 @@ function syncRoute() {
   const b = boundsOf(stops);
   if (b) {
     map.fitBounds(b, {
-      padding: { top: 140, bottom: 160, left: 40, right: 40 },
+      padding: { top: 60, bottom: 160, left: 40, right: 40 },
       duration: 500,
       maxZoom: 14,
     });
@@ -176,7 +176,7 @@ function syncRoute() {
 }
 // re-sync whenever notes, filter or selection change (cheap: a dozen DOM toggles)
 watchEffect(() => {
-  void pinnedOf(store.notes).map((n) => [n.pin.lat, n.pin.lng, n.title, n.tags.length]);
+  void pinnedOf(store.notes).map((n) => [n.pin.lat, n.pin.lng, n.title, n.color, n.tags.length]);
   void tags.mode;
   void [...tags.selected];
   void selected.value;
@@ -196,58 +196,57 @@ function fitAll() {
 
 <template>
   <div class="mapview">
-    <div ref="el" class="map"></div>
+    <CtAppBar>
+      <template #title>{{ trip.name }}</template>
+      <template #tools>
+        <CtChipRow>
+          <CtChip :selected="day === null" @click="showAllDays">{{ i18n.t("map.all") }}</CtChip>
+          <CtChip
+            v-for="d in trip.days"
+            :key="d.date.toString()"
+            :selected="isDay(d.date)"
+            @click="() => toggleDay(d.date)"
+          >{{ i18n.t("map.route", { date: short(d.date) }) }}</CtChip>
+        </CtChipRow>
+      </template>
+    </CtAppBar>
 
-    <div class="top">
-      <div class="days">
-        <button type="button" :class="{ on: day === null }" @click="showAllDays">{{ i18n.t("map.all") }}</button>
-        <button
-          v-for="d in trip.days"
-          :key="d.date.toString()"
-          type="button"
-          :class="{ on: isDay(d.date) }"
-          @click="() => toggleDay(d.date)"
-        >{{ i18n.t("map.route", { date: short(d.date) }) }}</button>
+    <div class="stage">
+      <div ref="el" class="map"></div>
+
+      <div class="top">
+        <!-- the desk's filter follows the pins here, and can be cleared here -->
+        <div v-if="tags.selected.size" class="filter">
+          <CtChip class="clear" @click="() => tags.selected.clear()">{{ i18n.t("filter.clear") }}</CtChip>
+          <CtChip
+            v-for="t in tags.tagList.filter((x) => tags.selected.has(x.name))"
+            :key="t.name"
+            selected
+            toggle
+            @click="() => tags.toggleTag(t.name)"
+          >#{{ t.name }}</CtChip>
+        </div>
+        <p v-if="noPin" class="nopin">{{ i18n.t("map.noPin", { count: noPin }) }}</p>
       </div>
-      <!-- the desk's filter follows the pins here, and can be cleared here -->
-      <div v-if="tags.selected.size" class="filter">
-        <CtChip class="clear" @click="() => tags.selected.clear()">{{ i18n.t("filter.clear") }}</CtChip>
-        <CtChip
-          v-for="t in tags.tagList.filter((x) => tags.selected.has(x.name))"
-          :key="t.name"
-          selected
-          toggle
-          :color="t.color"
-          @click="() => tags.toggleTag(t.name)"
-        >#{{ t.name }}</CtChip>
-      </div>
-      <p v-if="noPin" class="nopin">{{ i18n.t("map.noPin", { count: noPin }) }}</p>
-    </div>
 
-    <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
+      <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
 
-    <!-- the same red stamp as the canvas: writing is never more than a tap away -->
-    <button
-      class="fab"
-      :aria-label="i18n.t('canvas.write')"
-      type="button"
-      @click="() => emit('write', null)"
-    >
-      <Icon :size="26" :src="plusIcon" />
-    </button>
+      <!-- the same write button as the canvas: writing is never more than a tap away -->
+      <CtFab :label="i18n.t('canvas.write')" @click="() => emit('write', null)"><Icon :size="24" :src="plusIcon" /></CtFab>
 
-    <div v-if="selected" class="card" :style="`--card:${selected.color}`">
-      <p class="t">{{ selected.title }}</p>
-      <p v-if="selected.body" class="b">{{ selected.body }}</p>
-      <p class="meta">
-        <span v-for="t in selected.tags" :key="t" class="tag" :style="`--tag:${tags.tagColor(t)}`">#{{ t }} </span>
-        <span v-if="selected.budget">{{ price(selected.budget) }} </span>
-        <span v-if="selected.schedule">{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
-      </p>
-      <div class="act">
-        <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{ i18n.t("map.openInGoogleMaps") }}</a>
-        <button type="button" @click="editSelected">{{ i18n.t("common.edit") }}</button>
-        <button class="x" type="button" :aria-label="i18n.t('common.close')" @click="closeCard"><Icon :size="18" :src="closeIcon" /></button>
+      <div v-if="selected" class="card" :style="`--card:${PAPERS[selected.color]}`">
+        <p class="t">{{ selected.title }}</p>
+        <p v-if="selected.body" class="b">{{ selected.body }}</p>
+        <p class="meta">
+          <span v-for="t in selected.tags" :key="t">#{{ t }} </span>
+          <span v-if="selected.budget">{{ price(selected.budget) }} </span>
+          <span v-if="selected.schedule">{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
+        </p>
+        <div class="act">
+          <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{ i18n.t("map.openInGoogleMaps") }}</a>
+          <button type="button" @click="editSelected">{{ i18n.t("common.edit") }}</button>
+          <button class="x" type="button" :aria-label="i18n.t('common.close')" @click="closeCard"><Icon :size="18" :src="closeIcon" /></button>
+        </div>
       </div>
     </div>
   </div>
@@ -258,6 +257,9 @@ function fitAll() {
   position: absolute;
   inset: 0;
   isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
 
   /* marker elements are built with innerHTML inside the map container */
   & :deep(.pin) {
@@ -277,8 +279,8 @@ function fitAll() {
       border-radius: 50% 50% 50% 0;
       transform: rotate(-45deg);
       background: var(--pin);
-      border: 2.5px solid var(--on-accent);
-      box-shadow: 0 2px 6px rgba(0,0,0,.3);
+      border: 2px solid var(--paper-ink);
+      box-shadow: 0 2px 6px rgb(17 19 24 / 0.3);
     }
 
     & .lbl {
@@ -289,9 +291,10 @@ function fitAll() {
       font-size: var(--font-2xs);
       font-weight: 700;
       color: var(--paper-ink);
-      background: rgba(255,255,255,.9);
+      background: rgb(255 255 255 / 0.92);
       padding: 1px 6px;
       border-radius: 999px;
+      box-shadow: 0 1px 2px rgb(17 19 24 / 0.12);
     }
 
     &.on .dot {
@@ -308,8 +311,9 @@ function fitAll() {
     }
   }
 
+  /* the geolocate button stacks above the write button */
   & :deep(.maplibregl-ctrl-bottom-right) {
-    inset-block-end: 24px;
+    inset-block-end: 72px;
   }
 
   /* MapLibre's own buttons (geolocate, the compact attribution) at the same 36px as every other tool */
@@ -325,6 +329,13 @@ function fitAll() {
   }
 }
 
+/* everything under the bar: the map and what floats on it */
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
 .map {
   position: absolute;
   inset: 0;
@@ -335,7 +346,7 @@ function fitAll() {
   inset-inline: 0;
   inset-block-start: 0;
   z-index: var(--z-float);
-  padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 0;
+  padding: 10px 16px 0;
   pointer-events: none;
   display: flex;
   flex-direction: column;
@@ -343,39 +354,6 @@ function fitAll() {
 
   & > * {
     pointer-events: auto;
-  }
-}
-
-.days {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  /* a row that keeps going says so, as on the desk */
-  padding-inline-end: 24px;
-  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  & button {
-    flex-shrink: 0;
-    min-height: 36px;
-    padding: 0 12px;
-    border-radius: 999px;
-    border: 1.5px solid var(--line);
-    background: var(--surface);
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-
-    /* selection is ink, as on the canvas; red stays for the stamp */
-    &.on {
-      background: var(--ink);
-      color: var(--bg);
-      border-color: transparent;
-    }
   }
 }
 
@@ -403,15 +381,17 @@ function fitAll() {
   font-size: var(--font-xs);
   color: var(--ink);
   background: var(--surface);
-  border: 1.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: 999px;
   padding: 4px 10px;
+  box-shadow: var(--shadow-tool);
 }
 
+/* level with the write button's middle, as on the desk */
 .jump {
   position: absolute;
   inset-inline-start: 16px;
-  inset-block-end: 28px;
+  inset-block-end: 24px;
   z-index: var(--z-float);
 
   & button {
@@ -419,27 +399,12 @@ function fitAll() {
     padding: 0 14px;
     border-radius: 999px;
     background: var(--surface);
-    border: 1.5px solid var(--line);
+    border: 1px solid var(--line);
     box-shadow: var(--shadow-tool);
     font-size: var(--font-sm);
     font-weight: 700;
+    color: var(--muted);
   }
-}
-
-.fab {
-  position: absolute;
-  inset-inline-end: 16px;
-  inset-block-end: 20px;
-  z-index: var(--z-float);
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  background: var(--red);
-  color: var(--on-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 6px 16px rgba(215,38,61,.35);
 }
 
 .card {
@@ -450,7 +415,7 @@ function fitAll() {
   padding: 12px 14px;
   border-radius: 14px;
   background: var(--surface);
-  border: 1.5px solid var(--line);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-float);
 
   & .t {
@@ -469,7 +434,7 @@ function fitAll() {
       height: 12px;
       border-radius: 3px;
       background: var(--card);
-      box-shadow: var(--shadow-tool);
+      box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
     }
   }
 
@@ -487,10 +452,6 @@ function fitAll() {
     display: flex;
     flex-wrap: wrap;
     gap: 0 8px;
-
-    & .tag {
-      color: color-mix(in oklch, var(--tag) var(--tint-mix), var(--tint-base));
-    }
   }
 
   & .act {
@@ -511,8 +472,9 @@ function fitAll() {
     }
 
     & a {
-      color: var(--link);
-      text-decoration: none;
+      color: var(--ink);
+      text-decoration: underline;
+      text-underline-offset: 3px;
     }
 
     & .x {

@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
-import { CtSegmented, CtTabList, CtTabPanel, type CtOption } from "../../ui/index";
+import { CtAppBar, CtSegmented, CtTabList, CtTabPanel, type CtOption } from "../../ui/index";
 
 import { formatMoney } from "../shared/money";
 
@@ -11,10 +11,15 @@ import Message from "../i18n/Message.vue";
 import { useI18n } from "../i18n/useI18n";
 
 import { useMembers } from "../features/members/useMembers";
-import { ARRIVAL_TAG, PACKING_TAG, type Memo, type Scheduled } from "../features/notes/types";
+import {
+  ARRIVAL_TAG,
+  PACKING_TAG,
+  PAPERS,
+  type Memo,
+  type Scheduled,
+} from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
 import { safeUrl } from "../features/place/google-maps";
-import { useTags } from "../features/tags/useTags";
 import { fromHhmm, hhmm, longDate, shortDate } from "../features/trip/format";
 import { assignTo, cycleStatus, draftUpdates } from "../features/trip/itinerary";
 import { useTrip } from "../features/trip/useTrip";
@@ -24,7 +29,6 @@ import { useWorker } from "../features/worker/useWorker";
 type Draft = DayDraft & { date: Temporal.PlainDate };
 
 const store = useNotes();
-const tags = useTags();
 const trip = useTrip();
 const worker = useWorker();
 const members = useMembers();
@@ -117,52 +121,56 @@ function adoptDraft() {
 
 <template>
   <div class="shiori">
-    <header class="head">
-      <h1>{{ i18n.t("nav.booklet") }}</h1>
-      <p class="sum"><template v-if="trip.days.length">{{ short(trip.days[0]!.date) }} – {{ short(trip.days.at(-1)!.date) }} · </template>{{ i18n.t("shiori.summary", { fixed: trip.fixedCount, total: price(totalFixed) }) }}<small v-if="totalAll > totalFixed">{{ i18n.t("shiori.withMaybes", { total: price(totalAll) }) }}</small></p>
-      <CtSegmented v-model="mode" class="mode" :label="i18n.t('shiori.mode')" :options="modes" />
-    </header>
-
-    <!-- tray: memos without a day (edit mode only) -->
-    <section v-if="editing" class="tray">
-      <div class="tray-head"><span>{{ i18n.t("shiori.trayTitle", { count: trip.unassigned.length }) }}</span><span class="muted">{{ i18n.t("shiori.trayHint") }}</span></div>
-      <div v-if="trip.unassigned.length === 0" class="muted empty">{{ i18n.t("shiori.trayEmpty") }}</div>
-      <div v-else class="tray-row">
-        <button
-          v-for="n in trip.unassigned"
-          :key="n.id"
-          class="tray-card"
-          type="button"
-          :class="{ picking: picking?.id === n.id }"
-          :aria-pressed="picking?.id === n.id"
-          :style="`background:${n.color}`"
-          @click="() => togglePick(n)"
-        >
-          <span class="t">{{ n.title }}</span>
-          <span class="tags"><span v-for="t in n.tags" :key="t" :style="`--tag:${tags.tagColor(t)}`">#{{ t }}</span></span>
-        </button>
-      </div>
-      <div v-if="picking" class="pick">
-        <span class="pick-label">{{ i18n.t("shiori.putOn", { title: picking.title }) }}</span>
-        <button
-          v-for="d in trip.days"
-          :key="d.date.toString()"
-          type="button"
-          @click="() => putPickedOn(d.date)"
-        >{{ short(d.date) }}</button>
-        <button class="later" type="button" @click="() => (picking = null)">{{ i18n.t("shiori.later") }}</button>
-      </div>
-    </section>
-
-    <CtTabList
-      class="tabs"
-      :label="i18n.t('shiori.days')"
-      :tabs="dayTabs"
-      :model-value="activeTab"
-      @update:model-value="showTab"
-    />
+    <CtAppBar>
+      <template #title>{{ trip.name }}</template>
+      <template #actions>
+        <CtSegmented v-model="mode" :label="i18n.t('shiori.mode')" :options="modes" />
+      </template>
+      <template #tools>
+        <CtTabList
+          class="tabs"
+          :label="i18n.t('shiori.days')"
+          :tabs="dayTabs"
+          :model-value="activeTab"
+          @update:model-value="showTab"
+        />
+      </template>
+    </CtAppBar>
 
     <main class="body">
+      <p class="sum"><template v-if="trip.days.length">{{ short(trip.days[0]!.date) }} – {{ short(trip.days.at(-1)!.date) }} · </template>{{ i18n.t("shiori.summary", { fixed: trip.fixedCount, total: price(totalFixed) }) }}<small v-if="totalAll > totalFixed">{{ i18n.t("shiori.withMaybes", { total: price(totalAll) }) }}</small></p>
+
+      <!-- tray: memos without a day (edit mode only) -->
+      <section v-if="editing" class="tray">
+        <div class="tray-head"><span>{{ i18n.t("shiori.trayTitle", { count: trip.unassigned.length }) }}</span><span class="muted">{{ i18n.t("shiori.trayHint") }}</span></div>
+        <div v-if="trip.unassigned.length === 0" class="muted empty">{{ i18n.t("shiori.trayEmpty") }}</div>
+        <div v-else class="tray-row">
+          <button
+            v-for="n in trip.unassigned"
+            :key="n.id"
+            class="tray-card"
+            type="button"
+            :class="{ picking: picking?.id === n.id }"
+            :aria-pressed="picking?.id === n.id"
+            :style="`background:${PAPERS[n.color]}`"
+            @click="() => togglePick(n)"
+          >
+            <span class="t">{{ n.title }}</span>
+            <span class="tags"><span v-for="t in n.tags" :key="t">#{{ t }}</span></span>
+          </button>
+        </div>
+        <div v-if="picking" class="pick">
+          <span class="pick-label">{{ i18n.t("shiori.putOn", { title: picking.title }) }}</span>
+          <button
+            v-for="d in trip.days"
+            :key="d.date.toString()"
+            type="button"
+            @click="() => putPickedOn(d.date)"
+          >{{ short(d.date) }}</button>
+          <button class="later" type="button" @click="() => (picking = null)">{{ i18n.t("shiori.later") }}</button>
+        </div>
+      </section>
+
       <!-- the page morphs when the day or the mode changes -->
       <CtTabPanel :value="`${activeTab}:${mode}`">
         <!-- ---------- a day ---------- -->
@@ -197,7 +205,7 @@ function adoptDraft() {
               :key="n.id"
               class="paper"
               :class="n.schedule.status"
-              :style="`--card:${n.color}`"
+              :style="`--card:${PAPERS[n.color]}`"
               :data-stamp="i18n.t('status.done')"
             >
               <div class="tab">
@@ -242,7 +250,7 @@ function adoptDraft() {
                 v-for="n in trip.forDay(day, 'idea')"
                 :key="n.id"
                 class="paper idea"
-                :style="`--card:${n.color}`"
+                :style="`--card:${PAPERS[n.color]}`"
               >
                 <div class="tab"><span class="time-read">{{ n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime") }}</span></div>
                 <div class="main">
@@ -274,12 +282,12 @@ function adoptDraft() {
         <!-- ---------- appendix ---------- -->
         <template v-else>
           <section v-for="t in APPENDIX_TAGS" :key="t" class="appendix">
-            <h2 class="day tagged" :style="`--tag:${tags.tagColor(t)}`">#{{ t }}</h2>
+            <h2 class="day">#{{ t }}</h2>
             <ul class="check"><li
                 v-for="n in trip.byTag(t)"
                 :key="n.id"
                 :class="{ checked: n.checked }"
-                :style="`--card:${n.color}`"
+                :style="`--card:${PAPERS[n.color]}`"
               ><label><input type="checkbox" :checked="n.checked" @change="(e) => setChecked(n, e)" /><span class="t">{{ n.title }}</span><span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
             <p v-if="trip.byTag(t).length === 0" class="muted">{{ i18n.t("shiori.tagEmpty") }}</p>
           </section>
@@ -301,44 +309,15 @@ function adoptDraft() {
   display: flex;
   flex-direction: column;
   background: var(--bg);
-  /* a booklet is read at a page's width, on a laptop too */
-  & > * {
-    width: 100%;
-    max-width: 680px;
-    margin-inline: auto;
-  }
-}
-
-.head {
-  padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 8px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px 10px;
-  align-items: center;
-}
-
-/* a page title is ink; red stays for the stamp, the current tab and delete */
-h1 {
-  margin: 0;
-  font-size: var(--font-4xl);
-  font-weight: 700;
-  color: var(--ink);
 }
 
 .sum {
-  margin: 0;
-  grid-column: 1 / -1;
+  margin: 12px 0 0;
   font-size: var(--font-sm);
   color: var(--muted);
   & small {
     font-size: var(--font-xs);
   }
-}
-
-.mode {
-  /* next to the title; .sum comes first in the markup and takes the row below */
-  grid-row: 1;
-  grid-column: 2;
 }
 
 .muted {
@@ -350,10 +329,13 @@ h1 {
   padding: 14px 0;
 }
 
+/* the notes still without a day, on a tool panel above the page */
 .tray {
-  padding: 6px 16px 10px;
-  border-bottom: 1.5px solid var(--line);
-  background: color-mix(in srgb, var(--surface) 60%, var(--bg));
+  margin-block: 12px 4px;
+  padding: 10px 12px 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
 }
 
 .tray-head {
@@ -369,7 +351,8 @@ h1 {
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 4px 24px 6px 0;
+  padding: 4px 24px 8px 2px;
+  margin-inline: -2px;
   mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   &::-webkit-scrollbar {
     display: none;
@@ -387,9 +370,9 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  border: 2px solid transparent;
   &.picking {
-    border-color: var(--ink);
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
   }
   .t {
     font-size: var(--font-sm);
@@ -399,12 +382,10 @@ h1 {
   .tags {
     font-size: var(--font-xs);
     font-weight: 700;
+    color: var(--paper-muted);
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
-    span {
-      color: color-mix(in oklch, var(--tag) var(--tint-paper-mix), var(--paper-ink));
-    }
   }
 }
 
@@ -419,14 +400,14 @@ h1 {
     padding: 0 12px;
     border-radius: 999px;
     background: var(--ink);
-    color: var(--bg);
+    color: var(--on-ink);
     font-size: var(--font-sm);
     font-weight: 700;
   }
   .later {
     background: transparent;
     color: var(--muted);
-    border: 1.5px solid var(--line);
+    border: 1px solid var(--line);
   }
 }
 
@@ -436,29 +417,28 @@ h1 {
   margin-inline-end: 4px;
 }
 
-/* the only row with outer margins instead of inner padding: its width leaves room for both gutters */
+/* the day tabs fill the bar's tools row; the bar's own edge is their baseline */
 .tabs {
-  flex-shrink: 0;
-  width: calc(100% - 32px);
-  max-width: calc(680px - 32px);
-  margin: 4px auto 0;
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  padding-inline: 8px 24px;
+  border-block-end: 0;
   /* a row that keeps going says so, like the desk's chip row */
   mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
 
+/* a booklet is read at a page's width, on a laptop too */
 .body {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 16px 24px;
+  padding: 0 max(16px, calc((100% - 648px) / 2)) 24px;
 }
 
 .day {
-  margin: 8px 0 10px;
+  margin: 20px 0 10px;
   font-size: var(--font-2xl);
   font-weight: 700;
-  &.tagged {
-    color: color-mix(in oklch, var(--tag) var(--tint-mix), var(--tint-base));
-  }
   span {
     font-size: var(--font-md);
     font-weight: 700;
@@ -472,7 +452,7 @@ h1 {
   font: inherit;
   font-size: var(--font-md);
   padding: 10px 12px;
-  border: 1.5px dashed var(--line);
+  border: 1px dashed color-mix(in oklch, var(--ink) 25%, var(--line));
   border-radius: 12px;
   background: var(--surface);
   color: var(--ink);
@@ -484,7 +464,7 @@ h1 {
 .intro-read {
   margin: 0 6px 14px;
   padding-block-end: 8px;
-  border-block-end: 1.5px dashed var(--line);
+  border-block-end: 1px dashed var(--line);
   font-size: var(--font-base);
   line-height: 1.7;
 }
@@ -504,13 +484,10 @@ h1 {
   position: relative;
   display: flex;
   border-radius: 6px;
-  background: var(--card, var(--paper));
+  background: var(--card, var(--paper-white));
   color: var(--paper-ink);
   box-shadow: var(--shadow-paper);
-  /* on paper, tints are mixed toward the paper's ink, whatever the desk */
-  --tint-base: var(--paper-ink);
-  --tint-mix: 68%;
-  /* done: stamped, and the title steps back to the paper's quieter ink; nothing goes translucent */
+  /* done: stamped in the paper's ink, and the title steps back to its quieter ink; nothing goes translucent */
   &.done .t {
     color: var(--paper-muted);
   }
@@ -520,14 +497,14 @@ h1 {
     inset-block-start: 6px;
     inset-inline-end: 10px;
     padding: 1px 8px;
-    border: 2px solid color-mix(in oklch, var(--jade) 68%, var(--paper-ink));
+    border: 2px solid var(--paper-ink);
     border-radius: 4px;
-    color: color-mix(in oklch, var(--jade) 68%, var(--paper-ink));
+    color: var(--paper-ink);
     font-size: var(--font-sm);
     font-weight: 700;
     letter-spacing: 0.04em;
     transform: rotate(-10deg);
-    opacity: 0.9;
+    opacity: 0.7;
     pointer-events: none;
   }
   .tab {
@@ -538,8 +515,8 @@ h1 {
     justify-content: center;
     padding: 10px 6px;
     border-radius: 6px 0 0 6px;
-    /* a darker fold of the same paper */
-    background: color-mix(in srgb, var(--card, var(--paper)) 86%, var(--paper-ink));
+    /* a darker fold of the same paper: lightness only, so a yellow fold stays yellow */
+    background: oklch(from var(--card, var(--paper-white)) calc(l - 0.045) c h);
   }
   .main {
     flex: 1;
@@ -576,7 +553,7 @@ h1 {
       min-height: var(--tap);
       padding: 0 6px;
       margin-inline-start: -6px;
-      color: color-mix(in oklch, var(--jade) 68%, var(--paper-ink));
+      color: var(--paper-ink);
       font-weight: 700;
       text-decoration: underline;
       text-underline-offset: 3px;
@@ -601,9 +578,9 @@ h1 {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   padding: 4px 4px;
-  border: 1.5px solid color-mix(in srgb, var(--paper-ink) 25%, transparent);
+  border: 1px solid color-mix(in oklch, var(--paper-ink) 20%, transparent);
   border-radius: 10px;
-  background: color-mix(in srgb, #fff 55%, transparent);
+  background: color-mix(in oklch, var(--paper-white) 55%, transparent);
   color: var(--paper-ink);
   text-align: center;
   /* the field is the tab; the browser's clock glyph would crowd the digits out */
@@ -626,20 +603,17 @@ h1 {
   border-radius: 999px;
   font-size: var(--font-xs);
   font-weight: 700;
-  background: color-mix(in srgb, var(--paper-ink) 10%, transparent);
-  border: 1.5px solid transparent;
+  /* three steps in one ink: a dashed maybe, a filled confirmed, an outlined done */
+  background: transparent;
+  border: 1px dashed color-mix(in oklch, var(--paper-ink) 45%, transparent);
   color: var(--paper-ink);
-  /* confirmed and done are a tinted pill with an edge and ink-mixed text, not white on gold */
   &.fixed {
-    background: color-mix(in srgb, var(--gold) 22%, transparent);
-    border-color: var(--gold);
-    /* gold is a light hue: it needs more ink than the other tints to read as text */
-    color: color-mix(in oklch, var(--gold) 40%, var(--paper-ink));
+    background: var(--paper-ink);
+    border: 1px solid var(--paper-ink);
+    color: var(--paper-white);
   }
   &.done {
-    background: color-mix(in srgb, var(--jade) 18%, transparent);
-    border-color: var(--jade);
-    color: color-mix(in oklch, var(--jade) 68%, var(--paper-ink));
+    border: 1px solid var(--paper-ink);
   }
 }
 
@@ -662,11 +636,10 @@ h1 {
 /* read mode's maybes: the paper fades toward white stock in either theme (Paper Stays Light), the ink stays at full */
 .maybes {
   .paper {
-    background: color-mix(in srgb, var(--card, var(--paper)) 55%, #fff);
-    filter: saturate(0.7);
+    background: color-mix(in oklch, var(--card, var(--paper-white)) 45%, var(--paper-white));
     box-shadow: var(--shadow-tool);
     .tab {
-      background: color-mix(in srgb, var(--card, var(--paper)) 70%, var(--paper-ink) 8%);
+      background: color-mix(in oklch, var(--card, var(--paper-white)) 70%, var(--paper-white));
     }
   }
 }
@@ -690,21 +663,23 @@ h1 {
   min-height: 40px;
   padding: 0 14px;
   border-radius: 999px;
-  background: var(--ivory);
-  border: 1px solid var(--oat);
-  color: var(--slate);
+  background: var(--surface);
+  border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
+  color: var(--ink);
   font-size: var(--font-sm);
+  font-weight: 700;
 }
 
 .draft {
   margin-block-start: 14px;
   padding: 12px 14px;
-  /* square: the agent's paper, as on the canvas */
+  /* square, white and dashed: the agent's paper, as on the canvas */
   border-radius: 0;
-  background: var(--ivory);
+  background: var(--paper-white);
   box-shadow: var(--shadow-paper);
-  border: 1px solid var(--oat);
-  color: var(--slate);
+  outline: 1px dashed color-mix(in oklch, var(--paper-ink) 30%, transparent);
+  outline-offset: -5px;
+  color: var(--paper-ink);
   .h {
     display: flex;
     align-items: center;
@@ -713,8 +688,8 @@ h1 {
     font-weight: 700;
     margin-block-end: 4px;
     .dot {
-      width: 9px;
-      height: 9px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: var(--who);
     }
@@ -722,7 +697,7 @@ h1 {
       margin-inline-start: auto;
       font-size: var(--font-2xs);
       font-weight: 400;
-      color: var(--stone);
+      color: var(--paper-muted);
     }
   }
   p {
@@ -746,11 +721,12 @@ h1 {
       font-weight: 700;
     }
     .ok {
-      background: color-mix(in oklch, var(--who) 70%, #1c2238);
-      color: var(--on-accent);
+      background: var(--paper-ink);
+      color: var(--paper-white);
     }
     .no {
-      border: 1px solid var(--oat);
+      color: var(--paper-muted);
+      box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 18%, transparent);
     }
   }
 }
@@ -775,7 +751,7 @@ h1 {
     align-items: center;
     min-height: 48px;
     padding: 10px 12px;
-    background: var(--card, var(--paper));
+    background: var(--card, var(--paper-white));
     color: var(--paper-ink);
     border-radius: 6px;
     box-shadow: var(--shadow-paper);
@@ -800,8 +776,8 @@ h1 {
 }
 
 .foot {
-  padding: 10px 16px 12px;
-  border-top: 1.5px solid var(--line);
+  padding: 10px max(16px, calc((100% - 648px) / 2)) 12px;
+  border-top: 1px solid var(--line);
   background: var(--bg);
 }
 
@@ -810,7 +786,7 @@ h1 {
   height: 48px;
   border-radius: 999px;
   background: var(--ink);
-  color: var(--bg);
+  color: var(--on-ink);
   font-size: var(--font-base);
   font-weight: 700;
 }

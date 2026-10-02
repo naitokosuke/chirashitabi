@@ -47,15 +47,18 @@ import {
   watch,
 } from "vue";
 
+import { CtAppBar, CtFab, CtSegmented, type CtOption } from "../../ui/index";
+
 import { useI18n } from "../i18n/useI18n";
 
 import NoteCard from "../features/canvas/NoteCard.vue";
 import { distance, fitView, pinchTo, startPinch, type Pt } from "../features/canvas/transform";
 import { useViewport } from "../features/canvas/useViewport";
-import { COLOR_NAMES, COLORS, type NoteColor, type NoteId } from "../features/notes/types";
+import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteId } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
 import { useToast } from "../features/toast/useToast";
 import FilterBar from "../features/tags/FilterBar.vue";
+import type { FilterMode } from "../features/tags/types";
 import { useTags } from "../features/tags/useTags";
 import { useTrip } from "../features/trip/useTrip";
 import Icon from "../icons/Icon.vue";
@@ -67,6 +70,10 @@ const toast = useToast();
 const tags = useTags();
 const trip = useTrip();
 const i18n = useI18n();
+const filterModes = computed((): CtOption<FilterMode>[] => [
+  { value: "dim", label: i18n.t("filter.dim") },
+  { value: "only", label: i18n.t("filter.only") },
+]);
 const { view, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
 const worldStyle = computed(
@@ -211,7 +218,7 @@ function openMenu(note: Note) {
   menu.value = {
     note,
     x: Math.max(8, card.left - r.left),
-    y: Math.max(card.bottom - r.top + 8, 90),
+    y: Math.max(card.bottom - r.top + 8, 8),
   };
   // once it is drawn: measure it, keep it on screen (above the card near the bottom), and move focus in
   nextTick(() => {
@@ -222,7 +229,7 @@ function openMenu(note: Note) {
     const x = Math.max(8, Math.min(card.left - r.left, r.width - w - 8));
     const below = card.bottom - r.top + 8;
     const y = below + h > r.height - 100 ? card.top - r.top - h - 8 : below;
-    menu.value = { ...menu.value, x, y: Math.max(y, 90) };
+    menu.value = { ...menu.value, x, y: Math.max(y, 8) };
     m.querySelector<HTMLElement>("button")?.focus();
   });
 }
@@ -345,68 +352,74 @@ watch(
 
 <template>
   <div class="canvas">
-    <div
-      ref="vp"
-      class="viewport"
-      role="application"
-      :aria-label="i18n.t('nav.canvas')"
-      :class="{ panning }"
-      @pointerdown="onDown"
-      @pointermove="onMove"
-      @pointerup="onUp"
-      @pointercancel="onUp"
-      @wheel="onWheel"
-      @keydown="onKey"
-    >
-      <div class="world" :style="worldStyle">
-        <NoteCard
-          v-for="n in shownNotes"
-          :key="n.id"
-          :note="n"
-          :dragging="draggingId === n.id"
-          :pop="pop?.id === n.id"
-          :visibility="tags.visibility(n)"
-          @adopt="() => store.adopt(n.id)"
-          @remove="() => remove(n)"
-        />
-        <div v-if="pop" class="ring" :style="`--x: ${pop.x}px; --y: ${pop.y}px`"></div>
+    <CtAppBar>
+      <template #title>{{ trip.name }}</template>
+      <template #actions>
+        <CtSegmented v-model="tags.mode" :label="i18n.t('filter.label')" :options="filterModes" />
+      </template>
+      <template #tools><FilterBar /></template>
+    </CtAppBar>
+
+    <div class="desk">
+      <div
+        ref="vp"
+        class="viewport"
+        role="application"
+        :aria-label="i18n.t('nav.canvas')"
+        :class="{ panning }"
+        @pointerdown="onDown"
+        @pointermove="onMove"
+        @pointerup="onUp"
+        @pointercancel="onUp"
+        @wheel="onWheel"
+        @keydown="onKey"
+      >
+        <div class="world" :style="worldStyle">
+          <NoteCard
+            v-for="n in shownNotes"
+            :key="n.id"
+            :note="n"
+            :dragging="draggingId === n.id"
+            :pop="pop?.id === n.id"
+            :visibility="tags.visibility(n)"
+            @adopt="() => store.adopt(n.id)"
+            @remove="() => remove(n)"
+          />
+          <div v-if="pop" class="ring" :style="`--x: ${pop.x}px; --y: ${pop.y}px`"></div>
+        </div>
       </div>
+
+      <p v-if="store.notes.length === 0" class="empty">{{ i18n.t("canvas.empty") }}</p>
+
+      <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
+
+      <div
+        v-if="menu"
+        ref="menuEl"
+        class="menu"
+        role="toolbar"
+        :aria-label="menu.note.title"
+        :style="`inset-inline-start:${menu.x}px; inset-block-start:${menu.y}px`"
+        @pointerdown.stop
+        @keydown="onMenuKey"
+      >
+        <button
+          v-for="c in COLORS"
+          :key="c"
+          class="sw"
+          type="button"
+          :class="{ on: menu.note.color === c }"
+          :style="`background:${PAPERS[c]}`"
+          :aria-label="i18n.t(COLOR_NAMES[c])"
+          :aria-pressed="menu.note.color === c"
+          @click="() => setMenuColor(c)"
+        ></button>
+        <button type="button" @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</button>
+        <button class="del" type="button" @click="removeFromMenu">{{ i18n.t("canvas.delete") }}</button>
+      </div>
+
+      <CtFab :label="i18n.t('canvas.write')" @click="write"><Icon :size="24" :src="plusIcon" /></CtFab>
     </div>
-
-    <p v-if="store.notes.length === 0" class="empty">{{ i18n.t("canvas.empty") }}</p>
-
-    <FilterBar :room="trip.name" />
-
-    <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
-
-    <div
-      v-if="menu"
-      ref="menuEl"
-      class="menu"
-      role="toolbar"
-      :aria-label="menu.note.title"
-      :style="`inset-inline-start:${menu.x}px; inset-block-start:${menu.y}px`"
-      @pointerdown.stop
-      @keydown="onMenuKey"
-    >
-      <button
-        v-for="c in COLORS"
-        :key="c"
-        class="sw"
-        type="button"
-        :class="{ on: menu.note.color === c }"
-        :style="`background:${c}`"
-        :aria-label="i18n.t(COLOR_NAMES[c])"
-        :aria-pressed="menu.note.color === c"
-        @click="() => setMenuColor(c)"
-      ></button>
-      <button type="button" @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</button>
-      <button class="del" type="button" @click="removeFromMenu">{{ i18n.t("canvas.delete") }}</button>
-    </div>
-
-    <button class="fab" :aria-label="i18n.t('canvas.write')" type="button" @click="write">
-      <Icon :size="26" :src="plusIcon" />
-    </button>
   </div>
 </template>
 
@@ -415,6 +428,15 @@ watch(
   position: absolute;
   inset: 0;
   isolation: isolate; /* keep the canvas chrome's z-index inside this view */
+  display: flex;
+  flex-direction: column;
+}
+
+/* everything under the bar: the dotted desk and what floats on it */
+.desk {
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 .viewport {
@@ -448,7 +470,7 @@ watch(
   inset-block-start: 0;
   width: 192px;
   height: 110px;
-  border: 3px solid var(--red);
+  border: 2px solid color-mix(in oklch, var(--ink) 50%, transparent);
   border-radius: 14px;
   pointer-events: none;
   transform: translate(var(--x), var(--y));
@@ -467,57 +489,37 @@ watch(
   }
 }
 
-.fab {
-  position: absolute;
-  inset-inline-end: 16px;
-  inset-block-end: 20px;
-  z-index: var(--z-chrome);
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  background: var(--red);
-  color: var(--on-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 6px 16px rgba(215,38,61,.35);
-  transition: box-shadow var(--duration-swap) ease;
-  @media (hover: hover) {
-    &:hover {
-      box-shadow: 0 10px 22px rgba(215,38,61,.4);
-    }
-  }
-}
-
 /* An empty desk says what to do first */
 .empty {
   position: absolute;
   inset-inline: 24px;
   inset-block-start: 40%;
   text-align: center;
-  color: var(--stone);
+  color: var(--muted);
   font-size: var(--font-md);
   font-weight: 700;
   pointer-events: none;
 }
 
+/* level with the write button's middle */
 .jump {
   position: absolute;
   inset-inline-start: 16px;
-  inset-block-end: 28px;
+  inset-block-end: 24px;
   z-index: var(--z-chrome);
   & button {
     min-height: 40px;
     padding: 0 14px;
     border-radius: 999px;
     background: var(--surface);
-    border: 1.5px solid var(--line);
+    border: 1px solid var(--line);
     box-shadow: var(--shadow-tool);
     font-size: var(--font-sm);
     font-weight: 700;
+    color: var(--muted);
     @media (hover: hover) {
       &:hover {
-        border-color: var(--ink);
+        color: var(--ink);
       }
     }
   }
@@ -529,7 +531,7 @@ watch(
   z-index: var(--z-menu);
   max-width: calc(100% - 16px);
   background: var(--surface);
-  border: 1.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: 14px;
   padding: 6px;
   display: flex;
@@ -543,11 +545,11 @@ watch(
     font-size: var(--font-md);
     font-weight: 700;
     &.del {
-      color: var(--accent-text);
+      color: var(--danger);
     }
     @media (hover: hover) {
       &:hover {
-        background: color-mix(in srgb, var(--ink) 8%, transparent);
+        background: var(--wash);
       }
     }
   }
@@ -556,11 +558,13 @@ watch(
     height: var(--tap);
     border-radius: 50%;
     margin: 2px;
-    border: 2px solid transparent;
     padding: 0;
     min-height: 0;
+    /* a hairline keeps white paper visible on the white menu */
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
     &.on {
-      border-color: var(--ink);
+      outline: 2px solid var(--ink);
+      outline-offset: 2px;
     }
   }
 }

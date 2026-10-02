@@ -44,6 +44,10 @@ export function pinchTo(start: PinchStart, a: Pt, b: Pt): View {
   return { tx: mid.x - (start.mid.x - start.tx) * k, ty: mid.y - (start.mid.y - start.ty) * k, s };
 }
 
+/** The desk's edges a fit keeps clear: a little at the top, the fit and write buttons' row at the bottom */
+const FIT_TOP = 8;
+const FIT_BOTTOM = 80;
+
 /** A view that shows every card (top-left corners at `points`) inside a width × height viewport */
 export function fitView(points: Pt[], width: number, height: number, minScale = 0): View | null {
   if (points.length === 0) return null;
@@ -53,13 +57,12 @@ export function fitView(points: Pt[], width: number, height: number, minScale = 
     maxX = Math.max(...xs) + 220,
     minY = Math.min(...ys) - 30,
     maxY = Math.max(...ys) + 160;
+  const room = height - FIT_TOP - FIT_BOTTOM;
   // below `minScale` the cards would be too small to read: stop there, centered on the pile
-  const s = clampScale(
-    Math.max(minScale, Math.min(width / (maxX - minX), (height - 200) / (maxY - minY))),
-  );
+  const s = clampScale(Math.max(minScale, Math.min(width / (maxX - minX), room / (maxY - minY))));
   return {
     tx: (width - (maxX + minX) * s) / 2,
-    ty: 120 + (height - 200 - (maxY + minY) * s) / 2,
+    ty: FIT_TOP + (room - (maxY + minY) * s) / 2,
     s,
   };
 }
