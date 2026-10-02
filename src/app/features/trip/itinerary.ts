@@ -19,14 +19,13 @@ const isMemo = (n: Note): n is Memo => n.kind === "memo";
 const isScheduled = (n: Note): n is Scheduled => isMemo(n) && n.schedule !== null;
 const onDay = (n: Memo, date: Temporal.PlainDate) => n.schedule?.date.equals(date) ?? false;
 const isFixed = (n: Memo) => n.schedule?.status === "fixed";
-// untimed items ("Anytime") go last; ties fall back to edit order
+// Only the clock orders a day; untimed items ("Anytime") go last. Ties keep the list's own order,
+// which is the order the notes were written, so tapping a status never moves a card.
 function byTime(a: Scheduled, b: Scheduled) {
   const [ta, tb] = [a.schedule.time, b.schedule.time];
-  const byClock =
-    ta !== null && tb !== null
-      ? Temporal.PlainTime.compare(ta, tb)
-      : Number(ta === null) - Number(tb === null);
-  return byClock !== 0 ? byClock : Temporal.Instant.compare(a.updatedAt, b.updatedAt);
+  return ta !== null && tb !== null
+    ? Temporal.PlainTime.compare(ta, tb)
+    : Number(ta === null) - Number(tb === null);
 }
 
 /** Memos still waiting for a day (packing notes never need one) */
