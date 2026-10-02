@@ -40,8 +40,8 @@ export const ja: Messages = {
   "status.done": "済み",
 
   "filter.label": "絞り込み方",
-  "filter.dim": "薄く",
-  "filter.only": "だけ",
+  "filter.dim": "ほかを薄く",
+  "filter.only": "これだけ",
   "filter.clear": "× クリア",
 
   "canvas.undo": "取り消す",
@@ -49,10 +49,11 @@ export const ja: Messages = {
   "canvas.delete": "削除",
   "canvas.write": "メモを書く",
   "canvas.added": "「{$title}」を追加しました",
-  "canvas.addedDrag": "「{$title}」を追加しました。好きな場所へドラッグできます",
+  "canvas.addedDrag": "「{$title}」を追加しました。ドラッグで移動、長押しで色・複製・削除",
+  "canvas.deleted": "「{$title}」を削除しました",
 
   "note.suggestion": "提案",
-  "note.adopt": "採用",
+  "note.adopt": "メモにする",
 
   "form.titleNew": "新しいメモ",
   "form.titleEdit": "メモを編集",

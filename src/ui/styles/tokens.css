@@ -22,7 +22,7 @@
   --stone: #73726c;
   --stone-light: #9aa09c;
 
-  --font-2xs: 11px;
+  --font-2xs: 12px; /* the floor: nothing on a phone is set smaller */
   --font-xs: 12px;
   --font-sm: 13px;
   --font-md: 14px;

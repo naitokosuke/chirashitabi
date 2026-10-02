@@ -30,8 +30,11 @@ import type { LatLng } from "../features/place/types";
 import { useTags } from "../features/tags/useTags";
 import { hhmm, shortDate } from "../features/trip/format";
 import { useTrip } from "../features/trip/useTrip";
+import Icon from "../icons/Icon.vue";
+import plusIcon from "../icons/plus.svg";
 
-const emit = defineEmits<{ write: [pin: LatLng]; edit: [note: Memo] }>();
+/** `write` carries the long-pressed place, or null from the stamp: a note with no place yet */
+const emit = defineEmits<{ write: [pin: LatLng | null]; edit: [note: Memo] }>();
 const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
@@ -208,6 +211,16 @@ function fitAll() {
 
     <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
 
+    <!-- the same red stamp as the canvas: writing is never more than a tap away -->
+    <button
+      class="fab"
+      :aria-label="i18n.t('canvas.write')"
+      type="button"
+      @click="() => emit('write', null)"
+    >
+      <Icon :size="26" :src="plusIcon" />
+    </button>
+
     <div v-if="selected" class="card" :style="`--card:${selected.color}`">
       <p class="t">{{ selected.title }}</p>
       <p v-if="selected.body" class="b">{{ selected.body }}</p>
@@ -366,10 +379,26 @@ function fitAll() {
   }
 }
 
+.fab {
+  position: absolute;
+  inset-inline-end: 16px;
+  inset-block-end: 20px;
+  z-index: var(--z-float);
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--red);
+  color: var(--on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(215,38,61,.35);
+}
+
 .card {
   position: absolute;
   inset-inline: 12px;
-  inset-block-end: 80px;
+  inset-block-end: 88px;
   z-index: var(--z-float-top);
   padding: 12px 14px;
   border-radius: 14px;
