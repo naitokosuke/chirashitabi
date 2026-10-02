@@ -38,6 +38,7 @@ const n = (p: Partial<Memo> & Pick<Memo, "title" | "x" | "y">): Memo => ({
   pin: null,
   schedule: null,
   budget: null,
+  checked: false,
   ...p,
 });
 const suggest = (p: Partial<Suggestion> & Pick<Suggestion, "title" | "x" | "y">): Suggestion => ({

@@ -42,6 +42,7 @@ type NoteRow = {
   sched_time: string | null;
   sched_status: string | null;
   budget: number | null;
+  checked: number;
 };
 
 /**
@@ -105,6 +106,11 @@ export class Room extends DurableObject<Env> {
         deleted_at TEXT
       );
     `);
+    // Rooms made before the appendix's checks were shared gain the column once
+    const cols = ctx.storage.sql.exec<{ name: string }>("PRAGMA table_info(notes)").toArray();
+    if (!cols.some((c) => c.name === "checked")) {
+      ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN checked INTEGER NOT NULL DEFAULT 0");
+    }
   }
 
   // ---- membership (RPC from the Worker) ----
@@ -283,11 +289,12 @@ export class Room extends DurableObject<Env> {
                 pin: null,
                 schedule: null,
                 budget: null,
+                checked: false,
               };
         sql.exec(
           `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at, body, tags, maps_url,
-             pin_lat, pin_lng, sched_date, sched_time, sched_status, budget)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             pin_lat, pin_lng, sched_date, sched_time, sched_status, budget, checked)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           note.id,
           note.kind,
           note.title,
@@ -306,6 +313,7 @@ export class Room extends DurableObject<Env> {
           memo.schedule?.time ?? null,
           memo.schedule?.status ?? null,
           memo.budget,
+          memo.checked ? 1 : 0,
         );
         return { type: "note:add", note };
       }
@@ -318,7 +326,8 @@ export class Room extends DurableObject<Env> {
         sql.exec(
           `UPDATE notes SET
              title = ?, body = ?, tags = ?, color = ?, maps_url = ?, pin_lat = ?, pin_lng = ?,
-             sched_date = ?, sched_time = ?, sched_status = ?, budget = ?, x = ?, y = ?, rot = ?, updated_at = ?
+             sched_date = ?, sched_time = ?, sched_status = ?, budget = ?, checked = ?, x = ?, y = ?, rot = ?,
+             updated_at = ?
            WHERE id = ?`,
           has("title") ? p.title : row.title,
           has("body") ? p.body : row.body,
@@ -331,6 +340,7 @@ export class Room extends DurableObject<Env> {
           has("schedule") ? (p.schedule?.time ?? null) : row.sched_time,
           has("schedule") ? (p.schedule?.status ?? null) : row.sched_status,
           has("budget") ? p.budget : row.budget,
+          has("checked") ? (p.checked === true ? 1 : 0) : row.checked,
           has("x") ? p.x : row.x,
           has("y") ? p.y : row.y,
           has("rot") ? p.rot : row.rot,
@@ -351,7 +361,7 @@ export class Room extends DurableObject<Env> {
         sql.exec(
           `UPDATE notes SET kind = 'memo', color = '#ffffff', body = '', tags = '[]', maps_url = NULL,
              pin_lat = NULL, pin_lng = NULL, sched_date = NULL, sched_time = NULL, sched_status = NULL,
-             budget = NULL, updated_at = ? WHERE id = ?`,
+             budget = NULL, checked = 0, updated_at = ? WHERE id = ?`,
           now,
           m.id,
         );
@@ -430,5 +440,6 @@ const fromRow = (r: NoteRow): WireNote => {
         ? null
         : { date: r.sched_date, time: r.sched_time, status: r.sched_status as NoteStatus },
     budget: r.budget,
+    checked: r.checked === 1,
   };
 };

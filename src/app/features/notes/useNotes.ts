@@ -34,6 +34,7 @@ export const useNotes = defineStore("notes", () => {
       rot: Math.random() * 4 - 2,
       schedule: null,
       budget: null,
+      checked: false,
       ...input,
     };
     notes.value.push(n);

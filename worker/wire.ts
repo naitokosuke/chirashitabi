@@ -52,6 +52,8 @@ export interface WireMemo extends WireCard {
   pin: { lat: number; lng: number } | null;
   schedule: WireSchedule | null;
   budget: number | null;
+  /** Ticked off on a list (the booklet's appendix); separate from a day's status */
+  checked: boolean;
 }
 
 export interface WireSuggestion extends WireCard {
@@ -67,6 +69,7 @@ export type WireMemoPatch = Partial<
     | "title"
     | "body"
     | "tags"
+    | "checked"
     | "color"
     | "mapsUrl"
     | "pin"
@@ -194,6 +197,8 @@ const parseNote = (v: unknown): WireNote | null => {
   if (!(v.pin === null || isLatLng(v.pin))) return null;
   if (!(v.schedule === null || isSchedule(v.schedule))) return null;
   if (!isBudget(v.budget)) return null;
+  // a client from before `checked` existed sends none: unticked
+  if (!(v.checked === undefined || typeof v.checked === "boolean")) return null;
   return {
     ...card,
     kind: "memo",
@@ -203,6 +208,7 @@ const parseNote = (v: unknown): WireNote | null => {
     pin: v.pin,
     schedule: v.schedule,
     budget: v.budget,
+    checked: v.checked ?? false,
   };
 };
 
@@ -242,6 +248,10 @@ const parsePatch = (v: unknown): WireMemoPatch | null => {
       case "budget":
         if (!isBudget(val)) return null;
         p.budget = val;
+        break;
+      case "checked":
+        if (typeof val !== "boolean") return null;
+        p.checked = val;
         break;
       case "x":
       case "y":
