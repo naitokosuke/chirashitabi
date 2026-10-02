@@ -261,6 +261,10 @@ Two families of corner, and one deliberate exception. A person's sticky has a sm
 - **Menu:** Tool White, 14px radius, 6px padding, Ruled Line edge, floating-tool shadow; items are 40px pills.
 - **Toast:** Pen Navy, 14px radius, text in Desk color, the undo action in Post-it Pink.
 
+### The booklet's strip
+
+- A day is a vertical strip of the same stickies as the canvas, pinned in time order: each keeps its paper color and a ±0.8° tilt, with a darker fold of the same paper as a time tab along its left edge (the time input lives in that tab in edit mode). Confirmed notes are opaque; maybes are faded (60%, desaturated) and gathered under "if there is time"; a done note is stamped (a rotated jade-inked word in a rule) and its ink fades. The agent's draft is its square ivory card. The appendix is a checklist on the notes' own paper. Nothing in the booklet is a white tool card; the day tabs, the mode switch and the badges stay tools.
+
 ### Inputs / Fields
 
 - **Style:** Tool White, 1.5px Ruled Line, 10px radius, 10px 12px padding, Body type; labels above in Label size, Pencil Gray.

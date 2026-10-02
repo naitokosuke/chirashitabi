@@ -94,6 +94,7 @@ one {{{$count} note has no place · long-press the map to place}}
   "shiori.putOn": "Put “{$title}” on",
   "shiori.later": "Later",
   "shiori.days": "Days",
+  "shiori.dayTab": "Day {$n :integer} · {$date}",
   "shiori.appendix": "Appendix",
   "shiori.dayHeading": "Day {$n :integer} {#date}{$date}{/date}",
   "shiori.intro": "A line about this day",
