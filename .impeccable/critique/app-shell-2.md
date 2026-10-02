@@ -17,19 +17,19 @@ Method: dual-agent (A: design review · B: browser evidence). Deterministic scan
 
 ## Design Health Score
 
-| # | Heuristic | Score | Key issue |
-|---|---|---|---|
-| 1 | Visibility of system status | 3 | A canvas filter silently hides map pins; the pop plays at the world origin |
-| 2 | Match system / real world | 3 | From the map, the form speaks of the canvas; an inline #tag appears twice |
-| 3 | User control and freedom | 3 | Undo on add and delete, Esc everywhere; the undo window is 3.2 s |
-| 4 | Consistency and standards | 3 | Two red headings and a red tab underline against the One Stamp Rule |
-| 5 | Error prevention | 3 | Soft delete; the tab bar stays live under an open sheet |
-| 6 | Recognition rather than recall | 2 | Color/copy/delete still only behind long-press or Shift+F10; nothing says what 書き出す does |
-| 7 | Flexibility and efficiency | 3 | Keyboard route exists; the menu does not take focus |
-| 8 | Aesthetic and minimalist | 3 | Fit-all on a phone renders cards at 0.41 scale (6px titles) |
-| 9 | Error recovery | 2 | No error state outside the rooms screen |
-| 10 | Help and documentation | 3 | Empty desk, add toast, tray, pin state all guide; a suggestion and 書き出す do not |
-| **Total** | | **28/40** | **Good** (from 23) |
+| #         | Heuristic                      | Score     | Key issue                                                                                    |
+| --------- | ------------------------------ | --------- | -------------------------------------------------------------------------------------------- |
+| 1         | Visibility of system status    | 3         | A canvas filter silently hides map pins; the pop plays at the world origin                   |
+| 2         | Match system / real world      | 3         | From the map, the form speaks of the canvas; an inline #tag appears twice                    |
+| 3         | User control and freedom       | 3         | Undo on add and delete, Esc everywhere; the undo window is 3.2 s                             |
+| 4         | Consistency and standards      | 3         | Two red headings and a red tab underline against the One Stamp Rule                          |
+| 5         | Error prevention               | 3         | Soft delete; the tab bar stays live under an open sheet                                      |
+| 6         | Recognition rather than recall | 2         | Color/copy/delete still only behind long-press or Shift+F10; nothing says what 書き出す does |
+| 7         | Flexibility and efficiency     | 3         | Keyboard route exists; the menu does not take focus                                          |
+| 8         | Aesthetic and minimalist       | 3         | Fit-all on a phone renders cards at 0.41 scale (6px titles)                                  |
+| 9         | Error recovery                 | 2         | No error state outside the rooms screen                                                      |
+| 10        | Help and documentation         | 3         | Empty desk, add toast, tray, pin state all guide; a suggestion and 書き出す do not           |
+| **Total** |                                | **28/40** | **Good** (from 23)                                                                           |
 
 ## Resolved since run 1
 
@@ -45,12 +45,12 @@ Authored, and now consistently so: the booklet is paper (strip, time fold, stamp
 
 ## Priority issues
 
-1. **[P1] The pop animates at the wrong place.** `@keyframes pop` and `@keyframes ring` set `transform`, which replaces the card's `translate(...)`, so for 500–800 ms the new card and its ring sit at world (0,0) and then jump to the viewport center; on a phone the origin is off-screen and the signature moment is simply absent. *Fix:* animate `scale` and `rotate` as their own properties (or an inner wrapper) and leave the positioning transform alone. *Command:* animate.
-2. **[P1] A canvas filter silently empties the map.** Pins obey `tags.visibility` but the map shows no filter state and no clear. *Fix:* show the selected chips and × クリア in the map's top row when a filter is on, and count pins as "#Food の 2 件". *Command:* clarify.
-3. **[P2] Fit-all on a phone is too small to read.** Scale 0.41 at 375px: 15px titles render at 6px, suggestion buttons at 34×15. *Fix:* clamp the first fit to a minimum scale (~0.8) and center on the pile instead; keep fit-all for the explicit button. *Command:* adapt.
-4. **[P2] Fading papers fades their ink.** `.paper.idea { opacity: .6 }` applies in edit mode (title 4.19, 候補 4.03, body 2.84) and the done paper's `.main` at .55 drops the body to 2.48; the current tab label in light mode is 4.12 on its tinted highlight. *Fix:* fade the paper (saturation, a lighter stock) and keep the ink at full; in edit mode do not fade at all; mix the current tab's red toward ink in light mode. *Command:* colorize.
-5. **[P2] The menu and the sheet lose the keyboard.** Shift+F10 opens the menu but focus stays on the card; Esc on the sheet drops focus to `body`; the tab bar is live under a sheet; the menu is wider than `MENU_W` and clips at the right edge. *Fix:* focus the first swatch on open and return focus on close, return focus to the card after the sheet closes, `inert` the tab bar under a sheet, measure the menu after mount. *Command:* harden.
-6. **[P2] The form speaks canvas from the map.** Back says キャンバス, the button says キャンバスに貼る, the hint promises the canvas center. *Fix:* label by the originating tab, "貼る" with a hint that depends on the pin. *Command:* clarify.
+1. **[P1] The pop animates at the wrong place.** `@keyframes pop` and `@keyframes ring` set `transform`, which replaces the card's `translate(...)`, so for 500–800 ms the new card and its ring sit at world (0,0) and then jump to the viewport center; on a phone the origin is off-screen and the signature moment is simply absent. _Fix:_ animate `scale` and `rotate` as their own properties (or an inner wrapper) and leave the positioning transform alone. _Command:_ animate.
+2. **[P1] A canvas filter silently empties the map.** Pins obey `tags.visibility` but the map shows no filter state and no clear. _Fix:_ show the selected chips and × クリア in the map's top row when a filter is on, and count pins as "#Food の 2 件". _Command:_ clarify.
+3. **[P2] Fit-all on a phone is too small to read.** Scale 0.41 at 375px: 15px titles render at 6px, suggestion buttons at 34×15. _Fix:_ clamp the first fit to a minimum scale (~0.8) and center on the pile instead; keep fit-all for the explicit button. _Command:_ adapt.
+4. **[P2] Fading papers fades their ink.** `.paper.idea { opacity: .6 }` applies in edit mode (title 4.19, 候補 4.03, body 2.84) and the done paper's `.main` at .55 drops the body to 2.48; the current tab label in light mode is 4.12 on its tinted highlight. _Fix:_ fade the paper (saturation, a lighter stock) and keep the ink at full; in edit mode do not fade at all; mix the current tab's red toward ink in light mode. _Command:_ colorize.
+5. **[P2] The menu and the sheet lose the keyboard.** Shift+F10 opens the menu but focus stays on the card; Esc on the sheet drops focus to `body`; the tab bar is live under a sheet; the menu is wider than `MENU_W` and clips at the right edge. _Fix:_ focus the first swatch on open and return focus on close, return focus to the card after the sheet closes, `inert` the tab bar under a sheet, measure the menu after mount. _Command:_ harden.
+6. **[P2] The form speaks canvas from the map.** Back says キャンバス, the button says キャンバスに貼る, the hint promises the canvas center. _Fix:_ label by the originating tab, "貼る" with a hint that depends on the pin. _Command:_ clarify.
 
 ## Persona red flags
 
