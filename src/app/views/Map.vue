@@ -279,6 +279,11 @@ function fitAll() {
   & :deep(.maplibregl-ctrl-bottom-right) {
     inset-block-end: 24px;
   }
+
+  /* the attribution would sit under the fit button otherwise */
+  & :deep(.maplibregl-ctrl-bottom-left) {
+    inset-block-end: 76px;
+  }
 }
 
 .map {
@@ -354,6 +359,7 @@ function fitAll() {
     border-radius: 999px;
     background: var(--surface);
     border: 1.5px solid var(--line);
+    box-shadow: var(--shadow-tool);
     font-size: var(--font-sm);
     font-weight: 700;
   }
@@ -368,13 +374,26 @@ function fitAll() {
   border-radius: 14px;
   background: var(--surface);
   border: 1.5px solid var(--line);
-  border-left: 6px solid var(--card);
-  box-shadow: 0 8px 20px rgba(28,34,56,.2);
+  box-shadow: var(--shadow-float);
 
   & .t {
     margin: 0;
     font-size: var(--font-lg);
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    /* the note's paper, as a swatch rather than a stripe */
+    &::before {
+      content: "";
+      flex-shrink: 0;
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: var(--card);
+      box-shadow: var(--shadow-tool);
+    }
   }
 
   & .b {
@@ -393,10 +412,19 @@ function fitAll() {
   & .act {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-top: 8px;
+    gap: 4px;
+    margin-top: 6px;
     font-size: var(--font-sm);
     font-weight: 700;
+
+    & a,
+    & button {
+      min-height: var(--tap);
+      padding: 0 8px;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 10px;
+    }
 
     & a {
       color: var(--jade);
@@ -405,6 +433,8 @@ function fitAll() {
 
     & .x {
       margin-inline-start: auto;
+      width: var(--tap);
+      justify-content: center;
       font-size: var(--font-2xl);
       color: var(--muted);
     }

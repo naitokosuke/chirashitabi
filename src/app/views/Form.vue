@@ -198,9 +198,16 @@ function submit() {
     margin-inline-start: auto;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    min-height: var(--tap);
     font-size: var(--font-sm);
     color: var(--muted);
+    & input {
+      width: 20px;
+      height: 20px;
+      margin: 0;
+      accent-color: var(--ink);
+    }
   }
 }
 
@@ -240,7 +247,7 @@ textarea {
   font-size: var(--font-xl);
   padding: 12px;
   border: 1.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface);
   color: var(--ink);
   resize: none;
@@ -253,7 +260,7 @@ textarea {
   font-size: var(--font-base);
   padding: 10px 12px;
   border: 1.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface);
   color: var(--ink);
 }
@@ -272,7 +279,7 @@ textarea {
   min-height: 46px;
   padding: 6px 8px;
   border: 1.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface);
   & input {
     flex: 1;
@@ -301,10 +308,11 @@ textarea {
   display: flex;
   gap: 10px;
   & button {
-    width: 34px;
-    height: 34px;
+    width: var(--tap);
+    height: var(--tap);
     border-radius: 50%;
     border: 3px solid transparent;
+    box-shadow: var(--shadow-tool);
     &.on {
       border-color: var(--ink);
     }

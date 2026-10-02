@@ -12,6 +12,12 @@
       "runtimeExecutable": "env",
       "runtimeArgs": ["VITE_MOCK=false", "vp", "dev", "--port", "5173"],
       "port": 5173
+    },
+    {
+      "name": "app-mock",
+      "runtimeExecutable": "vp",
+      "runtimeArgs": ["dev", "--port", "5174"],
+      "port": 5174
     }
   ]
 }

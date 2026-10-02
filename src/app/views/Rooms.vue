@@ -216,6 +216,7 @@ ul {
   background: var(--surface);
   border: 1.5px solid var(--line);
   border-radius: 12px;
+  box-shadow: var(--shadow-tool);
 }
 
 form {
@@ -234,6 +235,7 @@ form {
     background: var(--surface);
     border: 1.5px solid var(--line);
     border-radius: 10px;
+    box-shadow: var(--shadow-tool);
   }
 }
 

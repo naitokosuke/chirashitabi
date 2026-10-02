@@ -339,7 +339,7 @@ h1 {
   padding: 8px 10px;
   border-radius: 6px;
   color: var(--paper-ink);
-  box-shadow: 0 2px 6px rgba(28,34,56,.14);
+  box-shadow: var(--shadow-paper);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -470,6 +470,10 @@ h1 {
     color: var(--muted);
   }
   .meta a {
+    /* a text link, but a thumb-sized one */
+    display: inline-block;
+    padding: 8px 6px;
+    margin: -8px -6px;
     color: var(--jade);
     font-weight: 700;
     text-decoration: none;
@@ -484,13 +488,14 @@ h1 {
 
 .time {
   width: 86px;
+  min-height: var(--tap);
   flex-shrink: 0;
   font: inherit;
   font-size: var(--font-md);
   font-weight: 700;
   padding: 4px 6px;
   border: 1.5px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--bg);
   color: var(--ink);
   align-self: flex-start;
@@ -507,7 +512,8 @@ h1 {
 }
 
 .status {
-  padding: 2px 10px;
+  min-height: var(--tap);
+  padding: 0 12px;
   border-radius: 999px;
   font-size: var(--font-xs);
   font-weight: 700;
@@ -524,6 +530,8 @@ h1 {
 
 .unassign {
   margin-inline-start: auto;
+  min-height: var(--tap);
+  padding: 0 8px;
   font-size: var(--font-xs);
   color: var(--muted);
 }
