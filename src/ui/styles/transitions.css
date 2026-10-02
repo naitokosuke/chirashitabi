@@ -45,8 +45,8 @@
  * bar included, is shown live at once, so its own indicator slides as usual instead of being
  * cross-faded with a snapshot of itself.
  *   view-transition-name: ct-screen  the box a view sits in: views cross-fade
- *   view-transition-name: ct-page    a page inside a view: cross-fades, and slides a little
- *                                     when the transition is typed forward or backward
+ * A page whose content is replaced (a booklet's day) does not cross-fade, which would show two
+ * different pages through each other: it turns, with usePageTurn.
  */
 ::view-transition-old(root) {
   animation: none;
@@ -62,49 +62,4 @@
 ::view-transition-old(ct-screen),
 ::view-transition-new(ct-screen) {
   animation-duration: 0.18s;
-}
-::view-transition-old(ct-page),
-::view-transition-new(ct-page) {
-  animation-duration: 0.22s;
-  animation-timing-function: var(--ease-morph);
-}
-html:active-view-transition-type(forward) {
-  &::view-transition-old(ct-page) {
-    animation-name: ct-page-out-start;
-  }
-  &::view-transition-new(ct-page) {
-    animation-name: ct-page-in-end;
-  }
-}
-html:active-view-transition-type(backward) {
-  &::view-transition-old(ct-page) {
-    animation-name: ct-page-out-end;
-  }
-  &::view-transition-new(ct-page) {
-    animation-name: ct-page-in-start;
-  }
-}
-@keyframes ct-page-out-start {
-  to {
-    opacity: 0;
-    translate: -16px 0;
-  }
-}
-@keyframes ct-page-out-end {
-  to {
-    opacity: 0;
-    translate: 16px 0;
-  }
-}
-@keyframes ct-page-in-end {
-  from {
-    opacity: 0;
-    translate: 16px 0;
-  }
-}
-@keyframes ct-page-in-start {
-  from {
-    opacity: 0;
-    translate: -16px 0;
-  }
 }
