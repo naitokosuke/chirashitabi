@@ -146,7 +146,7 @@ const i18n = useI18n();
       padding: 0 12px;
       border-radius: 999px;
       font-size: var(--font-xs);
-      font-weight: 600;
+      font-weight: 700;
     }
     & .ok {
       /* the member's color, deepened so white reads on it whatever the member picked */

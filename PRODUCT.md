@@ -56,7 +56,7 @@ Constraints to preserve: two people per room; no Google key ever ships to the br
 
 - The name `chirashitabi` (散らし + 旅: scatter, and a trip), set in lowercase as a wordmark; no logo asset exists.
 - The sticky-note and notebook metaphor: ideas are paper notes scattered on a surface, and the result is a booklet (`shiori`). Future design keeps this metaphor; it may change how it is drawn.
-- The typeface currently loaded (Zen Maru Gothic) is not a commitment.
+- No web font: the app uses each device's own Japanese gothic (owner's decision, 2026-10-02, for load time and offline reading on the trip).
 
 ## Evidence on Hand
 

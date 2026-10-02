@@ -182,7 +182,7 @@ onMounted(() => {
   & h1 {
     margin: 0;
     font-size: var(--font-3xl);
-    font-weight: 900;
+    font-weight: 700;
   }
 
   & h2 {

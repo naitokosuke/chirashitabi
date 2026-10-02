@@ -31,32 +31,32 @@ colors:
   ruled-line-dark: "#3a403c"
 typography:
   title:
-    fontFamily: "Zen Maru Gothic, Hiragino Maru Gothic ProN, system-ui, sans-serif"
+    fontFamily: "Noto Sans JP, Noto Sans CJK JP, Hiragino Sans, Hiragino Kaku Gothic ProN, Yu Gothic UI, Meiryo, system-ui, sans-serif"
     fontSize: "19px"
-    fontWeight: 900
+    fontWeight: 700
     lineHeight: 1.3
   heading:
-    fontFamily: "Zen Maru Gothic, Hiragino Maru Gothic ProN, system-ui, sans-serif"
+    fontFamily: "Noto Sans JP, Noto Sans CJK JP, Hiragino Sans, Hiragino Kaku Gothic ProN, Yu Gothic UI, Meiryo, system-ui, sans-serif"
     fontSize: "17px"
     fontWeight: 700
     lineHeight: 1.35
   body:
-    fontFamily: "Zen Maru Gothic, Hiragino Maru Gothic ProN, system-ui, sans-serif"
+    fontFamily: "Noto Sans JP, Noto Sans CJK JP, Hiragino Sans, Hiragino Kaku Gothic ProN, Yu Gothic UI, Meiryo, system-ui, sans-serif"
     fontSize: "16px"
     fontWeight: 400
     lineHeight: 1.5
   note:
-    fontFamily: "Zen Maru Gothic, Hiragino Maru Gothic ProN, system-ui, sans-serif"
+    fontFamily: "Noto Sans JP, Noto Sans CJK JP, Hiragino Sans, Hiragino Kaku Gothic ProN, Yu Gothic UI, Meiryo, system-ui, sans-serif"
     fontSize: "15px"
     fontWeight: 700
     lineHeight: 1.4
   label:
-    fontFamily: "Zen Maru Gothic, Hiragino Maru Gothic ProN, system-ui, sans-serif"
+    fontFamily: "Noto Sans JP, Noto Sans CJK JP, Hiragino Sans, Hiragino Kaku Gothic ProN, Yu Gothic UI, Meiryo, system-ui, sans-serif"
     fontSize: "13px"
     fontWeight: 700
     lineHeight: 1.3
   caption:
-    fontFamily: "Zen Maru Gothic, Hiragino Maru Gothic ProN, system-ui, sans-serif"
+    fontFamily: "Noto Sans JP, Noto Sans CJK JP, Hiragino Sans, Hiragino Kaku Gothic ProN, Yu Gothic UI, Meiryo, system-ui, sans-serif"
     fontSize: "12px"
     fontWeight: 400
     lineHeight: 1.4
@@ -183,14 +183,14 @@ Pastel paper on a green-gray desk, written in navy ink, with a red stamp for the
 
 ## Typography
 
-**Display Font:** Zen Maru Gothic (with Hiragino Maru Gothic ProN, system-ui)
-**Body Font:** Zen Maru Gothic (same family; one voice for everything)
+**Display Font:** the device's own Japanese gothic (Noto Sans JP / Noto Sans CJK JP on Android, Hiragino Sans on iPhone and Mac, Yu Gothic UI / Meiryo on Windows)
+**Body Font:** the same (one voice for everything; nothing is downloaded)
 
-**Character:** A rounded gothic, Japanese first, with English set in the same face. Headings are the same face at 900; the weight carries the hierarchy, never a second family. The round terminals are the warmth; nothing else needs to be decorative.
+**Character:** A plain modern gothic, Japanese first, the one each phone already speaks. Headings are the same face at 700; size and weight carry the hierarchy, never a second family. The warmth lives in the paper, its colors and its shadows, not in the letterforms. A web font was dropped on purpose: a Japanese face is hundreds of kilobytes of render-blocking slices, swaps mid-read, and is missing offline on the trip.
 
 ### Hierarchy
 
-- **Title** (900, 19px, 1.3): the wordmark `chirashitabi` and a sheet's title (new note, the booklet's day heading).
+- **Title** (700, 19px, 1.3): the wordmark `chirashitabi` and a sheet's title (new note, the booklet's day heading).
 - **Heading** (700, 17–18px, 1.35): section headings inside a view (a day in the booklet, a group on the rooms screen).
 - **Body** (400, 16px, 1.5): reading text in the booklet and in forms.
 - **Note** (700, 15px, 1.4): a sticky's title; its body is Caption in Pencil Gray.
@@ -201,7 +201,9 @@ Pastel paper on a green-gray desk, written in navy ink, with a red stamp for the
 
 **The Fixed Scale Rule.** Sizes are the pixel steps in `tokens.css` (11, 12, 13, 14, 15, 16, 17, 18, 19, 22). No `clamp()`, no viewport units; this is a tool viewed at arm's length on a phone.
 
-**The Weight Carries It Rule.** Hierarchy comes from 400 / 700 / 900 in one family. A second family, uppercase tracking or gradient text is not in the vocabulary.
+**The Weight Carries It Rule.** Hierarchy comes from size and from 400 / 700 in one family. A second family, a web font, uppercase tracking or gradient text is not in the vocabulary.
+
+**The No Download Rule.** Type is never fetched. The stack names Noto first so Android shows it, and every other platform falls to its own Japanese gothic; there is no `@font-face` and no font host.
 
 ## Layout
 

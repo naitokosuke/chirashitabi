@@ -311,7 +311,7 @@ function adoptDraft() {
 h1 {
   margin: 0;
   font-size: var(--font-4xl);
-  font-weight: 900;
+  font-weight: 700;
   color: var(--accent-text);
 }
 
@@ -444,7 +444,7 @@ h1 {
 .day {
   margin: 8px 0 10px;
   font-size: var(--font-2xl);
-  font-weight: 900;
+  font-weight: 700;
   &.tagged {
     color: color-mix(in oklch, var(--tag) var(--tint-mix), var(--tint-base));
   }
@@ -513,7 +513,7 @@ h1 {
     border-radius: 4px;
     color: color-mix(in oklch, var(--jade) 68%, var(--paper-ink));
     font-size: var(--font-sm);
-    font-weight: 900;
+    font-weight: 700;
     letter-spacing: 0.04em;
     transform: rotate(-10deg);
     opacity: 0.9;
@@ -603,7 +603,7 @@ h1 {
 
 .time-read {
   padding-block-start: 2px;
-  font-weight: 900;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--paper-ink);
   font-size: var(--font-md);
@@ -730,7 +730,7 @@ h1 {
       padding: 0 12px;
       border-radius: 999px;
       font-size: var(--font-sm);
-      font-weight: 600;
+      font-weight: 700;
     }
     .ok {
       background: color-mix(in oklch, var(--who) 70%, #1c2238);

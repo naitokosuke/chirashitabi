@@ -12,7 +12,14 @@ body {
   color: var(--ink);
 }
 body {
-  font-family: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+  /*
+   * The OS's own Japanese gothic, nothing downloaded: Noto where it is installed (Android ships it as
+   * Noto Sans CJK JP), Hiragino on iPhone and Mac, Yu Gothic UI / Meiryo on Windows. Works offline,
+   * never swaps faces mid-read. Weights are 400 and 700 only; Hiragino has no 900.
+   */
+  font-family:
+    "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    "Yu Gothic UI", Meiryo, system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;

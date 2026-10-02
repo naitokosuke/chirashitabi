@@ -75,7 +75,7 @@
       "refersTo": "chip",
       "description": "A pill for a tag or a filter; a tint colors it, selected fills it.",
       "html": "<button class=\"ds-chip\">#Food</button><button class=\"ds-chip ds-chip-selected\">#Food</button>",
-      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line, #d9ded6); background: var(--surface, #fff); font: 700 13px/1.3 'Zen Maru Gothic', system-ui, sans-serif; color: var(--tint, var(--muted, #4b5563)); transition: background-color .28s ease, color .28s ease, border-color .28s ease; } .ds-chip-selected { background: var(--tint, var(--ink, #1c2238)); color: #fff; border-color: transparent; } .ds-chip:focus-visible { outline: 2px solid var(--ink, #1c2238); outline-offset: 2px; }"
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line, #d9ded6); background: var(--surface, #fff); font: 700 13px/1.3 'Noto Sans JP', 'Hiragino Sans', system-ui, sans-serif; color: var(--tint, var(--muted, #4b5563)); transition: background-color .28s ease, color .28s ease, border-color .28s ease; } .ds-chip-selected { background: var(--tint, var(--ink, #1c2238)); color: #fff; border-color: transparent; } .ds-chip:focus-visible { outline: 2px solid var(--ink, #1c2238); outline-offset: 2px; }"
     },
     {
       "name": "Primary Button",
@@ -83,7 +83,7 @@
       "refersTo": "button-primary",
       "description": "The one filled button on a sheet (Create, Save).",
       "html": "<button class=\"ds-btn-primary\">作成</button>",
-      "css": ".ds-btn-primary { padding: 12px 18px; border: 0; border-radius: 999px; background: var(--ink, #1c2238); color: #fff; font: 700 13px/1.3 'Zen Maru Gothic', system-ui, sans-serif; } .ds-btn-primary:disabled { opacity: .4; } .ds-btn-primary:focus-visible { outline: 2px solid var(--ink, #1c2238); outline-offset: 2px; }"
+      "css": ".ds-btn-primary { padding: 12px 18px; border: 0; border-radius: 999px; background: var(--ink, #1c2238); color: #fff; font: 700 13px/1.3 'Noto Sans JP', 'Hiragino Sans', system-ui, sans-serif; } .ds-btn-primary:disabled { opacity: .4; } .ds-btn-primary:focus-visible { outline: 2px solid var(--ink, #1c2238); outline-offset: 2px; }"
     },
     {
       "name": "Write Button",
@@ -91,7 +91,7 @@
       "refersTo": "button-fab",
       "description": "The red stamp at the bottom right of the canvas that starts a note.",
       "html": "<button class=\"ds-fab\" aria-label=\"Write a note\">+</button>",
-      "css": ".ds-fab { width: 58px; height: 58px; border: 0; border-radius: 50%; background: var(--red, #d7263d); color: #fff; font: 700 24px/1 'Zen Maru Gothic', system-ui, sans-serif; box-shadow: 0 6px 16px rgba(215, 38, 61, .35); }"
+      "css": ".ds-fab { width: 58px; height: 58px; border: 0; border-radius: 50%; background: var(--red, #d7263d); color: #fff; font: 700 24px/1 'Noto Sans JP', 'Hiragino Sans', system-ui, sans-serif; box-shadow: 0 6px 16px rgba(215, 38, 61, .35); }"
     },
     {
       "name": "Sticky Note",
@@ -99,7 +99,7 @@
       "refersTo": "note-card",
       "description": "An idea on the desk: paper stock, navy ink, the author's dot.",
       "html": "<div class=\"ds-note\" style=\"--card:#fff1b8;--who:#3c6ee0\"><p class=\"ds-note-t\">鼎泰豊で小籠包</p><p class=\"ds-note-b\">11時の開店前に並ぶ</p><p class=\"ds-note-tags\"><span style=\"color:#2e8b6e\">#Food</span></p><span class=\"ds-note-who\"></span></div>",
-      "css": ".ds-note { position: relative; width: 164px; padding: 12px; border-radius: 6px; background: var(--card, #fff1b8); color: #1c2238; box-shadow: 0 3px 10px rgba(28, 34, 56, .14); transform: rotate(-1.5deg); font-family: 'Zen Maru Gothic', system-ui, sans-serif; } .ds-note-t { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.4; } .ds-note-b { margin: 4px 0 0; font-size: 12px; color: #4b5563; } .ds-note-tags { margin: 6px 0 0; font-size: 12px; font-weight: 700; display: flex; gap: 2px 8px; } .ds-note-who { position: absolute; top: 8px; right: 8px; width: 9px; height: 9px; border-radius: 50%; background: var(--who, #9aa09c); }"
+      "css": ".ds-note { position: relative; width: 164px; padding: 12px; border-radius: 6px; background: var(--card, #fff1b8); color: #1c2238; box-shadow: 0 3px 10px rgba(28, 34, 56, .14); transform: rotate(-1.5deg); font-family: 'Noto Sans JP', 'Hiragino Sans', system-ui, sans-serif; } .ds-note-t { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.4; } .ds-note-b { margin: 4px 0 0; font-size: 12px; color: #4b5563; } .ds-note-tags { margin: 6px 0 0; font-size: 12px; font-weight: 700; display: flex; gap: 2px 8px; } .ds-note-who { position: absolute; top: 8px; right: 8px; width: 9px; height: 9px; border-radius: 50%; background: var(--who, #9aa09c); }"
     },
     {
       "name": "Suggestion",
@@ -107,7 +107,7 @@
       "refersTo": "suggestion-card",
       "description": "A different stock for a member's (often the agent's) suggestion, with adopt and dismiss.",
       "html": "<div class=\"ds-sug\" style=\"--who:#d97757\"><div class=\"ds-sug-h\"><span class=\"ds-sug-dot\"></span>Claude<small>suggestion</small></div><p class=\"ds-sug-t\">夜市は士林より寧夏がいいかも</p><div class=\"ds-sug-act\"><button class=\"ds-sug-ok\">Adopt</button><button class=\"ds-sug-no\">Dismiss</button></div></div>",
-      "css": ".ds-sug { width: 186px; padding: 12px; border-radius: 0; background: #faf9f5; color: #141413; border: 1px solid #e3dacc; box-shadow: 0 3px 10px rgba(28, 34, 56, .14); font-family: 'Zen Maru Gothic', system-ui, sans-serif; } .ds-sug-h { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; margin-bottom: 4px; } .ds-sug-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--who); } .ds-sug-h small { margin-left: auto; font-size: 11px; font-weight: 400; color: #73726c; } .ds-sug-t { margin: 0; font-size: 13px; line-height: 1.4; } .ds-sug-act { display: flex; gap: 6px; margin-top: 8px; } .ds-sug-act button { min-height: 30px; padding: 0 12px; border: 0; border-radius: 999px; font: 600 12px/1 inherit; background: none; } .ds-sug-ok { background: var(--who); color: #fff; } .ds-sug-no { border: .5px solid rgba(31, 30, 29, .3); }"
+      "css": ".ds-sug { width: 186px; padding: 12px; border-radius: 0; background: #faf9f5; color: #141413; border: 1px solid #e3dacc; box-shadow: 0 3px 10px rgba(28, 34, 56, .14); font-family: 'Noto Sans JP', 'Hiragino Sans', system-ui, sans-serif; } .ds-sug-h { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; margin-bottom: 4px; } .ds-sug-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--who); } .ds-sug-h small { margin-left: auto; font-size: 11px; font-weight: 400; color: #73726c; } .ds-sug-t { margin: 0; font-size: 13px; line-height: 1.4; } .ds-sug-act { display: flex; gap: 6px; margin-top: 8px; } .ds-sug-act button { min-height: 30px; padding: 0 12px; border: 0; border-radius: 999px; font: 700 12px/1 inherit; background: none; } .ds-sug-ok { background: var(--who); color: #fff; } .ds-sug-no { border: .5px solid rgba(31, 30, 29, .3); }"
     },
     {
       "name": "Tab Bar",
@@ -115,7 +115,7 @@
       "refersTo": "chip",
       "description": "Three equal tabs; the current one is Stamp Red over a soft red highlight.",
       "html": "<nav class=\"ds-tabs\"><button aria-current=\"page\">キャンバス</button><button>地図</button><button>しおり</button></nav>",
-      "css": ".ds-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 6px 12px; background: var(--surface, #fff); border-top: 1.5px solid var(--line, #d9ded6); font-family: 'Zen Maru Gothic', system-ui, sans-serif; } .ds-tabs button { min-height: 48px; border: 0; border-radius: 12px; background: none; color: #4b5563; font-size: 12px; font-weight: 700; } .ds-tabs button[aria-current] { color: #d7263d; background: color-mix(in srgb, #d7263d 12%, #fff); }"
+      "css": ".ds-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 6px 12px; background: var(--surface, #fff); border-top: 1.5px solid var(--line, #d9ded6); font-family: 'Noto Sans JP', 'Hiragino Sans', system-ui, sans-serif; } .ds-tabs button { min-height: 48px; border: 0; border-radius: 12px; background: none; color: #4b5563; font-size: 12px; font-weight: 700; } .ds-tabs button[aria-current] { color: #d7263d; background: color-mix(in srgb, #d7263d 12%, #fff); }"
     }
   ],
   "narrative": {
