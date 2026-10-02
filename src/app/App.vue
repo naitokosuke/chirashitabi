@@ -47,12 +47,17 @@ import canvasIcon from "./icons/canvas.svg";
 import Icon from "./icons/Icon.vue";
 import mapIcon from "./icons/map.svg";
 import shioriIcon from "./icons/shiori.svg";
+import { useRoom } from "./features/sync/useRoom";
 import Canvas, { place } from "./views/Canvas.vue";
 import Form from "./views/Form.vue";
 import Map from "./views/Map.vue";
+import Rooms from "./views/Rooms.vue";
 import Shiori from "./views/Shiori.vue";
 
 const i18n = useI18n();
+const room = useRoom();
+/** The room's views only once it has answered; until then, the rooms screen */
+const inRoom = computed(() => room.status === "connected" || room.status === "reconnecting");
 const views = computed((): CtOption<View>[] => [
   { value: "canvas", label: i18n.t("nav.canvas") },
   { value: "map", label: i18n.t("nav.map") },
@@ -78,7 +83,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
 
 <template>
   <!-- The canvas stays mounted underneath so pan/zoom survives a trip to the form or the booklet -->
-  <div class="screen">
+  <div v-if="inRoom" class="screen">
     <Canvas
       @write="() => send({ type: 'writeRequested' })"
       @edit="(note) => send({ type: 'editRequested', note })"
@@ -102,7 +107,9 @@ function onSave(input: NoteInput, keepOpen: boolean) {
       />
     </Transition>
   </div>
+  <Rooms v-else @enter="(id) => room.connect(id)" />
   <CtTabBar
+    v-if="inRoom"
     class="nav"
     :model-value="state.tab"
     :label="i18n.t('nav.label')"

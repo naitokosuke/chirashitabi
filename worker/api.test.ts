@@ -137,7 +137,7 @@ async function connect(roomId: string, email: string) {
   const queue: ServerMessage[] = [];
   const waiting: ((m: ServerMessage) => void)[] = [];
   ws.addEventListener("message", (e) => {
-    const m = JSON.parse(String(e.data)) as ServerMessage;
+    const m = JSON.parse(e.data as string) as ServerMessage;
     const w = waiting.shift();
     if (w === undefined) queue.push(m);
     else w(m);

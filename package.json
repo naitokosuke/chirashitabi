@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check:worker": "wrangler types && tsc -p worker"
+    "check:worker": "wrangler types && tsc -p worker",
+    "deploy": "VITE_MOCK=false vp build && wrangler deploy"
   },
   "dependencies": {
     "maplibre-gl": "^6.11.2",

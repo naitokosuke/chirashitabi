@@ -2,6 +2,8 @@ import { ref } from "vue";
 
 import { defineStore } from "pinia";
 
+import type { HexColor } from "../../shared/color";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import type { Member, MemberId } from "./types";
@@ -21,5 +23,11 @@ export const useMembers = defineStore("members", () => {
     members.value = snapshot;
   }
 
-  return { members, me, byId, nameOf, colorOf, apply };
+  /** A member's profile as the room relays it: applied, never sent */
+  function receive(id: MemberId, name: string, color: HexColor) {
+    const m = byId(id);
+    if (m !== undefined) Object.assign(m, { name, color });
+  }
+
+  return { members, me, byId, nameOf, colorOf, apply, receive };
 });

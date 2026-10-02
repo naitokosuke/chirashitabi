@@ -151,6 +151,12 @@ export class Room extends DurableObject<Env> {
     return id;
   }
 
+  /** The trip's name, for a member's list of rooms */
+  title(): string {
+    return this.ctx.storage.sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one()
+      .name;
+  }
+
   // ---- the socket ----
 
   /**

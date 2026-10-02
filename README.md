@@ -12,10 +12,24 @@ vp dev
 vp run check   # format + lint + type check (Vize)
 vp build
 vp build -c vite.single.config.ts   # single-file build (dist-single/)
-VITE_MOCK=false vp dev              # start with empty stores, no mock data
+vp run check:worker                 # wrangler types + tsc on worker/
+vp run deploy                       # VITE_MOCK=false build, then wrangler deploy
 ```
 
-There is no room backend yet, so the app boots with the mock data in `src/mocks/` (a Taiwan trip).
+`vp dev` on its own boots with the mock data in `src/mocks/` (a Taiwan trip) and talks to no Worker.
+
+## Running against the Worker
+
+Three processes, in this order:
+
+```bash
+vp node scripts/dev-access.mjs you@example.com   # stands in for Access: JWKS stub, .dev.vars, a signed token
+vp exec wrangler dev                              # the Worker on :8787, fetching keys from the stub
+VITE_MOCK=false vp dev                            # the app on :5173; /api is proxied to :8787 with the token
+```
+
+The app then opens on the rooms screen; make a trip and it connects to the local Durable Object.
+In production Access sets the token header itself; the stub only exists because a laptop has no Access in front of it.
 
 ## Layout
 
@@ -28,11 +42,14 @@ src/app/            The app
     Map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add
     Shiori.vue   The booklet (edit / read, appendix, a member's draft of a day)
     Form.vue     Full-screen note form (new / edit, Google Maps link -> coordinates)
+    Rooms.vue    The first screen: your trips, or make one (trip, your name and color)
 
   features/
     members/ Everyone in the room, people and agents alike; who is using this device
     notes/   Notes: store, types; input (the form's text -> title, body, tags)
-    sync/    Transport = the sync hook
+    sync/    useSync (the transport the stores send through); useRoom (the socket to a room: snapshot
+             into the stores, the other member's mutations applied, reconnect with a queue); wire
+             (the room's JSON back into the app's types)
     trip/    The room's trip (name, days, currency, map center); itinerary (notes on a day,
              status, budgets, assigning a day, adopting a draft); formatting
     tags/    Tag colors and the tag filter (store, filter bar)
@@ -61,6 +78,8 @@ src/ui/             The design system: props, slots and events only, no app impo
   composables/   useIndicator: measures the selected child so an indicator can slide to it
   index.ts, types.ts   The public entry and the shared CtOption type
 
+scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop (see "Running against the Worker")
+
 worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run check:worker` type-checks it)
   index.ts          Branches on the hostname, then identify -> Origin check -> the room API
   access.ts         AccessVerifier: the Access JWT -> a verified e-mail (signature, aud, iss, exp, nbf)
@@ -75,16 +94,16 @@ docs/               Design notes: auth-and-security.md (one hostname behind Acce
                     paid-API budgets, what stays public)
 ```
 
-## Sync hook
+## Sync
 
-`transport.send(mutation)` in `features/sync/useSync.ts` is the only way out, and it does nothing yet.
-Once the Cloudflare side (Durable Object + WebSocket) exists, connect it by:
+`transport.send(mutation)` in `features/sync/useSync.ts` is the only way out.
+`useRoom().connect(roomId)` installs a transport over the room's WebSocket and feeds what comes back into the stores:
+a snapshot goes to `useMembers().apply`, `useTrip().apply` and `useNotes().apply` (and sets `useMembers().me`);
+a mutation from the other member goes to the matching store's `receive`, which applies without sending.
+While the socket is down, mutations queue and are re-applied and sent after the next snapshot.
+`useWorker().api` (drafting, export) is still the mock.
 
-1. `useSync().transport = { send: (m) => ws.send(JSON.stringify(m)) }`
-2. passing snapshots from the server to `useMembers().apply(members)`, `useTrip().apply(trip)` and `useNotes().apply(notes)`, and setting `useMembers().me`
-3. setting `useWorker().api` to calls into the Worker
-
-`src/mocks/index.ts` does the same with mock data, so it shows what a room has to provide.
+`src/mocks/index.ts` fills the same stores by hand and marks the room as offline.
 
 `note:move` is throttled to every 80ms while dragging.
 

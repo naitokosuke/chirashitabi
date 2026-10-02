@@ -13,6 +13,21 @@ export const ja: Messages = {
 
   "member.someone": "だれか",
 
+  "rooms.yours": "あなたの旅",
+  "rooms.none": "まだ旅がありません",
+  "rooms.new": "新しい旅",
+  "rooms.name": "旅の名前",
+  "rooms.namePlaceholder": "台湾旅行",
+  "rooms.firstDay": "初日",
+  "rooms.days": "日数",
+  "rooms.currency": "通貨",
+  "rooms.you": "あなたの名前",
+  "rooms.color": "あなたの色",
+  "rooms.create": "作成",
+  "rooms.connecting": "接続中…",
+  "rooms.failed": "ルームに接続できませんでした。",
+  "rooms.retry": "もう一度",
+
   "status.idea": "候補",
   "status.fixed": "確定",
   "status.done": "済み",

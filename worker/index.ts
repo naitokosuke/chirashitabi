@@ -53,6 +53,15 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
 
   const index = env.ROOMS.getByName("index");
 
+  if (url.pathname === "/api/me") {
+    if (upgrade) return status(403, "Forbidden");
+    const ids = await index.rooms(email);
+    const rooms = await Promise.all(
+      ids.map(async (id) => ({ id, name: await env.ROOM.getByName(id).title() })),
+    );
+    return Response.json({ rooms });
+  }
+
   if (url.pathname === "/api/rooms") {
     if (upgrade) return status(403, "Forbidden");
     const body = await json(request);
