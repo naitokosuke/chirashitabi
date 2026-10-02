@@ -18,7 +18,7 @@ const i18n = useI18n();
     v-show="visibility !== 'hidden'"
     class="card"
     :class="{ suggestion: note.kind === 'suggestion', dragging, pop, dim: visibility === 'dimmed' }"
-    :style="`transform: translate(${note.x}px, ${note.y}px) rotate(${note.rot}deg); --card: ${note.color}; --who: ${members.colorOf(note.by)}`"
+    :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --card: ${note.color}; --who: ${members.colorOf(note.by)}`"
     :data-id="note.id"
     :tabindex="note.kind === 'memo' && visibility !== 'dimmed' ? 0 : undefined"
     :role="note.kind === 'memo' ? 'button' : undefined"
@@ -52,6 +52,8 @@ const i18n = useI18n();
   background: var(--card, var(--paper));
   color: var(--paper-ink);
   box-shadow: var(--shadow-paper);
+  /* the card's place and tilt live in variables so the pop can scale it where it lands */
+  transform: translate(var(--x), var(--y)) rotate(var(--rot));
   transform-origin: center;
   transition: opacity .2s, filter .2s;
   &.dragging {
@@ -161,17 +163,18 @@ const i18n = useI18n();
   animation: pop .5s cubic-bezier(.2,1.4,.4,1) both;
 }
 
+/* every frame keeps the card's translate, so it pops where it lands and never at the origin */
 @keyframes pop {
   0% {
-    transform: scale(.3) rotate(-8deg);
+    transform: translate(var(--x), var(--y)) rotate(calc(var(--rot) - 8deg)) scale(.3);
     opacity: 0
   }
   60% {
-    transform: scale(1.08) rotate(1deg);
+    transform: translate(var(--x), var(--y)) rotate(calc(var(--rot) + 1deg)) scale(1.08);
     opacity: 1
   }
   100% {
-    transform: none
+    transform: translate(var(--x), var(--y)) rotate(var(--rot))
   }
 }
 

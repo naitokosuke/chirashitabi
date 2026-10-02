@@ -16,6 +16,8 @@ import * as maplibregl from "maplibre-gl";
 import { Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
+import { CtChip } from "../../ui/index";
+
 import { formatMoney } from "../shared/money";
 
 import { useI18n } from "../i18n/useI18n";
@@ -206,6 +208,18 @@ function fitAll() {
           @click="() => toggleDay(d.date)"
         >{{ i18n.t("map.route", { date: short(d.date) }) }}</button>
       </div>
+      <!-- the desk's filter follows the pins here, and can be cleared here -->
+      <div v-if="tags.selected.size" class="filter">
+        <CtChip class="clear" @click="() => tags.selected.clear()">{{ i18n.t("filter.clear") }}</CtChip>
+        <CtChip
+          v-for="t in tags.tagList.filter((x) => tags.selected.has(x.name))"
+          :key="t.name"
+          selected
+          toggle
+          :color="t.color"
+          @click="() => tags.toggleTag(t.name)"
+        >#{{ t.name }}</CtChip>
+      </div>
       <p v-if="noPin" class="nopin">{{ i18n.t("map.noPin", { count: noPin }) }}</p>
     </div>
 
@@ -347,6 +361,24 @@ function fitAll() {
       color: var(--bg);
       border-color: transparent;
     }
+  }
+}
+
+.filter {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 24px 8px 2px;
+  margin-inline: -2px;
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  & .clear {
+    border-style: dashed;
   }
 }
 

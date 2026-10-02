@@ -328,7 +328,7 @@ watch(
           @adopt="() => store.adopt(n.id)"
           @remove="() => remove(n)"
         />
-        <div v-if="pop" class="ring" :style="`transform: translate(${pop.x}px, ${pop.y}px)`"></div>
+        <div v-if="pop" class="ring" :style="`--x: ${pop.x}px; --y: ${pop.y}px`"></div>
       </div>
     </div>
 
@@ -414,16 +414,18 @@ watch(
   border: 3px solid var(--red);
   border-radius: 16px;
   pointer-events: none;
+  transform: translate(var(--x), var(--y));
   animation: ring .7s ease-out .1s both;
 }
 
+/* every frame keeps the ring's translate: it expands around where the card landed */
 @keyframes ring {
   0% {
-    transform: scale(.6);
+    transform: translate(var(--x), var(--y)) scale(.6);
     opacity: .7
   }
   100% {
-    transform: scale(1.7);
+    transform: translate(var(--x), var(--y)) scale(1.7);
     opacity: 0
   }
 }
