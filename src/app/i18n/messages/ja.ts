@@ -50,6 +50,7 @@ export const ja: Messages = {
   "canvas.delete": "削除",
   "canvas.write": "メモを書く",
   "canvas.added": "「{$title}」を追加しました",
+  "canvas.addedAway": "「{$title}」をキャンバスに貼りました",
   "canvas.addedDrag": "「{$title}」を追加しました。ドラッグで移動、長押しで色・複製・削除",
   "canvas.deleted": "「{$title}」を削除しました",
   "canvas.empty": "まだ何もない机です。赤いボタンから最初の思いつきを散らしましょう",
@@ -76,6 +77,9 @@ export const ja: Messages = {
   "form.hint": "キャンバスで見ていたあたりの真ん中に貼られます",
   "form.saveHere": "この場所に貼る",
   "form.hintHere": "地図のこの場所にピンが立ちます。キャンバスにも同じ付箋が貼られます",
+  "form.saveNoPlace": "貼る",
+  "form.hintNoPlace":
+    "キャンバスに貼られます。上に Google マップのリンクを貼ると地図にもピンが立ちます",
 
   "map.all": "すべて",
   "map.route": "{$date} のルート",

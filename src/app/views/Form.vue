@@ -68,6 +68,20 @@ onBeforeUnmount(() => {
 const BACK = { canvas: "nav.canvas", map: "nav.map", shiori: "nav.booklet" } as const;
 /** From the map with a place: the note is a pin there (and a card on the desk) */
 const atPlace = computed(() => props.from === "map" && hasPin());
+/** From the map's stamp with no place yet: it still lands on the canvas, so say so instead of "save to canvas" from a map */
+const noPlace = computed(() => props.from === "map" && !hasPin());
+const saveLabel = computed(() =>
+  editing.value
+    ? "form.save"
+    : atPlace.value
+      ? "form.saveHere"
+      : noPlace.value
+        ? "form.saveNoPlace"
+        : "form.saveToCanvas",
+);
+const hintKey = computed(() =>
+  atPlace.value ? "form.hintHere" : noPlace.value ? "form.hintNoPlace" : "form.hint",
+);
 
 function addTag(raw: string) {
   const t = normalizeTag(raw);
@@ -187,8 +201,8 @@ function submit() {
       </div>
     </div>
     <div class="foot">
-      <button class="save" type="submit" :disabled="!text.trim()">{{ i18n.t(editing ? "form.save" : atPlace ? "form.saveHere" : "form.saveToCanvas") }}</button>
-      <p v-if="!editing" class="hint">{{ i18n.t(atPlace ? "form.hintHere" : "form.hint") }}</p>
+      <button class="save" type="submit" :disabled="!text.trim()">{{ i18n.t(saveLabel) }}</button>
+      <p v-if="!editing" class="hint">{{ i18n.t(hintKey) }}</p>
     </div>
   </form>
 </template>

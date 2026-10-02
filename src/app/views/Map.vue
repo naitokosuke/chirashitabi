@@ -298,9 +298,13 @@ function fitAll() {
       transform: rotate(-45deg) scale(1.3);
     }
 
+    /* the children fade, not the marker: MapLibre writes its own inline opacity on the marker root */
     &.dim {
-      opacity: .25;
       pointer-events: none;
+      & .dot,
+      & .lbl {
+        opacity: .25;
+      }
     }
   }
 

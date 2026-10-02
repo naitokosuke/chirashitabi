@@ -52,6 +52,7 @@ export const en = {
   "canvas.delete": "Delete",
   "canvas.write": "Write a note",
   "canvas.added": "Added “{$title}”",
+  "canvas.addedAway": "Added “{$title}” to the canvas",
   "canvas.addedDrag": "Added “{$title}”. Drag to move; long-press for color, copy or delete",
   "canvas.deleted": "Deleted “{$title}”",
   "canvas.empty": "An empty desk. Tap the red button to scatter the first idea",
@@ -78,6 +79,9 @@ export const en = {
   "form.hint": "It pops up in the middle of where you were looking on the canvas",
   "form.saveHere": "Pin it here",
   "form.hintHere": "It becomes a pin at this place on the map, and a note on the canvas too",
+  "form.saveNoPlace": "Save",
+  "form.hintNoPlace":
+    "It goes on the canvas. Paste a Google Maps link above and it becomes a pin too",
 
   "map.all": "All",
   "map.route": "Route {$date}",
