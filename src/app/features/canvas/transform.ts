@@ -44,6 +44,25 @@ export function pinchTo(start: PinchStart, a: Pt, b: Pt): View {
   return { tx: mid.x - (start.mid.x - start.tx) * k, ty: mid.y - (start.mid.y - start.ty) * k, s };
 }
 
+/** A card's size on the desk, near enough for laying things out around it */
+const CARD_W = 164;
+/** How far above the pile the trip's tag hangs, from the pile's top edge to the tag's middle */
+const TAG_ABOVE = 64;
+
+/**
+ * Where the trip's tag goes: centred over the pile of cards (top-left corners at `points`),
+ * hanging just above it so it heads the scatter without covering a card. With no cards,
+ * over `landing`, the point where a new card lands.
+ */
+export function tagSpot(points: Pt[], landing: Pt): Pt {
+  if (points.length === 0) return { x: landing.x, y: landing.y - TAG_ABOVE - 40 };
+  const xs = points.map((p) => p.x);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs) + CARD_W;
+  const minY = Math.min(...points.map((p) => p.y));
+  return { x: (minX + maxX) / 2, y: minY - TAG_ABOVE };
+}
+
 /** The desk's edges a fit keeps clear: a little at the top, the fit and write buttons' row at the bottom */
 const FIT_TOP = 8;
 const FIT_BOTTOM = 80;

@@ -1,4 +1,5 @@
 export type { CtOption } from "./types";
+export { useViewTransition } from "./composables/useViewTransition";
 export { default as CtAppBar } from "./components/bar/CtAppBar.vue";
 export { default as CtChip } from "./components/chip/CtChip.vue";
 export { default as CtChipRow } from "./components/chip/CtChipRow.vue";

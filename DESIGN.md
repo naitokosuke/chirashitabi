@@ -192,7 +192,7 @@ A neutral desk, white tools, one ink, and tinted paper. Nothing in the chrome is
 
 ### Hierarchy
 
-- **Display** (700, 32px, 1.2): the trip's name, once on the home view and once written in the middle of the desk. The only size above the fixed scale's top step.
+- **Display** (700, 32px, 1.2): the trip's name on the home view (on the desk it is the trip tag's 22px). The only size above the fixed scale's top step.
 - **Title** (700, 18px, 1.3): a sheet's or the memo tab's title, the wordmark on the home view.
 - **Heading** (700, 18px, 1.35): a day in the booklet, a group on the rooms screen.
 - **Body** (400, 16px, 1.5): reading text in the booklet and in forms; 17px in the note field.
@@ -208,9 +208,11 @@ A neutral desk, white tools, one ink, and tinted paper. Nothing in the chrome is
 
 ## Layout
 
-A full-screen app shell: a 64px tab bar at the bottom (plus the home-indicator inset), and above it one box that holds every view. Every view opens with the same **app bar**: one 52px row holding what the view is about (the home view's wordmark, the canvas's tag chips, the memo tab's title, the map's day chips, the booklet's day tabs), with anything that must not scroll pinned at its end. There is no title row: where the trip goes is said on the home view and in the middle of the desk. The row keeps its height whatever it holds, so the bar is pixel-identical from view to view and only what is under it changes. The tab bar has five items: home, canvas, memo, map, booklet; the app opens on the canvas.
+A full-screen app shell: a 64px tab bar at the bottom (plus the home-indicator inset), and above it one box that holds every view. Every view opens with the same **app bar**: one 52px row holding what the view is about (the home view's wordmark, the canvas's tag chips, the memo tab's title, the map's day chips, the booklet's day tabs), with anything that must not scroll pinned at its end. There is no title row: where the trip goes is said on the home view and by the trip tag on the desk. The row keeps its height whatever it holds, so the bar is pixel-identical from view to view and only what is under it changes. The tab bar has five items: home, canvas, memo, map, booklet; the app opens on the canvas.
 
-Views are built the first time they are opened and then kept: switching only says which one is painted. Nothing slides, fades or reloads between views (the map keeps its tiles, the booklet its scroll, the canvas its pan and zoom). A hidden view is inert. The note form appears two ways: as the memo tab, where it wears the app bar like any view, and as the one sheet, opened by the write button on the canvas or the map, which slides in over everything with a header the height of the app bar.
+Views are built the first time they are opened and then kept: switching only says which one is painted, and nothing reloads (the map keeps its tiles, the booklet its scroll, the canvas its pan and zoom). A hidden view is inert, and takes no part in a View Transition.
+
+Changes of place run through **View Transitions** (`useViewTransition`, `transitions.css`), never through re-rendering with a CSS fade. Only named regions morph; the tab bar and anything outside them render live at once. Changing tabs cross-fades the screen box (`ct-screen`, 180ms); the bar is the same picture before and after, so only the view under it changes. Changing the booklet's day slides its page 16px the way the tabs run while cross-fading (`ct-page`, 220ms, typed `forward` or `backward`); edit/read cross-fades the page without sliding. A named region is always a box that clips its own content (a scroll container), since a snapshot is not clipped by its ancestors. Under reduced motion, without the API, or with the page hidden, the change simply happens. The note form appears two ways: as the memo tab, where it wears the app bar like any view, and as the one sheet, opened by the write button on the canvas or the map, which slides in over everything with a header the height of the app bar.
 
 Content that is read or filled in (the booklet, the form) sits in a 648px column centered on wide screens; the canvas and the map use the whole box. Spacing is a small set of steps (4, 6, 10, 12, 16, 20px), 16px gutters. The write button sits at the bottom end, 16px from both edges; the fit button sits at the bottom start, level with its middle.
 
@@ -234,9 +236,9 @@ The desk's color with a 1px line under it, one 52px row. The default slot fills 
 
 The canvas's bar is the tag chips. While a tag is picked, two chips appear pinned at the row's end: "only these" (a toggle: off dims the other notes, on hides them) and a dashed "clear". Before a tag is picked neither means anything, so neither is shown.
 
-### Desk title
+### Trip tag
 
-The trip's name in Display, with its dates under it, fixed in the middle of the canvas's box under the notes, in a mix of the dot color and ink at half strength. It does not pan with the desk; the notes lie over it. On an empty desk the first-step hint sits under it.
+Where the trip goes, as an object lying on the desk that is plainly not a note: a luggage tag in ink (`--ink` fill, `--on-ink` text), level where stickies tilt, with a punched hole where a sticky has its author's dot, the trip's name at 22px and its dates under it. It sits in desk coordinates and pans and zooms with the notes, under them; clicks pass through it to the desk. It is placed once the desk's notes are known, centred over the pile and hanging just above it (`tagSpot`), or above where the first note will land on an empty desk, and then stays put. A fit counts it as one more card, so "fit all" always shows it.
 
 ### Home
 
@@ -278,7 +280,7 @@ The note's own paper as the pin's fill, a 2px Paper Ink edge, its title on a whi
 
 ### Booklet
 
-A day is a vertical strip of the same stickies, level, each with a fold of the same paper (lightness only) along its start edge holding the time. Status is one ink in three steps: maybe is a dashed outline, confirmed is filled, done is outlined and the paper is stamped "done" in ink. In read mode the maybes gather under "if there is time" on paper faded toward white. The tray of notes without a day is a white panel above the page. The agent's draft is its square, dashed white card.
+A day is a vertical strip of the same stickies, level, each with a fold of the same paper (lightness only) along its start edge holding the time. Status is one ink in three steps: maybe is a dashed outline, confirmed is filled, done is outlined and the paper is stamped "done" in ink. In read mode the maybes gather under "if there is time" on paper faded toward white. The trip's sums and, in edit mode, the tray of notes without a day (a white panel) sit above the page and do not scroll or slide with it; only the day's page morphs. The agent's draft is its square, dashed white card.
 
 ### Memo tab
 
@@ -310,7 +312,8 @@ When a note is written over the canvas it appears where the canvas was looking, 
 
 - **Don't** add an accent hue, a cream or ivory surface, a tinted chrome, or a color per tag.
 - **Don't** use red for anything but deleting.
-- **Don't** fade, slide or remount a view when the tab changes.
+- **Don't** remount a view, or fade it with CSS, when the tab changes; morph through a View Transition.
+- **Don't** let anything that holds for the whole view slide with a page that changes under it.
 - **Don't** add a second typeface, uppercase tracking, gradient text or an eyebrow label above a heading.
 - **Don't** fill the canvas with same-size cards in a grid; stickies keep their scatter and their tilt.
 - **Don't** reach for a modal; the form is a full-screen sheet and everything else is inline or a floating menu.

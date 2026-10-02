@@ -39,7 +39,7 @@ export function next(state: AppState, event: AppEvent): AppState {
 <script setup lang="ts" vapor>
 import { computed, ref, watch } from "vue";
 
-import { CtTabBar, type CtOption } from "../ui/index";
+import { CtTabBar, useViewTransition, type CtOption } from "../ui/index";
 
 import { useI18n } from "./i18n/useI18n";
 
@@ -106,6 +106,12 @@ function onSave(input: NoteInput, keepOpen: boolean) {
   // let the sheet leave first, then place
   setTimeout(() => place(input, how), 220);
 }
+const viewTransition = useViewTransition();
+/** The views cross-fade, the screen box being the one region that morphs (`ct-screen`) */
+function selectTab(tab: View) {
+  if (tab === state.value.tab && state.value.form === null) return;
+  viewTransition(() => send({ type: "tabSelected", tab }));
+}
 /** The memo tab writes a new, unplaced note every time */
 const NEW_NOTE: FormTarget = { kind: "new", pin: null };
 /** From the memo tab the note lands on the canvas quietly; the toast says so and offers the undo */
@@ -118,7 +124,8 @@ function onMemoSaved(input: NoteInput) {
   <!--
     Every view sits in the same box under the same bar. The canvas is always there (its pan and
     zoom survive anything); the others once opened. Switching only says which one is visible:
-    no view is rebuilt, nothing slides, nothing blinks. A hidden or covered view is inert.
+    no view is rebuilt, nothing slides, nothing blinks; a View Transition cross-fades the box.
+    A hidden or covered view is inert.
   -->
   <div v-if="inRoom" class="screen">
     <Canvas
@@ -169,7 +176,7 @@ function onMemoSaved(input: NoteInput) {
     :model-value="state.tab"
     :label="i18n.t('nav.label')"
     :items="views"
-    @update:model-value="(tab) => send({ type: 'tabSelected', tab })"
+    @update:model-value="selectTab"
   >
     <template #icon="{ value }">
       <Icon :size="22" :src="icons[value]" />
@@ -183,6 +190,8 @@ function onMemoSaved(input: NoteInput) {
   inset: 0;
   inset-block-end: var(--navh);
   overflow: hidden;
+  /* the region that cross-fades when the tab changes (transitions.css) */
+  view-transition-name: ct-screen;
 }
 
 /*
@@ -193,6 +202,13 @@ function onMemoSaved(input: NoteInput) {
 .away {
   visibility: hidden;
   opacity: 0;
+  /*
+   * And no part in a View Transition: a named region inside (the booklet's page) would be
+   * snapshotted on its own, without this opacity, and show over the view that is up.
+   */
+  & :deep(*) {
+    view-transition-name: none !important;
+  }
 }
 
 .nav {

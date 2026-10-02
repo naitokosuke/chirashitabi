@@ -52,7 +52,14 @@ import { CtAppBar, CtFab } from "../../ui/index";
 import { useI18n } from "../i18n/useI18n";
 
 import NoteCard from "../features/canvas/NoteCard.vue";
-import { distance, fitView, pinchTo, startPinch, type Pt } from "../features/canvas/transform";
+import {
+  distance,
+  fitView,
+  pinchTo,
+  startPinch,
+  tagSpot,
+  type Pt,
+} from "../features/canvas/transform";
 import { useViewport } from "../features/canvas/useViewport";
 import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteId } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
@@ -277,7 +284,20 @@ function fitAll() {
 }
 function fitted(minScale = 0) {
   const r = vp.value!.getBoundingClientRect();
-  return fitView(store.notes, r.width, r.height, minScale);
+  // the trip's tag counts as one more card, so a fit always shows it
+  const at = tagAt.value;
+  const tag = at === null ? [] : [{ x: at.x - 82, y: at.y - 40 }];
+  return fitView([...store.notes, ...tag], r.width, r.height, minScale);
+}
+
+// ---- the trip's tag: where the trip goes, an object on the desk that is not a note ----
+/** Its middle, in desk coordinates. Set once the desk's notes are known, then left where it is */
+const tagAt = shallowRef<Pt | null>(null);
+/** Where a new card lands right now: the middle of the view */
+function landing(): Pt {
+  const r = vp.value!.getBoundingClientRect();
+  const c = toWorld(r.width / 2, r.height / 2);
+  return { x: c.x, y: c.y };
 }
 /** The first look never shrinks a card past readable; the fit button still shows everything */
 const FIRST_LOOK_MIN_SCALE = 0.8;
@@ -337,18 +357,24 @@ onBeforeUnmount(() => (placeOnMounted = undefined));
 onMounted(() =>
   nextTick(() => {
     const r = vp.value!.getBoundingClientRect();
-    view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? {
-      tx: (r.width - 164) / 2,
-      ty: r.height / 2 - 60,
-      s: 1,
-    };
+    if (store.notes.length > 0) {
+      tagAt.value = tagSpot(store.notes, landing());
+      view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value;
+      return;
+    }
+    view.value = { tx: (r.width - 164) / 2, ty: r.height / 2 - 60, s: 1 };
+    tagAt.value = tagSpot([], landing());
   }),
 );
-// Notes that arrive later (the room's first snapshot) get the same first look, once
+// Notes that arrive later (the room's first snapshot) get the same first look, once, and the tag moves over them
 watch(
   () => store.notes.length > 0,
   (has, had) => {
-    if (has && !had) nextTick(() => (view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value));
+    if (!has || had) return;
+    nextTick(() => {
+      tagAt.value = tagSpot(store.notes, landing());
+      view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value;
+    });
   },
 );
 </script>
@@ -358,12 +384,7 @@ watch(
     <CtAppBar><FilterBar /></CtAppBar>
 
     <div class="desk">
-      <!-- where the trip goes, written on the desk itself, under the notes; it stays put while the desk pans -->
-      <div class="trip">
-        <p class="name">{{ trip.name }}</p>
-        <p v-if="dates" class="dates">{{ dates }}</p>
-        <p v-if="store.notes.length === 0" class="empty">{{ i18n.t("canvas.empty") }}</p>
-      </div>
+      <p v-if="store.notes.length === 0" class="empty">{{ i18n.t("canvas.empty") }}</p>
 
       <div
         ref="vp"
@@ -379,6 +400,12 @@ watch(
         @keydown="onKey"
       >
         <div class="world" :style="worldStyle">
+          <!-- where the trip goes: a luggage tag lying on the desk, under the notes, panning with them -->
+          <div v-if="tagAt !== null" class="tag" :style="`--x: ${tagAt.x}px; --y: ${tagAt.y}px`">
+            <span aria-hidden="true" class="hole"></span>
+            <p class="name">{{ trip.name }}</p>
+            <p v-if="dates" class="dates">{{ dates }}</p>
+          </div>
           <NoteCard
             v-for="n in shownNotes"
             :key="n.id"
@@ -492,42 +519,68 @@ watch(
 }
 
 /*
- * The trip's name in the middle of the desk, in the desk's own dot color: big enough to say
- * where this is going, quiet enough that the notes lying over it stay the thing you read.
+ * The trip's tag: a luggage tag in ink, level, with a punched hole and the trip's name. Not
+ * paper, so never mistaken for a note: ink instead of a tint, no tilt, a hole instead of a dot.
+ * Clicks go through it to the desk, so it pans like the desk does.
  */
-.trip {
+.tag {
   position: absolute;
-  inset-inline: 24px;
-  inset-block-start: 50%;
-  translate: 0 -50%;
-  text-align: center;
+  inset-inline-start: 0;
+  inset-block-start: 0;
+  transform: translate(var(--x), var(--y)) translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 320px;
+  padding: 12px 22px 12px 40px;
+  border-radius: 12px 18px 18px 12px;
+  background: var(--ink);
+  color: var(--on-ink);
+  box-shadow: var(--shadow-paper);
   pointer-events: none;
+  white-space: nowrap;
   & p {
     margin: 0;
   }
+  & .hole {
+    position: absolute;
+    inset-inline-start: 14px;
+    inset-block-start: 50%;
+    translate: 0 -50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--bg);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.35);
+  }
   & .name {
-    font-size: var(--font-display);
+    font-size: var(--font-4xl);
     font-weight: 700;
-    line-height: 1.2;
-    color: color-mix(in oklch, var(--dot) 70%, var(--ink));
-    opacity: 0.55;
-    overflow-wrap: anywhere;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
   }
   & .dates {
-    margin-block-start: 4px;
-    font-size: var(--font-md);
+    margin-block-start: 2px;
+    font-size: var(--font-sm);
     font-weight: 700;
-    color: var(--muted);
     opacity: 0.7;
     font-variant-numeric: tabular-nums;
   }
-  /* an empty desk says what to do first, under the name */
-  & .empty {
-    margin-block-start: 16px;
-    color: var(--muted);
-    font-size: var(--font-md);
-    font-weight: 700;
-  }
+}
+
+/* An empty desk says what to do first */
+.empty {
+  position: absolute;
+  inset-inline: 24px;
+  inset-block-start: 62%;
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--font-md);
+  font-weight: 700;
+  pointer-events: none;
 }
 
 /* level with the write button's middle */

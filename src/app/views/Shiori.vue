@@ -3,7 +3,14 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
-import { CtAppBar, CtSegmented, CtTabList, CtTabPanel, type CtOption } from "../../ui/index";
+import {
+  CtAppBar,
+  CtSegmented,
+  CtTabList,
+  CtTabPanel,
+  useViewTransition,
+  type CtOption,
+} from "../../ui/index";
 
 import { formatMoney } from "../shared/money";
 
@@ -54,8 +61,20 @@ const dayTabs = computed<CtOption[]>(() => [
   { value: APPENDIX, label: i18n.t("shiori.appendix") },
 ]);
 const activeTab = computed(() => day.value?.toString() ?? APPENDIX);
+const viewTransition = useViewTransition();
+/** The page slides the way the tabs run: to a later day forward, to an earlier one backward */
 function showTab(value: string) {
-  tab.value = value === APPENDIX ? "appendix" : Temporal.PlainDate.from(value);
+  const at = (v: string) => dayTabs.value.findIndex((t) => t.value === v);
+  const step = at(value) - at(activeTab.value);
+  if (step === 0) return;
+  viewTransition(
+    () => (tab.value = value === APPENDIX ? "appendix" : Temporal.PlainDate.from(value)),
+    [step > 0 ? "forward" : "backward"],
+  );
+}
+/** Edit and read are the same page written two ways: it cross-fades, without sliding */
+function setMode(next: Mode) {
+  viewTransition(() => (mode.value = next));
 }
 
 type Mode = "edit" | "read";
@@ -76,7 +95,7 @@ const totalAll = computed(() => trip.budgetOf(undefined, false));
 function assign(n: Memo, date: Temporal.PlainDate | null) {
   store.update(n.id, assignTo(n, date));
   picking.value = null;
-  if (date) tab.value = date;
+  if (date) showTab(date.toString());
 }
 function togglePick(n: Memo) {
   picking.value = picking.value?.id === n.id ? null : n;
@@ -133,11 +152,17 @@ function adoptDraft() {
         />
       </template>
       <template #end>
-        <CtSegmented v-model="mode" :label="i18n.t('shiori.mode')" :options="modes" />
+        <CtSegmented
+          :model-value="mode"
+          :label="i18n.t('shiori.mode')"
+          :options="modes"
+          @update:model-value="setMode"
+        />
       </template>
     </CtAppBar>
 
-    <main class="body">
+    <!-- what holds for the whole trip stays put above the page; only the day's page morphs -->
+    <div class="lead">
       <p class="sum"><template v-if="trip.days.length">{{ short(trip.days[0]!.date) }} – {{ short(trip.days.at(-1)!.date) }} · </template>{{ i18n.t("shiori.summary", { fixed: trip.fixedCount, total: price(totalFixed) }) }}<small v-if="totalAll > totalFixed">{{ i18n.t("shiori.withMaybes", { total: price(totalAll) }) }}</small></p>
 
       <!-- tray: memos without a day (edit mode only) -->
@@ -170,9 +195,11 @@ function adoptDraft() {
           <button class="later" type="button" @click="() => (picking = null)">{{ i18n.t("shiori.later") }}</button>
         </div>
       </section>
+    </div>
 
-      <!-- the page morphs when the day or the mode changes -->
-      <CtTabPanel :value="`${activeTab}:${mode}`">
+    <main class="body">
+      <!-- the page (this scrolling body) morphs when the day or the mode changes: see showTab -->
+      <CtTabPanel>
         <!-- ---------- a day ---------- -->
         <template v-if="day">
           <h2 class="day">
@@ -311,8 +338,15 @@ function adoptDraft() {
   background: var(--bg);
 }
 
+/* above the page and never scrolled: the trip's sums and, in edit mode, the tray */
+.lead {
+  flex-shrink: 0;
+  padding: 0 max(16px, calc((100% - 648px) / 2)) 4px;
+  border-block-end: 1px solid var(--line);
+}
+
 .sum {
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   font-size: var(--font-sm);
   color: var(--muted);
   & small {
@@ -331,7 +365,7 @@ function adoptDraft() {
 
 /* the notes still without a day, on a tool panel above the page */
 .tray {
-  margin-block: 12px 4px;
+  margin-block: 10px 6px;
   padding: 10px 12px 8px;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -433,6 +467,8 @@ function adoptDraft() {
   flex: 1;
   overflow-y: auto;
   padding: 0 max(16px, calc((100% - 648px) / 2)) 24px;
+  /* the page that morphs between days (transitions.css); the scrolling box clips its own snapshot */
+  view-transition-name: ct-page;
 }
 
 .day {
