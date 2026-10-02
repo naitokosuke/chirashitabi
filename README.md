@@ -65,7 +65,9 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
   index.ts          Branches on the hostname, then identify -> Origin check -> the room API
   access.ts         AccessVerifier: the Access JWT -> a verified e-mail (signature, aud, iss, exp, nbf)
   rooms-index.ts    RoomsIndex: e-mail -> { room, member id }; the only place an e-mail is stored
-  room.ts           Room: the member table (people and the agent), and the WebSocket
+  room.ts           Room: the trip, its notes and members in SQLite; the socket: snapshot on connect,
+                    mutations checked, stamped (by, updatedAt), written and sent to the other sockets
+  wire.ts           What crosses the socket (Temporal values as ISO strings) and the checks it must pass
   api.test.ts       The Worker in workerd via wrangler's test harness, Access stood in for by a throwaway key
   env.d.ts          ACCESS_CERTS_URL, the one var only the tests set
 
