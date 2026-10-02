@@ -151,14 +151,15 @@ The Worker reads it instead; no Google key is involved.
 
 The Worker is fetching a URL the user typed, so the fetch is fenced.
 
-- Only `maps.app.goo.gl` and `goo.gl/maps` hosts are accepted (Google kept app-generated Maps links alive past the 2025 `goo.gl` shutdown); anything else is returned to the client unchanged.
-- The fetch sends a desktop `User-Agent` and uses `redirect: "manual"`.
-  One hop back to `maps.app.goo.gl` itself is allowed, since some agents get that first; then the `Location` is read.
-- The `Location` is accepted only when its host matches `google.<tld>` with an optional `www.` or `maps.` (`www.google.com`, `maps.google.com`, `www.google.com.tw` and the like); it is never followed further.
-  A `consent.google.com` or anything else is returned unexpanded and the note is placed by long-press instead.
+- Only the short-link hosts Google Maps hands out are accepted: `maps.app.goo.gl`, `app.goo.gl/maps`, `goo.gl/maps` (kept alive past the 2025 `goo.gl` shutdown) and `g.co`.
+  Anything else is returned to the client unchanged.
+- The fetch sends a desktop `User-Agent` and uses `redirect: "manual"`, and reads `Location` from the one response.
+  A sample link answers 302 with `Location: https://www.google.com/maps/search/<lat>,+<lng>?...`, so the coordinates are already in the header.
+- The `Location` is accepted only when its host is `google.<tld>` or `google.<cc>.<tld>` with an optional `www.` or `maps.` (`www.google.com`, `maps.google.com`, `www.google.com.tw`); this is the host shape GeoShare, which resolves these links in production, accepts.
+  A `Location` of the Google Maps Go form `maps.app.goo.gl/?link=<url>` is unwrapped and the inner URL held to the same rule.
+  The page behind the `Location` is never fetched, so the consent page Google shows to fresh clients never enters the picture.
+  Anything else is returned unexpanded and the note is placed by long-press instead.
 - Expansions count against the member's budget like any other outbound call.
-
-Links shared from both phones in Taiwan are tested against this before the trip.
 
 ## What stays outside Access
 
