@@ -73,8 +73,8 @@ components:
   app-bar:
     backgroundColor: "{colors.desk}"
     textColor: "{colors.ink}"
-    typography: "{typography.title}"
-    height: "52px + 48px"
+    typography: "{typography.label}"
+    height: "52px"
   chip:
     backgroundColor: "{colors.tool-white}"
     textColor: "{colors.muted}"
@@ -192,7 +192,8 @@ A neutral desk, white tools, one ink, and tinted paper. Nothing in the chrome is
 
 ### Hierarchy
 
-- **Title** (700, 18px, 1.3): the trip's name in the app bar, a sheet's title.
+- **Display** (700, 32px, 1.2): the trip's name, once on the home view and once written in the middle of the desk. The only size above the fixed scale's top step.
+- **Title** (700, 18px, 1.3): a sheet's or the memo tab's title, the wordmark on the home view.
 - **Heading** (700, 18px, 1.35): a day in the booklet, a group on the rooms screen.
 - **Body** (400, 16px, 1.5): reading text in the booklet and in forms; 17px in the note field.
 - **Note** (700, 15px, 1.4): a sticky's title; its body is Caption in Paper Muted.
@@ -201,15 +202,15 @@ A neutral desk, white tools, one ink, and tinted paper. Nothing in the chrome is
 
 ### Named Rules
 
-**The Fixed Scale Rule.** Sizes are the pixel steps in `tokens.css` (12, 13, 14, 15, 16, 17, 18, 19, 22). No `clamp()`, no viewport units.
+**The Fixed Scale Rule.** Sizes are the pixel steps in `tokens.css` (12, 13, 14, 15, 16, 17, 18, 19, 22, and 32 for Display). No `clamp()`, no viewport units.
 
 **The No Download Rule.** Type is never fetched; there is no `@font-face` and no font host (owner's decision, for load time and offline reading on the trip).
 
 ## Layout
 
-A full-screen app shell: a 64px tab bar at the bottom (plus the home-indicator inset), and above it one box that holds every view. Every view opens with the same **app bar**: a 52px title row (the trip's name, then the view's actions at the end) over a 48px tools row (the canvas's tag chips, the map's day chips, the booklet's day tabs, the memo tab's one-line note on where saved notes go). Both rows keep their height when they hold little or nothing, so the bar is pixel-identical from view to view and only what is under it changes.
+A full-screen app shell: a 64px tab bar at the bottom (plus the home-indicator inset), and above it one box that holds every view. Every view opens with the same **app bar**: one 52px row holding what the view is about (the home view's wordmark, the canvas's tag chips, the memo tab's title, the map's day chips, the booklet's day tabs), with anything that must not scroll pinned at its end. There is no title row: where the trip goes is said on the home view and in the middle of the desk. The row keeps its height whatever it holds, so the bar is pixel-identical from view to view and only what is under it changes. The tab bar has five items: home, canvas, memo, map, booklet; the app opens on the canvas.
 
-Views are built the first time they are opened and then kept: switching only says which one is painted. Nothing slides, fades or reloads between views (the map keeps its tiles, the booklet its scroll, the canvas its pan and zoom). A hidden view is inert. The note form appears two ways: as the memo tab, where it wears the app bar like any view, and as the one sheet, opened by the write button on the canvas or the map, which slides in over everything with a header the height of the app bar's title row.
+Views are built the first time they are opened and then kept: switching only says which one is painted. Nothing slides, fades or reloads between views (the map keeps its tiles, the booklet its scroll, the canvas its pan and zoom). A hidden view is inert. The note form appears two ways: as the memo tab, where it wears the app bar like any view, and as the one sheet, opened by the write button on the canvas or the map, which slides in over everything with a header the height of the app bar.
 
 Content that is read or filled in (the booklet, the form) sits in a 648px column centered on wide screens; the canvas and the map use the whole box. Spacing is a small set of steps (4, 6, 10, 12, 16, 20px), 16px gutters. The write button sits at the bottom end, 16px from both edges; the fit button sits at the bottom start, level with its middle.
 
@@ -227,7 +228,19 @@ A person's sticky has a small radius (6px); the agent's suggestion and draft are
 
 ### App bar (`CtAppBar`)
 
-The desk's color with a 1px line under it. Title row: the trip's name (Title, ellipsis), actions at the end (the canvas's filter switch, the booklet's edit/read switch, nothing on the memo tab or the map). Tools row: a `CtChipRow` (one scrolling row of chips that fades at its end) or the day tabs, whose underline sits on the bar's own edge.
+The desk's color with a 1px line under it, one 52px row. The default slot fills it: a `CtChipRow` (one scrolling row of chips that fades at its end), the day tabs (their underline sits on the bar's own edge), or a title. The `end` slot is pinned outside anything that scrolls: the booklet's edit/read switch. Something that appears at the end narrows the row; it never pushes the row's chips along.
+
+### Tag filter
+
+The canvas's bar is the tag chips. While a tag is picked, two chips appear pinned at the row's end: "only these" (a toggle: off dims the other notes, on hides them) and a dashed "clear". Before a tag is picked neither means anything, so neither is shown.
+
+### Desk title
+
+The trip's name in Display, with its dates under it, fixed in the middle of the canvas's box under the notes, in a mix of the dot color and ink at half strength. It does not pan with the desk; the notes lie over it. On an empty desk the first-step hint sits under it.
+
+### Home
+
+The first tab. The bar holds the wordmark `chirashitabi`. Under it: the trip's name in Display and its dates and length; the members with their dots (you marked "you"); two white lists, the notes (all, with a day, confirmed, the confirmed budget with the maybes in small) and each day's count; and a tool button to open another trip, which leaves the room for the rooms screen.
 
 ### Write button (`CtFab`)
 
@@ -249,7 +262,7 @@ A wash-colored track; the chosen option is a white pill with a hairline and a to
 
 ### Tab bar
 
-Four equal columns (canvas, memo, map, booklet), icon over a 12px label in Muted; the current item turns ink and a 12px-radius wash slides behind it.
+Five equal columns (home, canvas, memo, map, booklet), icon over a 12px label in Muted; the current item turns ink and a 12px-radius wash slides behind it.
 
 ### Sticky note
 
@@ -269,7 +282,7 @@ A day is a vertical strip of the same stickies, level, each with a fold of the s
 
 ### Memo tab
 
-The note form, docked as a view: the app bar, then the same fields and the same "save to canvas" button as the sheet. The note field takes focus whenever the tab comes up. Saving puts the note on the canvas (the toast says so and offers the undo) and empties the form for the next one; the tab itself never shows stickies, only the canvas does.
+The note form, docked as a view: the app bar with the form's title, then the same fields and the same "save to canvas" button as the sheet. The note field takes focus whenever the tab comes up. Saving puts the note on the canvas (the toast says so and offers the undo) and empties the form for the next one; the tab itself never shows stickies, only the canvas does.
 
 ### Inputs
 
@@ -289,7 +302,7 @@ When a note is written over the canvas it appears where the canvas was looking, 
 
 - **Do** keep every tinted surface paper, and write on it in Paper Ink.
 - **Do** mark selection and the primary action in ink, and only in ink.
-- **Do** give every view the app bar, with both rows at their fixed height.
+- **Do** give every view the app bar, at its fixed height, with no title row above it.
 - **Do** keep a view mounted once opened and switch by visibility, so nothing reloads or blinks.
 - **Do** keep every size on the fixed pixel scale and every transition at 280–350ms with `--ease-morph`.
 

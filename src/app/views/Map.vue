@@ -197,18 +197,15 @@ function fitAll() {
 <template>
   <div class="mapview">
     <CtAppBar>
-      <template #title>{{ trip.name }}</template>
-      <template #tools>
-        <CtChipRow>
-          <CtChip :selected="day === null" @click="showAllDays">{{ i18n.t("map.all") }}</CtChip>
-          <CtChip
-            v-for="d in trip.days"
-            :key="d.date.toString()"
-            :selected="isDay(d.date)"
-            @click="() => toggleDay(d.date)"
-          >{{ i18n.t("map.route", { date: short(d.date) }) }}</CtChip>
-        </CtChipRow>
-      </template>
+      <CtChipRow>
+        <CtChip :selected="day === null" @click="showAllDays">{{ i18n.t("map.all") }}</CtChip>
+        <CtChip
+          v-for="d in trip.days"
+          :key="d.date.toString()"
+          :selected="isDay(d.date)"
+          @click="() => toggleDay(d.date)"
+        >{{ i18n.t("map.route", { date: short(d.date) }) }}</CtChip>
+      </CtChipRow>
     </CtAppBar>
 
     <div class="stage">

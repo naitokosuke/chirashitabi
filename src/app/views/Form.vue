@@ -39,7 +39,6 @@ import {
 import { useNotes } from "../features/notes/useNotes";
 import { placeFromUrl } from "../features/place/google-maps";
 import { useTags } from "../features/tags/useTags";
-import { useTrip } from "../features/trip/useTrip";
 import backIcon from "../icons/back.svg";
 import closeIcon from "../icons/close.svg";
 import Icon from "../icons/Icon.vue";
@@ -51,14 +50,13 @@ import Icon from "../icons/Icon.vue";
  */
 const props = defineProps<{
   target: FormTarget;
-  from: "canvas" | "memo" | "map" | "shiori";
+  from: "home" | "canvas" | "memo" | "map" | "shiori";
   docked?: boolean;
   active?: boolean;
 }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
 const store = useNotes();
 const tags = useTags();
-const trip = useTrip();
 const i18n = useI18n();
 const id = useId();
 const editing = computed(() => props.target.kind === "edit");
@@ -105,6 +103,7 @@ onBeforeUnmount(() => {
 });
 
 const BACK = {
+  home: "nav.home",
   canvas: "nav.canvas",
   memo: "nav.memo",
   map: "nav.map",
@@ -124,7 +123,13 @@ const saveLabel = computed(() =>
         : "form.saveToCanvas",
 );
 const hintKey = computed(() =>
-  atPlace.value ? "form.hintHere" : noPlace.value ? "form.hintNoPlace" : "form.hint",
+  props.docked
+    ? "form.hintDocked"
+    : atPlace.value
+      ? "form.hintHere"
+      : noPlace.value
+        ? "form.hintNoPlace"
+        : "form.hint",
 );
 
 function addTag(raw: string) {
@@ -181,10 +186,7 @@ function submit() {
 <template>
   <form class="formview" :class="{ docked }" @submit.prevent="submit">
     <!-- as a tab, the form wears the app bar like every other view -->
-    <CtAppBar v-if="docked">
-      <template #title>{{ trip.name }}</template>
-      <template #tools><p class="bar-hint">{{ i18n.t("form.hintDocked") }}</p></template>
-    </CtAppBar>
+    <CtAppBar v-if="docked"><h2 class="bar-title">{{ i18n.t("form.titleNew") }}</h2></CtAppBar>
     <div v-else class="head">
       <button class="back" type="button" @click="() => emit('close')">
         <Icon :size="16" :src="backIcon" />{{ i18n.t(BACK[from]) }}
@@ -253,7 +255,7 @@ function submit() {
     </div>
     <div class="foot">
       <button class="save" type="submit" :disabled="!text.trim()">{{ i18n.t(saveLabel) }}</button>
-      <p v-if="!editing && !docked" class="hint">{{ i18n.t(hintKey) }}</p>
+      <p v-if="!editing" class="hint">{{ i18n.t(hintKey) }}</p>
     </div>
   </form>
 </template>
@@ -273,24 +275,21 @@ function submit() {
   }
 }
 
-.bar-hint {
+.bar-title {
   margin: 0;
   padding-inline: 16px;
-  font-size: var(--font-sm);
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: var(--font-2xl);
+  font-weight: 700;
 }
 
-/* the app bar's title row: same height and gutters, so the sheet lands where the bar was */
+/* the app bar's height and edge, so the sheet lands where the bar was */
 .head {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 10px;
   box-sizing: content-box;
-  height: var(--bar-title);
+  height: var(--bar);
   padding: env(safe-area-inset-top, 0px) 12px 0;
   border-block-end: 1px solid var(--line);
   & h2 {

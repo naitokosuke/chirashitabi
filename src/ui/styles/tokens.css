@@ -40,6 +40,8 @@
   --font-2xl: 18px;
   --font-3xl: 19px;
   --font-4xl: 22px;
+  /* the one display size: the trip's name, written on the desk and on the home view */
+  --font-display: 32px;
 
   /* Depth: neutral, offset down, soft. Paper lifts; a tool on the desk lifts gently */
   --shadow-tool: 0 1px 2px rgb(17 19 24 / 0.05);
@@ -50,9 +52,8 @@
   /* The smallest thing a thumb is asked to hit */
   --tap: 36px;
 
-  /* The app bar: the same two rows on every view, so switching never moves the page */
-  --bar-title: 52px;
-  --bar-tools: 48px;
+  /* The app bar: the same one row on every view, so switching never moves the page */
+  --bar: 52px;
 
   /* Stacking, low to high */
   --z-float: 2;

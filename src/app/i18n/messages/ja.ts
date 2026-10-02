@@ -7,6 +7,7 @@ export const ja: Messages = {
   "common.dismiss": "見送る",
 
   "nav.label": "画面",
+  "nav.home": "ホーム",
   "nav.canvas": "キャンバス",
   "nav.memo": "メモ",
   "nav.map": "地図",
@@ -41,11 +42,21 @@ export const ja: Messages = {
   "status.fixed": "確定",
   "status.done": "済み",
 
-  "filter.label": "絞り込み方",
-  "filter.dim": "ほかを薄く",
   "filter.only": "これだけ",
   "filter.clear": "× クリア",
   "filter.none": "メモに #タグ を書くと、ここで絞り込めます",
+
+  "home.days": "{$count :integer}日間",
+  "home.members": "メンバー",
+  "home.you": "あなた",
+  "home.notes": "メモ",
+  "home.all": "すべてのメモ",
+  "home.withDay": "日付が決まったメモ",
+  "home.fixed": "確定",
+  "home.budget": "確定分の予算",
+  "home.byDay": "日ごと",
+  "home.count": "{$count :integer} 件",
+  "home.leave": "別の旅を開く",
 
   "canvas.undo": "取り消す",
   "canvas.duplicate": "複製",

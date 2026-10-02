@@ -11,6 +11,10 @@ const i18n = useI18n();
 function clearTags() {
   tags.selected.clear();
 }
+/** Off: the other notes are dimmed; on: only the picked tags' notes are left on the desk */
+function toggleOnly() {
+  tags.mode = tags.mode === "only" ? "dim" : "only";
+}
 </script>
 
 <template>
@@ -26,8 +30,14 @@ function clearTags() {
       >#{{ t.name }}</CtChip>
       <p v-if="tags.tagList.length === 0" class="none">{{ i18n.t("filter.none") }}</p>
     </CtChipRow>
-    <!-- outside the row, at its end: appearing narrows the row, it never pushes a chip along -->
-    <CtChip v-if="tags.selected.size" class="clear" @click="clearTags">{{ i18n.t("filter.clear") }}</CtChip>
+    <!--
+      Outside the row, at its end, and only while a tag is picked (they mean nothing before):
+      appearing narrows the row, it never pushes a chip along.
+    -->
+    <div v-if="tags.selected.size" class="picked">
+      <CtChip toggle :selected="tags.mode === 'only'" @click="toggleOnly">{{ i18n.t("filter.only") }}</CtChip>
+      <CtChip class="clear" @click="clearTags">{{ i18n.t("filter.clear") }}</CtChip>
+    </div>
   </div>
 </template>
 
@@ -39,8 +49,14 @@ function clearTags() {
   align-items: center;
 }
 
+.picked {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  padding-inline-end: 12px;
+}
+
 .clear {
-  margin-inline-end: 12px;
   border-style: dashed;
 }
 

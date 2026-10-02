@@ -47,7 +47,7 @@ import {
   watch,
 } from "vue";
 
-import { CtAppBar, CtFab, CtSegmented, type CtOption } from "../../ui/index";
+import { CtAppBar, CtFab } from "../../ui/index";
 
 import { useI18n } from "../i18n/useI18n";
 
@@ -58,8 +58,8 @@ import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteId } from "../fea
 import { useNotes } from "../features/notes/useNotes";
 import { useToast } from "../features/toast/useToast";
 import FilterBar from "../features/tags/FilterBar.vue";
-import type { FilterMode } from "../features/tags/types";
 import { useTags } from "../features/tags/useTags";
+import { shortDate } from "../features/trip/format";
 import { useTrip } from "../features/trip/useTrip";
 import Icon from "../icons/Icon.vue";
 import plusIcon from "../icons/plus.svg";
@@ -70,10 +70,13 @@ const toast = useToast();
 const tags = useTags();
 const trip = useTrip();
 const i18n = useI18n();
-const filterModes = computed((): CtOption<FilterMode>[] => [
-  { value: "dim", label: i18n.t("filter.dim") },
-  { value: "only", label: i18n.t("filter.only") },
-]);
+/** "11/3 – 11/6", or nothing while the room has no days */
+const dates = computed(() => {
+  const first = trip.days[0]?.date;
+  const last = trip.days.at(-1)?.date;
+  if (first === undefined || last === undefined) return "";
+  return `${shortDate(first, i18n.locale)} – ${shortDate(last, i18n.locale)}`;
+});
 const { view, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
 const worldStyle = computed(
@@ -352,15 +355,16 @@ watch(
 
 <template>
   <div class="canvas">
-    <CtAppBar>
-      <template #title>{{ trip.name }}</template>
-      <template #actions>
-        <CtSegmented v-model="tags.mode" :label="i18n.t('filter.label')" :options="filterModes" />
-      </template>
-      <template #tools><FilterBar /></template>
-    </CtAppBar>
+    <CtAppBar><FilterBar /></CtAppBar>
 
     <div class="desk">
+      <!-- where the trip goes, written on the desk itself, under the notes; it stays put while the desk pans -->
+      <div class="trip">
+        <p class="name">{{ trip.name }}</p>
+        <p v-if="dates" class="dates">{{ dates }}</p>
+        <p v-if="store.notes.length === 0" class="empty">{{ i18n.t("canvas.empty") }}</p>
+      </div>
+
       <div
         ref="vp"
         class="viewport"
@@ -388,8 +392,6 @@ watch(
           <div v-if="pop" class="ring" :style="`--x: ${pop.x}px; --y: ${pop.y}px`"></div>
         </div>
       </div>
-
-      <p v-if="store.notes.length === 0" class="empty">{{ i18n.t("canvas.empty") }}</p>
 
       <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
 
@@ -489,16 +491,43 @@ watch(
   }
 }
 
-/* An empty desk says what to do first */
-.empty {
+/*
+ * The trip's name in the middle of the desk, in the desk's own dot color: big enough to say
+ * where this is going, quiet enough that the notes lying over it stay the thing you read.
+ */
+.trip {
   position: absolute;
   inset-inline: 24px;
-  inset-block-start: 40%;
+  inset-block-start: 50%;
+  translate: 0 -50%;
   text-align: center;
-  color: var(--muted);
-  font-size: var(--font-md);
-  font-weight: 700;
   pointer-events: none;
+  & p {
+    margin: 0;
+  }
+  & .name {
+    font-size: var(--font-display);
+    font-weight: 700;
+    line-height: 1.2;
+    color: color-mix(in oklch, var(--dot) 70%, var(--ink));
+    opacity: 0.55;
+    overflow-wrap: anywhere;
+  }
+  & .dates {
+    margin-block-start: 4px;
+    font-size: var(--font-md);
+    font-weight: 700;
+    color: var(--muted);
+    opacity: 0.7;
+    font-variant-numeric: tabular-nums;
+  }
+  /* an empty desk says what to do first, under the name */
+  & .empty {
+    margin-block-start: 16px;
+    color: var(--muted);
+    font-size: var(--font-md);
+    font-weight: 700;
+  }
 }
 
 /* level with the write button's middle */

@@ -9,6 +9,7 @@ export const en = {
   "common.dismiss": "Dismiss",
 
   "nav.label": "Views",
+  "nav.home": "Home",
   "nav.canvas": "Canvas",
   "nav.memo": "Memo",
   "nav.map": "Map",
@@ -43,11 +44,21 @@ export const en = {
   "status.fixed": "Confirmed",
   "status.done": "Done",
 
-  "filter.label": "How to filter",
-  "filter.dim": "Dim others",
   "filter.only": "Only these",
   "filter.clear": "× Clear",
   "filter.none": "Write a #tag on a note to filter by it here",
+
+  "home.days": "{$count :integer}-day trip",
+  "home.members": "Members",
+  "home.you": "you",
+  "home.notes": "Notes",
+  "home.all": "All notes",
+  "home.withDay": "With a day",
+  "home.fixed": "Confirmed",
+  "home.budget": "Budget, confirmed",
+  "home.byDay": "By day",
+  "home.count": "{$count :integer}",
+  "home.leave": "Open another trip",
 
   "canvas.undo": "Undo",
   "canvas.duplicate": "Duplicate",

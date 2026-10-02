@@ -122,11 +122,8 @@ function adoptDraft() {
 <template>
   <div class="shiori">
     <CtAppBar>
-      <template #title>{{ trip.name }}</template>
-      <template #actions>
-        <CtSegmented v-model="mode" :label="i18n.t('shiori.mode')" :options="modes" />
-      </template>
-      <template #tools>
+      <!-- explicit: Vapor drops implicit default-slot content that sits beside a named slot -->
+      <template #default>
         <CtTabList
           class="tabs"
           :label="i18n.t('shiori.days')"
@@ -134,6 +131,9 @@ function adoptDraft() {
           :model-value="activeTab"
           @update:model-value="showTab"
         />
+      </template>
+      <template #end>
+        <CtSegmented v-model="mode" :label="i18n.t('shiori.mode')" :options="modes" />
       </template>
     </CtAppBar>
 

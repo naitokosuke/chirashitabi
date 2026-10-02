@@ -3,7 +3,7 @@ import type { Memo } from "./features/notes/types";
 import type { LatLng } from "./features/place/types";
 import type { FormTarget } from "./views/Form.vue";
 
-export type View = "canvas" | "memo" | "map" | "shiori";
+export type View = "home" | "canvas" | "memo" | "map" | "shiori";
 
 /** Everything the shell shows: the tab that is up, and the form sheet over it (closed, or open on a target) */
 export type AppState = { tab: View; form: FormTarget | null };
@@ -45,6 +45,7 @@ import { useI18n } from "./i18n/useI18n";
 
 import type { NoteInput } from "./features/notes/types";
 import canvasIcon from "./icons/canvas.svg";
+import homeIcon from "./icons/home.svg";
 import Icon from "./icons/Icon.vue";
 import mapIcon from "./icons/map.svg";
 import memoIcon from "./icons/memo.svg";
@@ -53,6 +54,7 @@ import { useRoom } from "./features/sync/useRoom";
 import Toast from "./features/toast/Toast.vue";
 import Canvas, { place } from "./views/Canvas.vue";
 import Form from "./views/Form.vue";
+import Home from "./views/Home.vue";
 import Map from "./views/Map.vue";
 import Rooms from "./views/Rooms.vue";
 import Shiori from "./views/Shiori.vue";
@@ -62,12 +64,14 @@ const room = useRoom();
 /** The room's views only once it has answered; until then, the rooms screen */
 const inRoom = computed(() => room.status === "connected" || room.status === "reconnecting");
 const views = computed((): CtOption<View>[] => [
+  { value: "home", label: i18n.t("nav.home") },
   { value: "canvas", label: i18n.t("nav.canvas") },
   { value: "memo", label: i18n.t("nav.memo") },
   { value: "map", label: i18n.t("nav.map") },
   { value: "shiori", label: i18n.t("nav.booklet") },
 ]);
 const icons: Record<View, string> = {
+  home: homeIcon,
   canvas: canvasIcon,
   memo: memoIcon,
   map: mapIcon,
@@ -123,6 +127,7 @@ function onMemoSaved(input: NoteInput) {
       @write="() => send({ type: 'writeRequested' })"
       @edit="(note) => send({ type: 'editRequested', note })"
     />
+    <Home v-if="opened.has('home')" :class="{ away: state.tab !== 'home' }" :inert="!live('home')" />
     <!-- the memo tab is the canvas's form, always open: each save goes on the canvas and only there -->
     <Form
       v-if="opened.has('memo')"
