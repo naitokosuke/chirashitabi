@@ -86,6 +86,7 @@ export const ja: Messages = {
   "shiori.putOn": "「{$title}」を置く日",
   "shiori.later": "あとで",
   "shiori.days": "日付",
+  "shiori.dayTab": "{$n :integer}日目 · {$date}",
   "shiori.appendix": "付録",
   "shiori.dayHeading": "{$n :integer}日目 {#date}{$date}{/date}",
   "shiori.intro": "この日のひとこと",

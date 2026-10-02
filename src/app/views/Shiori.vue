@@ -29,19 +29,24 @@ const trip = useTrip();
 const worker = useWorker();
 const members = useMembers();
 const i18n = useI18n();
-/** A picked day, the appendix, or null for "the first day" */
+/** A picked day, the appendix, or null for "today if the trip is on, else the first day" */
 const tab = ref<Temporal.PlainDate | "appendix" | null>(null);
-/** The open day, or null on the appendix tab (or while the trip has no days) */
-const day = computed(() =>
-  tab.value === "appendix" ? null : (tab.value ?? trip.days[0]?.date ?? null),
+const today = Temporal.Now.plainDateISO();
+const openingDay = computed(
+  () => trip.days.find((d) => d.date.equals(today))?.date ?? trip.days[0]?.date ?? null,
 );
+/** The open day, or null on the appendix tab (or while the trip has no days) */
+const day = computed(() => (tab.value === "appendix" ? null : (tab.value ?? openingDay.value)));
 const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 
 // tabs are keyed by the date's ISO string
 const APPENDIX = "appendix";
 const dayTabs = computed<CtOption[]>(() => [
-  ...trip.days.map((d) => ({ value: d.date.toString(), label: short(d.date) })),
+  ...trip.days.map((d) => ({
+    value: d.date.toString(),
+    label: i18n.t("shiori.dayTab", { n: trip.dayNumber(d.date), date: short(d.date) }),
+  })),
   { value: APPENDIX, label: i18n.t("shiori.appendix") },
 ]);
 const activeTab = computed(() => day.value?.toString() ?? APPENDIX);
@@ -180,50 +185,67 @@ function adoptDraft() {
 
           <p v-if="trip.forDay(day).length === 0" class="muted empty">{{ i18n.t("shiori.dayEmpty") }}</p>
 
-          <ol class="items">
-            <li v-for="n in trip.forDay(day)" :key="n.id" class="item" :class="n.schedule.status">
-              <template v-if="editing">
+          <!-- the day is a strip of the same stickies as the canvas, pinned in time order -->
+          <ol class="strip">
+            <li
+              v-for="n in editing ? trip.forDay(day) : trip.forDay(day).filter((m) => m.schedule.status !== 'idea')"
+              :key="n.id"
+              class="paper"
+              :class="n.schedule.status"
+              :style="`--card:${n.color}`"
+              :data-stamp="i18n.t('status.done')"
+            >
+              <div class="tab">
                 <input
+                  v-if="editing"
                   class="time"
                   type="time"
                   :aria-label="i18n.t('shiori.time')"
                   :value="n.schedule.time ? hhmm(n.schedule.time) : ''"
                   @change="(e: Event) => setTime(n, e)"
                 />
-                <div class="main">
-                  <p class="t">{{ n.title }}</p>
-                  <p v-if="n.body" class="b">{{ n.body }}</p>
-                  <div class="row">
-                    <button
-                      class="status"
-                      type="button"
-                      :class="n.schedule.status"
-                      @click="() => nextStatus(n)"
-                    >{{ i18n.t(`status.${n.schedule.status}`) }}</button>
-                    <span v-if="n.budget" class="muted">{{ price(n.budget) }}</span>
-                    <button class="unassign" type="button" @click="() => assign(n, null)">{{ i18n.t("shiori.removeDay") }}</button>
-                  </div>
+                <span v-else class="time-read">{{ n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime") }}</span>
+              </div>
+              <div class="main">
+                <p class="t">{{ n.title }}</p>
+                <p v-if="n.body" class="b">{{ n.body }}</p>
+                <div v-if="editing" class="row">
+                  <button
+                    class="status"
+                    type="button"
+                    :class="n.schedule.status"
+                    @click="() => nextStatus(n)"
+                  >{{ i18n.t(`status.${n.schedule.status}`) }}</button>
+                  <span v-if="n.budget" class="muted">{{ price(n.budget) }}</span>
+                  <button class="unassign" type="button" @click="() => assign(n, null)">{{ i18n.t("shiori.removeDay") }}</button>
                 </div>
-              </template>
-              <template v-else-if="n.schedule.status !== 'idea'">
-                <span class="time-read">{{ n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime") }}</span>
-                <div class="main">
-                  <p class="t">{{ n.title }}</p>
-                  <p class="meta"><span v-if="n.body">{{ n.body }}</span><span v-if="n.budget"> · {{ price(n.budget) }}</span><a
-                      v-if="safeUrl(n.mapsUrl)"
-                      :href="safeUrl(n.mapsUrl)"
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    > · {{ i18n.t("shiori.mapLink") }}</a></p>
-                </div>
-              </template>
+                <p v-else class="meta"><span v-if="n.budget">{{ price(n.budget) }}</span><a
+                    v-if="safeUrl(n.mapsUrl)"
+                    :href="safeUrl(n.mapsUrl)"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >{{ i18n.t("shiori.mapLink") }}</a></p>
+              </div>
             </li>
           </ol>
 
-          <!-- read mode: candidates at the end of the day -->
+          <!-- read mode: the maybes, faded, at the end of the strip -->
           <template v-if="!editing && trip.forDay(day, 'idea').length">
             <h3 class="maybe">{{ i18n.t("shiori.ifTime") }}</h3>
-            <ul class="maybe-list"><li v-for="n in trip.forDay(day, 'idea')" :key="n.id">{{ n.title }}<span v-if="n.budget" class="muted"> · {{ price(n.budget) }}</span></li></ul>
+            <ol class="strip">
+              <li
+                v-for="n in trip.forDay(day, 'idea')"
+                :key="n.id"
+                class="paper idea"
+                :style="`--card:${n.color}`"
+              >
+                <div class="tab"><span class="time-read">{{ n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime") }}</span></div>
+                <div class="main">
+                  <p class="t">{{ n.title }}</p>
+                  <p v-if="n.budget" class="meta"><span>{{ price(n.budget) }}</span></p>
+                </div>
+              </li>
+            </ol>
           </template>
 
           <!-- a member's draft of the day (edit mode) -->
@@ -248,7 +270,7 @@ function adoptDraft() {
         <template v-else>
           <section v-for="t in APPENDIX_TAGS" :key="t" class="appendix">
             <h2 class="day tagged" :style="`--tag:${tags.tagColor(t)}`">#{{ t }}</h2>
-            <ul class="check"><li v-for="n in trip.byTag(t)" :key="n.id"><label><input type="checkbox" />{{ n.title }}<span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
+            <ul class="check"><li v-for="n in trip.byTag(t)" :key="n.id" :style="`--card:${n.color}`"><label><input type="checkbox" />{{ n.title }}<span v-if="n.body" class="muted"> — {{ n.body }}</span></label></li></ul>
             <p v-if="trip.byTag(t).length === 0" class="muted">{{ i18n.t("shiori.tagEmpty") }}</p>
           </section>
         </template>
@@ -435,90 +457,153 @@ h1 {
   margin-block-end: 10px;
 }
 
+/* the day's line, written above the strip on the desk's own ruled line */
 .intro-read {
-  margin: 0 0 12px;
+  margin: 0 6px 14px;
+  padding-block-end: 8px;
+  border-block-end: 1.5px dashed var(--line);
   font-size: var(--font-base);
   line-height: 1.7;
 }
 
-.items {
+/* ---- the strip: stickies pinned in order ---- */
+.strip {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 4px 6px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
-.item {
+/* A sticky, the same paper as on the canvas, with a time tab along its left edge */
+.paper {
+  --tilt: -0.8deg;
+  position: relative;
   display: flex;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--surface);
-  border: 1.5px solid var(--line);
-  border-radius: 14px;
-  &.fixed {
-    border-color: var(--gold);
+  border-radius: 6px;
+  background: var(--card, var(--paper));
+  color: var(--paper-ink);
+  box-shadow: var(--shadow-paper);
+  transform: rotate(var(--tilt));
+  /* on paper, tints are mixed toward the paper's ink, whatever the desk */
+  --tint-base: var(--paper-ink);
+  --tint-mix: 68%;
+  &:nth-child(even) {
+    --tilt: 0.6deg;
   }
-  &.done {
-    opacity: .5;
+  &.idea {
+    opacity: 0.6;
+    filter: saturate(0.6);
+  }
+  /* done: stamped, and the ink fades */
+  &.done .main {
+    opacity: 0.55;
+  }
+  &.done::after {
+    content: attr(data-stamp);
+    position: absolute;
+    inset-block-start: 6px;
+    inset-inline-end: 10px;
+    padding: 1px 8px;
+    border: 2px solid color-mix(in oklch, var(--jade) 68%, var(--paper-ink));
+    border-radius: 4px;
+    color: color-mix(in oklch, var(--jade) 68%, var(--paper-ink));
+    font-size: var(--font-sm);
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    transform: rotate(-10deg);
+    opacity: 0.9;
+    pointer-events: none;
+  }
+  .tab {
+    flex-shrink: 0;
+    width: 76px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 10px 6px;
+    border-radius: 6px 0 0 6px;
+    /* a darker fold of the same paper */
+    background: color-mix(in srgb, var(--card, var(--paper)) 86%, var(--paper-ink));
   }
   .main {
     flex: 1;
     min-width: 0;
+    padding: 10px 12px 10px 12px;
   }
   .t {
     margin: 0;
     font-size: var(--font-base);
     font-weight: 700;
     line-height: 1.4;
+    overflow-wrap: anywhere;
   }
-  .b,
-  .meta {
+  .b {
     margin: 2px 0 0;
     font-size: var(--font-sm);
-    color: var(--muted);
+    color: var(--paper-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
-  .meta a {
-    /* a text link, but a thumb-sized one */
-    display: inline-block;
-    padding: 8px 6px;
-    margin: -8px -6px;
-    color: var(--link);
-    font-weight: 700;
-    text-decoration: none;
+  .meta {
+    margin: 4px 0 0;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    font-size: var(--font-sm);
+    color: var(--paper-muted);
+    a {
+      /* a text link, but a thumb-sized one */
+      display: inline-flex;
+      align-items: center;
+      min-height: var(--tap);
+      padding: 0 6px;
+      margin-inline-start: -6px;
+      color: color-mix(in oklch, var(--jade) 68%, var(--paper-ink));
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
   }
   .row {
     display: flex;
     gap: 8px;
     align-items: center;
     margin-block-start: 6px;
+    .muted {
+      color: var(--paper-muted);
+    }
   }
 }
 
 .time {
-  width: 86px;
+  width: 100%;
   min-height: var(--tap);
-  flex-shrink: 0;
   font: inherit;
   font-size: var(--font-md);
   font-weight: 700;
-  padding: 4px 6px;
-  border: 1.5px solid var(--line);
-  border-radius: 10px;
-  background: var(--bg);
-  color: var(--ink);
-  align-self: flex-start;
+  font-variant-numeric: tabular-nums;
+  padding: 4px 4px;
+  border: 1.5px solid color-mix(in srgb, var(--paper-ink) 25%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, #fff 55%, transparent);
+  color: var(--paper-ink);
+  text-align: center;
+  /* the field is the tab; the browser's clock glyph would crowd the digits out */
+  &::-webkit-calendar-picker-indicator {
+    display: none;
+  }
 }
 
 .time-read {
-  width: 56px;
-  flex-shrink: 0;
-  font-weight: 700;
+  padding-block-start: 2px;
+  font-weight: 900;
   font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  color: var(--paper-ink);
   font-size: var(--font-md);
-  padding-block-start: 1px;
 }
 
 .status {
@@ -527,19 +612,20 @@ h1 {
   border-radius: 999px;
   font-size: var(--font-xs);
   font-weight: 700;
-  background: var(--line);
+  background: color-mix(in srgb, var(--paper-ink) 10%, transparent);
   border: 1.5px solid transparent;
+  color: var(--paper-ink);
   /* confirmed and done are a tinted pill with an edge and ink-mixed text, not white on gold */
   &.fixed {
-    background: color-mix(in srgb, var(--gold) 18%, var(--surface));
+    background: color-mix(in srgb, var(--gold) 22%, transparent);
     border-color: var(--gold);
     /* gold is a light hue: it needs more ink than the other tints to read as text */
-    color: color-mix(in oklch, var(--gold) calc(var(--tint-mix) - 28%), var(--tint-base));
+    color: color-mix(in oklch, var(--gold) 40%, var(--paper-ink));
   }
   &.done {
-    background: color-mix(in srgb, var(--jade) 18%, var(--surface));
+    background: color-mix(in srgb, var(--jade) 18%, transparent);
     border-color: var(--jade);
-    color: color-mix(in oklch, var(--jade) var(--tint-mix), var(--tint-base));
+    color: color-mix(in oklch, var(--jade) 68%, var(--paper-ink));
   }
 }
 
@@ -548,18 +634,13 @@ h1 {
   min-height: var(--tap);
   padding: 0 8px;
   font-size: var(--font-xs);
-  color: var(--muted);
+  color: var(--paper-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .maybe {
-  margin: 18px 0 6px;
-  font-size: var(--font-md);
-  color: var(--muted);
-}
-
-.maybe-list {
-  margin: 0;
-  padding-inline-start: 18px;
+  margin: 18px 6px 6px;
   font-size: var(--font-md);
   color: var(--muted);
 }
@@ -592,8 +673,10 @@ h1 {
 .draft {
   margin-block-start: 14px;
   padding: 12px 14px;
-  border-radius: 12px;
+  /* square: the agent's paper, as on the canvas */
+  border-radius: 0;
   background: var(--ivory);
+  box-shadow: var(--shadow-paper);
   border: 1px solid var(--oat);
   color: var(--slate);
   .h {
@@ -652,27 +735,42 @@ h1 {
   }
 }
 
+/* the appendix: a checklist written on the notes' own paper */
 .check {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 4px 6px 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
+  li {
+    --tilt: -0.6deg;
+    transform: rotate(var(--tilt));
+    &:nth-child(even) {
+      --tilt: 0.5deg;
+    }
+  }
   label {
     display: flex;
-    gap: 10px;
-    align-items: baseline;
+    gap: 12px;
+    align-items: center;
+    min-height: 48px;
     padding: 10px 12px;
-    background: var(--surface);
-    border: 1.5px solid var(--line);
-    border-radius: 12px;
+    background: var(--card, var(--paper));
+    color: var(--paper-ink);
+    border-radius: 6px;
+    box-shadow: var(--shadow-paper);
     font-size: var(--font-base);
+    .muted {
+      color: var(--paper-muted);
+    }
   }
   input {
-    width: 20px;
-    height: 20px;
-    accent-color: var(--jade);
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    flex-shrink: 0;
+    accent-color: var(--paper-ink);
   }
 }
 
