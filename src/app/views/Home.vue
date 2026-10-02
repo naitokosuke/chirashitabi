@@ -86,12 +86,12 @@ const allTotal = computed(() => trip.budgetOf(undefined, false));
       <!-- how far the plan has come: one bar, three piles -->
       <section class="progress">
         <div aria-hidden="true" class="bar">
-          <span class="fixed" :style="`flex-grow: ${share(piles.fixed)}`"></span>
+          <span class="confirmed" :style="`flex-grow: ${share(piles.fixed)}`"></span>
           <span class="maybe" :style="`flex-grow: ${share(piles.maybe)}`"></span>
           <span class="loose" :style="`flex-grow: ${share(piles.loose)}`"></span>
         </div>
         <ul class="legend">
-          <li class="fixed"><span aria-hidden="true" class="key"></span>{{ i18n.t("home.fixed") }}<b>{{ piles.fixed }}</b></li>
+          <li class="confirmed"><span aria-hidden="true" class="key"></span>{{ i18n.t("home.fixed") }}<b>{{ piles.fixed }}</b></li>
           <li class="maybe"><span aria-hidden="true" class="key"></span>{{ i18n.t("home.maybe") }}<b>{{ piles.maybe }}</b></li>
           <li class="loose"><span aria-hidden="true" class="key"></span>{{ i18n.t("home.loose") }}<b>{{ piles.loose }}</b></li>
         </ul>
@@ -167,8 +167,8 @@ const allTotal = computed(() => trip.budgetOf(undefined, false));
     border-radius: 50%;
     display: grid;
     place-items: center;
-    background: color-mix(in oklch, var(--who) 82%, #000);
-    color: #fff;
+    background: oklch(from var(--who) min(l, 0.52) c h);
+    color: var(--on-tint);
     font-size: var(--font-lg);
     font-weight: 700;
   }
@@ -247,7 +247,7 @@ const allTotal = computed(() => trip.budgetOf(undefined, false));
       flex-basis: 0;
     }
   }
-  & .fixed {
+  & .confirmed {
     --key: var(--ink);
   }
   & .maybe {

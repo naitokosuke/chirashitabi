@@ -1,0 +1,122 @@
+<script setup lang="ts" vapor>
+import { computed, nextTick, shallowRef, useTemplateRef, watch } from "vue";
+
+import { align, flatten, type Glyph, type MorphPart } from "./glyphs";
+
+/**
+ * Text that morphs instead of being replaced: when `parts` change, the characters the old and
+ * new text share stay and slide to their new place, the others fade out where they were and in
+ * where they go. "1日目 11/3" to "2日目 11/4" moves only the digits. A part's `tone` is a class
+ * on its characters, for the parent to style with `:deep(.tone)`.
+ */
+const props = defineProps<{ parts: readonly MorphPart[] }>();
+
+let last = 0;
+const mint = () => ++last;
+const glyphs = shallowRef<Glyph[]>(align([], flatten(props.parts), mint));
+const text = computed(() => props.parts.map((p) => p.text).join(""));
+
+const root = useTemplateRef<HTMLElement>("root");
+const exits = useTemplateRef<HTMLElement>("exits");
+const glyphEls = () => [...(root.value?.querySelectorAll<HTMLElement>("[data-g]") ?? [])];
+
+watch(
+  () => props.parts.map((p) => `${p.tone ?? ""}\u0000${p.text}`).join("\u0001"),
+  async () => {
+    const next = align(glyphs.value, flatten(props.parts), mint);
+    const el = root.value;
+    const css = el ? getComputedStyle(el) : null;
+    const duration = css ? parseFloat(css.getPropertyValue("--duration-swap")) * 1000 : 0;
+    if (!el || !css || !duration) {
+      glyphs.value = next;
+      return;
+    }
+    const easing = css.getPropertyValue("--ease-morph").trim() || "ease-out";
+
+    // where every character is now
+    const before = new Map<number, { x: number; y: number }>();
+    for (const g of glyphEls())
+      before.set(Number(g.dataset.g), { x: g.offsetLeft, y: g.offsetTop });
+
+    // the leaving ones: a copy stays where it was and fades, outside the list Vue keeps
+    const staying = new Set(next.map((g) => g.id));
+    for (const g of glyphEls()) {
+      if (staying.has(Number(g.dataset.g))) continue;
+      const ghost = g.cloneNode(true) as HTMLElement;
+      ghost.removeAttribute("data-g");
+      ghost.style.cssText = `position:absolute;left:${g.offsetLeft}px;top:${g.offsetTop}px`;
+      exits.value?.append(ghost);
+      ghost
+        .animate(
+          [
+            { opacity: 1, filter: "blur(0)", transform: "none" },
+            { opacity: 0, filter: "blur(3px)", transform: "translateY(-0.3em)" },
+          ],
+          { duration, easing },
+        )
+        .finished.finally(() => ghost.remove());
+    }
+
+    glyphs.value = next;
+    await nextTick();
+
+    for (const g of glyphEls()) {
+      const was = before.get(Number(g.dataset.g));
+      if (was) {
+        const dx = was.x - g.offsetLeft;
+        const dy = was.y - g.offsetTop;
+        if (dx !== 0 || dy !== 0)
+          g.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], {
+            duration,
+            easing,
+          });
+      } else {
+        g.animate(
+          [
+            { opacity: 0, filter: "blur(3px)", transform: "translateY(0.3em)" },
+            { opacity: 1, filter: "blur(0)", transform: "none" },
+          ],
+          { duration, easing, fill: "backwards" },
+        );
+      }
+    }
+  },
+);
+</script>
+
+<template>
+  <span ref="root" class="ct-text-morph">
+    <span class="whole">{{ text }}</span>
+    <span v-for="g in glyphs" :key="g.id" aria-hidden="true" class="g" :class="g.tone" :data-g="g.id">{{ g.ch }}</span>
+    <span ref="exits" aria-hidden="true" class="exits"></span>
+  </span>
+</template>
+
+<style scoped>
+.ct-text-morph {
+  position: relative;
+  display: inline-block;
+  white-space: pre;
+}
+
+.g {
+  display: inline-block;
+}
+
+/* the leaving characters' copies sit over the row, out of its flow */
+.exits {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* the whole text, once, for screen readers; the characters are hidden from them */
+.whole {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+</style>

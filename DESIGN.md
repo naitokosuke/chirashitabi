@@ -280,7 +280,11 @@ The note's own paper as the pin's fill, a 2px Paper Ink edge, its title on a whi
 
 ### Booklet
 
-A day is a vertical strip of the same stickies, level, each with a fold of the same paper (lightness only) along its start edge holding the time. Status is one ink in three steps: maybe is a dashed outline, confirmed is filled, done is outlined and the paper is stamped "done" in ink. In read mode the maybes gather under "if there is time" on paper faded toward white. The trip's sums and, in edit mode, the tray of notes without a day (a white panel) sit above the page and do not scroll or slide with it; only the day's page morphs. The agent's draft is its square, dashed white card.
+A day is a vertical strip of the same stickies, level, each with a fold of the same paper (lightness only) along its start edge holding the time. Status is one ink in three steps: maybe is a dashed outline, confirmed is filled, done is outlined and the paper is stamped "done" in ink. In read mode the maybes gather under "if there is time" on paper faded toward white. The trip's sums and, in edit mode, the tray of notes without a day (a white panel) sit above the page and do not scroll or slide with it; only the day's page morphs. The open day's heading ("1日目 11/3(火)") is the foot of that lead and changes by text morph (`CtTextMorph`): going to the next day, only "2", "4" and the weekday change; the rest of the heading does not move.
+
+### Text morph (`CtTextMorph`)
+
+Text that changes in place without being replaced. The old and new strings are matched character by character (their longest common subsequence; a character in another tone is another character). Shared characters stay and slide to their new place; the others blur and fade out a third of an em upward where they were, and in from a third of an em below where they go (280ms, `--ease-morph`). A screen reader gets the whole text once. Use it where a label's meaning stays and only a part of it changes: a date, a count, a status. The agent's draft is its square, dashed white card.
 
 ### Memo tab
 

@@ -8,13 +8,14 @@ import {
   CtSegmented,
   CtTabList,
   CtTabPanel,
+  CtTextMorph,
   useViewTransition,
+  type CtMorphPart,
   type CtOption,
 } from "../../ui/index";
 
 import { formatMoney } from "../shared/money";
 
-import Message from "../i18n/Message.vue";
 import { useI18n } from "../i18n/useI18n";
 
 import { useMembers } from "../features/members/useMembers";
@@ -61,6 +62,14 @@ const dayTabs = computed<CtOption[]>(() => [
   { value: APPENDIX, label: i18n.t("shiori.appendix") },
 ]);
 const activeTab = computed(() => day.value?.toString() ?? APPENDIX);
+/** "1日目 11/3(火)" with the date in its own tone, or "付録" */
+const heading = computed((): CtMorphPart[] => {
+  const date = day.value;
+  if (date === null) return [{ text: i18n.t("shiori.appendix") }];
+  return i18n
+    .parts("shiori.dayHeading", { n: trip.dayNumber(date), date: longDate(date, i18n.locale) })
+    .map((s) => (s.kind === "text" ? { text: s.text } : { text: s.text, tone: "date" }));
+});
 const viewTransition = useViewTransition();
 /** The page slides the way the tabs run: to a later day forward, to an earlier one backward */
 function showTab(value: string) {
@@ -195,6 +204,9 @@ function adoptDraft() {
           <button class="later" type="button" @click="() => (picking = null)">{{ i18n.t("shiori.later") }}</button>
         </div>
       </section>
+
+      <!-- the open day's heading stays put while its page slides; only the characters that change move -->
+      <h2 class="day" :aria-label="heading.map((p) => p.text).join('')"><CtTextMorph :parts="heading" /></h2>
     </div>
 
     <main class="body">
@@ -202,15 +214,6 @@ function adoptDraft() {
       <CtTabPanel>
         <!-- ---------- a day ---------- -->
         <template v-if="day">
-          <h2 class="day">
-            <Message
-              id="shiori.dayHeading"
-              :params="{ n: trip.dayNumber(day), date: longDate(day, i18n.locale) }"
-            >
-              <template #date="{ text }"><span>{{ text }}</span></template>
-            </Message>
-          </h2>
-
           <template v-if="editing">
             <textarea
               class="intro"
@@ -475,11 +478,14 @@ function adoptDraft() {
   margin: 20px 0 10px;
   font-size: var(--font-2xl);
   font-weight: 700;
-  span {
+  /* the open day's heading, at the foot of the lead, over the page */
+  .lead & {
+    margin: 14px 0 10px;
+  }
+  /* the date after "1日目", quieter; its characters are the morph's own */
+  & :deep(.date) {
     font-size: var(--font-md);
-    font-weight: 700;
     color: var(--muted);
-    margin-inline-start: 8px;
   }
 }
 

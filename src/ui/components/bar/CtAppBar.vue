@@ -42,9 +42,5 @@ defineSlots<{ default(): unknown; end?(): unknown }>();
   align-items: center;
   gap: 6px;
   padding-inline-end: 12px;
-
-  &:empty {
-    display: none;
-  }
 }
 </style>
