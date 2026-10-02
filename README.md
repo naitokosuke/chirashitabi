@@ -88,4 +88,4 @@ Currencies and member colors arrive as plain strings too; `currencyCode` and `he
 - Coordinates come from the Google Maps link pasted into the form. Short `maps.app.goo.gl` links need the Worker
   to follow the redirect before `parseMapsUrl` sees them (not implemented yet; see `features/place/google-maps.ts`).
 - When there are no coordinates, long-press the map to place the note.
-- Google Maps is only an "open" link. There is room for an iframe (Maps Embed API, free, needs a key) on a single note's detail.
+- Google Maps is only an "open" link; no Google key ever ships to the browser (see `docs/auth-and-security.md`).

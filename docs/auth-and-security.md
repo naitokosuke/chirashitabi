@@ -20,9 +20,26 @@ URLs end up in browser history and sync, in chat link previews, in screenshots, 
 
 The goal, in order: nobody outside the two allowed people can cause a paid call; a lost logged-in phone or a bug can only spend a bounded amount; nobody outside a room can read or write it.
 
+## Invariants
+
+The rest of this document is one way to hold these.
+A change to the mechanisms is fine as long as every line here still holds; a review checks the mechanisms against this list and nothing else.
+
+- A request that did not carry a JWT accepted by `identify` causes no outbound paid call and neither reads nor writes a room.
+- A paid call runs only inside a request that `identify` accepted; alarms, cron triggers and queue consumers never make one.
+- What one person can spend is bounded by constants that only a deploy can change, and the bound is enforced before the call is made.
+- No API key or secret reaches the browser, the repository or a public page.
+- The public hostname serves only published booklet files; viewing one costs nothing and triggers no outbound call.
+- The client cannot assert who it is: `by` is stamped by the room, an agent is written as only by the Worker, and a room acts only for member ids the Worker resolved from the index.
+- A page on another origin cannot make a member's browser call the API or open the socket.
+- The single-file build has no way to reach the Worker.
+- One member cannot destroy the room's data beyond recovery.
+
 ## One hostname
 
 The Worker serves the SPA from its static assets binding and answers the API and the WebSocket on the same hostname, and Cloudflare Access protects that one hostname.
+`run_worker_first` is `true`, so the Worker code runs before the assets binding on every request and branches on `Host` first; it calls `env.ASSETS.fetch` only for the app hostname.
+With the default, matching asset paths are served without running the Worker, on every hostname the Worker is bound to.
 This is not a convenience; Access depends on it.
 The Access cookie is set for the protected hostname only, and a `fetch` or a WebSocket handshake cannot follow the redirect to the login page.
 With the SPA elsewhere, the first API call would fail and the login would never start.
@@ -36,7 +53,7 @@ The Worker is also reachable on its `workers.dev` subdomain and on preview URLs,
 
 `ctx.access` is not used.
 It is filled only for Worker-level policies and does not reach a Worker that serves static assets, so the Worker reads and verifies the JWT itself as described below.
-That also means the `access.dev` block in `wrangler.jsonc` (which feeds `ctx.access`) does not exercise `identify`; local development signs a test JWT with a throwaway key and points the certs URL at a local stub.
+That also means the `access.dev` block in `wrangler.jsonc` (which feeds `ctx.access`) does not exercise `identify`; local development signs a test JWT with a throwaway key kept in `.dev.vars` and points the certs URL at a local stub.
 
 ## Cross-site requests
 
@@ -44,7 +61,7 @@ Access checks the cookie, not where the request came from.
 A WebSocket handshake is not subject to CORS, and a cross-origin `POST` with a form or `text/plain` body is sent with cookies; only the response is hidden.
 So a member who is logged in and opens a stranger's page would let that page open our socket or post to our API on their behalf.
 
-The Worker rejects any API or upgrade request whose `Origin` header is not the app's own origin, requires `Content-Type: application/json` on API calls, and the Access application's cookie is set to `SameSite=Strict`.
+Every API call is a `POST` with `Content-Type: application/json`, so the browser always sends `Origin`; the Worker rejects any API or upgrade request whose `Origin` is missing or is not the app's own origin, and the Access application's cookie is set to `SameSite=Strict`.
 There is no CORS configuration, so no other origin is ever allowed.
 
 ## Who is asking
@@ -77,9 +94,11 @@ Its id is not derived from the room's name; `idFromName` resolves every name, so
 The id comes from a random token minted at creation.
 
 A `rooms` index object, one per account, maps each e-mail to its rooms as `{ roomId, memberId }` pairs.
-It is what the app lists on its first screen, it is where the spend budget lives (below), and it is the only place an e-mail is stored next to a member id, so a changed e-mail is a single rewrite here.
+It is what the app lists on its first screen, it is where the spend budget lives (below), and it is the only place an e-mail is stored, so a changed e-mail is a single rewrite here.
 
-The room object holds the member table, so the membership check runs inside the object, before it acts, with the verified e-mail passed in the request to the stub.
+For every request to an existing room the Worker resolves the verified e-mail to a `memberId` for that room in the index, and passes that id, not the e-mail, in the request to the room's stub.
+`room:create` has no room yet: the new room mints the creator's id and returns it, and the Worker writes the index pair.
+The room object holds its member table keyed by `memberId` and acts only for ids in it, so the check runs inside the object, before it acts.
 A member id never travels from the client as a claim of identity.
 
 Creating and joining are explicit operations, not side effects of a first visit.
@@ -87,11 +106,12 @@ Creating and joining are explicit operations, not side effects of a first visit.
 - `room:create` is called by any authenticated e-mail.
   The caller becomes the first member and the room's creator.
   An e-mail may have at most ten rooms, counted in the index.
-- `room:invite(email)` is called by an existing member of that room.
+- `room:invite(email)` is called by an existing member of that room, and a room holds at most two people.
   The invitee must also be allowed by Access, or the invitation sits unused.
-- `room:remove(member)` and `room:delete` are called by the creator, or by any member with the other member's confirmation recorded in the room.
-  Deleting a room calls `deleteAll` on its object, removes it from the index and invalidates its booklet slug.
-- Everything else from an e-mail that is not in the table is rejected inside the object.
+- `room:remove(member)` is called by the creator, or by any member with the other member's confirmation recorded in the room.
+- `room:delete` is a soft delete, whoever calls it: the room is marked deleted, dropped from the index listing and its booklet files are deleted from R2 as on rotation, and either member can restore it for 30 days (restoring means publishing again).
+  After 30 days an alarm calls `deleteAll` on the object and removes it from the index.
+- Everything else from a member id that is not in the table is rejected inside the object.
 
 `MemberId` is a random id assigned by the room at creation or invitation.
 The e-mail is a login attribute stored in the index and may change, and so may the mechanism behind `identify`; the id does not.
@@ -113,6 +133,9 @@ Without the stripping, a human could post a note as the agent, or as the other p
 
 ## Paid APIs
 
+A paid call is a request to a provider outside our own storage: Claude, Workers AI, Google, and the short-link fetch.
+Writes to R2 and Durable Object storage are not paid calls.
+
 Claude is called inside `draftDay` with a key held as a Worker secret; the browser never sees it.
 The Anthropic console gets a monthly spend limit for the workspace.
 
@@ -123,9 +146,9 @@ Access alone does not bound it.
 Google Maps splits in two.
 A future Places lookup from the Worker uses a secret key.
 IP restriction on that key is useless, since the Worker egresses from Cloudflare's shared ranges; the key is restricted to the Places API and the API's daily quota is set to a few dozen requests, which is a day of brainstorming.
-Anything that runs in the browser (an Embed API iframe, the JS API) ships its key to the client by design.
-Access cannot help there; the key is restricted by HTTP referrer and by API, and that is the only protection.
-The map today is MapLibre + OpenFreeMap, so no browser key exists yet.
+Nothing that runs in the browser gets a Google key: no Embed API iframe, no JS API.
+Such a key ships to the client by design and a referrer restriction is the only thing between it and anyone who copies it, so the option is closed rather than mitigated.
+The map is MapLibre + OpenFreeMap, and places are links to Google Maps.
 
 ## The budget
 
@@ -135,7 +158,8 @@ The budget is what bounds a lost phone or a bug, so it is specified rather than 
   A per-room budget would multiply by `room:create`.
 - It has a daily ceiling and a per-trip ceiling, both constants in `wrangler.jsonc` vars.
   No mutation can read or change them; raising one is a deploy.
-- Every outbound call counts: `draftDay`, each Clef classification, each Places lookup, each short-link expansion.
+- Every paid call counts: `draftDay`, each Clef classification, each Places lookup, each short-link expansion.
+  `exportBooklet` counts too, not because R2 is paid but because its rate is the member's to choose and each upload is up to 2 MB.
 - The order is reserve, call, settle.
   The index decrements before the outbound request; a verified failure (a 4xx or 5xx from the provider) refunds; a timeout or an exception is treated as spent.
   Recording after the call would let a retry between the call and the record spend unrecorded money.
@@ -170,7 +194,7 @@ The booklet that `exportBooklet` publishes is read-only and may be shown to peop
 A secret URL is fine there as long as the page costs nothing to view.
 
 - The path is `/r/<slug>/shiori` with a random slug minted at each publish, not the room's name, so it cannot be enumerated.
-  Publishing again rotates the slug; rotating is how a leaked link is withdrawn.
+  Publishing again rotates the slug and deletes the previous slug's files from R2; rotating is how a leaked link is withdrawn.
 - The page never carries a Google key.
   Places are links to Google Maps, as in the app, and the map on it is a static image.
   Workers cannot run MapLibre and Browser Rendering is a paid call, so the image is captured from the member's own MapLibre canvas in the browser and uploaded with the export; the Worker checks it is a PNG under 2 MB and serves it with `Content-Type: image/png` and `X-Content-Type-Options: nosniff`.
@@ -188,7 +212,7 @@ The client cannot be trusted to have run its own checks, so the room validates e
 - Each member has a token bucket for messages, separate from the paid-call budget.
 - `updatedAt` and ordering are assigned by the room, not sent by the client.
 - `note:delete` is a soft delete with 30 days of history, so one member cannot wipe the room beyond recovery.
-- The room's state is snapshotted to R2 nightly by an alarm; the alarm does nothing else.
+- The room's state is snapshotted to R2 nightly by an alarm; alarms do nothing but this snapshot and the delayed `deleteAll` above.
 
 ## Sessions and secrets
 
@@ -196,6 +220,6 @@ Access sessions can last from 15 minutes to a month.
 The trip is in Taiwan, which reaches Cloudflare (there is a Taipei PoP), Google, OpenFreeMap and Anthropic without restriction, but a login during the trip is still a nuisance, so the session is set to a month before departure.
 A month is also how long a lost phone stays logged in; a member and their sessions can be revoked at once in Zero Trust, and the budget bounds what the phone can spend until then.
 
-Snapshots expire after 30 days; nothing else is kept outside the room object and the index.
+Snapshots expire after 30 days; outside the room object and the index, the only other data is the published booklet files in R2, which go with their slug.
 
 `.dev.vars*` is in `.gitignore`; `wrangler.jsonc` holds no secret.
