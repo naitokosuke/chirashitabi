@@ -211,6 +211,22 @@ A secret URL is fine there as long as the page costs nothing to view.
 The single-file build (`vite.single.config.ts`) is a demo that runs on mock data from disk.
 Its config defines `import.meta.env.VITE_MOCK` as `"true"`, so the bundle always installs the mocks and an API origin, once one exists, is never read into it.
 
+## Crawlers and metered features
+
+A public endpoint that runs a metered Cloudflare feature per request is how a quiet site gets a large bill: an AI crawler fetched one site's `/_next/image` URLs about 2.5 million times and every hit ran Images Transformations.
+This design has no such endpoint, and keeps it that way by rule.
+
+- On `chirashitabi.app` a crawler meets Access and gets a 302 to the login page at the edge; the Worker never runs and nothing is metered.
+- On `shiori.chirashitabi.app` the Worker reads a file from R2 and returns it; no transformation, no AI, no rendering.
+  The Free plan caps the Worker at 100,000 requests a day and then answers Error 1027, so R2 sees at most about 3 million reads a month, inside its free 10 million.
+  The limit is set to fail closed in `wrangler.jsonc`; fail open "behaves as if no Worker is configured" and is not what a security-critical Worker wants.
+- The R2 bucket has no public access and no `r2.dev` domain; the Worker is its only reader, so the Worker's cap is also R2's.
+- No metered Cloudflare feature is enabled on the account: Images, Browser Rendering, paid AI Gateway, Workers Logs, Observability sampling above the free tier.
+  Turning one on is a design change, not a dashboard click.
+- The zone's AI bot policy is set to block on all pages, which Cloudflare offers to every customer; the booklet also sends `X-Robots-Tag: noindex` and serves a `robots.txt` that disallows everything.
+  These reduce the traffic; the caps above are what bound it.
+- Billing notifications are on, so an unexpected charge is seen the day it starts rather than on the invoice.
+
 ## Mutations
 
 The client cannot be trusted to have run its own checks, so the room validates every mutation with the same ones (`currencyCode`, `hexColor`, and whatever follows).
