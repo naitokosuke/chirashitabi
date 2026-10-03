@@ -9,19 +9,19 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
 
 <template>
   <button
-    class="ct-chip"
     type="button"
-    :class="{ selected }"
+    :data-selected="selected || undefined"
     :aria-pressed="toggle ? selected : undefined"
     @click="(e) => emit('click', e)"
   >
     <slot></slot>
-    <span v-if="count != null" class="count">{{ count }}</span>
+    <small v-if="count != null">{{ count }}</small>
   </button>
 </template>
 
 <style scoped>
-.ct-chip {
+@import "../../styles/media.css";
+button {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -34,27 +34,25 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
   font-size: var(--font-sm);
   font-weight: 700;
   color: var(--muted);
-  transition: background-color var(--duration-swap) ease,
+  transition:
+    background-color var(--duration-swap) ease,
     color var(--duration-swap) ease,
     border-color var(--duration-swap) ease;
-
-  @media (hover: hover) {
-    &:not(.selected):hover {
+  @media (--can-hover) {
+    &:not([data-selected]):hover {
       color: var(--ink);
       border-color: color-mix(in oklch, var(--ink) 30%, var(--line));
     }
   }
-
-  &.selected {
+  &[data-selected] {
     background: var(--ink);
     color: var(--on-ink);
     border-color: var(--ink);
   }
-}
-
-.count {
-  font-size: var(--font-2xs);
-  font-variant-numeric: tabular-nums;
-  opacity: 0.6;
+  small {
+    font-size: var(--font-2xs);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.6;
+  }
 }
 </style>

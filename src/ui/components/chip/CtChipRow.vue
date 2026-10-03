@@ -4,11 +4,11 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <div class="ct-chip-row"><slot></slot></div>
+  <div><slot></slot></div>
 </template>
 
 <style scoped>
-.ct-chip-row {
+div {
   flex: 1;
   min-width: 0;
   display: flex;

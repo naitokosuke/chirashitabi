@@ -69,7 +69,8 @@ src/app/            The app
   mocks/   Mock room data (members, trip, notes) and a mock WorkerApi, installed at boot
 
 src/ui/             The design system: props, slots and events only, no app imports
-  styles/        Tokens (colors, type, z-index, motion), base, transitions (ct-morph / ct-fade / ct-slide)
+  styles/        Tokens (colors, type, z-index, motion), base, transitions (ct-morph / ct-fade / ct-slide),
+                 named media queries (media.css)
   components/
     chip/        CtChip: a pill, optionally tinted, selected or a toggle
     segmented/   CtSegmented: the pill morphs to the choice
@@ -94,7 +95,8 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
   env.d.ts          ACCESS_CERTS_URL, the one var only the tests set
 
 docs/               Design notes: auth-and-security.md (one hostname behind Access, rooms and members, agents,
-                    paid-API budgets, what stays public)
+                    paid-API budgets, what stays public), data-fetching.md (the room in the query cache),
+                    css.md (how the style sheets are written)
 ```
 
 ## Sync

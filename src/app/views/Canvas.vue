@@ -343,7 +343,8 @@ function remove(note: Note) {
     },
   });
   // keyboard users land on the undo, not on the page
-  if (hadFocus) nextTick(() => document.querySelector<HTMLElement>(".toast button")?.focus());
+  if (hadFocus)
+    nextTick(() => document.querySelector<HTMLElement>('[role="status"] button')?.focus());
 }
 function write() {
   emit("write");
@@ -394,18 +395,17 @@ watch(
 </script>
 
 <template>
-  <div class="canvas">
+  <section>
     <CtAppBar><FilterBar /></CtAppBar>
 
-    <div class="desk">
-      <p v-if="store.notes.length === 0" class="empty">{{ i18n.t("canvas.empty") }}</p>
+    <div>
+      <p v-if="store.notes.length === 0">{{ i18n.t("canvas.empty") }}</p>
 
       <div
         ref="vp"
-        class="viewport"
         role="application"
         :aria-label="i18n.t('nav.canvas')"
-        :class="{ panning }"
+        :data-panning="panning || undefined"
         @pointerdown="onDown"
         @pointermove="onMove"
         @pointerup="onUp"
@@ -413,12 +413,12 @@ watch(
         @wheel="onWheel"
         @keydown="onKey"
       >
-        <div class="world" :style="worldStyle">
+        <div :style="worldStyle">
           <!-- where the trip goes: a luggage tag lying on the desk, under the notes, panning with them -->
           <div v-if="tagAt !== null" class="tag" :style="`--x: ${tagAt.x}px; --y: ${tagAt.y}px`">
-            <span aria-hidden="true" class="hole"></span>
-            <p class="name">{{ trip.name }}</p>
-            <p v-if="dates" class="dates">{{ dates }}</p>
+            <span aria-hidden="true"></span>
+            <p>{{ trip.name }}</p>
+            <p v-if="dates">{{ dates }}</p>
           </div>
           <NoteCard
             v-for="n in shownNotes"
@@ -439,7 +439,6 @@ watch(
       <div
         v-if="menu"
         ref="menuEl"
-        class="menu"
         role="toolbar"
         :aria-label="menu.note.title"
         :style="`inset-inline-start:${menu.x}px; inset-block-start:${menu.y}px`"
@@ -449,75 +448,230 @@ watch(
         <button
           v-for="c in COLORS"
           :key="c"
-          class="sw"
           type="button"
-          :class="{ on: menuNote?.color === c }"
           :style="`background:${PAPERS[c]}`"
           :aria-label="i18n.t(COLOR_NAMES[c])"
           :aria-pressed="menuNote?.color === c"
           @click="() => setMenuColor(c)"
         ></button>
         <button type="button" @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</button>
-        <button class="del" type="button" @click="removeFromMenu">{{ i18n.t("canvas.delete") }}</button>
+        <button type="button" @click="removeFromMenu">{{ i18n.t("canvas.delete") }}</button>
       </div>
 
       <CtFab :label="i18n.t('canvas.write')" @click="write"><Icon :size="24" :src="plusIcon" /></CtFab>
     </div>
-  </div>
+  </section>
 </template>
 
 <style scoped>
-.canvas {
+@import "../../ui/styles/media.css";
+
+section {
   position: absolute;
   inset: 0;
   isolation: isolate; /* keep the canvas chrome's z-index inside this view */
   display: flex;
   flex-direction: column;
-}
 
-/* everything under the bar: the dotted desk and what floats on it */
-.desk {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-}
+  /* everything under the bar: the dotted desk and what floats on it */
+  > div {
+    position: relative;
+    flex: 1;
+    min-height: 0;
 
-.viewport {
-  position: absolute;
-  inset: 0;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  /* clip, not hidden: focusing an off-screen card must not scroll the viewport under the transform */
-  overflow: clip;
-  cursor: grab;
-  background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px);
-  background-size: 22px 22px;
-  &.panning {
-    cursor: grabbing;
+    /* An empty desk says what to do first */
+    > p {
+      position: absolute;
+      inset-inline: 24px;
+      inset-block-start: 62%;
+      margin: 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: var(--font-md);
+      font-weight: 700;
+      pointer-events: none;
+    }
+
+    > [role="application"] {
+      position: absolute;
+      inset: 0;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      /* clip, not hidden: focusing an off-screen card must not scroll the viewport under the transform */
+      overflow: clip;
+      cursor: grab;
+      background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px);
+      background-size: 22px 22px;
+
+      &[data-panning] {
+        cursor: grabbing;
+      }
+
+      /* the world: everything on the desk, panned and zoomed as one */
+      > div {
+        position: absolute;
+        inset-inline-start: 0;
+        inset-block-start: 0;
+        transform-origin: 0 0;
+        will-change: transform;
+
+        /*
+         * The trip's tag: a luggage tag in ink, level, with a punched hole and the trip's name. Not
+         * paper, so never mistaken for a note: ink instead of a tint, no tilt, a hole instead of a dot.
+         * Clicks go through it to the desk, so it pans like the desk does.
+         */
+        > .tag {
+          position: absolute;
+          inset-inline-start: 0;
+          inset-block-start: 0;
+          transform: translate(var(--x), var(--y)) translate(-50%, -50%);
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          max-width: 320px;
+          padding: 12px 22px 12px 40px;
+          border-radius: 12px 18px 18px 12px;
+          background: var(--ink);
+          color: var(--on-ink);
+          box-shadow: var(--shadow-paper);
+          pointer-events: none;
+          white-space: nowrap;
+
+          /* the punched hole */
+          > span {
+            position: absolute;
+            inset-inline-start: 14px;
+            inset-block-start: 50%;
+            translate: 0 -50%;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--bg);
+            box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.35);
+          }
+
+          > p {
+            margin: 0;
+
+            /* the trip's name */
+            &:first-of-type {
+              font-size: var(--font-4xl);
+              font-weight: 700;
+              line-height: 1.25;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              max-width: 100%;
+            }
+
+            /* its dates, under the name */
+            & + p {
+              margin-block-start: 2px;
+              font-size: var(--font-sm);
+              font-weight: 700;
+              opacity: 0.7;
+              font-variant-numeric: tabular-nums;
+            }
+          }
+        }
+
+        > .ring {
+          position: absolute;
+          inset-inline-start: 0;
+          inset-block-start: 0;
+          width: 192px;
+          height: 110px;
+          border: 2px solid color-mix(in oklch, var(--ink) 50%, transparent);
+          border-radius: 14px;
+          pointer-events: none;
+          transform: translate(var(--x), var(--y));
+          animation: ring .7s ease-out .1s both;
+
+          @media (--reduced-motion) {
+            display: none;
+          }
+        }
+      }
+    }
+
+    /* level with the write button's middle */
+    > .jump {
+      position: absolute;
+      inset-inline-start: 16px;
+      inset-block-end: 24px;
+      z-index: var(--z-chrome);
+
+      > button {
+        min-height: 40px;
+        padding: 0 14px;
+        border-radius: 999px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow-tool);
+        font-size: var(--font-sm);
+        font-weight: 700;
+        color: var(--muted);
+
+        @media (--can-hover) {
+          &:hover {
+            color: var(--ink);
+          }
+        }
+      }
+    }
+
+    /* The card's menu: a row of paper colors, then the two actions; wraps on a narrow desk */
+    > [role="toolbar"] {
+      position: absolute;
+      z-index: var(--z-menu);
+      max-width: calc(100% - 16px);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      box-shadow: var(--shadow-float);
+
+      > button {
+        min-height: 40px;
+        padding: 0 12px;
+        border-radius: 10px;
+        font-size: var(--font-md);
+        font-weight: 700;
+
+        /* delete, the last action */
+        &:last-child {
+          color: var(--danger);
+        }
+
+        @media (--can-hover) {
+          &:hover {
+            background: var(--wash);
+          }
+        }
+
+        /* a paper color: the only buttons with a pressed state */
+        &[aria-pressed] {
+          width: var(--tap);
+          height: var(--tap);
+          border-radius: 50%;
+          margin: 2px;
+          padding: 0;
+          min-height: 0;
+          /* a hairline keeps white paper visible on the white menu */
+          box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
+
+          &[aria-pressed="true"] {
+            outline: 2px solid var(--ink);
+            outline-offset: 2px;
+          }
+        }
+      }
+    }
   }
-}
-
-.world {
-  position: absolute;
-  inset-inline-start: 0;
-  inset-block-start: 0;
-  transform-origin: 0 0;
-  will-change: transform;
-}
-
-.ring {
-  position: absolute;
-  inset-inline-start: 0;
-  inset-block-start: 0;
-  width: 192px;
-  height: 110px;
-  border: 2px solid color-mix(in oklch, var(--ink) 50%, transparent);
-  border-radius: 14px;
-  pointer-events: none;
-  transform: translate(var(--x), var(--y));
-  animation: ring .7s ease-out .1s both;
 }
 
 /* every frame keeps the ring's translate: it expands around where the card landed */
@@ -529,145 +683,6 @@ watch(
   100% {
     transform: translate(var(--x), var(--y)) scale(1.7);
     opacity: 0
-  }
-}
-
-/*
- * The trip's tag: a luggage tag in ink, level, with a punched hole and the trip's name. Not
- * paper, so never mistaken for a note: ink instead of a tint, no tilt, a hole instead of a dot.
- * Clicks go through it to the desk, so it pans like the desk does.
- */
-.tag {
-  position: absolute;
-  inset-inline-start: 0;
-  inset-block-start: 0;
-  transform: translate(var(--x), var(--y)) translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  max-width: 320px;
-  padding: 12px 22px 12px 40px;
-  border-radius: 12px 18px 18px 12px;
-  background: var(--ink);
-  color: var(--on-ink);
-  box-shadow: var(--shadow-paper);
-  pointer-events: none;
-  white-space: nowrap;
-  & p {
-    margin: 0;
-  }
-  & .hole {
-    position: absolute;
-    inset-inline-start: 14px;
-    inset-block-start: 50%;
-    translate: 0 -50%;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--bg);
-    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.35);
-  }
-  & .name {
-    font-size: var(--font-4xl);
-    font-weight: 700;
-    line-height: 1.25;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-  }
-  & .dates {
-    margin-block-start: 2px;
-    font-size: var(--font-sm);
-    font-weight: 700;
-    opacity: 0.7;
-    font-variant-numeric: tabular-nums;
-  }
-}
-
-/* An empty desk says what to do first */
-.empty {
-  position: absolute;
-  inset-inline: 24px;
-  inset-block-start: 62%;
-  margin: 0;
-  text-align: center;
-  color: var(--muted);
-  font-size: var(--font-md);
-  font-weight: 700;
-  pointer-events: none;
-}
-
-/* level with the write button's middle */
-.jump {
-  position: absolute;
-  inset-inline-start: 16px;
-  inset-block-end: 24px;
-  z-index: var(--z-chrome);
-  & button {
-    min-height: 40px;
-    padding: 0 14px;
-    border-radius: 999px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    box-shadow: var(--shadow-tool);
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-    @media (hover: hover) {
-      &:hover {
-        color: var(--ink);
-      }
-    }
-  }
-}
-
-/* The card's menu: a row of paper colors, then the two actions; wraps on a narrow desk */
-.menu {
-  position: absolute;
-  z-index: var(--z-menu);
-  max-width: calc(100% - 16px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 6px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  box-shadow: var(--shadow-float);
-  & button {
-    min-height: 40px;
-    padding: 0 12px;
-    border-radius: 10px;
-    font-size: var(--font-md);
-    font-weight: 700;
-    &.del {
-      color: var(--danger);
-    }
-    @media (hover: hover) {
-      &:hover {
-        background: var(--wash);
-      }
-    }
-  }
-  & .sw {
-    width: var(--tap);
-    height: var(--tap);
-    border-radius: 50%;
-    margin: 2px;
-    padding: 0;
-    min-height: 0;
-    /* a hairline keeps white paper visible on the white menu */
-    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
-    &.on {
-      outline: 2px solid var(--ink);
-      outline-offset: 2px;
-    }
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ring {
-    display: none
   }
 }
 </style>

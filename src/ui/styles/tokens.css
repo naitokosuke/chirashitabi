@@ -1,3 +1,5 @@
+@import "./media.css";
+
 :root {
   /*
    * Graphite on paper. The desk and the tools are neutral, one ink writes everything and
@@ -57,6 +59,16 @@
   /* The app bar: the same one row on every view, so switching never moves the page */
   --bar: 52px;
 
+  /*
+   * The inline margin of a page column (the booklet, the form, the home view): a phone's
+   * edge, and on a wide screen whatever centers a 648px column. The percentage resolves
+   * where it is used, against the box being padded.
+   */
+  --page-margin: 16px;
+  @media (--wide) {
+    --page-margin: calc((100% - 648px) / 2);
+  }
+
   /* Stacking, low to high */
   --z-float: 2;
   --z-float-top: 3;
@@ -69,33 +81,33 @@
   --ease-morph: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-morph: 0.35s;
   --duration-swap: 0.28s;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: oklch(0.185 0.004 260);
-    --dot: oklch(0.3 0.005 260);
-    --surface: oklch(0.23 0.005 260);
-    --ink: oklch(0.94 0.004 260);
-    --muted: oklch(0.72 0.008 260);
-    --line: oklch(0.31 0.006 260);
-    --wash: color-mix(in oklch, var(--ink) 8%, transparent);
-    --danger: oklch(0.72 0.15 27);
-    --on-ink: oklch(0.185 0.004 260);
-    /* paper stays paper on a dark desk, a step dimmer so it does not glare */
-    --paper-yellow: oklch(0.88 0.075 100);
-    --paper-pink: oklch(0.865 0.04 12);
-    --paper-mint: oklch(0.87 0.04 165);
-    --paper-sky: oklch(0.865 0.038 245);
-    --paper-lilac: oklch(0.865 0.04 300);
-    --paper-white: oklch(0.92 0 0);
-    --shadow-tool: 0 1px 2px rgb(0 0 0 / 0.3);
-    --shadow-paper: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.3);
-    --shadow-lift: 0 16px 32px rgb(0 0 0 / 0.5);
-    --shadow-float: 0 2px 6px rgb(0 0 0 / 0.3), 0 12px 28px rgb(0 0 0 / 0.45);
+
+  @media (--dark) {
+    &:not([data-theme="light"]) {
+      --bg: oklch(0.185 0.004 260);
+      --dot: oklch(0.3 0.005 260);
+      --surface: oklch(0.23 0.005 260);
+      --ink: oklch(0.94 0.004 260);
+      --muted: oklch(0.72 0.008 260);
+      --line: oklch(0.31 0.006 260);
+      --wash: color-mix(in oklch, var(--ink) 8%, transparent);
+      --danger: oklch(0.72 0.15 27);
+      --on-ink: oklch(0.185 0.004 260);
+      /* paper stays paper on a dark desk, a step dimmer so it does not glare */
+      --paper-yellow: oklch(0.88 0.075 100);
+      --paper-pink: oklch(0.865 0.04 12);
+      --paper-mint: oklch(0.87 0.04 165);
+      --paper-sky: oklch(0.865 0.038 245);
+      --paper-lilac: oklch(0.865 0.04 300);
+      --paper-white: oklch(0.92 0 0);
+      --shadow-tool: 0 1px 2px rgb(0 0 0 / 0.3);
+      --shadow-paper: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.3);
+      --shadow-lift: 0 16px 32px rgb(0 0 0 / 0.5);
+      --shadow-float: 0 2px 6px rgb(0 0 0 / 0.3), 0 12px 28px rgb(0 0 0 / 0.45);
+    }
   }
-}
-@media (prefers-reduced-motion: reduce) {
-  :root {
+
+  @media (--reduced-motion) {
     --duration-morph: 0s;
     --duration-swap: 0s;
   }

@@ -85,38 +85,33 @@ watch(
 </script>
 
 <template>
-  <span ref="root" class="ct-text-morph">
-    <span class="whole">{{ text }}</span>
-    <span v-for="g in glyphs" :key="g.id" aria-hidden="true" class="g" :class="g.tone" :data-g="g.id">{{ g.ch }}</span>
-    <span ref="exits" aria-hidden="true" class="exits"></span>
+  <span ref="root">
+    <!-- the whole text, once, for screen readers; the characters are hidden from them -->
+    <span>{{ text }}</span>
+    <span v-for="g in glyphs" :key="g.id" aria-hidden="true" :class="g.tone" :data-g="g.id">{{ g.ch }}</span>
+    <!-- the leaving characters' copies, over the row and out of its flow -->
+    <span ref="exits" aria-hidden="true"></span>
   </span>
 </template>
 
 <style scoped>
-.ct-text-morph {
+/* the row, and each character in it: a character moves as a box */
+span {
   position: relative;
   display: inline-block;
   white-space: pre;
-}
-
-.g {
-  display: inline-block;
-}
-
-/* the leaving characters' copies sit over the row, out of its flow */
-.exits {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-/* the whole text, once, for screen readers; the characters are hidden from them */
-.whole {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  > span:first-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  > span:last-child {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
 }
 </style>

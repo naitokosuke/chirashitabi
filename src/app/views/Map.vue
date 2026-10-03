@@ -199,7 +199,7 @@ function fitAll() {
 </script>
 
 <template>
-  <div class="mapview">
+  <section>
     <CtAppBar>
       <CtChipRow>
         <CtChip :selected="day === null" @click="showAllDays">{{ i18n.t("map.all") }}</CtChip>
@@ -212,12 +212,12 @@ function fitAll() {
       </CtChipRow>
     </CtAppBar>
 
-    <div class="stage">
-      <div ref="el" class="map"></div>
+    <div>
+      <div ref="el"></div>
 
       <div class="top">
         <!-- the desk's filter follows the pins here, and can be cleared here -->
-        <div v-if="tags.selected.size" class="filter">
+        <div v-if="tags.selected.size">
           <CtChip class="clear" @click="() => tags.selected.clear()">{{ i18n.t("filter.clear") }}</CtChip>
           <CtChip
             v-for="t in tags.tagList.filter((x) => tags.selected.has(x.name))"
@@ -227,7 +227,7 @@ function fitAll() {
             @click="() => tags.toggleTag(t.name)"
           >#{{ t.name }}</CtChip>
         </div>
-        <p v-if="noPin" class="nopin">{{ i18n.t("map.noPin", { count: noPin }) }}</p>
+        <p v-if="noPin">{{ i18n.t("map.noPin", { count: noPin }) }}</p>
       </div>
 
       <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
@@ -235,26 +235,26 @@ function fitAll() {
       <!-- the same write button as the canvas: writing is never more than a tap away -->
       <CtFab :label="i18n.t('canvas.write')" @click="() => emit('write', null)"><Icon :size="24" :src="plusIcon" /></CtFab>
 
-      <div v-if="selected" class="card" :style="`--card:${PAPERS[selected.color]}`">
-        <p class="t">{{ selected.title }}</p>
-        <p v-if="selected.body" class="b">{{ selected.body }}</p>
-        <p class="meta">
+      <article v-if="selected" :style="`--card:${PAPERS[selected.color]}`">
+        <h2>{{ selected.title }}</h2>
+        <p v-if="selected.body">{{ selected.body }}</p>
+        <footer>
           <span v-for="t in selected.tags" :key="t">#{{ t }} </span>
           <span v-if="selected.budget">{{ price(selected.budget) }} </span>
           <span v-if="selected.schedule">{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
-        </p>
-        <div class="act">
+        </footer>
+        <div>
           <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{ i18n.t("map.openInGoogleMaps") }}</a>
           <button type="button" @click="editSelected">{{ i18n.t("common.edit") }}</button>
-          <button class="x" type="button" :aria-label="i18n.t('common.close')" @click="closeCard"><Icon :size="18" :src="closeIcon" /></button>
+          <button type="button" :aria-label="i18n.t('common.close')" @click="closeCard"><Icon :size="18" :src="closeIcon" /></button>
         </div>
-      </div>
+      </article>
     </div>
-  </div>
+  </section>
 </template>
 
 <style scoped>
-.mapview {
+section {
   position: absolute;
   inset: 0;
   isolation: isolate;
@@ -263,7 +263,7 @@ function fitAll() {
   background: var(--bg);
 
   /* marker elements are built with innerHTML inside the map container */
-  & :deep(.pin) {
+  :deep(.pin) {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -274,7 +274,7 @@ function fitAll() {
     cursor: pointer;
     transition: opacity .2s;
 
-    & .dot {
+    > .dot {
       width: 18px;
       height: 18px;
       border-radius: 50% 50% 50% 0;
@@ -284,7 +284,7 @@ function fitAll() {
       box-shadow: 0 2px 6px rgb(17 19 24 / 0.3);
     }
 
-    & .lbl {
+    > .lbl {
       max-width: 168px;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -298,191 +298,199 @@ function fitAll() {
       box-shadow: 0 1px 2px rgb(17 19 24 / 0.12);
     }
 
-    &.on .dot {
+    &.on > .dot {
       transform: rotate(-45deg) scale(1.3);
     }
 
     /* the children fade, not the marker: MapLibre writes its own inline opacity on the marker root */
     &.dim {
       pointer-events: none;
-      & .dot,
-      & .lbl {
+
+      > .dot,
+      > .lbl {
         opacity: .25;
       }
     }
   }
 
   /* the geolocate button stacks above the write button */
-  & :deep(.maplibregl-ctrl-bottom-right) {
+  :deep(.maplibregl-ctrl-bottom-right) {
     inset-block-end: 72px;
   }
 
   /* MapLibre's own buttons (geolocate, the compact attribution) at the same 36px as every other tool */
-  & :deep(.maplibregl-ctrl-group button),
-  & :deep(.maplibregl-ctrl-attrib-button) {
+  :deep(.maplibregl-ctrl-group button),
+  :deep(.maplibregl-ctrl-attrib-button) {
     width: var(--tap);
     height: var(--tap);
   }
 
   /* the attribution would sit under the fit button otherwise */
-  & :deep(.maplibregl-ctrl-bottom-left) {
+  :deep(.maplibregl-ctrl-bottom-left) {
     inset-block-end: 76px;
   }
-}
 
-/* everything under the bar: the map and what floats on it */
-.stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-}
+  /* everything under the bar: the map and what floats on it */
+  > div {
+    position: relative;
+    flex: 1;
+    min-height: 0;
 
-.map {
-  position: absolute;
-  inset: 0;
-}
-
-.top {
-  position: absolute;
-  inset-inline: 0;
-  inset-block-start: 0;
-  z-index: var(--z-float);
-  padding: 10px 16px 0;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-
-  & > * {
-    pointer-events: auto;
-  }
-}
-
-.filter {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 2px 24px 8px 2px;
-  margin-inline: -2px;
-  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  & .clear {
-    border-style: dashed;
-  }
-}
-
-.nopin {
-  margin: 0;
-  align-self: flex-start;
-  font-size: var(--font-xs);
-  color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 4px 10px;
-  box-shadow: var(--shadow-tool);
-}
-
-/* level with the write button's middle, as on the desk */
-.jump {
-  position: absolute;
-  inset-inline-start: 16px;
-  inset-block-end: 24px;
-  z-index: var(--z-float);
-
-  & button {
-    min-height: 40px;
-    padding: 0 14px;
-    border-radius: 999px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    box-shadow: var(--shadow-tool);
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-  }
-}
-
-.card {
-  position: absolute;
-  inset-inline: 12px;
-  inset-block-end: 88px;
-  z-index: var(--z-float-top);
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-float);
-
-  & .t {
-    margin: 0;
-    font-size: var(--font-lg);
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    /* the note's paper, as a swatch rather than a stripe */
-    &::before {
-      content: "";
-      flex-shrink: 0;
-      width: 12px;
-      height: 12px;
-      border-radius: 3px;
-      background: var(--card);
-      box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
-    }
-  }
-
-  & .b {
-    margin: 2px 0 0;
-    font-size: var(--font-sm);
-    color: var(--muted);
-  }
-
-  & .meta {
-    margin: 4px 0 0;
-    font-size: var(--font-xs);
-    font-weight: 700;
-    color: var(--muted);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 8px;
-  }
-
-  & .act {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-top: 6px;
-    font-size: var(--font-sm);
-    font-weight: 700;
-
-    & a,
-    & button {
-      min-height: var(--tap);
-      padding: 0 8px;
-      display: inline-flex;
-      align-items: center;
-      border-radius: 10px;
+    /* the map itself: MapLibre's container */
+    > div:first-child {
+      position: absolute;
+      inset: 0;
     }
 
-    & a {
-      color: var(--ink);
-      text-decoration: underline;
-      text-underline-offset: 3px;
+    > .top {
+      position: absolute;
+      inset-inline: 0;
+      inset-block-start: 0;
+      z-index: var(--z-float);
+      padding: 10px 16px 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      > * {
+        pointer-events: auto;
+      }
+
+      /* the filter */
+      > div {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding: 2px 24px 8px 2px;
+        margin-inline: -2px;
+        mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+
+        &::-webkit-scrollbar {
+          display: none;
+        }
+
+        > .clear {
+          border-style: dashed;
+        }
+      }
+
+      /* the notes with no place yet */
+      > p {
+        margin: 0;
+        align-self: flex-start;
+        font-size: var(--font-xs);
+        color: var(--ink);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 10px;
+        box-shadow: var(--shadow-tool);
+      }
     }
 
-    & .x {
-      margin-inline-start: auto;
-      width: var(--tap);
-      justify-content: center;
-      color: var(--muted);
+    /* level with the write button's middle, as on the desk */
+    > .jump {
+      position: absolute;
+      inset-inline-start: 16px;
+      inset-block-end: 24px;
+      z-index: var(--z-float);
+
+      > button {
+        min-height: 40px;
+        padding: 0 14px;
+        border-radius: 999px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow-tool);
+        font-size: var(--font-sm);
+        font-weight: 700;
+        color: var(--muted);
+      }
+    }
+
+    /* the open pin's card */
+    > article {
+      position: absolute;
+      inset-inline: 12px;
+      inset-block-end: 88px;
+      z-index: var(--z-float-top);
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-float);
+
+      > h2 {
+        margin: 0;
+        font-size: var(--font-lg);
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        /* the note's paper, as a swatch rather than a stripe */
+        &::before {
+          content: "";
+          flex-shrink: 0;
+          width: 12px;
+          height: 12px;
+          border-radius: 3px;
+          background: var(--card);
+          box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
+        }
+      }
+
+      > p {
+        margin: 2px 0 0;
+        font-size: var(--font-sm);
+        color: var(--muted);
+      }
+
+      /* tags, budget, when */
+      > footer {
+        margin: 4px 0 0;
+        font-size: var(--font-xs);
+        font-weight: 700;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 8px;
+      }
+
+      /* the actions */
+      > div {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 6px;
+        font-size: var(--font-sm);
+        font-weight: 700;
+
+        > a,
+        > button {
+          min-height: var(--tap);
+          padding: 0 8px;
+          display: inline-flex;
+          align-items: center;
+          border-radius: 10px;
+        }
+
+        > a {
+          color: var(--ink);
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+
+        /* close */
+        > button:last-child {
+          margin-inline-start: auto;
+          width: var(--tap);
+          justify-content: center;
+          color: var(--muted);
+        }
+      }
     }
   }
 }

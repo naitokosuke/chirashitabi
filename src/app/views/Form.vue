@@ -184,19 +184,19 @@ function submit() {
 </script>
 
 <template>
-  <form class="formview" :class="{ docked }" @submit.prevent="submit">
+  <form :data-docked="docked || undefined" @submit.prevent="submit">
     <!-- as a tab, the form wears the app bar like every other view -->
-    <CtAppBar v-if="docked"><h2 class="bar-title">{{ i18n.t("form.titleNew") }}</h2></CtAppBar>
-    <div v-else class="head">
-      <button class="back" type="button" @click="() => emit('close')">
+    <CtAppBar v-if="docked"><h2>{{ i18n.t("form.titleNew") }}</h2></CtAppBar>
+    <header v-else>
+      <button type="button" @click="() => emit('close')">
         <Icon :size="16" :src="backIcon" />{{ i18n.t(BACK[from]) }}
       </button>
       <h2>{{ i18n.t(editing ? "form.titleEdit" : "form.titleNew") }}</h2>
       <label v-if="!editing"><input v-model="keepOpen" type="checkbox" />{{ i18n.t("form.addAnother") }}</label>
-    </div>
-    <div class="body">
+    </header>
+    <div>
       <div>
-        <label class="l" :for="`${id}-text`">{{ i18n.t("form.note") }}</label>
+        <label :for="`${id}-text`">{{ i18n.t("form.note") }}</label>
         <textarea
           :id="`${id}-text`"
           ref="textEl"
@@ -206,9 +206,9 @@ function submit() {
         ></textarea>
       </div>
       <div>
-        <label class="l" :for="`${id}-tag`">{{ i18n.t("form.tags") }}</label>
+        <label :for="`${id}-tag`">{{ i18n.t("form.tags") }}</label>
         <div class="tagbox">
-          <CtChip v-for="t in form.tags" :key="t" class="chip" selected @click="() => removeTag(t)">#{{ t }} <Icon :size="12" :src="closeIcon" /></CtChip>
+          <CtChip v-for="t in form.tags" :key="t" selected @click="() => removeTag(t)">#{{ t }} <Icon :size="12" :src="closeIcon" /></CtChip>
           <input
             :id="`${id}-tag`"
             v-model="tagInput"
@@ -225,242 +225,263 @@ function submit() {
         </div>
       </div>
       <div>
-        <label class="l" :for="`${id}-maps`">{{ i18n.t("form.place") }}</label>
+        <label :for="`${id}-maps`">{{ i18n.t("form.place") }}</label>
         <input
           :id="`${id}-maps`"
           v-model="mapsUrl"
-          class="url"
           inputmode="url"
           type="url"
           :placeholder="i18n.t('form.mapsPlaceholder')"
           @change="onMapsUrl"
         />
-        <p aria-live="polite" class="pinstate">{{ i18n.t(hasPin() ? "form.pinned" : mapsUrl.trim() ? "form.urlNoPin" : "form.unpinned") }}</p>
+        <p aria-live="polite">{{ i18n.t(hasPin() ? "form.pinned" : mapsUrl.trim() ? "form.urlNoPin" : "form.unpinned") }}</p>
       </div>
-      <div>
-        <span :id="`${id}-color`" class="l">{{ i18n.t("form.color") }}</span>
-        <div class="colors" role="group" :aria-labelledby="`${id}-color`">
+      <fieldset>
+        <legend>{{ i18n.t("form.color") }}</legend>
+        <div>
           <button
             v-for="c in COLORS"
             :key="c"
             type="button"
-            :class="{ on: form.color === c }"
             :style="`background:${PAPERS[c]}`"
             :aria-label="i18n.t(COLOR_NAMES[c])"
             :aria-pressed="form.color === c"
             @click="() => setColor(c)"
           ></button>
         </div>
-      </div>
+      </fieldset>
     </div>
-    <div class="foot">
-      <button class="save" type="submit" :disabled="!text.trim()">{{ i18n.t(saveLabel) }}</button>
-      <p v-if="!editing" class="hint">{{ i18n.t(hintKey) }}</p>
-    </div>
+    <footer>
+      <button type="submit" :disabled="!text.trim()">{{ i18n.t(saveLabel) }}</button>
+      <p v-if="!editing">{{ i18n.t(hintKey) }}</p>
+    </footer>
   </form>
 </template>
 
 <style scoped>
-.formview {
+@import "../../ui/styles/media.css";
+
+form {
   position: absolute;
   inset: 0;
   z-index: var(--z-sheet);
   background: var(--bg);
   display: flex;
   flex-direction: column;
+
   /* the memo tab: a view in the stack like the others, not a sheet over them */
-  &.docked {
+  &[data-docked] {
     z-index: auto;
     isolation: isolate;
-  }
-}
 
-.bar-title {
-  margin: 0;
-  padding-inline: 16px;
-  font-size: var(--font-2xl);
-  font-weight: 700;
-}
-
-/* the app bar's height and edge, so the sheet lands where the bar was */
-.head {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  box-sizing: content-box;
-  height: var(--bar);
-  padding: env(safe-area-inset-top, 0px) 12px 0;
-  border-block-end: 1px solid var(--line);
-  & h2 {
-    margin: 0;
-    font-size: var(--font-2xl);
-    font-weight: 700;
+    > header h2 {
+      margin: 0;
+      padding-inline: 16px;
+      font-size: var(--font-2xl);
+      font-weight: 700;
+    }
   }
-  & label {
-    margin-inline-start: auto;
+
+  /* the app bar's height and edge, so the sheet lands where the bar was */
+  &:not([data-docked]) > header {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
-    min-height: var(--tap);
-    font-size: var(--font-sm);
-    color: var(--muted);
-    & input {
-      width: 20px;
-      height: 20px;
+    gap: 10px;
+    box-sizing: content-box;
+    height: var(--bar);
+    padding: env(safe-area-inset-top, 0px) 12px 0;
+    border-block-end: 1px solid var(--line);
+
+    > button {
+      min-height: var(--tap);
+      padding: 0 12px 0 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: var(--font-sm);
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    > h2 {
       margin: 0;
-      accent-color: var(--ink);
+      font-size: var(--font-2xl);
+      font-weight: 700;
+    }
+
+    > label {
+      margin-inline-start: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: var(--tap);
+      font-size: var(--font-sm);
+      color: var(--muted);
+
+      > input {
+        width: 20px;
+        height: 20px;
+        margin: 0;
+        accent-color: var(--ink);
+      }
     }
   }
-}
 
-.back {
-  min-height: var(--tap);
-  padding: 0 12px 0 8px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--muted);
-  font-size: var(--font-sm);
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px max(16px, calc((100% - 648px) / 2)) 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.l {
-  font-size: var(--font-sm);
-  font-weight: 700;
-  color: var(--muted);
-  display: block;
-  margin-bottom: 6px;
-}
-
-textarea {
-  width: 100%;
-  font: inherit;
-  font-size: var(--font-xl);
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink);
-  resize: none;
-  min-height: 120px;
-}
-
-.url {
-  width: 100%;
-  font: inherit;
-  font-size: var(--font-base);
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink);
-}
-
-.pinstate {
-  margin: 6px 0 0;
-  font-size: var(--font-xs);
-  color: var(--muted);
-}
-
-.tagbox {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  min-height: 46px;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  /* the box is the field: it takes the focus ring for the input inside it */
-  &:focus-within {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
-  }
-  & input {
+  > div {
     flex: 1;
-    min-width: 80px;
-    border: 0;
-    background: transparent;
-    font: inherit;
-    font-size: var(--font-base);
-    color: var(--ink);
-    height: 32px;
-    outline: none;
-  }
-  & .chip {
-    min-height: 32px;
-  }
-}
+    overflow-y: auto;
+    padding: 16px var(--page-margin) 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 
-.recent {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
+    /* a field's name, above it */
+    > div > label,
+    > fieldset > legend {
+      font-size: var(--font-sm);
+      font-weight: 700;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 6px;
+      padding: 0;
+    }
 
-.colors {
-  display: flex;
-  gap: 10px;
-  & button {
-    width: var(--tap);
-    height: var(--tap);
-    border-radius: 50%;
-    /* a hairline keeps white paper visible on a light desk */
-    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
-    &.on {
-      outline: 2px solid var(--ink);
-      outline-offset: 2px;
+    > div {
+      > textarea {
+        width: 100%;
+        font: inherit;
+        font-size: var(--font-xl);
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--ink);
+        resize: none;
+        min-height: 120px;
+      }
+
+      > .tagbox {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        min-height: 46px;
+        padding: 6px 8px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+
+        /* the box is the field: it takes the focus ring for the input inside it */
+        &:focus-within {
+          outline: 2px solid var(--ink);
+          outline-offset: 2px;
+        }
+
+        > button {
+          min-height: 32px;
+        }
+
+        > input {
+          flex: 1;
+          min-width: 80px;
+          border: 0;
+          background: transparent;
+          font: inherit;
+          font-size: var(--font-base);
+          color: var(--ink);
+          height: 32px;
+          outline: none;
+        }
+      }
+
+      > .recent {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      > input {
+        width: 100%;
+        font: inherit;
+        font-size: var(--font-base);
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--ink);
+      }
+
+      > p {
+        margin: 6px 0 0;
+        font-size: var(--font-xs);
+        color: var(--muted);
+      }
+    }
+
+    > fieldset {
+      min-inline-size: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+
+      > div {
+        display: flex;
+        gap: 10px;
+
+        > button {
+          width: var(--tap);
+          height: var(--tap);
+          border-radius: 50%;
+          /* a hairline keeps white paper visible on a light desk */
+          box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
+
+          &[aria-pressed="true"] {
+            outline: 2px solid var(--ink);
+            outline-offset: 2px;
+          }
+        }
+      }
     }
   }
-}
 
-.foot {
-  padding: 10px max(16px, calc((100% - 648px) / 2)) 16px;
-  border-top: 1px solid var(--line);
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+  > footer {
+    padding: 10px var(--page-margin) 16px;
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 
-.save {
-  height: 52px;
-  border-radius: 999px;
-  background: var(--ink);
-  color: var(--on-ink);
-  font-size: var(--font-xl);
-  font-weight: 700;
-}
+    > button {
+      height: 52px;
+      border-radius: 999px;
+      background: var(--ink);
+      color: var(--on-ink);
+      font-size: var(--font-xl);
+      font-weight: 700;
 
-.save:disabled {
-  opacity: .4;
-}
+      &:disabled {
+        opacity: 0.4;
+      }
 
-@media (hover: hover) {
-  .save:not(:disabled):hover {
-    box-shadow: var(--shadow-float);
+      @media (--can-hover) {
+        &:not(:disabled):hover {
+          box-shadow: var(--shadow-float);
+        }
+      }
+    }
+
+    > p {
+      margin: 0;
+      text-align: center;
+      font-size: var(--font-xs);
+      color: var(--muted);
+    }
   }
-}
-
-.hint {
-  margin: 0;
-  text-align: center;
-  font-size: var(--font-xs);
-  color: var(--muted);
 }
 </style>

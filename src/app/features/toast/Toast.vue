@@ -8,7 +8,7 @@ const i18n = useI18n();
 </script>
 
 <template>
-  <div v-if="toast.current" class="toast" role="status">
+  <div v-if="toast.current" role="status">
     <span>{{ toast.current.text }}</span>
     <button v-if="toast.current.undo" type="button" @click="() => toast.undo()">{{ i18n.t("canvas.undo") }}</button>
   </div>
@@ -16,7 +16,7 @@ const i18n = useI18n();
 
 <style scoped>
 /* Above the view and its write button's row, below a sheet: wherever the user is, a write confirms there */
-.toast {
+div {
   position: absolute;
   inset-inline: 16px;
   inset-block-end: calc(var(--navh) + 84px);
@@ -36,7 +36,7 @@ const i18n = useI18n();
   box-shadow: var(--shadow-float);
 
   /* the action is the toast's own ink, told apart by its underline, not by a color */
-  & button {
+  > button {
     flex-shrink: 0;
     white-space: nowrap;
     min-height: var(--tap);

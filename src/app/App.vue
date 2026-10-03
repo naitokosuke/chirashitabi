@@ -180,7 +180,6 @@ function onMemoSaved(input: NoteInput) {
   <Connection v-if="inRoom" />
   <CtTabBar
     v-if="inRoom"
-    class="nav"
     :model-value="state.tab"
     :label="i18n.t('nav.label')"
     :items="views"
@@ -200,26 +199,27 @@ function onMemoSaved(input: NoteInput) {
   overflow: hidden;
   /* the region that cross-fades when the tab changes (transitions.css) */
   view-transition-name: ct-screen;
-}
 
-/*
- * Kept laid out at full size (the map and the desk measure themselves), just not painted.
- * Opacity too: MapLibre sets `visibility: visible` on its own attribution, which would show
- * through a hidden map. Clicks pass through either way, since the layer is inert.
- */
-.away {
-  visibility: hidden;
-  opacity: 0;
   /*
-   * And no part in a View Transition: a named region inside (the booklet's page) would be
-   * snapshotted on its own, without this opacity, and show over the view that is up.
+   * Kept laid out at full size (the map and the desk measure themselves), just not painted.
+   * Opacity too: MapLibre sets `visibility: visible` on its own attribution, which would show
+   * through a hidden map. Clicks pass through either way, since the layer is inert.
    */
-  .screen > & :deep(*) {
-    view-transition-name: none;
+  > .away {
+    visibility: hidden;
+    opacity: 0;
+
+    /*
+     * And no part in a View Transition: a named region inside (the booklet's page) would be
+     * snapshotted on its own, without this opacity, and show over the view that is up.
+     */
+    :deep(*) {
+      view-transition-name: none;
+    }
   }
 }
 
-.nav {
+nav {
   position: absolute;
   inset-inline: 0;
   inset-block-end: 0;

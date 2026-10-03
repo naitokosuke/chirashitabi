@@ -7,5 +7,5 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <div class="ct-tab-panel" role="tabpanel"><slot></slot></div>
+  <div role="tabpanel"><slot></slot></div>
 </template>

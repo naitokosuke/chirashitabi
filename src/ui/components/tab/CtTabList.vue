@@ -12,7 +12,7 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.tabs.
 </script>
 
 <template>
-  <div ref="list" class="ct-tab-list" role="tablist" :aria-label="label">
+  <div ref="list" role="tablist" :aria-label="label">
     <button
       v-for="t in tabs"
       :key="t.value"
@@ -22,12 +22,12 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.tabs.
       @click="() => emit('update:modelValue', t.value)"
     >{{ t.label }}</button>
     <!-- the underline slides and stretches to the selected tab -->
-    <span aria-hidden="true" class="indicator" :class="{ ready }" :style></span>
+    <span aria-hidden="true" :data-ready="ready || undefined" :style></span>
   </div>
 </template>
 
 <style scoped>
-.ct-tab-list {
+[role="tablist"] {
   position: relative;
   display: flex;
   gap: 4px;
@@ -38,32 +38,34 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.tabs.
   &::-webkit-scrollbar {
     display: none;
   }
-}
 
-button {
-  position: relative;
-  flex-shrink: 0;
-  padding: 10px 14px;
-  font-size: var(--font-sm);
-  font-weight: 700;
-  color: var(--muted);
-  transition: color var(--duration-swap) ease;
+  > button {
+    position: relative;
+    flex-shrink: 0;
+    padding: 10px 14px;
+    font-size: var(--font-sm);
+    font-weight: 700;
+    color: var(--muted);
+    transition: color var(--duration-swap) ease;
 
-  &[aria-selected="true"] {
-    color: var(--ink);
+    &[aria-selected="true"] {
+      color: var(--ink);
+    }
   }
-}
-/* height comes from the tab; only its bottom 2px is drawn */
-.indicator {
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline-start: 0;
-  border-block-end: 2px solid var(--ink);
-  pointer-events: none;
 
-  &.ready {
-    transition: transform var(--duration-morph) var(--ease-morph),
-      width var(--duration-morph) var(--ease-morph);
+  /* as tall as the tab; only its bottom 2px is drawn */
+  > span {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    border-block-end: 2px solid var(--ink);
+    pointer-events: none;
+
+    &[data-ready] {
+      transition:
+        transform var(--duration-morph) var(--ease-morph),
+        width var(--duration-morph) var(--ease-morph);
+    }
   }
 }
 </style>
