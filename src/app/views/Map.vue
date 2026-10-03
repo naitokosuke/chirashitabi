@@ -81,6 +81,11 @@ onMounted(() => {
     zoom: trip.center ? 11.5 : 1,
     attributionControl: { compact: true },
   });
+  // A wheel or a trackpad zooms about twice as fast as MapLibre's default (1/450 a notch's
+  // delta, 1/100 a trackpad's), which took many turns to get from the city to a street. A pinch
+  // is left as it is: the map follows the fingers, and a faster one would slip away from them.
+  map.scrollZoom.setWheelZoomRate(1 / 220);
+  map.scrollZoom.setZoomRate(1 / 50);
   // the style as fetched, with its filters guarded against tiles that lack what they compare
   map.setStyle(STYLE, { transformStyle: (_, next) => guardMissingProperties(next) });
   map.addControl(
