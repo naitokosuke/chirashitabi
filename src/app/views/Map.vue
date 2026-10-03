@@ -16,7 +16,7 @@ import * as maplibregl from "maplibre-gl";
 import { Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { CtAppBar, CtChip, CtChipRow, CtFab } from "../../ui/index";
+import { CtChip, CtChipRow, CtFab } from "../../ui/index";
 
 import { formatMoney } from "../shared/money";
 
@@ -174,7 +174,7 @@ function syncRoute() {
   const b = boundsOf(stops);
   if (b) {
     map.fitBounds(b, {
-      padding: { top: 60, bottom: 160, left: 40, right: 40 },
+      padding: { top: 60, bottom: 240, left: 40, right: 40 },
       duration: 500,
       maxZoom: 14,
     });
@@ -202,22 +202,22 @@ function fitAll() {
 
 <template>
   <section>
-    <CtAppBar>
-      <CtChipRow>
-        <CtChip :selected="day === null" @click="showAllDays">{{ i18n.t("map.all") }}</CtChip>
-        <CtChip
-          v-for="d in trip.days"
-          :key="d.date.toString()"
-          :selected="isDay(d.date)"
-          @click="() => toggleDay(d.date)"
-        >{{ i18n.t("map.route", { date: short(d.date) }) }}</CtChip>
-      </CtChipRow>
-    </CtAppBar>
-
     <div>
       <div ref="el"></div>
 
+      <!-- no bar: the days float along the top of the map, over it -->
       <div class="top">
+        <div class="days">
+          <CtChipRow>
+            <CtChip :selected="day === null" @click="showAllDays">{{ i18n.t("map.all") }}</CtChip>
+            <CtChip
+              v-for="d in trip.days"
+              :key="d.date.toString()"
+              :selected="isDay(d.date)"
+              @click="() => toggleDay(d.date)"
+            >{{ i18n.t("map.route", { date: short(d.date) }) }}</CtChip>
+          </CtChipRow>
+        </div>
         <!-- the desk's filter follows the pins here, and can be cleared here -->
         <div v-if="tags.selected.size">
           <CtChip class="clear" @click="() => tags.selected.clear()">{{ i18n.t("filter.clear") }}</CtChip>
@@ -317,7 +317,7 @@ section {
 
   /* the geolocate button stacks above the write button */
   :deep(.maplibregl-ctrl-bottom-right) {
-    inset-block-end: 72px;
+    inset-block-end: calc(var(--dock-clear) + 72px);
   }
 
   /* MapLibre's own buttons (geolocate, the compact attribution) at the same 36px as every other tool */
@@ -351,7 +351,7 @@ section {
 
   /* the attribution would sit under the fit button otherwise */
   :deep(.maplibregl-ctrl-bottom-left) {
-    inset-block-end: 76px;
+    inset-block-end: calc(var(--dock-clear) + 76px);
   }
 
   /* everything under the bar: the map and what floats on it */
@@ -371,7 +371,7 @@ section {
       inset-inline: 0;
       inset-block-start: 0;
       z-index: var(--z-float);
-      padding: 10px 16px 0;
+      padding: env(safe-area-inset-top, 0px) 0 0;
       pointer-events: none;
       display: flex;
       flex-direction: column;
@@ -381,8 +381,19 @@ section {
         pointer-events: auto;
       }
 
+      /* the days, in the row where a bar would be */
+      > .days {
+        display: flex;
+        min-height: var(--top-row);
+
+        :deep(button) {
+          box-shadow: var(--shadow-tool);
+        }
+      }
+
       /* the filter */
-      > div {
+      > div:not(.days) {
+        margin-inline: 16px;
         display: flex;
         gap: 6px;
         overflow-x: auto;
@@ -402,7 +413,7 @@ section {
 
       /* the notes with no place yet */
       > p {
-        margin: 0;
+        margin: 0 16px;
         align-self: flex-start;
         font-size: var(--font-xs);
         color: var(--ink);
@@ -418,7 +429,7 @@ section {
     > .jump {
       position: absolute;
       inset-inline-start: 16px;
-      inset-block-end: 24px;
+      inset-block-end: calc(var(--dock-clear) + 24px);
       z-index: var(--z-float);
 
       > button {
@@ -438,7 +449,7 @@ section {
     > article {
       position: absolute;
       inset-inline: 12px;
-      inset-block-end: 88px;
+      inset-block-end: calc(var(--dock-clear) + 88px);
       z-index: var(--z-float-top);
       padding: 12px 14px;
       border-radius: 14px;

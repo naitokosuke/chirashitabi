@@ -70,11 +70,11 @@ spacing:
   xl: "16px"
   xxl: "20px"
 components:
-  app-bar:
+  dock:
     backgroundColor: "{colors.desk}"
-    textColor: "{colors.ink}"
-    typography: "{typography.label}"
-    height: "52px"
+    textColor: "{colors.muted}"
+    rounded: "22px"
+    height: "60px"
   chip:
     backgroundColor: "{colors.tool-white}"
     textColor: "{colors.muted}"
@@ -142,7 +142,7 @@ The voice is quiet. One ink, one neutral desk, one family of paper, and one mome
 - A desk, not a page: a dotted surface you pan and pinch, with paper on it
 - Paper is the only color; chrome is white, hairline and ink
 - No accent hue: the "on" state and the one primary action are ink; red appears only when something is destroyed
-- One bar, the same on every view: switching views changes what is under it, never where it is
+- No bars: what a view keeps at hand floats on it, and one dock floats over every screen in the same place, so moving between them never moves anything
 - Fixed pixel type in the device's own Japanese gothic, never fluid
 
 ## Colors
@@ -156,11 +156,12 @@ A neutral desk, white tools, one ink, and tinted paper. Nothing in the chrome is
 
 ### Neutral
 
-- **Desk** (`--bg`) with **Desk Dot** (`--dot`): every full-screen background and the app bar; the dot grid is only on the canvas.
+- **Desk** (`--bg`) with **Desk Dot** (`--dot`): every full-screen background; the dot grid is only on the canvas.
 - **Tool White** (`--surface`): chips, menus, inputs, panels.
-- **Line** (`--line`): the 1px hairline edge of every tool and the app bar's bottom edge.
+- **Line** (`--line`): the 1px hairline edge of every tool.
+- **Glass** (`--glass`): what floats over a view (the dock, the booklet's tabs, a sheet's way back): the surface at 72%, the view blurred behind it.
 - **Wash** (`--wash`, ink at 6–8%): the segmented switch's track, the current tab's highlight, a hovered menu item.
-- Dark theme (`prefers-color-scheme: dark`, unless `data-theme="light"`): the same roles, re-chosen rather than inverted: a near-black desk, a lifted tool gray, light ink. The write button turns light with dark ink on it (`--on-ink`).
+- Dark theme: the same roles, re-chosen rather than inverted: a near-black desk, a lifted tool gray, light ink. The write button turns light with dark ink on it (`--on-ink`). Every color token is a `light-dark()` pair read through `color-scheme`: the device's theme, until the person picks one with the dock's switch (`data-theme` on the root, remembered on the device).
 
 ### Paper
 
@@ -198,7 +199,7 @@ A neutral desk, white tools, one ink, and tinted paper. Nothing in the chrome is
 - **Body** (400, 16px, 1.5): reading text in the booklet and in forms; 17px in the note field.
 - **Note** (700, 15px, 1.4): a sticky's title; its body is Caption in Paper Muted.
 - **Label** (700, 13px, 1.3): chips, buttons, the segmented switch, menu items.
-- **Caption** (400, 12px, 1.4): a note's body, tags (700), hints, the tab bar's labels, counts.
+- **Caption** (400, 12px, 1.4): a note's body, tags (700), hints, the dock's names, counts.
 
 ### Named Rules
 
@@ -208,15 +209,15 @@ A neutral desk, white tools, one ink, and tinted paper. Nothing in the chrome is
 
 ## Layout
 
-A full-screen app shell: a 64px tab bar at the bottom (plus the home-indicator inset), and above it one box that holds every view. Every view but the canvas opens with the same **app bar**: one 52px row holding what the view is about (the home view's wordmark, the memo tab's title, the map's day chips, the booklet's day tabs), with anything that must not scroll pinned at its end. The canvas has no bar: the desk runs to the top of the screen, and its tag chips and the ask for ideas float on it along the top, in the bar's height. There is no title row: where the trip goes is said on the home view and by the trip tag on the desk. The row keeps its height whatever it holds, so the bar is pixel-identical from view to view and only what is under it changes. The tab bar has five items: home, canvas, memo, map, booklet; the app opens on the canvas. The home view's bar ends with the way out to the trip list. Each tab and each open sheet has its own URL: switching tabs replaces the step, a sheet is a step of its own, so the back button closes the sheet, then leaves the room for the list.
+A full-screen app shell with no bars. Every view takes the whole screen, and what it keeps at hand floats on it: along the top, in a 52px row under the status bar (the canvas's tag chips and its ask for ideas, the map's days, the booklet's day tabs and edit/read switch, a sheet's way back), and at the bottom, the **dock**. A page with nothing floating over it (home, the memo tab, the trips) opens with a large title instead, at the same height on each. The row at the top and the dock's footprint (`--top-clear`, `--dock-clear`) are the same on every view, so moving between views, or between the trips and a trip, moves nothing that stays. Where the trip goes is said on the home view and by the trip tag on the desk. The app opens on the canvas. Each tab and each open sheet has its own URL: switching tabs replaces the step, a sheet is a step of its own, so the back button closes the sheet, then leaves the room for the list.
 
 Views are built the first time they are opened and then kept: switching only says which one is painted, and nothing reloads (the map keeps its tiles, the booklet its scroll, the canvas its pan and zoom). A hidden view is inert, and takes no part in a View Transition.
 
-Changes of place run through **View Transitions** (`useViewTransition`, `transitions.css`), never through re-rendering with a CSS fade. Only named regions morph; the tab bar and anything outside them render live at once. Changing tabs cross-fades the screen box (`ct-screen`, 180ms); the bar is the same picture before and after, so only the view under it changes. A named region is always a box that clips its own content, since a snapshot is not clipped by its ancestors.
+Changes of place run through **View Transitions** (`useViewTransition`, `transitions.css`), never through re-rendering with a CSS fade. Only named regions morph; the dock and anything outside them render live at once. Changing tabs cross-fades the screen box (`ct-screen`, 180ms). A named region is always a box that clips its own content, since a snapshot is not clipped by its ancestors.
 
-A page whose content is replaced, the booklet's day or its edit/read, never cross-fades: two different pages seen through each other read as a flicker. It **turns** (`usePageTurn`): the tabs and the heading answer the tap at once, the old page clears (120ms), and the new day's pieces (`data-turn`: the intro, each sticky, the draft, the total) are laid down from the top one after another, each rising 10px into place (280ms, 35ms apart, at most eight steps). Under reduced motion, without the API, or with the page hidden, the change simply happens. The note form appears two ways: as the memo tab, where it wears the app bar like any view, and as the one sheet, opened by the write button on the canvas or the map, which slides in over everything with a header the height of the app bar.
+A page whose content is replaced, the booklet's day or its edit/read, never cross-fades: two different pages seen through each other read as a flicker. It **turns** (`usePageTurn`): the tabs and the heading answer the tap at once, the old page clears (120ms), and the new day's pieces (`data-turn`: the intro, each sticky, the draft, the total) are laid down from the top one after another, each rising 10px into place (280ms, 35ms apart, at most eight steps). Under reduced motion, without the API, or with the page hidden, the change simply happens. The note form appears two ways: as the memo tab, a page with a large title like home, and as the one sheet, opened by the write button on the canvas or the map, which slides in over everything with its way back floating at the top; the dock sinks out of the way while a sheet is up.
 
-Content that is read or filled in (the booklet, the form) sits in a 648px column centered on wide screens; the canvas and the map use the whole box. Spacing is a small set of steps (4, 6, 10, 12, 16, 20px), 16px gutters. The write button sits at the bottom end, 16px from both edges; the fit button sits at the bottom start, level with its middle.
+Content that is read or filled in (the booklet, the form) sits in a 648px column centered on wide screens; the canvas and the map use the whole box. Spacing is a small set of steps (4, 6, 10, 12, 16, 20px), 16px gutters. The write button sits at the bottom end, 16px from the edge and 16px above the dock's footprint; the fit button sits at the bottom start, level with its middle.
 
 ## Elevation & Depth
 
@@ -230,13 +231,19 @@ A person's sticky has a small radius (6px); the agent's suggestion and draft are
 
 ## Components
 
-### App bar (`CtAppBar`)
+### Dock (`CtDock`)
 
-The desk's color with a 1px line under it, one 52px row. The default slot fills it: a `CtChipRow` (one scrolling row of chips that fades at its end), the day tabs (their underline sits on the bar's own edge), or a title. The `end` slot is pinned outside anything that scrolls: the booklet's edit/read switch. Something that appears at the end narrows the row; it never pushes the row's chips along.
+The app's one menu, floating at the bottom middle 12px above the home indicator, over whatever is up: a pane of glass (`--glass`, blurred and saturated behind), 60px tall, 22px radius, a hairline with a lit top edge, `--shadow-float`. It holds icons only, 40px cells (44px on a wide screen), Muted, the open one in ink with a 4px ink dot under it, as a dock marks what is running. In order: the trips (a luggage tag), then, in a room, its five views (home, canvas, memo, map, booklet), then a divider and the theme switch. On the trips screen the room's views fold away (`CtDockGroup`: the column narrows to nothing, 350ms), and they unfold as a trip opens; the dock stays centred, shrinking and growing around them.
+
+Under a mouse it magnifies like a dock: icons within 120px of the pointer grow on a smooth shoulder, the nearest to 1.55×, upward out of the glass so the dock keeps its height, pushing their neighbours aside; letting go, they spring back (`--ease-spring`). A hovered or focused icon shows its name above it in a small ink label. A press gives one small launch bounce (12px, then 4px). While a sheet is up the dock sinks below the screen's edge and fades, and comes back up after.
+
+### Theme switch
+
+The dock's last icon is the theme that is up: a sun, or a crescent. Pressed, the sun's rays turn and fold into the disc as it swells and is bitten into a crescent (550ms, a spring), and back. The new colors spread over the screen from the icon like ink soaking into paper: a circle with a soft 56px wet edge, growing until it covers the farthest corner (750ms, `cubic-bezier(0.65, 0, 0.35, 1)`, a View Transition of type `theme` in which nothing else morphs). Under reduced motion the theme simply changes. The pick is remembered on the device and set before the first paint, so it never flashes.
 
 ### Tag filter
 
-The canvas's bar is the tag chips. While a tag is picked, two chips appear pinned at the row's end: "only these" (a toggle: off dims the other notes, on hides them) and a dashed "clear". Before a tag is picked neither means anything, so neither is shown.
+The canvas's top row is the tag chips. While a tag is picked, two chips appear pinned at the row's end: "only these" (a toggle: off dims the other notes, on hides them) and a dashed "clear". Before a tag is picked neither means anything, so neither is shown.
 
 ### Trip tag
 
@@ -244,13 +251,13 @@ Where the trip goes, as an object lying on the desk that is plainly not a note: 
 
 ### Home
 
-The first tab, shown rather than listed. The bar holds the wordmark `chirashitabi`. Under it: the trip's name in Display, its dates and length; a face per member (the initial on their color, deepened to carry white; the one place a member color fills, since the face is about them). Then the days side by side on a white panel, each a stack of its notes drawn as slips of their own paper, maybes faded on a dashed edge, the date and weekday under it. Then one bar of the plan's progress in three inks (confirmed, maybe, no day) with a small legend of counts; the budget in 22px with the maybes in small. The bar ends with a tool link back to the trip list. No row of labels and figures, and no "you".
+The first tab, shown rather than listed. The trip's name in Display as the large title, its dates and length; a face per member (the initial on their color, deepened to carry white; the one place a member color fills, since the face is about them). Then the days side by side on a white panel, each a stack of its notes drawn as slips of their own paper, maybes faded on a dashed edge, the date and weekday under it. Then one bar of the plan's progress in three inks (confirmed, maybe, no day) with a small legend of counts; the budget in 22px with the maybes in small. The way back to the trip list is the dock's first icon. No row of labels and figures, and no "you".
 
 ### Trips (the rooms screen)
 
-The person's trips, as the luggage tags they are on the desk, hung one under another in the page column under the app bar (the wordmark). Two groups under Heading: coming up (the trip under way first, then the soonest, the undated last) and been (the most recent first). A tag that is coming up is ink, like the desk's trip tag, with a ringed punched hole: the name at 22px, how soon at its far end ("あと 30 日", "明日から", "旅の途中 · 2 日目"), the dates and length, and a foot of member dots (round for a person, square for the agent) with the memo count. A tag that is over is white on a hairline in ink, so it recedes. The whole tag is a link into its trip; hovering lifts it with `--shadow-lift`.
+The person's trips, as the luggage tags they are on the desk, hung one under another in the page column under the wordmark `chirashitabi`, set as the large title. Two groups under Heading: coming up (the trip under way first, then the soonest, the undated last) and been (the most recent first). A tag that is coming up is ink, like the desk's trip tag, with a ringed punched hole: the name at 22px, how soon at its far end ("あと 30 日", "明日から", "旅の途中 · 2 日目"), the dates and length, and a foot of member dots (round for a person, square for the agent) with the memo count. A tag that is over is white on a hairline in ink, so it recedes. The whole tag is a link into its trip; hovering lifts it with `--shadow-lift`.
 
-After the trips coming up hangs a blank tag: the tag's outline dashed, its hole dashed, a plus and "new trip" in Muted. It opens the new trip sheet (`/new`), which slides in like the note form: the bar's height with a back button, then the tag the trip will get, drawn live from the fields (the name in the placeholder's place faded until one is typed), then the name, the first day beside a stepper for the days, the currency as chips, your name, and your color as swatches ringed in ink when chosen. The one primary button sits in a footer under the fields, always in reach.
+After the trips coming up hangs a blank tag: the tag's outline dashed, its hole dashed, a plus and "new trip" in Muted. It opens the new trip sheet (`/new`), which slides in like the note form: its way back floating at the top, the title, then the tag the trip will get, drawn live from the fields (the name in the placeholder's place faded until one is typed), then the name, the first day beside a stepper for the days, the currency as chips, your name, and your color as swatches ringed in ink when chosen. The one primary button sits in a footer under the fields, always in reach.
 
 While the list loads, two wash-colored tag shapes hold its place. With no trips, one line of Muted copy invites the first tag above the blank one. A trip that cannot be reached, or a list that does not come, is said once in a white notice with an ink "try again".
 
@@ -271,10 +278,6 @@ Pill, 36px tall, Tool White on a 1px line, Label in Muted. Selected fills with i
 ### Segmented switch
 
 A wash-colored track; the chosen option is a white pill with a hairline and a tool shadow that slides to it (350ms, `--ease-morph`); the chosen label is ink, the others Muted.
-
-### Tab bar
-
-Five equal columns (home, canvas, memo, map, booklet), icon over a 12px label in Muted; the current item turns ink and a 12px-radius wash slides behind it.
 
 ### Sticky note
 
@@ -300,7 +303,7 @@ Text that changes in place without being replaced. The old and new strings are m
 
 ### Memo tab
 
-The note form, docked as a view: the app bar with the form's title, then the same fields and the same "save to canvas" button as the sheet. The note field takes focus whenever the tab comes up. Saving puts the note on the canvas (the toast says so and offers the undo) and empties the form for the next one; the tab itself never shows stickies, only the canvas does.
+The note form, docked as a view: the form's title as the large title, then the same fields and the same "save to canvas" button as the sheet. The note field takes focus whenever the tab comes up. Saving puts the note on the canvas (the toast says so and offers the undo) and empties the form for the next one; the tab itself never shows stickies, only the canvas does.
 
 ### Inputs
 
@@ -312,7 +315,7 @@ Ink, 14px radius, `--on-ink` text, centered above the write button's row (at mos
 
 ### The pop
 
-When a note is written over the canvas it appears where the canvas was looking, scaling from 30% with an 8° tilt, overshooting to 108% and settling (500ms, `cubic-bezier(.2, 1.4, .4, 1)`), while an ink ring at half strength expands and fades around it. This is the one authored moment; under `prefers-reduced-motion` both are off.
+When a note is written over the canvas it appears where the canvas was looking, scaling from 30% with an 8° tilt, overshooting to 108% and settling (500ms, `cubic-bezier(.2, 1.4, .4, 1)`), while an ink ring at half strength expands and fades around it. With the theme switch's ink, one of the two authored moments; under `prefers-reduced-motion` both are off.
 
 ## Do's and Don'ts
 
@@ -320,7 +323,7 @@ When a note is written over the canvas it appears where the canvas was looking, 
 
 - **Do** keep every tinted surface paper, and write on it in Paper Ink.
 - **Do** mark selection and the primary action in ink, and only in ink.
-- **Do** give every view the app bar, at its fixed height, with no title row above it.
+- **Do** float what a view keeps at hand on it, in the top row or above the dock, never in a bar.
 - **Do** keep a view mounted once opened and switch by visibility, so nothing reloads or blinks.
 - **Do** keep every size on the fixed pixel scale and every transition at 280–350ms with `--ease-morph`.
 
@@ -328,6 +331,7 @@ When a note is written over the canvas it appears where the canvas was looking, 
 
 - **Don't** add an accent hue, a cream or ivory surface, a tinted chrome, or a color per tag.
 - **Don't** use red for anything but deleting.
+- **Don't** add a bar, a header strip or a bordered title row to a view.
 - **Don't** remount a view, or fade it with CSS, when the tab changes; morph through a View Transition.
 - **Don't** let anything that holds for the whole view slide with a page that changes under it.
 - **Don't** add a second typeface, uppercase tracking, gradient text or an eyebrow label above a heading.

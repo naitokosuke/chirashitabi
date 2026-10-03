@@ -23,7 +23,7 @@ import {
   watch,
 } from "vue";
 
-import { CtAppBar, CtChip } from "../../ui/index";
+import { CtChip } from "../../ui/index";
 
 import { useI18n } from "../i18n/useI18n";
 
@@ -264,16 +264,12 @@ function submit() {
 
 <template>
   <form :data-docked="docked || undefined" @submit.prevent="submit">
-    <!-- as a tab, the form wears the app bar like every other view -->
-    <CtAppBar v-if="docked"><h2>{{ i18n.t("form.titleNew") }}</h2></CtAppBar>
-    <header v-else>
-      <button type="button" @click="() => emit('close')">
-        <Icon :size="16" :src="backIcon" />{{ i18n.t(BACK[from]) }}
-      </button>
-      <h2>{{ i18n.t(editing ? "form.titleEdit" : "form.titleNew") }}</h2>
-      <label v-if="!editing"><input v-model="keepOpen" type="checkbox" />{{ i18n.t("form.addAnother") }}</label>
-    </header>
+    <!-- no bar: as a sheet, the way back floats where a bar would be; the title opens the page -->
+    <button v-if="!docked" class="back" type="button" @click="() => emit('close')">
+      <Icon :size="16" :src="backIcon" />{{ i18n.t(BACK[from]) }}
+    </button>
     <div>
+      <h2 class="title">{{ i18n.t(editing ? "form.titleEdit" : "form.titleNew") }}</h2>
       <div>
         <label :for="`${id}-text`">{{ i18n.t("form.note") }}</label>
         <textarea
@@ -357,6 +353,7 @@ function submit() {
       </fieldset>
     </div>
     <footer>
+      <label v-if="!docked && !editing" class="again"><input v-model="keepOpen" type="checkbox" />{{ i18n.t("form.addAnother") }}</label>
       <button type="submit" :disabled="!text.trim() || photo === 'sending'">{{ i18n.t(saveLabel) }}</button>
       <p v-if="!editing">{{ i18n.t(hintKey) }}</p>
     </footer>
@@ -379,59 +376,46 @@ form {
     z-index: auto;
     isolation: isolate;
 
-    > header h2 {
-      margin: 0;
-      padding-inline: 16px;
-      font-size: var(--font-2xl);
-      font-weight: 700;
+    /* above the dock, with the rest of the views */
+    padding-block-end: var(--dock-clear);
+
+    /* a page like home: a large title at the top */
+    > div {
+      padding-block-start: var(--page-top);
+
+      > .title {
+        font-size: var(--font-display);
+        line-height: 1.2;
+      }
     }
   }
 
-  /* the app bar's height and edge, so the sheet lands where the bar was */
-  &:not([data-docked]) > header {
-    flex-shrink: 0;
-    display: flex;
+  /* the way back, floating in the row where a bar would be */
+  > .back {
+    position: absolute;
+    inset-inline-start: 12px;
+    inset-block-start: calc(env(safe-area-inset-top, 0px) + (var(--top-row) - var(--tap)) / 2);
+    z-index: var(--z-chrome);
+    min-height: var(--tap);
+    padding: 0 12px 0 8px;
+    border-radius: 999px;
+    border: 0;
+    background: var(--glass);
+    backdrop-filter: blur(16px) saturate(1.5);
+    -webkit-backdrop-filter: blur(16px) saturate(1.5);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklch, var(--line) 80%, transparent),
+      var(--shadow-tool);
+    color: var(--muted);
+    font-size: var(--font-sm);
+    font-weight: 700;
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
-    box-sizing: content-box;
-    height: var(--bar);
-    padding: env(safe-area-inset-top, 0px) 12px 0;
-    border-block-end: 1px solid var(--line);
+    gap: 4px;
 
-    > button {
-      min-height: var(--tap);
-      padding: 0 12px 0 8px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--surface);
-      color: var(--muted);
-      font-size: var(--font-sm);
-      font-weight: 700;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    > h2 {
-      margin: 0;
-      font-size: var(--font-2xl);
-      font-weight: 700;
-    }
-
-    > label {
-      margin-inline-start: auto;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-height: var(--tap);
-      font-size: var(--font-sm);
-      color: var(--muted);
-
-      > input {
-        width: 20px;
-        height: 20px;
-        margin: 0;
-        accent-color: var(--ink);
+    @media (--can-hover) {
+      &:hover {
+        color: var(--ink);
       }
     }
   }
@@ -439,10 +423,18 @@ form {
   > div {
     flex: 1;
     overflow-y: auto;
-    padding: 16px var(--page-margin) 20px;
+    /* a sheet's page starts under its way back; the memo tab's like any page */
+    padding: var(--top-clear) var(--page-margin) 20px;
     display: flex;
     flex-direction: column;
     gap: 16px;
+
+    > .title {
+      margin: 0;
+      font-size: var(--font-4xl);
+      font-weight: 700;
+      line-height: 1.25;
+    }
 
     /* a field's name, above it */
     > div > label,
@@ -663,7 +655,7 @@ form {
   }
 
   > footer {
-    padding: 10px var(--page-margin) 16px;
+    padding: 10px var(--page-margin) calc(16px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--line);
     background: var(--bg);
     display: flex;
@@ -695,6 +687,29 @@ form {
       font-size: var(--font-xs);
       color: var(--muted);
     }
+
+    /* one after another: the sheet stays open for the next note */
+    > .again {
+      align-self: flex-end;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: var(--tap);
+      font-size: var(--font-sm);
+      color: var(--muted);
+
+      > input {
+        width: 20px;
+        height: 20px;
+        margin: 0;
+        accent-color: var(--ink);
+      }
+    }
+  }
+
+  /* the memo tab's footer sits on the dock's footprint, not on the screen's edge */
+  &[data-docked] > footer {
+    padding-block-end: 12px;
   }
 }
 

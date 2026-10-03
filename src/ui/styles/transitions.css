@@ -63,3 +63,40 @@
 ::view-transition-new(ct-screen) {
   animation-duration: 0.18s;
 }
+
+/*
+ * The theme turning (useTheme, type `theme`). The page is one picture: the new colors spread
+ * over the old from where the switch was pressed, like ink soaking into paper, with a soft wet
+ * edge; nothing else morphs meanwhile. The new picture is live, so the switch's own icon
+ * turns inside the spreading ink. `--theme-x`, `--theme-y` and `--theme-r` are set on the root
+ * just before: the point, and how far the ink must go to cover the screen.
+ */
+@property --ink-r {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+:root:active-view-transition-type(theme) {
+  & * {
+    view-transition-name: none !important;
+  }
+  &::view-transition-old(root) {
+    opacity: 1;
+  }
+  &::view-transition-new(root) {
+    mask-image: radial-gradient(
+      circle at var(--theme-x) var(--theme-y),
+      #000 calc(var(--ink-r) - 56px),
+      transparent var(--ink-r)
+    );
+    animation: ct-ink 0.75s cubic-bezier(0.65, 0, 0.35, 1) both;
+  }
+}
+@keyframes ct-ink {
+  from {
+    --ink-r: 0px;
+  }
+  to {
+    --ink-r: calc(var(--theme-r) + 56px);
+  }
+}

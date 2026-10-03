@@ -8,12 +8,15 @@ export const en = {
   "common.close": "Close",
   "common.dismiss": "Dismiss",
 
-  "nav.label": "Views",
+  "nav.label": "Menu",
   "nav.home": "Home",
   "nav.canvas": "Canvas",
   "nav.memo": "Memo",
   "nav.map": "Map",
   "nav.booklet": "Booklet",
+  "nav.trips": "All trips",
+  "theme.toDark": "Go dark",
+  "theme.toLight": "Go light",
 
   "member.someone": "Someone",
 

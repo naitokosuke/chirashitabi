@@ -4,8 +4,6 @@ import { Temporal } from "temporal-polyfill-lite";
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { CtAppBar } from "../../ui/index";
-
 import { useI18n } from "../i18n/useI18n";
 
 import plusIcon from "../icons/plus.svg";
@@ -83,11 +81,8 @@ function retry() {
 <template>
   <div class="rooms">
     <div class="list" :inert="creating">
-      <CtAppBar>
-        <template #default><p class="wordmark">chirashitabi</p></template>
-      </CtAppBar>
-
       <div class="page" :aria-busy="listStatus === 'pending'">
+        <h1 class="wordmark">chirashitabi</h1>
         <p v-if="joining !== null && !joining.failed" class="notice" role="status">
           {{
             joining.name === null
@@ -167,17 +162,18 @@ function retry() {
   flex-direction: column;
 }
 
+/* the app's name as the large title, where a trip's name stands on its home */
 .wordmark {
   margin: 0;
-  padding-inline: 16px;
-  font-size: var(--font-2xl);
+  font-size: var(--font-display);
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .page {
   flex: 1;
   overflow-y: auto;
-  padding: 4px var(--page-margin) calc(40px + env(safe-area-inset-bottom, 0px));
+  padding: var(--page-top) var(--page-margin) calc(var(--dock-clear) + 24px);
 }
 
 /* the room did not answer, or the list did not come: said once, with the way to try again */

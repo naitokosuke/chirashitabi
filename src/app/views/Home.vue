@@ -2,9 +2,6 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
 import { computed } from "vue";
-import { useRouter } from "vue-router";
-
-import { CtAppBar } from "../../ui/index";
 
 import { formatMoney } from "../shared/money";
 
@@ -15,20 +12,11 @@ import { PAPERS } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
 import { shortDate, weekday } from "../features/trip/format";
 import { useTrip } from "../features/trip/useTrip";
-import backIcon from "../icons/back.svg";
-import Icon from "../icons/Icon.vue";
 
 const trip = useTrip();
 const store = useNotes();
 const members = useMembers();
 const i18n = useI18n();
-const router = useRouter();
-/** To the trips in the app; a modified click is left to the browser (a new tab, a new window) */
-function toTrips(e: MouseEvent) {
-  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-  e.preventDefault();
-  void router.push("/");
-}
 const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 
@@ -56,15 +44,6 @@ const allTotal = computed(() => trip.budgetOf(undefined, false));
 
 <template>
   <section>
-    <CtAppBar>
-      <!-- explicit: Vapor drops implicit default-slot content that sits beside a named slot -->
-      <template #default><p>chirashitabi</p></template>
-      <template #end>
-        <!-- a real link: the trips are a place of their own (`/`), and going there leaves the room -->
-        <a class="trips" href="/" @click="toTrips"><Icon :size="16" :src="backIcon" />{{ i18n.t("home.trips") }}</a>
-      </template>
-    </CtAppBar>
-
     <div>
       <header>
         <h1>{{ trip.name }}</h1>
@@ -126,39 +105,10 @@ section {
   flex-direction: column;
   background: var(--bg);
 
-  > header p {
-    margin: 0;
-    padding-inline: 16px;
-    font-size: var(--font-2xl);
-    font-weight: 700;
-  }
-
-  /* back to the trips, at the bar's end */
-  .trips {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    min-height: 36px;
-    padding: 0 14px 0 10px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-    text-decoration: none;
-
-    @media (--can-hover) {
-      &:hover {
-        color: var(--ink);
-      }
-    }
-  }
-
   > div {
     flex: 1;
     overflow-y: auto;
-    padding: 28px var(--page-margin) 32px;
+    padding: var(--page-top) var(--page-margin) calc(var(--dock-clear) + 24px);
     display: flex;
     flex-direction: column;
     gap: 28px;

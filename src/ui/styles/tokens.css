@@ -2,35 +2,54 @@
 
 :root {
   /*
+   * The theme: the device's, until the person picks one (useTheme sets `data-theme`). Every
+   * color below is a pair, light then dark, and `color-scheme` says which one is read; the
+   * browser's own controls (a date field, a scrollbar) follow it too.
+   */
+  color-scheme: light dark;
+  &[data-theme="light"] {
+    color-scheme: light;
+  }
+  &[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  /*
    * Graphite on paper. The desk and the tools are neutral, one ink writes everything and
    * marks every "on" state, and color is left to the paper (and a member's dot). Red is
-   * spent only on destroying something.
+   * spent only on destroying something. The dark desk is re-chosen, not inverted.
    */
-  --bg: oklch(0.968 0.003 260);
-  --dot: oklch(0.86 0.005 260);
-  --surface: #fff;
-  --ink: oklch(0.23 0.01 260);
-  --muted: oklch(0.48 0.01 260);
-  --line: oklch(0.905 0.004 260);
+  --bg: light-dark(oklch(0.968 0.003 260), oklch(0.185 0.004 260));
+  --dot: light-dark(oklch(0.86 0.005 260), oklch(0.3 0.005 260));
+  --surface: light-dark(#fff, oklch(0.23 0.005 260));
+  --ink: light-dark(oklch(0.23 0.01 260), oklch(0.94 0.004 260));
+  --muted: light-dark(oklch(0.48 0.01 260), oklch(0.72 0.008 260));
+  --line: light-dark(oklch(0.905 0.004 260), oklch(0.31 0.006 260));
   /* a tool under the pointer, or a quiet selected state: ink, barely there */
-  --wash: color-mix(in oklch, var(--ink) 6%, transparent);
-  --danger: oklch(0.53 0.19 27);
+  --wash: light-dark(
+    color-mix(in oklch, oklch(0.23 0.01 260) 6%, transparent),
+    color-mix(in oklch, oklch(0.94 0.004 260) 8%, transparent)
+  );
+  /* glass: what floats over the desk (the dock), letting it show through, blurred */
+  --glass: light-dark(rgb(255 255 255 / 0.72), oklch(0.26 0.005 260 / 0.72));
+  --danger: light-dark(oklch(0.53 0.19 27), oklch(0.72 0.15 27));
   /* what is written on the one filled tool, the ink one (the write button, the primary button) */
-  --on-ink: #fff;
+  --on-ink: light-dark(#fff, oklch(0.185 0.004 260));
   /* what is written on a member's color, deepened to carry it; the same in both themes */
   --on-tint: #fff;
 
   /*
    * Paper. Six stocks at one lightness and a low, equal chroma, so they read as one family
    * of tinted paper rather than candy. Yellow carries a little more chroma and leans
-   * green: at low chroma a warm yellow turns into cream. Ink on paper is always dark.
+   * green: at low chroma a warm yellow turns into cream. On the dark desk each is a step
+   * dimmer so it does not glare. Ink on paper is always dark.
    */
-  --paper-yellow: oklch(0.95 0.07 100);
-  --paper-pink: oklch(0.935 0.035 12);
-  --paper-mint: oklch(0.94 0.035 165);
-  --paper-sky: oklch(0.935 0.033 245);
-  --paper-lilac: oklch(0.935 0.035 300);
-  --paper-white: oklch(0.995 0 0);
+  --paper-yellow: light-dark(oklch(0.95 0.07 100), oklch(0.88 0.075 100));
+  --paper-pink: light-dark(oklch(0.935 0.035 12), oklch(0.865 0.04 12));
+  --paper-mint: light-dark(oklch(0.94 0.035 165), oklch(0.87 0.04 165));
+  --paper-sky: light-dark(oklch(0.935 0.033 245), oklch(0.865 0.038 245));
+  --paper-lilac: light-dark(oklch(0.935 0.035 300), oklch(0.865 0.04 300));
+  --paper-white: light-dark(oklch(0.995 0 0), oklch(0.92 0 0));
   --paper-ink: oklch(0.23 0.01 260);
   --paper-muted: oklch(0.45 0.01 260);
 
@@ -48,16 +67,31 @@
   --font-display: 32px;
 
   /* Depth: neutral, offset down, soft. Paper lifts; a tool on the desk lifts gently */
-  --shadow-tool: 0 1px 2px rgb(17 19 24 / 0.05);
-  --shadow-paper: 0 1px 2px rgb(17 19 24 / 0.06), 0 4px 12px rgb(17 19 24 / 0.08);
-  --shadow-lift: 0 16px 32px rgb(17 19 24 / 0.2);
-  --shadow-float: 0 2px 6px rgb(17 19 24 / 0.06), 0 12px 28px rgb(17 19 24 / 0.14);
+  --shadow-tool: 0 1px 2px light-dark(rgb(17 19 24 / 0.05), rgb(0 0 0 / 0.3));
+  --shadow-paper:
+    0 1px 2px light-dark(rgb(17 19 24 / 0.06), rgb(0 0 0 / 0.3)),
+    0 4px 12px light-dark(rgb(17 19 24 / 0.08), rgb(0 0 0 / 0.3));
+  --shadow-lift: 0 16px 32px light-dark(rgb(17 19 24 / 0.2), rgb(0 0 0 / 0.5));
+  --shadow-float:
+    0 2px 6px light-dark(rgb(17 19 24 / 0.06), rgb(0 0 0 / 0.3)),
+    0 12px 28px light-dark(rgb(17 19 24 / 0.14), rgb(0 0 0 / 0.45));
 
   /* The smallest thing a thumb is asked to hit */
   --tap: 36px;
 
-  /* The app bar: the same one row on every view, so switching never moves the page */
-  --bar: 52px;
+  /*
+   * No bars. What a view keeps at hand floats on it: along the top, in a row this tall under
+   * the status bar (`--top-clear` is where the view's own content may start), and the dock
+   * at the bottom, whose footprint (`--dock-clear`) every view leaves free for what floats
+   * above it. Both are the same on every view, so moving between them never moves anything.
+   */
+  --top-row: 52px;
+  --top-clear: calc(env(safe-area-inset-top, 0px) + var(--top-row) + 8px);
+  /* where a page with nothing floating over it (home, the memo, the trips) starts: a large title */
+  --page-top: calc(env(safe-area-inset-top, 0px) + 28px);
+  --dock-height: 60px;
+  --dock-gap: 12px;
+  --dock-clear: calc(env(safe-area-inset-bottom, 0px) + var(--dock-gap) + var(--dock-height));
 
   /*
    * The inline margin of a page column (the booklet, the form, the home view): a phone's
@@ -74,38 +108,16 @@
   --z-float-top: 3;
   --z-chrome: 5;
   --z-menu: 6;
+  --z-dock: 8;
   --z-drag: 10;
   --z-sheet: 20;
 
   /* Motion: things that morph from one place to another overshoot nothing and settle softly */
   --ease-morph: cubic-bezier(0.22, 1, 0.36, 1);
+  /* a spring with one small overshoot: the dock's icons, a press let go */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --duration-morph: 0.35s;
   --duration-swap: 0.28s;
-
-  @media (--dark) {
-    &:not([data-theme="light"]) {
-      --bg: oklch(0.185 0.004 260);
-      --dot: oklch(0.3 0.005 260);
-      --surface: oklch(0.23 0.005 260);
-      --ink: oklch(0.94 0.004 260);
-      --muted: oklch(0.72 0.008 260);
-      --line: oklch(0.31 0.006 260);
-      --wash: color-mix(in oklch, var(--ink) 8%, transparent);
-      --danger: oklch(0.72 0.15 27);
-      --on-ink: oklch(0.185 0.004 260);
-      /* paper stays paper on a dark desk, a step dimmer so it does not glare */
-      --paper-yellow: oklch(0.88 0.075 100);
-      --paper-pink: oklch(0.865 0.04 12);
-      --paper-mint: oklch(0.87 0.04 165);
-      --paper-sky: oklch(0.865 0.038 245);
-      --paper-lilac: oklch(0.865 0.04 300);
-      --paper-white: oklch(0.92 0 0);
-      --shadow-tool: 0 1px 2px rgb(0 0 0 / 0.3);
-      --shadow-paper: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.3);
-      --shadow-lift: 0 16px 32px rgb(0 0 0 / 0.5);
-      --shadow-float: 0 2px 6px rgb(0 0 0 / 0.3), 0 12px 28px rgb(0 0 0 / 0.45);
-    }
-  }
 
   @media (--reduced-motion) {
     --duration-morph: 0s;

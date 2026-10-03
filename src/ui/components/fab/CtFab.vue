@@ -20,7 +20,8 @@ defineSlots<{ default(): unknown }>();
 button {
   position: absolute;
   inset-inline-end: 16px;
-  inset-block-end: 16px;
+  /* above the dock's footprint, at the bottom end of the view */
+  inset-block-end: calc(var(--dock-clear) + 16px);
   z-index: var(--z-chrome);
   width: 56px;
   height: 56px;

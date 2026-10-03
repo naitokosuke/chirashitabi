@@ -372,7 +372,10 @@ function openMenu(note: Note, { focus = true } = {}) {
     const h = m.offsetHeight;
     const x = Math.max(8, Math.min(card.left - r.left, r.width - w - 8));
     const below = card.bottom - r.top + CLEAR;
-    const y = below + h > r.height - 100 ? card.top - r.top - h - CLEAR : below;
+    // the desk runs under the dock: the floor is the dock's top, less the write button's row
+    const dock = document.querySelector("[data-dock]")?.getBoundingClientRect().top ?? r.bottom;
+    const floor = Math.min(r.bottom, dock) - r.top - 72;
+    const y = below + h > floor ? card.top - r.top - h - CLEAR : below;
     menu.value = { ...menu.value, x, y: Math.max(y, 8) };
     // the keyboard moves into it; a tap that picked the card leaves focus where it was
     if (focus) m.querySelector<HTMLElement>("button")?.focus();
@@ -656,7 +659,7 @@ section {
       display: flex;
       align-items: center;
       gap: 6px;
-      min-height: var(--bar);
+      min-height: var(--top-row);
       padding: env(safe-area-inset-top, 0px) 12px 0 0;
       pointer-events: none;
 
@@ -821,7 +824,7 @@ section {
     > .jump {
       position: absolute;
       inset-inline-start: 16px;
-      inset-block-end: 24px;
+      inset-block-end: calc(var(--dock-clear) + 24px);
       z-index: var(--z-chrome);
 
       > button {
