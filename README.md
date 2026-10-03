@@ -93,6 +93,7 @@ src/ui/             The design system: props, slots and events only, no app impo
   composables/   useIndicator: measures the selected child so an indicator can slide to it
   index.ts, types.ts   The public entry and the shared CtOption type
 
+public/             favicon.svg: three notes scattered on a red tile, served as they are
 scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop (see "Running against the Worker")
 
 .claude/skills/impeccable/   A text-only copy of the Impeccable design skill (SKILL.md + reference/, no scripts
