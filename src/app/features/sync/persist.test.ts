@@ -48,6 +48,7 @@ const memo: Memo = {
   },
   budget: 700,
   checked: false,
+  image: null,
 };
 const room: RoomState = {
   notes: [memo],

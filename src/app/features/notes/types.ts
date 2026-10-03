@@ -7,6 +7,9 @@ import type { LatLng } from "../place/types";
 
 export type NoteId = Brand<string, "NoteId">;
 
+/** A picture kept by the room (its bytes in R2), as the room minted its id */
+export type ImageId = Brand<string, "ImageId">;
+
 export const COLORS = ["#fff1b8", "#ffd9de", "#d8f0e6", "#dbe7ff", "#ead9ff", "#ffffff"] as const;
 /** A card's paper: one of the palette, never a free CSS value */
 export type NoteColor = (typeof COLORS)[number];
@@ -66,6 +69,8 @@ export interface Memo extends CardBase {
   budget: number | null;
   /** Ticked off on a list (the booklet's appendix), shared with the room; separate from a day's status */
   checked: boolean;
+  /** A picture on the card, kept by the room; null for none */
+  image: ImageId | null;
 }
 
 /** A suggestion waits to be adopted (becoming a memo) or dismissed; anyone can make one */
@@ -85,7 +90,10 @@ export type Scheduled = Memo & { schedule: Schedule };
 export type NewMemo = Omit<Memo, "by" | "updatedAt">;
 
 /** What the form writes */
-export type NoteInput = Pick<Memo, "title" | "body" | "tags" | "color" | "mapsUrl" | "pin">;
+export type NoteInput = Pick<
+  Memo,
+  "title" | "body" | "tags" | "color" | "mapsUrl" | "pin" | "image"
+>;
 
 /** What can change on a memo after it is written */
 export type MemoPatch = Partial<Omit<Memo, "id" | "kind" | "by" | "updatedAt">>;

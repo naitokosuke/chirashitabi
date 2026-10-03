@@ -34,6 +34,7 @@ import { CtAppBar, CtChip } from "../../ui/index";
 
 import { useI18n } from "../i18n/useI18n";
 
+import { imageSrc, shrinkImage } from "../features/notes/image";
 import {
   blankInput,
   inputFromNote,
@@ -50,7 +51,10 @@ import {
 } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
 import { placeFromUrl } from "../features/place/google-maps";
+import { useSync } from "../features/sync/useSync";
 import { useTags } from "../features/tags/useTags";
+import { RoomFull } from "../features/worker/api";
+import { useWorker } from "../features/worker/useWorker";
 import backIcon from "../icons/back.svg";
 import closeIcon from "../icons/close.svg";
 import Icon from "../icons/Icon.vue";
@@ -96,6 +100,37 @@ const hasPin = () => form.value.pin !== null;
 const text = ref(noteText(form.value));
 const tagInput = ref("");
 const keepOpen = ref(false);
+
+// ---- a picture on the card: shrunk on the device, kept by the room, then named by its id ----
+const worker = useWorker();
+const sync = useSync();
+type PhotoState = "idle" | "sending" | "failed" | "full";
+const photo = ref<PhotoState>("idle");
+const PHOTO_STATE = {
+  sending: "form.photoSending",
+  failed: "form.photoFailed",
+  full: "form.photoFull",
+} as const satisfies Record<Exclude<PhotoState, "idle">, string>;
+const photoSrc = computed(() =>
+  form.value.image === null ? null : imageSrc(sync.roomId, form.value.image),
+);
+async function onPhoto(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = ""; // the same photo can be picked again after a failure
+  const upload = worker.api?.uploadImage;
+  if (file === undefined || upload === null || upload === undefined) return;
+  photo.value = "sending";
+  try {
+    form.value.image = await upload(await shrinkImage(file));
+    photo.value = "idle";
+  } catch (err) {
+    photo.value = err instanceof RoomFull ? "full" : "failed";
+  }
+}
+function removePhoto() {
+  form.value.image = null;
+}
 const textEl = useTemplateRef<HTMLTextAreaElement>("textEl");
 const focusText = () => nextTick(() => textEl.value?.focus());
 onMounted(() => {
@@ -179,6 +214,7 @@ function submit() {
     color: form.value.color,
     mapsUrl: form.value.mapsUrl,
     pin: form.value.pin,
+    image: form.value.image,
   };
   if (target.value.kind === "edit") {
     store.update(target.value.id, input);
@@ -255,6 +291,21 @@ function submit() {
         />
         <p aria-live="polite">{{ i18n.t(hasPin() ? "form.pinned" : mapsUrl.trim() ? "form.urlNoPin" : "form.unpinned") }}</p>
       </div>
+      <div v-if="worker.api?.uploadImage">
+        <label :for="`${id}-photo`">{{ i18n.t("form.photo") }}</label>
+        <figure v-if="photoSrc">
+          <img alt="" :src="photoSrc" />
+          <button type="button" @click="removePhoto">{{ i18n.t("form.removePhoto") }}</button>
+        </figure>
+        <input
+          :id="`${id}-photo`"
+          accept="image/*"
+          type="file"
+          :disabled="photo === 'sending'"
+          @change="onPhoto"
+        />
+        <p v-if="photo !== 'idle'" aria-live="polite">{{ i18n.t(PHOTO_STATE[photo]) }}</p>
+      </div>
       <fieldset>
         <legend>{{ i18n.t("form.color") }}</legend>
         <div>
@@ -271,7 +322,7 @@ function submit() {
       </fieldset>
     </div>
     <footer>
-      <button type="submit" :disabled="!text.trim()">{{ i18n.t(saveLabel) }}</button>
+      <button type="submit" :disabled="!text.trim() || photo === 'sending'">{{ i18n.t(saveLabel) }}</button>
       <p v-if="!editing">{{ i18n.t(hintKey) }}</p>
     </footer>
   </form>
@@ -433,6 +484,53 @@ form {
         border-radius: 10px;
         background: var(--surface);
         color: var(--ink);
+
+        /* the photo picker: the browser's own control, its button made one of ours */
+        &[type="file"] {
+          padding: 8px;
+          font-size: var(--font-sm);
+          color: var(--muted);
+
+          &::file-selector-button {
+            margin-inline-end: 10px;
+            min-height: 32px;
+            padding: 0 12px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: var(--bg);
+            font: inherit;
+            font-weight: 700;
+            color: var(--ink);
+          }
+        }
+      }
+
+      /* the card's picture, as it will show, with a way to take it off */
+      > figure {
+        position: relative;
+        margin: 0 0 8px;
+
+        > img {
+          display: block;
+          width: 100%;
+          max-height: 240px;
+          object-fit: cover;
+          border-radius: 10px;
+          background: var(--wash);
+        }
+
+        > button {
+          position: absolute;
+          inset-block-start: 8px;
+          inset-inline-end: 8px;
+          min-height: 32px;
+          padding: 0 12px;
+          border-radius: 999px;
+          background: var(--surface);
+          box-shadow: var(--shadow-tool);
+          font-size: var(--font-sm);
+          font-weight: 700;
+        }
       }
 
       > p {

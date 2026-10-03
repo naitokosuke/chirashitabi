@@ -46,6 +46,7 @@ Working today:
 - The map (MapLibre + OpenFreeMap, no key): pins, a day's route, long-press to write a note at a place.
 - The booklet: days with intros, notes placed on days with times and statuses, an appendix by tag, a per-day budget, a tray of notes still without a day.
 - Suggestions: a card anyone (including the agent) can leave, adopted into an ordinary note or dismissed.
+- Pictures: a note can carry one photo, shrunk on the phone and kept privately for the room.
 - Rooms: create, remember on the device, reconnect; both members see each other's changes live.
 
 The agent (Claude) drafts a day's order, times and intro, and leaves a few ideas as suggestion cards on the canvas, when a member asks, within a daily and per-trip budget.

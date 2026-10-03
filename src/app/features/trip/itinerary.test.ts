@@ -27,6 +27,7 @@ function memo(id: string, time: string | null, status: NoteStatus, editedAt: str
     schedule: { date: day, time: time === null ? null : Temporal.PlainTime.from(time), status },
     budget: null,
     checked: false,
+    image: null,
   };
 }
 

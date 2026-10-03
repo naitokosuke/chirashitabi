@@ -54,6 +54,8 @@ export interface WireMemo extends WireCard {
   budget: number | null;
   /** Ticked off on a list (the booklet's appendix); separate from a day's status */
   checked: boolean;
+  /** A picture on the card: the id of an image stored in the room, or null */
+  image: string | null;
 }
 
 export interface WireSuggestion extends WireCard {
@@ -70,6 +72,7 @@ export type WireMemoPatch = Partial<
     | "body"
     | "tags"
     | "checked"
+    | "image"
     | "color"
     | "mapsUrl"
     | "pin"
@@ -128,6 +131,15 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 const isText = (v: unknown, max: number): v is string => typeof v === "string" && v.length <= max;
 const isFinite_ = (v: unknown, max = COORD): v is number =>
   typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= max;
+/** An image's id, as the room mints it (a UUID) */
+export const isImageId = (v: unknown): v is string =>
+  typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v);
+
+/** What a picture may be, as uploaded: the formats every browser shows */
+export const IMAGE_TYPES = ["image/webp", "image/jpeg", "image/png"] as const;
+/** The largest picture, in bytes; the app shrinks one to well under this before sending it */
+export const MAX_IMAGE_BYTES = 1024 * 1024;
+
 const isId = (v: unknown): v is string =>
   typeof v === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(v) && v.length <= ID;
 const isColor = (v: unknown): v is NoteColor => (COLORS as readonly string[]).includes(v as string);
@@ -212,6 +224,8 @@ const parseNote = (v: unknown): WireNote | null => {
   if (!isBudget(v.budget)) return null;
   // a client from before `checked` existed sends none: unticked
   if (!(v.checked === undefined || typeof v.checked === "boolean")) return null;
+  // and one from before pictures sends no image: none
+  if (!(v.image === undefined || v.image === null || isImageId(v.image))) return null;
   return {
     ...card,
     kind: "memo",
@@ -222,6 +236,7 @@ const parseNote = (v: unknown): WireNote | null => {
     schedule: v.schedule,
     budget: v.budget,
     checked: v.checked ?? false,
+    image: v.image ?? null,
   };
 };
 
@@ -265,6 +280,10 @@ const parsePatch = (v: unknown): WireMemoPatch | null => {
       case "checked":
         if (typeof val !== "boolean") return null;
         p.checked = val;
+        break;
+      case "image":
+        if (!(val === null || isImageId(val))) return null;
+        p.image = val;
         break;
       case "x":
       case "y":

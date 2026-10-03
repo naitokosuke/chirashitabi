@@ -12,7 +12,7 @@ import type {
   WireTrip,
 } from "../../../../worker/wire";
 import type { Member, MemberId } from "../members/types";
-import type { Memo, MemoPatch, Note, NoteId, Schedule } from "../notes/types";
+import type { ImageId, Memo, MemoPatch, Note, NoteId, Schedule } from "../notes/types";
 import type { TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
@@ -50,6 +50,8 @@ export function reviveNote(n: WireNote): Note {
     schedule: n.schedule === null ? null : schedule(n.schedule),
     budget: n.budget,
     checked: n.checked,
+    // a note kept on a device before pictures has none
+    image: (n.image ?? null) as ImageId | null,
   };
 }
 
@@ -69,7 +71,8 @@ export const reviveMember = (m: WireMember): Member => ({
 
 const revivePatch = (p: WireMemoPatch): MemoPatch => {
   const { schedule: s, ...rest } = p;
-  const out: MemoPatch = rest;
+  // the room checked an image id is one of its own
+  const out = rest as MemoPatch;
   if (Object.hasOwn(p, "schedule"))
     out.schedule = s === null || s === undefined ? null : schedule(s);
   return out;

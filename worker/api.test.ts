@@ -203,6 +203,7 @@ const memo = (id: string, title = "Din Tai Fung") => ({
   schedule: null,
   budget: null,
   checked: false,
+  image: null,
 });
 
 describe("the gate", () => {
@@ -433,6 +434,7 @@ describe("the socket", () => {
         schedule: null,
         budget: null,
         checked: false,
+        image: null,
       },
     ]);
     expect(c.snapshot.trip.days[1]).toEqual({ date: "2026-11-04", intro: "Jiufen day" });
@@ -728,5 +730,85 @@ describe("the agent's suggestions", () => {
     expect(await index.exec("SELECT refunded FROM spends WHERE email = ?", email)).toEqual([
       { refunded: 1 },
     ]);
+  });
+});
+
+describe("pictures", () => {
+  /** A few bytes standing in for a WebP: the Worker checks the type it is told, not the bytes */
+  const BYTES = new Uint8Array([0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4]) as Uint8Array<ArrayBuffer>;
+  const upload = async (
+    roomId: string,
+    email: string,
+    body: Uint8Array<ArrayBuffer> = BYTES,
+    headers: Record<string, string> = {},
+  ) =>
+    server.fetch(`${APP}/api/rooms/${roomId}/images`, {
+      method: "POST",
+      headers: {
+        "Cf-Access-Jwt-Assertion": await token(email),
+        Origin: APP,
+        "Content-Type": "image/webp",
+        ...headers,
+      },
+      body,
+    });
+  const fetchImage = async (roomId: string, id: string, email: string) =>
+    server.fetch(`${APP}/api/rooms/${roomId}/images/${id}`, {
+      headers: { "Cf-Access-Jwt-Assertion": await token(email) },
+    });
+
+  test("a member's picture is kept and shown to members only, kept by the browser for good", async () => {
+    const email = "photos@example.com";
+    const { roomId } = await createRoom(email);
+    const res = await upload(roomId, email);
+    expect(res.status).toBe(200);
+    const { id } = (await res.json()) as { id: string };
+
+    // an <img> sends no Origin
+    const got = await fetchImage(roomId, id, email);
+    expect(got.status).toBe(200);
+    expect(got.headers.get("Content-Type")).toBe("image/webp");
+    expect(got.headers.get("Cache-Control")).toContain("immutable");
+    expect(new Uint8Array(await got.arrayBuffer())).toEqual(BYTES);
+
+    expect((await fetchImage(roomId, id, "stranger-photos@example.com")).status).toBe(403);
+    expect((await fetchImage(roomId, crypto.randomUUID(), email)).status).toBe(404);
+  });
+
+  test("an upload must come from the app, as a picture, within the size", async () => {
+    const email = "badphotos@example.com";
+    const { roomId } = await createRoom(email);
+    expect((await upload(roomId, email, BYTES, { Origin: "https://evil.example" })).status).toBe(
+      403,
+    );
+    expect((await upload(roomId, email, BYTES, { "Content-Type": "image/svg+xml" })).status).toBe(
+      415,
+    );
+    expect((await upload(roomId, email, new Uint8Array(1024 * 1024 + 1))).status).toBe(413);
+    expect((await upload(roomId, email, new Uint8Array(0))).status).toBe(400);
+    expect((await upload(roomId, "outsider-photos@example.com")).status).toBe(403);
+  });
+
+  test("a card shows only a picture the room has, and can lose it", async () => {
+    const email = "cardphoto@example.com";
+    const { roomId } = await createRoom(email);
+    const { id } = (await (await upload(roomId, email)).json()) as { id: string };
+    const a = await connect(roomId, email);
+
+    a.send({ type: "note:add", note: { ...memo("n1"), image: crypto.randomUUID() }, cid: "c1" });
+    expect(await a.next()).toMatchObject({ type: "rejected", reason: "no such image", cid: "c1" });
+
+    a.send({ type: "note:add", note: { ...memo("n1"), image: id }, cid: "c2" });
+    expect((await a.next()).type).toBe("ack");
+    a.send({ type: "note:update", id: "n1", patch: { image: null }, cid: "c3" });
+    expect((await a.next()).type).toBe("ack");
+    a.ws.close(1000, "done");
+
+    // a client from before pictures sends no image; the card has none
+    const b = await connect(roomId, email);
+    const n1 =
+      b.snapshot.type === "snapshot" ? b.snapshot.notes.find((n) => n.id === "n1") : undefined;
+    expect(n1).toMatchObject({ kind: "memo", image: null });
+    b.ws.close(1000, "done");
   });
 });

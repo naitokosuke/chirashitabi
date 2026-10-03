@@ -4,7 +4,7 @@ import { initWorkersLogger, withEvlog } from "evlog/workers";
 import { AccessVerifier, Unauthenticated } from "./access";
 import { draftDay, MODEL, suggestNotes } from "./claude";
 import { Room } from "./room";
-import { isDate, parsePoint, parseProfile, parseTrip } from "./wire";
+import { IMAGE_TYPES, isDate, MAX_IMAGE_BYTES, parsePoint, parseProfile, parseTrip } from "./wire";
 
 export { Room };
 export { RoomsIndex } from "./rooms-index";
@@ -43,6 +43,68 @@ const booklet = () => new Response("Not Found", { status: 404 });
 
 const status = (code: number, text: string) => new Response(text, { status: code });
 const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws|draft|suggest)$/;
+/** A room's pictures: POST to upload one, GET `/images/<id>` to show it */
+const IMAGES = /^\/api\/rooms\/([0-9a-f-]{36})\/images(?:\/([0-9a-f-]{36}))?$/;
+
+/**
+ * Pictures, for the room's members. A GET comes from an <img>, which sends no Origin and no
+ * JSON; it only reads, so it passes with Access's identity and the membership alone. An
+ * upload is a POST of the picture's bytes and must come from the app's origin, like any
+ * call that changes something.
+ */
+async function images(
+  request: Request,
+  env: Env,
+  url: URL,
+  email: string,
+  [, roomId, imageId]: RegExpExecArray,
+  log: RequestLogger,
+): Promise<Response> {
+  const memberId = await env.ROOMS.getByName("index").resolve(email, roomId!);
+  if (memberId === null) return status(403, "Forbidden");
+  const room = env.ROOM.getByName(roomId!);
+  log.set({ room: roomId, member: memberId, action: "image" });
+
+  // the room's own folder in the bucket: one room's ids never reach another's pictures
+  const key = (id: string) => `rooms/${roomId}/images/${id}`;
+
+  if (imageId !== undefined) {
+    if (request.method !== "GET") return status(405, "Method Not Allowed");
+    if (!(await room.hasImageFor(memberId, imageId))) return status(404, "Not Found");
+    const object = await env.IMAGES.get(key(imageId));
+    if (object === null) return status(404, "Not Found");
+    return new Response(object.body, {
+      headers: {
+        "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream",
+        // an id is never reused for other bytes; only this person's browser keeps it
+        "Cache-Control": "private, max-age=31536000, immutable",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
+
+  if (request.method !== "POST" || request.headers.get("Origin") !== url.origin)
+    return status(403, "Forbidden");
+  const type = request.headers.get("Content-Type") ?? "";
+  if (!(IMAGE_TYPES as readonly string[]).includes(type))
+    return status(415, "Unsupported Media Type");
+  if (Number(request.headers.get("Content-Length") ?? "0") > MAX_IMAGE_BYTES)
+    return status(413, "Payload Too Large");
+  const data = await request.arrayBuffer();
+  if (data.byteLength === 0) return status(400, "Bad Request");
+  if (data.byteLength > MAX_IMAGE_BYTES) return status(413, "Payload Too Large");
+  // the room's list first, so its cap holds; the bytes after, and the entry goes if they fail
+  const id = await room.addImage(memberId, type, data.byteLength);
+  log.set({ image: { type, bytes: data.byteLength, stored: id !== null } });
+  if (id === null) return status(409, "Conflict");
+  try {
+    await env.IMAGES.put(key(id), data, { httpMetadata: { contentType: type } });
+  } catch (e) {
+    await room.dropImage(id);
+    throw e;
+  }
+  return Response.json({ id });
+}
 
 async function api(request: Request, env: Env, url: URL, log: RequestLogger): Promise<Response> {
   let email: string;
@@ -53,6 +115,9 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
     log.set({ auth: { refused: e.message } });
     return status(401, "Unauthorized");
   }
+
+  const pictures = IMAGES.exec(url.pathname);
+  if (pictures !== null) return images(request, env, url, email, pictures, log);
 
   // Access checks the cookie, not where the request came from. Every API call is a POST
   // with JSON (so the browser always sends Origin) or an upgrade; anything else is refused.

@@ -1,7 +1,7 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
 import type { MemberId } from "../members/types";
-import type { Scheduled } from "../notes/types";
+import type { ImageId, Scheduled } from "../notes/types";
 
 /** A suggested order and times for one day, from whichever member drafted it */
 export interface DayDraft {
@@ -18,6 +18,11 @@ export interface WorkerApi {
    * reach the room like any change. Resolves with how many it left; null while it cannot
    */
   suggest: ((at: { x: number; y: number }) => Promise<number>) | null;
+  /**
+   * Keep a picture in the room (shrunk on the device first, notes/image.ts); resolves with its
+   * id for a card to show. Null while there is no room to keep it in
+   */
+  uploadImage: ((image: Blob) => Promise<ImageId>) | null;
   /** Have a member order a day's notes and give them times */
   draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<DayDraft>;
   /**

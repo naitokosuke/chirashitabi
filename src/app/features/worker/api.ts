@@ -1,7 +1,7 @@
 import { Temporal } from "temporal-polyfill-lite";
 
 import type { MemberId } from "../members/types";
-import type { NoteId } from "../notes/types";
+import type { ImageId, NoteId } from "../notes/types";
 import type { RoomId } from "../rooms/types";
 
 import type { WorkerApi } from "./types";
@@ -36,8 +36,21 @@ async function call(room: RoomId, what: "draft" | "suggest", body: unknown): Pro
   return res;
 }
 
-/** The Worker's calls for one room; each is a paid call, made only when a member asks */
+/** The room already keeps as many pictures as it may */
+export class RoomFull extends Error {}
+
+/** The Worker's calls for one room; the agent's are paid calls, made only when a member asks */
 export const roomWorkerApi = (room: RoomId): WorkerApi => ({
+  async uploadImage(image) {
+    const res = await fetch(`/api/rooms/${room}/images`, {
+      method: "POST",
+      headers: { "Content-Type": image.type },
+      body: image,
+    });
+    if (res.status === 409) throw new RoomFull();
+    if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
+    return ((await res.json()) as { id: string }).id as ImageId;
+  },
   async suggest(at) {
     const res = await call(room, "suggest", { at });
     return ((await res.json()) as { added: number }).added;
