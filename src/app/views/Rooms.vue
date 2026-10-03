@@ -1,10 +1,4 @@
 <script lang="ts">
-import { Temporal } from "temporal-polyfill-lite";
-
-/** `count` days from `first`, as the ISO dates the room stores */
-export const daysFrom = (first: Temporal.PlainDate, count: number): string[] =>
-  Array.from({ length: count }, (_, i) => first.add({ days: i }).toString());
-
 export const CURRENCIES = ["TWD", "JPY", "USD", "EUR", "KRW", "THB"] as const;
 export const MEMBER_COLORS = [
   "#3c6ee0",
@@ -19,11 +13,14 @@ export const DEFAULT_CENTER = { lat: 25.05, lng: 121.54 };
 </script>
 
 <script setup lang="ts" vapor>
+import { Temporal } from "temporal-polyfill-lite";
+
 import { computed, onMounted, ref, useId } from "vue";
 
 import { useI18n } from "../i18n/useI18n";
 
-import type { NewRoom, RoomId } from "../features/rooms/types";
+import { MAX_DAYS, MAX_NAME, newRoom } from "../features/rooms/newRoom";
+import type { RoomId } from "../features/rooms/types";
 import { useCreateRoom, useRoomList } from "../features/rooms/useRooms";
 import { useRoom } from "../features/sync/useRoom";
 
@@ -46,20 +43,26 @@ const count = ref(4);
 const currency = ref<string>(CURRENCIES[0]);
 const me = ref("");
 const color = ref<string>(MEMBER_COLORS[0]);
+/** The form as a room the Worker will take, or null while it is not one yet */
+const filled = computed(() =>
+  newRoom(
+    {
+      name: name.value,
+      firstDay: firstDay.value,
+      days: count.value,
+      currency: currency.value,
+      me: me.value,
+      color: color.value,
+    },
+    DEFAULT_CENTER,
+  ),
+);
 
 async function create() {
-  if (busy.value) return;
-  const body: NewRoom = {
-    trip: {
-      name: name.value.trim(),
-      days: daysFrom(Temporal.PlainDate.from(firstDay.value), count.value),
-      currency: currency.value,
-      center: DEFAULT_CENTER,
-    },
-    me: { name: me.value.trim(), color: color.value },
-  };
+  const room = filled.value;
+  if (busy.value || room === null) return;
   try {
-    emit("enter", await createAsync(body));
+    emit("enter", await createAsync(room));
   } catch {
     // the mutation's error state says so under the form; the person tries again
   }
@@ -93,7 +96,7 @@ onMounted(() => {
       <input
         :id="`${id}-name`"
         v-model="name"
-        maxlength="60"
+        :maxlength="MAX_NAME"
         required
         :placeholder="i18n.t('rooms.namePlaceholder')"
       />
@@ -104,7 +107,14 @@ onMounted(() => {
         </div>
         <div>
           <label :for="`${id}-count`">{{ i18n.t("rooms.days") }}</label>
-          <input :id="`${id}-count`" v-model.number="count" max="60" min="1" required type="number" />
+          <input
+            :id="`${id}-count`"
+            v-model.number="count"
+            :max="MAX_DAYS"
+            min="1"
+            required
+            type="number"
+          />
         </div>
         <div>
           <label :for="`${id}-currency`">{{ i18n.t("rooms.currency") }}</label>
@@ -114,7 +124,7 @@ onMounted(() => {
         </div>
       </div>
       <label :for="`${id}-me`">{{ i18n.t("rooms.you") }}</label>
-      <input :id="`${id}-me`" v-model="me" maxlength="60" required />
+      <input :id="`${id}-me`" v-model="me" :maxlength="MAX_NAME" required />
       <span :id="`${id}-color`">{{ i18n.t("rooms.color") }}</span>
       <div role="group" :aria-labelledby="`${id}-color`">
         <button
@@ -129,7 +139,7 @@ onMounted(() => {
       </div>
       <div>
         <button type="button" @click="() => (creating = false)">{{ i18n.t("common.close") }}</button>
-        <button class="primary" type="submit" :disabled="busy || !name.trim() || !me.trim()">{{ i18n.t(busy ? "rooms.creating" : "rooms.create") }}</button>
+        <button class="primary" type="submit" :disabled="busy || filled === null">{{ i18n.t(busy ? "rooms.creating" : "rooms.create") }}</button>
       </div>
       <p v-if="createError !== null" aria-live="polite">{{ i18n.t("rooms.createFailed") }}</p>
     </form>
