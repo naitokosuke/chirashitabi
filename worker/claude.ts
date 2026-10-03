@@ -155,6 +155,70 @@ async function ask<T>(
     : { ok: true, value, usage };
 }
 
+// ---- tags the trip could use ----
+
+/** At most this many candidate tags a room keeps; Clef judges them with the tags in use */
+export const MAX_CANDIDATES = 16;
+const CANDIDATE = 20;
+
+const TAGS_TOOL = {
+  name: "propose_tags",
+  description: "Propose short tags this trip's notes could be sorted under.",
+  input_schema: {
+    type: "object",
+    properties: {
+      tags: {
+        type: "array",
+        description: `Up to ${MAX_CANDIDATES} tags, without '#'.`,
+        items: { type: "string", description: `A tag of at most ${CANDIDATE} characters.` },
+      },
+    },
+    required: ["tags"],
+  },
+} as const;
+
+/** What the agent reads to propose tags: the trip, the tags in use, and the notes' titles */
+export interface TagContext {
+  trip: string;
+  days: string[];
+  tags: string[];
+  titles: string[];
+}
+
+/**
+ * Asks Claude for tags this trip's notes could use: kinds of place, food, moments of the
+ * trip; the ones in use are not proposed again
+ */
+export async function proposeTags(env: Env, room: TagContext): Promise<ClaudeResult<string[]>> {
+  const prompt = [
+    `Trip: ${room.trip}, ${room.days[0] ?? "?"} to ${room.days.at(-1) ?? "?"}.`,
+    `Tags in use: ${JSON.stringify(room.tags)}.`,
+    "The notes' titles (JSON):",
+    JSON.stringify(room.titles.slice(0, 200)),
+    "",
+    `Propose up to ${MAX_CANDIDATES} more tags the travellers could sort these and later notes`,
+    "under: kinds of places, food, shopping, moments of the trip. One or two words each, no '#',",
+    "none of the tags in use. Write them in the language the notes are written in.",
+  ].join("\n");
+  const taken = new Set(room.tags.map((t) => t.toLowerCase()));
+  return ask(env, TAGS_TOOL, prompt, (input) => checkTags(input, taken), "tags");
+}
+
+/** Claude's tags, trimmed of '#' and space, short, new, no repeats; or null */
+export function checkTags(v: unknown, taken: ReadonlySet<string>): string[] | null {
+  if (!isRecord(v) || !Array.isArray(v.tags)) return null;
+  const out: string[] = [];
+  const seen = new Set(taken);
+  for (const t of v.tags) {
+    const tag = typeof t === "string" ? t.replace(/^#+/, "").trim() : "";
+    if (tag === "" || tag.length > CANDIDATE || seen.has(tag.toLowerCase())) continue;
+    seen.add(tag.toLowerCase());
+    out.push(tag);
+    if (out.length === MAX_CANDIDATES) break;
+  }
+  return out;
+}
+
 // ---- suggestions ----
 
 /** At most this many cards per ask: a handful of ideas, not a flood */

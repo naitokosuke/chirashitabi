@@ -7,4 +7,6 @@ interface Env {
   ANTHROPIC_API_KEY: string;
   /** Where Claude is called; unset in production, a local stub in the tests */
   ANTHROPIC_BASE_URL?: string;
+  /** Where Clef is called instead of the AI binding; only the tests set it */
+  CLEF_BASE_URL?: string;
 }

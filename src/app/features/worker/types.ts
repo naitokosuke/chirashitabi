@@ -23,6 +23,19 @@ export interface WorkerApi {
    * id for a card to show. Null while there is no room to keep it in
    */
   uploadImage: ((image: Blob) => Promise<ImageId>) | null;
+  /**
+   * Tags that fit a memo as it is being written, judged by Clef on its words and its picture,
+   * from the tags in use and the trip's candidates (proposed by the agent once). `isNew` is a
+   * tag no note has yet. Null while it cannot
+   */
+  suggestTags:
+    | ((memo: {
+        title: string;
+        body: string;
+        image: ImageId | null;
+        chosen: string[];
+      }) => Promise<{ tag: string; isNew: boolean }[]>)
+    | null;
   /** Have a member order a day's notes and give them times */
   draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<DayDraft>;
   /**

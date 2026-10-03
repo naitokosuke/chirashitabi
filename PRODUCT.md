@@ -50,6 +50,7 @@ Working today:
 - Rooms: create, remember on the device, reconnect; both members see each other's changes live.
 
 The agent (Claude) drafts a day's order, times and intro, and leaves a few ideas as suggestion cards on the canvas, when a member asks, within a daily and per-trip budget.
+While writing a note, Clef (Workers AI) suggests tags that fit its words and photo, from the tags in use and candidates Claude proposed once for the trip.
 Planned, not built: the invite screen, expanding short `maps.app.goo.gl` links, publishing the booklet as a public read-only page.
 
 Terminology: a note is a 付箋/sticky; the booklet is しおり/shiori; the people and the agent are members; a trip's shared space is a room.

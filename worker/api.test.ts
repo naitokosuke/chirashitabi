@@ -1,8 +1,16 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { createTestHarness, type TestHarness } from "wrangler";
+import {
+  createTestHarness,
+  experimental_readRawConfig,
+  type TestHarness,
+  type Unstable_RawConfig,
+} from "wrangler";
 
 import type { ServerMessage } from "./wire";
 
@@ -26,6 +34,14 @@ let answer: (request: { messages: { content: string }[] }) => { status: number; 
 const asked: unknown[] = [];
 /** The test's budget: paid calls one person may make in a day */
 const PER_DAY = 3;
+
+/** Stands in for Clef on Workers AI, the same way: each test sets its answer, `judged` keeps the inputs */
+let clef: Server;
+let judge: (input: { state: unknown; questions: Record<string, unknown>; images?: unknown[] }) => {
+  status: number;
+  body: unknown;
+} = () => ({ status: 500, body: {} });
+const judged: { state: unknown; questions: Record<string, unknown>; images?: unknown[] }[] = [];
 
 beforeAll(async () => {
   const pair = (await crypto.subtle.generateKey(
@@ -66,14 +82,45 @@ beforeAll(async () => {
   await new Promise<void>((resolve) => claude.listen(0, "127.0.0.1", resolve));
   const claudePort = (claude.address() as AddressInfo).port;
 
+  clef = createServer((req, res) => {
+    let raw = "";
+    req.on("data", (c) => (raw += c));
+    req.on("end", () => {
+      const body = JSON.parse(raw);
+      judged.push(body);
+      const { status, body: out } = judge(body);
+      res.statusCode = status;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify(out));
+    });
+  });
+  await new Promise<void>((resolve) => clef.listen(0, "127.0.0.1", resolve));
+  const clefPort = (clef.address() as AddressInfo).port;
+
+  // The Worker as it is deployed, but for its Workers AI binding: that one only runs against
+  // Cloudflare (a login, which CI does not have), so Clef is the stub at CLEF_BASE_URL instead.
+  // Written to a folder of its own, away from a developer's .dev.vars, with its paths made whole.
+  const { ai: _remote, ...config } = experimental_readRawConfig({ config: "./wrangler.jsonc" })
+    .rawConfig as Unstable_RawConfig;
+  const dir = await mkdtemp(join(tmpdir(), "chirashitabi-test-"));
+  const configPath = join(dir, "wrangler.json");
+  await writeFile(
+    configPath,
+    JSON.stringify({
+      ...config,
+      main: resolve(config.main!),
+      assets: { ...config.assets, directory: resolve(config.assets!.directory!) },
+    }),
+  );
   server = createTestHarness({
     workers: [
       {
-        configPath: "./wrangler.jsonc",
+        configPath,
         vars: {
           ACCESS_CERTS_URL: `http://127.0.0.1:${port}/certs`,
           ANTHROPIC_BASE_URL: `http://127.0.0.1:${claudePort}`,
           ANTHROPIC_API_KEY: "test-key",
+          CLEF_BASE_URL: `http://127.0.0.1:${clefPort}`,
           SPEND_PER_DAY: String(PER_DAY),
         },
       },
@@ -86,6 +133,7 @@ afterAll(async () => {
   await server?.close();
   certs?.close();
   claude?.close();
+  clef?.close();
 });
 
 const b64url = (data: Uint8Array | string) => {
@@ -837,5 +885,118 @@ describe("turning and resizing a card", () => {
     const n1 = b.snapshot.type === "snapshot" ? b.snapshot.notes.find((n) => n.id === "n1") : null;
     expect(n1).toMatchObject({ x: 70, y: 80, rot: -30, scale: 1.8 });
     b.ws.close(1000, "done");
+  });
+});
+
+describe("tags suggested for a memo", () => {
+  const proposingTags = (tags: string[]) => ({
+    status: 200,
+    body: {
+      content: [{ type: "tool_use", id: "t1", name: "propose_tags", input: { tags } }],
+      usage: { input_tokens: 50, output_tokens: 20 },
+    },
+  });
+  /** Clef's answer: the probability per question id, from a tag -> p map */
+  const judging =
+    (p: Record<string, number>) => (input: { questions: Record<string, unknown> }) => ({
+      status: 200,
+      body: {
+        model: "clef-flash",
+        answers: Object.fromEntries(
+          Object.entries(input.questions).map(([id, q]) => {
+            const tag = /"#(.+)"\?$/.exec((q as { instructions: string }).instructions)?.[1] ?? "";
+            return [id, { type: "noul", noul: p[tag] ?? 0.1 }];
+          }),
+        ),
+      },
+    });
+  const ask = (roomId: string, email: string, body: unknown) =>
+    post(`/api/rooms/${roomId}/tags`, email, body);
+
+  test("Claude proposes the trip's candidates once; Clef picks what fits, in use or new", async () => {
+    const email = "tagger@example.com";
+    const { roomId } = await createRoom(email);
+    const a = await connect(roomId, email);
+    a.send({ type: "note:add", note: memo("n1", "Din Tai Fung"), cid: "c1" }); // tagged #Food
+    expect((await a.next()).type).toBe("ack");
+    a.ws.close(1000, "done");
+
+    answer = () => proposingTags(["#Night markets", "Food", "Hot springs", "   "]);
+    judge = judging({ Food: 0.4, "Night markets": 0.93, "Hot springs": 0.62 });
+    const calls = asked.length;
+    const res = await ask(roomId, email, {
+      title: "Raohe night market",
+      body: "pepper buns",
+      image: null,
+      chosen: [],
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      tags: [
+        { tag: "Night markets", p: 0.93, isNew: true },
+        { tag: "Hot springs", p: 0.62, isNew: true },
+      ],
+    });
+    expect(asked.length).toBe(calls + 1);
+    // the tag in use and the new candidates ("Food" was in use already, the blank one dropped)
+    const questions = Object.values(judged.at(-1)!.questions).map(
+      (q) => (q as { instructions: string }).instructions,
+    );
+    expect(questions).toEqual([
+      'Does this travel note belong under the tag "#Food"?',
+      'Does this travel note belong under the tag "#Night markets"?',
+      'Does this travel note belong under the tag "#Hot springs"?',
+    ]);
+    expect(judged.at(-1)!.state).toEqual({ title: "Raohe night market", body: "pepper buns" });
+
+    // asked again: the candidates are kept, Claude is not called; a tag already on the memo is not asked about
+    const again = await ask(roomId, email, {
+      title: "x",
+      body: "",
+      image: null,
+      chosen: ["night markets"],
+    });
+    expect(again.status).toBe(200);
+    expect(asked.length).toBe(calls + 1);
+    expect(Object.keys(judged.at(-1)!.questions)).toHaveLength(2);
+  });
+
+  test("the memo's picture goes to Clef with its words", async () => {
+    const email = "tagphoto@example.com";
+    const { roomId } = await createRoom(email);
+    const up = await server.fetch(`${APP}/api/rooms/${roomId}/images`, {
+      method: "POST",
+      headers: {
+        "Cf-Access-Jwt-Assertion": await token(email),
+        Origin: APP,
+        "Content-Type": "image/webp",
+      },
+      body: new Uint8Array([1, 2, 3]),
+    });
+    const { id } = (await up.json()) as { id: string };
+    answer = () => proposingTags(["Views"]);
+    judge = judging({ Views: 0.8 });
+    expect(
+      (await ask(roomId, email, { title: "Elephant Mountain", body: "", image: id, chosen: [] }))
+        .status,
+    ).toBe(200);
+    expect(judged.at(-1)!.images).toEqual([{ content_type: "image/webp", base64: "AQID" }]);
+  });
+
+  test("a Clef error costs nothing; a bad request is refused before anything is called", async () => {
+    const email = "tagdown@example.com";
+    const { roomId } = await createRoom(email);
+    answer = () => proposingTags(["Food"]);
+    judge = () => ({ status: 503, body: {} });
+    expect((await ask(roomId, email, { title: "x", body: "", image: null })).status).toBe(502);
+    const index = await server.getWorker().getDurableObjectStorage("RoomsIndex", { name: "index" });
+    // the candidates' call was spent, Clef's refunded
+    expect(
+      await index.exec("SELECT refunded FROM spends WHERE email = ? ORDER BY id", email),
+    ).toEqual([{ refunded: 0 }, { refunded: 1 }]);
+    const before = judged.length;
+    expect((await ask(roomId, email, { body: "no title" })).status).toBe(400);
+    expect((await ask(roomId, email, { title: "x", image: "not-an-id" })).status).toBe(400);
+    expect(judged.length).toBe(before);
   });
 });

@@ -2,9 +2,18 @@ import type { RequestLogger } from "evlog";
 import { initWorkersLogger, withEvlog } from "evlog/workers";
 
 import { AccessVerifier, Unauthenticated } from "./access";
-import { draftDay, MODEL, suggestNotes } from "./claude";
+import { draftDay, MODEL, proposeTags, suggestNotes } from "./claude";
+import { CLEF_MODEL, judgeTags, MAX_TAGS } from "./clef";
 import { Room } from "./room";
-import { IMAGE_TYPES, isDate, MAX_IMAGE_BYTES, parsePoint, parseProfile, parseTrip } from "./wire";
+import {
+  IMAGE_TYPES,
+  isDate,
+  isImageId,
+  MAX_IMAGE_BYTES,
+  parsePoint,
+  parseProfile,
+  parseTrip,
+} from "./wire";
 
 export { Room };
 export { RoomsIndex } from "./rooms-index";
@@ -42,7 +51,7 @@ export default withEvlog<Env>(
 const booklet = () => new Response("Not Found", { status: 404 });
 
 const status = (code: number, text: string) => new Response(text, { status: code });
-const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws|draft|suggest)$/;
+const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws|draft|suggest|tags)$/;
 /** A room's pictures: POST to upload one, GET `/images/<id>` to show it */
 const IMAGES = /^\/api\/rooms\/([0-9a-f-]{36})\/images(?:\/([0-9a-f-]{36}))?$/;
 
@@ -158,7 +167,7 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
   const [, roomId, action] = m as unknown as [
     string,
     string,
-    "invite" | "ws" | "draft" | "suggest",
+    "invite" | "ws" | "draft" | "suggest" | "tags",
   ];
   const memberId = await index.resolve(email, roomId);
   if (memberId === null) return status(403, "Forbidden");
@@ -202,6 +211,76 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
       claude: { model: MODEL, ok: true, tokens: result.usage, items: result.value.items.length },
     });
     return Response.json({ by: Room.AGENT_ID, ...result.value });
+  }
+
+  if (action === "tags") {
+    // the memo as it is being written: its words, the tags it has, and its picture
+    const title = typeof body?.title === "string" ? body.title.slice(0, 200) : null;
+    const text = typeof body?.body === "string" ? body.body.slice(0, 4000) : "";
+    const chosen = Array.isArray(body?.chosen)
+      ? body.chosen.filter((t): t is string => typeof t === "string")
+      : [];
+    const imageId = body?.image ?? null;
+    if (title === null || !(imageId === null || isImageId(imageId)))
+      return status(400, "Bad Request");
+
+    const context = await room.tagContext(memberId);
+    let candidates = context.candidates;
+    // the trip's candidates, once: Claude proposes them the first time anyone asks
+    if (candidates.length === 0) {
+      const reserved = await index.reserve(email, roomId);
+      if ("refused" in reserved) {
+        log.set({ budget: { refused: reserved.refused } });
+        return status(429, `Budget: ${reserved.refused}`);
+      }
+      const proposed = await proposeTags(env, context);
+      if (proposed.ok) {
+        await room.recordAgentCall(memberId, "tags", proposed.usage);
+        await room.saveCandidates(memberId, proposed.value);
+        candidates = proposed.value;
+      } else if (proposed.refund) await index.refund(reserved.id);
+      // without candidates Clef still judges the tags in use
+      log.set({ claude: { model: MODEL, ok: proposed.ok, candidates: candidates.length } });
+    }
+
+    const taken = new Set(chosen.map((t) => t.toLowerCase()));
+    const vocabulary = [...new Set([...context.tags, ...candidates])]
+      .filter((t) => !taken.has(t.toLowerCase()))
+      .slice(0, MAX_TAGS);
+    if (vocabulary.length === 0) return Response.json({ tags: [] });
+
+    // the picture goes along: Clef looks at it with the words
+    let image: { type: string; base64: string } | null = null;
+    if (imageId !== null && (await room.hasImageFor(memberId, imageId))) {
+      const object = await env.IMAGES.get(`rooms/${roomId}/images/${imageId}`);
+      if (object !== null)
+        image = {
+          type: object.httpMetadata?.contentType ?? "image/webp",
+          base64: toBase64(await object.arrayBuffer()),
+        };
+    }
+
+    const reserved = await index.reserve(email, roomId);
+    if ("refused" in reserved) {
+      log.set({ budget: { refused: reserved.refused } });
+      return status(429, `Budget: ${reserved.refused}`);
+    }
+    const judged = await judgeTags(env, { title, body: text, image }, vocabulary);
+    if (!judged.ok) {
+      if (judged.refund) await index.refund(reserved.id);
+      log.set({
+        clef: { model: CLEF_MODEL, ok: false, refunded: judged.refund, reason: judged.reason },
+      });
+      return status(502, "Bad Gateway");
+    }
+    await room.recordAgentCall(memberId, "tag", { input: 0, output: 0 });
+    log.set({
+      clef: { model: CLEF_MODEL, ok: true, asked: vocabulary.length, offered: judged.tags.length },
+    });
+    const inUse = new Set(context.tags);
+    return Response.json({
+      tags: judged.tags.map((t) => ({ tag: t.tag, p: t.p, isNew: !inUse.has(t.tag) })),
+    });
   }
 
   if (action === "suggest") {
@@ -249,4 +328,13 @@ async function json(request: Request): Promise<Record<string, unknown> | null> {
   } catch {
     return null;
   }
+}
+
+/** Bytes as base64, in slices: a spread of a whole picture would overflow the call stack */
+function toBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000)
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
 }

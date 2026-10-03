@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 
 import type { NoteStatus } from "../src/app/features/notes/types";
 
-import type { SuggestContext } from "./claude";
+import type { SuggestContext, TagContext } from "./claude";
 import {
   MAX_MESSAGE_BYTES,
   parseCid,
@@ -242,6 +242,43 @@ export class Room extends DurableObject<Env> {
       (n): n is WireMemo => n.kind === "memo" && n.schedule?.date === date,
     );
     return { trip: trip.name, currency: trip.currency, notes };
+  }
+
+  // ---- tags: the ones in use, and the agent's candidates for the trip ----
+
+  /** What tagging a memo needs, asked by member `by`: the trip, the tags in use, the candidates */
+  tagContext(by: string): TagContext & { candidates: string[] } {
+    this.assertMember(by);
+    const trip = this.trip();
+    const notes = this.notes();
+    const tags = [...new Set(notes.flatMap((n) => (n.kind === "memo" ? n.tags : [])))];
+    return {
+      trip: trip.name,
+      days: trip.days.map((d) => d.date),
+      tags,
+      titles: notes.map((n) => n.title),
+      candidates: this.candidates(),
+    };
+  }
+
+  /** The agent's candidate tags, kept so they are proposed once a trip, not on every ask */
+  saveCandidates(by: string, tags: string[]): void {
+    this.assertMember(by);
+    const sql = this.ctx.storage.sql;
+    this.candidateTable();
+    for (const tag of tags) sql.exec("INSERT OR IGNORE INTO tag_candidates (tag) VALUES (?)", tag);
+  }
+
+  private candidates(): string[] {
+    this.candidateTable();
+    return this.ctx.storage.sql
+      .exec<{ tag: string }>("SELECT tag FROM tag_candidates ORDER BY rowid")
+      .toArray()
+      .map((r) => r.tag);
+  }
+
+  private candidateTable(): void {
+    this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS tag_candidates (tag TEXT PRIMARY KEY)");
   }
 
   /** What the agent reads to suggest ideas, asked by member `by` */
