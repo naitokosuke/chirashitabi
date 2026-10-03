@@ -27,6 +27,7 @@ import { useNotes } from "../features/notes/useNotes";
 import { placeLink, safeUrl } from "../features/place/google-maps";
 import { lngLat, needsPin, pinnedOf, type Pinned } from "../features/place/pin";
 import { boundsOf, routeLine, routeStops } from "../features/place/route";
+import { guardMissingProperties } from "../features/place/style";
 import type { LatLng } from "../features/place/types";
 import { useTags } from "../features/tags/useTags";
 import { hhmm, shortDate } from "../features/trip/format";
@@ -69,12 +70,13 @@ const markers = new Map<string, Marker>();
 onMounted(() => {
   map = new MLMap({
     container: el.value!,
-    style: STYLE,
     // the trip's area; the whole world until the room says where we are going
     center: trip.center ? [trip.center.lng, trip.center.lat] : [0, 0],
     zoom: trip.center ? 11.5 : 1,
     attributionControl: { compact: true },
   });
+  // the style as fetched, with its filters guarded against tiles that lack what they compare
+  map.setStyle(STYLE, { transformStyle: (_, next) => guardMissingProperties(next) });
   map.addControl(
     new maplibregl.GeolocateControl({
       positionOptions: { enableHighAccuracy: true },
