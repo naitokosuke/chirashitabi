@@ -1,12 +1,5 @@
 <script lang="ts">
-import type { NoteId } from "../features/notes/types";
-import type { LatLng } from "../features/place/types";
-
-/**
- * What a sheet is open on: a new memo (pinned when written from the map), or an existing one,
- * by id, so the form always edits the memo as it is now
- */
-export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; id: NoteId };
+import type { FormTarget, View } from "../shell";
 
 /**
  * Where the form is. The memo tab itself: always a new, unplaced memo, never closed, each save
@@ -15,7 +8,7 @@ export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; i
  */
 export type FormMode =
   | { kind: "tab"; active: boolean }
-  | { kind: "sheet"; target: FormTarget; from: "home" | "canvas" | "memo" | "map" | "shiori" };
+  | { kind: "sheet"; target: FormTarget; from: View };
 </script>
 
 <script setup lang="ts" vapor>
