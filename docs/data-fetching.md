@@ -2,7 +2,7 @@
 
 How the app gets its data, and how it is to move onto Pinia Colada.
 The plan is staged so that each step ships on its own and the next one can be dropped if it stops paying for itself.
-The first step is done; "What there is today" describes the app before it.
+The first two steps are done; "What there is today" describes the app before them.
 
 ## What there is today
 
@@ -218,6 +218,12 @@ Follow-up invalidations in mutation hooks are fired, caught and not returned.
 Extract `features/sync/socket.ts` and the immutable reducers, with tests for the reducers and for the socket against a fake `WebSocket` (backoff, queue and replay, status).
 No cache yet and no change in behaviour; the stores call the reducers and assign the result.
 This step is worth doing even if the next one is dropped.
+
+Done.
+The reducers are `applyToNotes`, `applyToDays` and `applyToMembers` in each feature's `apply.ts`, and the stores now hold their arrays in `shallowRef`s.
+Since a note that changes is replaced, nothing may hold a note object across a change: the canvas's menu and the map's open card look their note up by id, and a card under a finger moves with `nudge` (local, every frame) between the throttled `move`s that send it.
+`useRoom` keeps only what messages mean; `socket.ts` connects, retries, queues and reports its status.
+The heartbeat is not in this step: the room does not answer one yet.
 
 ### The room in the cache
 

@@ -107,6 +107,10 @@ const draggingId = computed(() =>
 );
 const panning = computed(() => gesture.value.kind === "pan");
 const menu = ref<{ note: Note; x: number; y: number } | null>(null);
+/** The menu's card as it is now (its color changes while the menu is open) */
+const menuNote = computed(() =>
+  menu.value === null ? null : (store.byId(menu.value.note.id) ?? menu.value.note),
+);
 
 function noteAt(el: EventTarget | null): Note | undefined {
   const card = (el as HTMLElement).closest?.("[data-id]") as HTMLElement | null;
@@ -175,8 +179,7 @@ function dragTo(g: Drag, p: Pt) {
     store.move(note.id, w.x - ox, w.y - oy);
     g.lastSend = now;
   } else {
-    note.x = w.x - ox;
-    note.y = w.y - oy;
+    store.nudge(note.id, w.x - ox, w.y - oy);
   }
 }
 
@@ -188,7 +191,9 @@ function onUp(e: PointerEvent) {
   // a tap on a memo opens it; suggestions are adopted with their own buttons
   if (g.kind === "press" && e.type === "pointerup" && g.grab.note.kind === "memo")
     emit("edit", g.grab.note);
-  if (g.kind === "drag") store.move(g.grab.note.id, g.grab.note.x, g.grab.note.y, true);
+  // where it was let go, as the store has it now: the grabbed object is from before the drag
+  const dropped = g.kind === "drag" ? store.byId(g.grab.note.id) : undefined;
+  if (dropped !== undefined) store.move(dropped.id, dropped.x, dropped.y);
   setGesture(IDLE);
 }
 
@@ -437,10 +442,10 @@ watch(
           :key="c"
           class="sw"
           type="button"
-          :class="{ on: menu.note.color === c }"
+          :class="{ on: menuNote?.color === c }"
           :style="`background:${PAPERS[c]}`"
           :aria-label="i18n.t(COLOR_NAMES[c])"
-          :aria-pressed="menu.note.color === c"
+          :aria-pressed="menuNote?.color === c"
           @click="() => setMenuColor(c)"
         ></button>
         <button type="button" @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</button>

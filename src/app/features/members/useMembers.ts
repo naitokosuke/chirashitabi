@@ -1,16 +1,18 @@
-import { ref } from "vue";
+import { ref, shallowRef } from "vue";
 
 import { defineStore } from "pinia";
 
-import type { HexColor } from "../../shared/color";
-
 import { useI18n } from "../../i18n/useI18n";
 
+import type { Mutation } from "../sync/types";
+
+import { applyToMembers } from "./apply";
 import type { Member, MemberId } from "./types";
 
 export const useMembers = defineStore("members", () => {
   const i18n = useI18n();
-  const members = ref<Member[]>([]);
+  // replaced, never changed in place (apply.ts)
+  const members = shallowRef<Member[]>([]);
   /** Who is using this device; their notes are signed with this id. "" until the room says */
   const me = ref("" as MemberId);
 
@@ -24,9 +26,8 @@ export const useMembers = defineStore("members", () => {
   }
 
   /** A member's profile as the room relays it: applied, never sent */
-  function receive(id: MemberId, name: string, color: HexColor) {
-    const m = byId(id);
-    if (m !== undefined) Object.assign(m, { name, color });
+  function receive(m: Mutation, by: MemberId) {
+    members.value = applyToMembers(members.value, m, by);
   }
 
   return { members, me, byId, nameOf, colorOf, apply, receive };
