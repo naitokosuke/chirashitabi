@@ -84,10 +84,12 @@ const live = (view: View) => state.value.tab === view && state.value.form === nu
  * A view is built the first time it is opened and then kept: coming back to it shows it as
  * it was (the map's tiles, the booklet's scroll), with nothing to load and nothing to fade.
  */
-const opened = ref(new Set<View>([initialState.tab]));
+const opened = ref(new Set<View>());
+// immediate: a link may open the app on any tab, not only the first one
 watch(
   () => state.value.tab,
   (tab) => opened.value.add(tab),
+  { immediate: true },
 );
 
 /**

@@ -397,7 +397,8 @@ article {
     align-items: center;
     gap: 8px;
     min-height: var(--top-row);
-    padding: env(safe-area-inset-top, 0px) 12px 0;
+    /* in the page's column, so the days start where the page does */
+    padding: env(safe-area-inset-top, 0px) var(--page-margin) 0;
     pointer-events: none;
 
     > * {
@@ -411,12 +412,38 @@ article {
         var(--shadow-tool);
     }
 
-    /* the days: as wide as they need, scrolling past the screen's width */
+    /*
+     * The days: as wide as they need, scrolling past the column's width. On glass, the open
+     * day is the same raised pill as the switch beside it, not an underline on the glass's edge.
+     */
     .tabs {
       flex: 0 1 auto;
       min-width: 0;
-      padding-inline: 6px;
+      padding: 2px;
       border-block-end: 0;
+
+      /* on a phone the days run past the screen: the row fades out at its end, saying so */
+      @media (--narrow) {
+        padding-inline-end: 20px;
+        mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+      }
+
+      > :deep(button) {
+        z-index: 1;
+        min-height: 32px;
+        padding: 0 14px;
+        border-radius: 999px;
+      }
+
+      > :deep(span) {
+        z-index: 0;
+        border: 0;
+        border-radius: 999px;
+        background: var(--surface);
+        box-shadow:
+          var(--shadow-tool),
+          0 0 0 1px var(--line);
+      }
     }
 
     > :last-child {
@@ -427,9 +454,19 @@ article {
 
   /* above the page and never scrolled: the trip's sums and, in edit mode, the tray */
   > .lead {
+    position: relative;
     flex-shrink: 0;
     padding: 0 var(--page-margin) 4px;
-    border-block-end: 1px solid var(--line);
+
+    /* the page's edge: a hairline across the column, not the screen */
+    &::after {
+      content: "";
+      position: absolute;
+      inset-inline: var(--page-margin);
+      inset-block-end: 0;
+      height: 1px;
+      background: var(--line);
+    }
 
     > p {
       margin: 10px 0 0;
@@ -573,7 +610,8 @@ article {
   > .page {
     flex: 1;
     overflow-y: auto;
-    padding: 0 var(--page-margin) 24px;
+    /* clear of the lead's edge before the day starts */
+    padding: 16px var(--page-margin) 24px;
 
     > div {
       > textarea {
@@ -591,7 +629,7 @@ article {
 
       /* the day's line, written above the strip on the desk's own ruled line */
       > .intro {
-        margin: 0 6px 14px;
+        margin: 0 0 14px;
         padding-block-end: 8px;
         border-block-end: 1px dashed var(--line);
         font-size: var(--font-base);
@@ -608,7 +646,8 @@ article {
       > ol {
         list-style: none;
         margin: 0;
-        padding: 4px 6px 10px;
+        /* on the column's edges, like the intro above and the ask below */
+        padding: 4px 0 10px;
         display: flex;
         flex-direction: column;
         gap: 12px;
@@ -794,7 +833,7 @@ article {
       }
 
       > h3 {
-        margin: 18px 6px 6px;
+        margin: 18px 0 6px;
         font-size: var(--font-md);
         color: var(--muted);
       }
@@ -927,7 +966,7 @@ article {
         > ul {
           list-style: none;
           margin: 0;
-          padding: 4px 6px 10px;
+          padding: 4px 0 10px;
           display: flex;
           flex-direction: column;
           gap: 10px;
