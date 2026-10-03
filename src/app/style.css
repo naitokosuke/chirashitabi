@@ -1,6 +1,3 @@
-:root {
-  --navh: calc(64px + env(safe-area-inset-bottom, 0px));
-}
 #app {
   position: relative;
   height: 100%;

@@ -90,14 +90,13 @@ onMounted(() => nameEl.value?.focus());
 
 <template>
   <form class="sheet" @submit.prevent="create">
-    <header>
-      <button type="button" @click="() => emit('close')">
-        <Icon :size="16" :src="backIcon" />{{ i18n.t("home.trips") }}
-      </button>
-      <h2>{{ i18n.t("rooms.new") }}</h2>
-    </header>
+    <!-- no bar: the way back floats where a bar would be; the title opens the page -->
+    <button class="back" type="button" @click="() => emit('close')">
+      <Icon :size="16" :src="backIcon" />{{ i18n.t("home.trips") }}
+    </button>
 
     <div class="body">
+      <h2 class="title">{{ i18n.t("rooms.new") }}</h2>
       <!-- the tag as it will hang on the trip; the fields below say the same to a screen reader -->
       <TripTag
         aria-hidden="true"
@@ -205,41 +204,33 @@ onMounted(() => nameEl.value?.focus());
   flex-direction: column;
   background: var(--bg);
 
-  /* the app bar's height and edge, so the sheet lands where the bar was */
-  > header {
-    flex-shrink: 0;
-    display: flex;
+  /* the way back, floating in the row where a bar would be */
+  > .back {
+    position: absolute;
+    inset-inline-start: 12px;
+    inset-block-start: calc(env(safe-area-inset-top, 0px) + (var(--top-row) - var(--tap)) / 2);
+    z-index: var(--z-chrome);
+    min-height: var(--tap);
+    padding: 0 12px 0 8px;
+    border-radius: 999px;
+    border: 0;
+    background: var(--glass);
+    backdrop-filter: blur(16px) saturate(1.5);
+    -webkit-backdrop-filter: blur(16px) saturate(1.5);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklch, var(--line) 80%, transparent),
+      var(--shadow-tool);
+    color: var(--muted);
+    font-size: var(--font-sm);
+    font-weight: 700;
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
-    box-sizing: content-box;
-    height: var(--bar);
-    padding: env(safe-area-inset-top, 0px) 12px 0;
-    border-block-end: 1px solid var(--line);
+    gap: 4px;
 
-    > button {
-      min-height: var(--tap);
-      padding: 0 12px 0 8px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--surface);
-      color: var(--muted);
-      font-size: var(--font-sm);
-      font-weight: 700;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-
-      @media (--can-hover) {
-        &:hover {
-          color: var(--ink);
-        }
+    @media (--can-hover) {
+      &:hover {
+        color: var(--ink);
       }
-    }
-
-    > h2 {
-      margin: 0;
-      font-size: var(--font-2xl);
-      font-weight: 700;
     }
   }
 }
@@ -247,10 +238,17 @@ onMounted(() => nameEl.value?.focus());
 .body {
   flex: 1;
   overflow-y: auto;
-  padding: 20px var(--page-margin) 24px;
+  padding: var(--top-clear) var(--page-margin) 24px;
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-4xl);
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 /* the tag rests on the desk above the fields, with room under it before the first one */

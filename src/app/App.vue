@@ -2,7 +2,14 @@
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { CtTabBar, useViewTransition, type CtOption } from "../ui/index";
+import {
+  CtDock,
+  CtDockDivider,
+  CtDockGroup,
+  CtDockItem,
+  useViewTransition,
+  type CtOption,
+} from "../ui/index";
 
 import { useI18n } from "./i18n/useI18n";
 
@@ -13,9 +20,11 @@ import Icon from "./icons/Icon.vue";
 import mapIcon from "./icons/map.svg";
 import memoIcon from "./icons/memo.svg";
 import shioriIcon from "./icons/shiori.svg";
+import tripsIcon from "./icons/trips.svg";
 import { LOCAL } from "./features/sync/session";
 import { useRoom } from "./features/sync/useRoom";
 import Connection from "./features/sync/Connection.vue";
+import ThemeSwitch from "./features/theme/ThemeSwitch.vue";
 import Toast from "./features/toast/Toast.vue";
 import Canvas, { place } from "./views/Canvas.vue";
 import Form from "./views/Form.vue";
@@ -125,6 +134,16 @@ function selectTab(tab: View) {
   if (tab === state.value.tab && state.value.form === null) return;
   viewTransition(() => send({ type: "tabSelected", tab }));
 }
+/** Out to the trips (`/`), which leaves the room; a modified click is left to the browser */
+function toTrips(e: MouseEvent) {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+  e.preventDefault();
+  if (route.path !== "/") void router.push("/");
+}
+/** A sheet is over the views (a memo's, or a new trip's): the dock steps aside for it */
+const covered = computed(
+  () => (inRoom.value && state.value.form !== null) || route.path === "/new",
+);
 /** The memo tab is the form itself, live while the tab is up */
 const memoTab = computed((): FormMode => ({ kind: "tab", active: live("memo") }));
 /** The one sheet, over the tab it was opened from, while it is open */
@@ -181,24 +200,34 @@ function onMemoSaved(input: NoteInput) {
   <Rooms v-else />
   <Toast v-if="inRoom" :inert="state.form !== null" />
   <Connection v-if="inRoom" />
-  <CtTabBar
-    v-if="inRoom"
-    :model-value="state.tab"
-    :label="i18n.t('nav.label')"
-    :items="views"
-    @update:model-value="selectTab"
-  >
-    <template #icon="{ value }">
-      <Icon :size="22" :src="icons[value]" />
-    </template>
-  </CtTabBar>
+  <!--
+    The one menu, floating over every screen in the same place: the trips, then (in a room)
+    its views, folding away on the trips screen, then the theme.
+  -->
+  <CtDock :label="i18n.t('nav.label')" :away="covered">
+    <CtDockItem :label="i18n.t('nav.trips')" :current="!inRoom" href="/" @click="toTrips">
+      <Icon :size="22" :src="tripsIcon" />
+    </CtDockItem>
+    <CtDockGroup :open="inRoom">
+      <CtDockItem
+        v-for="v in views"
+        :key="v.value"
+        :label="v.label"
+        :current="inRoom && state.tab === v.value"
+        @click="() => selectTab(v.value)"
+      >
+        <Icon :size="22" :src="icons[v.value]" />
+      </CtDockItem>
+    </CtDockGroup>
+    <CtDockDivider />
+    <ThemeSwitch />
+  </CtDock>
 </template>
 
 <style scoped>
 main {
   position: absolute;
   inset: 0;
-  inset-block-end: var(--navh);
   overflow: hidden;
   /* the region that cross-fades when the tab changes (transitions.css) */
   view-transition-name: ct-screen;
@@ -220,15 +249,5 @@ main {
       view-transition-name: none;
     }
   }
-}
-
-nav {
-  position: absolute;
-  inset-inline: 0;
-  inset-block-end: 0;
-  height: var(--navh);
-  padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
-  background: var(--bg);
-  border-block-start: 1px solid var(--line);
 }
 </style>

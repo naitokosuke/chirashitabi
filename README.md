@@ -59,6 +59,8 @@ src/app/            The app
              (the room's cache keys); useRoom (the socket to a room, written into the cache); ledger
              (confirmed state and our unanswered changes); persist (the room kept on the device);
              wire (the room's JSON back into the app's types)
+    theme/   Light or dark: the device's until picked (useTheme, remembered); ThemeSwitch, the dock's
+             sun and moon, whose new colors spread from it like ink
     trip/    The room's trip (name, days, currency, map center); itinerary (notes on a day,
              status, budgets, assigning a day, adopting a draft); formatting
     tags/    Tag colors and the tag filter (store, filter bar)
@@ -84,8 +86,10 @@ src/ui/             The design system: props, slots and events only, no app impo
   components/
     chip/        CtChip: a pill, optionally tinted, selected or a toggle
     segmented/   CtSegmented: the pill morphs to the choice
-    tab/         CtTabList: the underline slides to the tab; CtTabPanel: content morphs in;
-                 CtTabBar: bottom navigation, the highlight slides behind the current item
+    tab/         CtTabList: the underline slides to the tab; CtTabPanel: content morphs in
+    dock/        CtDock: the floating menu, magnifying under a mouse, sinking away under a sheet;
+                 CtDockItem (an icon, its name above, a dot when open, a bounce when pressed),
+                 CtDockGroup (items that fold away together), CtDockDivider
   composables/   useIndicator: measures the selected child so an indicator can slide to it
   index.ts, types.ts   The public entry and the shared CtOption type
 

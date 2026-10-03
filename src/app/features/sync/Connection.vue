@@ -45,11 +45,11 @@ const since = computed(() => {
 <style scoped>
 @import "../../../ui/styles/media.css";
 
-/* below the app bar, centred; it covers a strip of the view only while the socket is down */
+/* under the row where tools float, centred; it covers a strip of the view only while the socket is down */
 div {
   position: absolute;
   inset-inline: 0;
-  inset-block-start: calc(env(safe-area-inset-top, 0px) + var(--bar) + 8px);
+  inset-block-start: var(--top-clear);
   z-index: var(--z-menu);
   display: flex;
   justify-content: center;

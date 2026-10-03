@@ -4,7 +4,7 @@ import { computed } from "vue";
 /** `src` is an imported .svg; its shape masks a box painted in the current text color */
 const props = defineProps<{ src: string; size: number }>();
 // Vapor (3.6 RC) passes the attrs of a component onto one rendered in its slot: in
-// <CtTabBar class="x">, each tab's icon got `x` too. An icon takes no attrs anyway
+// <CtDockItem class="x">, its icon would get `x` too. An icon takes no attrs anyway
 defineOptions({ inheritAttrs: false });
 
 const style = computed(() => ({

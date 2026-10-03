@@ -177,7 +177,7 @@ A partner's throttled moves arrive at about 12 a second and are written to the c
 ### Connection state
 
 The socket's status is shown inside the room, not only on the rooms screen.
-"Reconnecting" is a quiet chip at the end of the app bar, with the time of the last snapshot; "failed" offers to retry.
+"Reconnecting" is a quiet chip under the row where tools float at the top, with the time of the last snapshot; "failed" offers to retry.
 This comes from the socket, not from a query, because a reconnecting room still has good data to show.
 
 ### HTTP and the Worker
@@ -237,7 +237,7 @@ The slices are not `useQuery`s with a query function that waits for a snapshot: 
 Whether a room has arrived is the socket's status, as before, and `useRoom.syncedAt` says when it last did.
 The key's room id lives in `useSync`, so the stores do not depend on `useRoom`; a session without a room uses `"local"`.
 The stores keep their API, so no view changed except the canvas, whose held card is drawn from a local `held` position and written once on release (`sendMove` sends the throttled positions without touching the cache).
-The connection chip shows under the app bar while the socket is reconnecting, with the time of the last snapshot; giving up still leaves for the rooms screen.
+The connection chip shows under the top row while the socket is reconnecting, with the time of the last snapshot; giving up still leaves for the rooms screen.
 The browser's `online` event calls the socket's reconnect.
 
 The measurement: one tab in a room of 30 notes, a second socket in the same tab sending 36 `note:move`s over three seconds (a partner's drag), frame intervals recorded with `requestAnimationFrame`, three runs each, dev build.

@@ -4,7 +4,6 @@ import { Temporal } from "temporal-polyfill-lite";
 import { computed, ref, useTemplateRef } from "vue";
 
 import {
-  CtAppBar,
   CtSegmented,
   CtTabList,
   CtTabPanel,
@@ -189,29 +188,25 @@ function adoptDraft() {
 
 <template>
   <article>
-    <CtAppBar>
-      <!-- explicit: Vapor drops implicit default-slot content that sits beside a named slot -->
-      <template #default>
-        <CtTabList
-          class="tabs"
-          :label="i18n.t('shiori.days')"
-          :tabs="dayTabs"
-          :model-value="activeTab"
-          @update:model-value="showTab"
-        />
-      </template>
-      <template #end>
-        <CtSegmented
-          :model-value="pickedMode"
-          :label="i18n.t('shiori.mode')"
-          :options="modes"
-          @update:model-value="setMode"
-        />
-      </template>
-    </CtAppBar>
+    <!-- no bar: the days and the edit/read switch float along the top, on glass -->
+    <div class="top">
+      <CtTabList
+        class="tabs"
+        :label="i18n.t('shiori.days')"
+        :tabs="dayTabs"
+        :model-value="activeTab"
+        @update:model-value="showTab"
+      />
+      <CtSegmented
+        :model-value="pickedMode"
+        :label="i18n.t('shiori.mode')"
+        :options="modes"
+        @update:model-value="setMode"
+      />
+    </div>
 
     <!-- what holds for the whole trip stays put above the page; only the day's page morphs -->
-    <div>
+    <div class="lead">
       <p><template v-if="trip.days.length">{{ short(trip.days[0]!.date) }} – {{ short(trip.days.at(-1)!.date) }} · </template>{{ i18n.t("shiori.summary", { fixed: trip.fixedCount, total: price(totalFixed) }) }}<small v-if="totalAll > totalFixed">{{ i18n.t("shiori.withMaybes", { total: price(totalAll) }) }}</small></p>
 
       <!-- tray: memos without a day (edit mode only) -->
@@ -247,7 +242,7 @@ function adoptDraft() {
       <h2 :aria-label="heading.map((p) => p.text).join('')"><CtTextMorph :parts="heading" /></h2>
     </div>
 
-    <div ref="page">
+    <div ref="page" class="page">
       <!-- the page (this scrolling body) morphs when the day or the mode changes: see showTab -->
       <CtTabPanel>
         <!-- ---------- a day ---------- -->
@@ -389,22 +384,49 @@ article {
   display: flex;
   flex-direction: column;
   background: var(--bg);
+  /* under the row that floats at the top, and above the dock */
+  padding-block: var(--top-clear) var(--dock-clear);
 
-  > header {
-    /* the day tabs fill the bar's tools row; the bar's own edge is their baseline */
+  /* the days and the switch, floating in the row where a bar would be */
+  > .top {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 0;
+    z-index: var(--z-chrome);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: var(--top-row);
+    padding: env(safe-area-inset-top, 0px) 12px 0;
+    pointer-events: none;
+
+    > * {
+      pointer-events: auto;
+      border-radius: 999px;
+      background: var(--glass);
+      backdrop-filter: blur(16px) saturate(1.5);
+      -webkit-backdrop-filter: blur(16px) saturate(1.5);
+      box-shadow:
+        inset 0 0 0 1px color-mix(in oklch, var(--line) 80%, transparent),
+        var(--shadow-tool);
+    }
+
+    /* the days: as wide as they need, scrolling past the screen's width */
     .tabs {
-      flex: 1;
+      flex: 0 1 auto;
       min-width: 0;
-      align-self: stretch;
-      padding-inline: 8px 24px;
+      padding-inline: 6px;
       border-block-end: 0;
-      /* a row that keeps going says so, like the desk's chip row */
-      mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    }
+
+    > :last-child {
+      flex-shrink: 0;
+      margin-inline-start: auto;
     }
   }
 
   /* above the page and never scrolled: the trip's sums and, in edit mode, the tray */
-  > div:first-of-type {
+  > .lead {
     flex-shrink: 0;
     padding: 0 var(--page-margin) 4px;
     border-block-end: 1px solid var(--line);
@@ -548,7 +570,7 @@ article {
   }
 
   /* a booklet is read at a page's width, on a laptop too */
-  > div:last-of-type {
+  > .page {
     flex: 1;
     overflow-y: auto;
     padding: 0 var(--page-margin) 24px;

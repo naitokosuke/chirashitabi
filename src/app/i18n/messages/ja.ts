@@ -6,12 +6,15 @@ export const ja: Messages = {
   "common.close": "閉じる",
   "common.dismiss": "見送る",
 
-  "nav.label": "画面",
+  "nav.label": "メニュー",
   "nav.home": "ホーム",
   "nav.canvas": "キャンバス",
   "nav.memo": "メモ",
   "nav.map": "地図",
   "nav.booklet": "しおり",
+  "nav.trips": "旅の一覧",
+  "theme.toDark": "ダークにする",
+  "theme.toLight": "ライトにする",
 
   "member.someone": "だれか",
 

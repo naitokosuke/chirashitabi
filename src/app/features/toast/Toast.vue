@@ -19,7 +19,7 @@ const i18n = useI18n();
 div {
   position: absolute;
   inset-inline: 16px;
-  inset-block-end: calc(var(--navh) + 84px);
+  inset-block-end: calc(var(--dock-clear) + 84px);
   max-width: 480px;
   margin-inline: auto;
   z-index: var(--z-menu);
