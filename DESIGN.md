@@ -292,7 +292,7 @@ Handled like an object, as in a native whiteboard. A tap picks it: an ink frame,
 
 ### Map pin
 
-The note's own paper as the pin's fill, a 2px Paper Ink edge, its title on a white label. A day's route is a dashed Paper Ink line. The tiles are light in both themes. A long press on the map (a finger or the mouse, 500ms; a right click too) opens the note form pinned at that point; while it is held, a Paper Ink ring fills around the point, so holding visibly does something, and moving or dragging cancels it. Notes without a place are counted at the top; they get one from the form (a pasted link, or "Find the place"), not from the map.
+The note's own paper as the pin's fill, a 2px Paper Ink edge, its title on a white label. A day's route is a dashed Paper Ink line. The tiles are light in both themes. A long press on the map with a finger (500ms) opens the note form pinned at that point; while it is held, a Paper Ink ring fills around the point, so holding visibly does something, and moving or dragging cancels it. With a mouse it is a right click; a held mouse button only drags the map. Notes without a place are counted at the top; they get one from the form (a pasted link, or "Find the place"), not from the map.
 
 ### Booklet
 

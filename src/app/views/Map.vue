@@ -109,8 +109,8 @@ onMounted(() => {
     else selectedId.value = null;
   });
 
-  // a long press (a finger or a mouse) writes a new memo pinned where it was held; a ring
-  // fills at the point while it is held, so holding visibly does something
+  // a long press of a finger writes a new memo pinned where it was held, and a ring fills at the
+  // point while it is held, so holding visibly does something; with a mouse it is a right click
   let t: number | undefined;
   let start: { x: number; y: number } | null = null;
   let held = false;
@@ -140,16 +140,8 @@ onMounted(() => {
   map.on("touchmove", (e) => moved(e.point));
   map.on("touchend", cancelHold);
   map.on("touchcancel", cancelHold);
-  map.on("mousedown", (e) => {
-    if (e.originalEvent.button !== 0) return;
-    held = false;
-    hold(e.point, { lat: e.lngLat.lat, lng: e.lngLat.lng });
-  });
-  map.on("mousemove", (e) => moved(e.point));
-  map.on("mouseup", cancelHold);
-  map.on("mouseout", cancelHold);
   map.on("dragstart", cancelHold);
-  map.on("contextmenu", (e) => emit("write", { lat: e.lngLat.lat, lng: e.lngLat.lng })); // a right click too
+  map.on("contextmenu", (e) => emit("write", { lat: e.lngLat.lat, lng: e.lngLat.lng }));
 });
 onBeforeUnmount(() => {
   markers.forEach((m) => m.remove());
