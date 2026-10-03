@@ -8,14 +8,15 @@ import { nextTick } from "vue";
  * abort it), the change simply happens.
  */
 export function useViewTransition() {
-  return function transition(update: () => void, types: readonly string[] = []) {
+  /** `update` may be async (a router navigation): the new state is captured once it has settled */
+  return function transition(update: () => void | Promise<unknown>, types: readonly string[] = []) {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (typeof document.startViewTransition !== "function" || reduce || document.hidden) {
-      update();
+      void update();
       return;
     }
     const t = document.startViewTransition(async () => {
-      update();
+      await update();
       await nextTick();
     });
     // older engines take only the callback form; types are added where they exist

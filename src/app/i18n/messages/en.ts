@@ -60,7 +60,7 @@ export const en = {
   "home.maybe": "Maybe",
   "home.loose": "No day",
   "home.budget": "Budget",
-  "home.leave": "Open another trip",
+  "home.trips": "All trips",
 
   "canvas.undo": "Undo",
   "canvas.duplicate": "Duplicate",

@@ -58,7 +58,7 @@ export const ja: Messages = {
   "home.maybe": "候補",
   "home.loose": "日付なし",
   "home.budget": "予算",
-  "home.leave": "別の旅を開く",
+  "home.trips": "旅の一覧",
 
   "canvas.undo": "取り消す",
   "canvas.duplicate": "複製",

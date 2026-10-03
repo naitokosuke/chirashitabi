@@ -38,6 +38,8 @@ In production Access sets the token header itself; the stub only exists because 
 ```
 src/app/            The app
   main.ts, App.vue, style.css   Boot and view switching (the canvas stays mounted underneath)
+  shell.ts     Where the app is: the trips, a new trip, or a room's tab and sheet, to and from the URL
+  router.ts    vue-router for the URL and the history only (nothing rendered by it); opens the last trip
 
   views/
     Canvas.vue   Pan / pinch; pick a card (tap), move, resize and turn it (handles), open it (double tap),

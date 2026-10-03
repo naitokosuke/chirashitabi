@@ -15,7 +15,8 @@ export const DEFAULT_CENTER = { lat: 25.05, lng: 121.54 };
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, onMounted, ref, useId } from "vue";
+import { computed, ref, useId } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import { useI18n } from "../i18n/useI18n";
 
@@ -23,11 +24,17 @@ import { MAX_DAYS, MAX_NAME, newRoom } from "../features/rooms/newRoom";
 import type { RoomId } from "../features/rooms/types";
 import { useCreateRoom, useRoomList } from "../features/rooms/useRooms";
 import { useRoom } from "../features/sync/useRoom";
+import { initialState, locationOf } from "../shell";
 
-const emit = defineEmits<{ enter: [roomId: RoomId] }>();
 const i18n = useI18n();
 const room = useRoom();
+const router = useRouter();
+const route = useRoute();
 const id = useId();
+
+/** Into a trip: the URL names it, and the shell enters it (App.vue) */
+const enter = (roomId: RoomId) =>
+  router.push(locationOf({ kind: "room", room: roomId, state: initialState }));
 /** Joining a room this device has nothing of: still trying, or given up; null otherwise */
 const joining = computed(() =>
   room.session.kind !== "joining" ? null : room.session.link === "failed" ? "failed" : "connecting",
@@ -35,7 +42,14 @@ const joining = computed(() =>
 
 const { data: rooms, status: listStatus, refetch: refetchList } = useRoomList();
 const { mutateAsync: createAsync, isLoading: busy, error: createError } = useCreateRoom();
-const creating = ref(false);
+/** Making a trip is a step of its own (`/new`), so back puts the form away */
+const creating = computed(() => route.path === "/new");
+const startCreating = () => router.push("/new");
+function stopCreating() {
+  const back = (window.history.state as { back?: unknown } | null)?.back;
+  if (back === "/") router.back();
+  else void router.replace("/");
+}
 
 const name = ref("");
 const firstDay = ref(Temporal.Now.plainDateISO().add({ days: 30 }).toString());
@@ -62,7 +76,9 @@ async function create() {
   const room = filled.value;
   if (busy.value || room === null) return;
   try {
-    emit("enter", await createAsync(room));
+    const made = await createAsync(room);
+    // the new trip takes the form's place: back goes to the list, not to an empty form
+    await router.replace(locationOf({ kind: "room", room: made, state: initialState }));
   } catch {
     // the mutation's error state says so under the form; the person tries again
   }
@@ -71,12 +87,6 @@ function retry() {
   room.reconnect();
   void refetchList();
 }
-
-onMounted(() => {
-  // the room this device was in last opens by itself; the list is for choosing another
-  const last = room.remembered();
-  if (last !== null && room.session.kind === "out") emit("enter", last);
-});
 </script>
 
 <template>
@@ -138,7 +148,7 @@ onMounted(() => {
         ></button>
       </div>
       <div>
-        <button type="button" @click="() => (creating = false)">{{ i18n.t("common.close") }}</button>
+        <button type="button" @click="stopCreating">{{ i18n.t("common.close") }}</button>
         <button class="primary" type="submit" :disabled="busy || filled === null">{{ i18n.t(busy ? "rooms.creating" : "rooms.create") }}</button>
       </div>
       <p v-if="createError !== null" aria-live="polite">{{ i18n.t("rooms.createFailed") }}</p>
@@ -151,10 +161,10 @@ onMounted(() => {
       <p v-else-if="listStatus === 'success' && (rooms ?? []).length === 0">{{ i18n.t("rooms.none") }}</p>
       <ul v-else>
         <li v-for="r in rooms" :key="r.id">
-          <button type="button" @click="() => emit('enter', r.id)">{{ r.name }}</button>
+          <button type="button" @click="() => enter(r.id)">{{ r.name }}</button>
         </li>
       </ul>
-      <button class="primary" type="button" @click="() => (creating = true)">{{ i18n.t("rooms.new") }}</button>
+      <button class="primary" type="button" @click="startCreating">{{ i18n.t("rooms.new") }}</button>
     </section>
   </div>
 </template>

@@ -1,43 +1,6 @@
-<script lang="ts">
-import type { NoteId } from "./features/notes/types";
-import type { LatLng } from "./features/place/types";
-import type { FormMode, FormTarget } from "./views/Form.vue";
-
-export type View = "home" | "canvas" | "memo" | "map" | "shiori";
-
-/** Everything the shell shows: the tab that is up, and the form sheet over it (closed, or open on a target) */
-export type AppState = { tab: View; form: FormTarget | null };
-
-/** What can happen to the shell */
-export type AppEvent =
-  | { type: "tabSelected"; tab: View }
-  | { type: "writeRequested" }
-  | { type: "writeAtPinRequested"; pin: LatLng | null } // null: from the map's write button, no place yet
-  | { type: "editRequested"; id: NoteId }
-  | { type: "formClosed" };
-
-export const initialState: AppState = { tab: "canvas", form: null };
-
-/** The state after an event; pure, so effects such as placing a memo stay with the caller */
-export function next(state: AppState, event: AppEvent): AppState {
-  switch (event.type) {
-    // the tab bar stays live over the sheet: picking a tab puts the sheet away and goes there
-    case "tabSelected":
-      return { tab: event.tab, form: null };
-    case "writeRequested":
-      return { ...state, form: { kind: "new", pin: null } };
-    case "writeAtPinRequested":
-      return { ...state, form: { kind: "new", pin: event.pin } };
-    case "editRequested":
-      return { ...state, form: { kind: "edit", id: event.id } };
-    case "formClosed":
-      return { ...state, form: null };
-  }
-}
-</script>
-
 <script setup lang="ts" vapor>
 import { computed, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import { CtTabBar, useViewTransition, type CtOption } from "../ui/index";
 
@@ -50,6 +13,7 @@ import Icon from "./icons/Icon.vue";
 import mapIcon from "./icons/map.svg";
 import memoIcon from "./icons/memo.svg";
 import shioriIcon from "./icons/shiori.svg";
+import { LOCAL } from "./features/sync/session";
 import { useRoom } from "./features/sync/useRoom";
 import Connection from "./features/sync/Connection.vue";
 import Toast from "./features/toast/Toast.vue";
@@ -59,15 +23,41 @@ import Home from "./views/Home.vue";
 import Map from "./views/Map.vue";
 import Rooms from "./views/Rooms.vue";
 import Shiori from "./views/Shiori.vue";
+import type { FormMode } from "./views/Form.vue";
+import { initialState, locationOf, next, placeOf, type AppEvent, type View } from "./shell";
 
 const i18n = useI18n();
 const room = useRoom();
+const router = useRouter();
+const route = useRoute();
+
+/** Where the app is: what the URL says (shell.ts, router.ts) */
+const where = computed(() =>
+  placeOf({
+    path: route.path,
+    query: Object.fromEntries(
+      Object.entries(route.query).flatMap(([k, v]) => (typeof v === "string" ? [[k, v]] : [])),
+    ),
+  }),
+);
+/** The URL names the room to be in: going to one enters it, going back to the trips leaves it */
+watch(
+  where,
+  (w) => {
+    const s = room.session;
+    if (w.kind === "room") {
+      if (w.room !== LOCAL && (s.kind === "out" || s.room !== w.room)) room.connect(w.room);
+    } else if (s.kind !== "out" && s.room !== LOCAL) room.leave();
+  },
+  { immediate: true },
+);
+
 /**
- * The room's views once this device is in the room (session.ts): when the room has answered,
- * or at once with what this device kept of it, which stays open if the room cannot be reached.
- * Until then, the rooms screen.
+ * The room's views once this device is in the room the URL names (session.ts): when the room
+ * has answered, or at once with what this device kept of it, which stays open if the room
+ * cannot be reached. Until then, the rooms screen.
  */
-const inRoom = computed(() => room.session.kind === "in");
+const inRoom = computed(() => room.session.kind === "in" && where.value.kind === "room");
 const views = computed((): CtOption<View>[] => [
   { value: "home", label: i18n.t("nav.home") },
   { value: "canvas", label: i18n.t("nav.canvas") },
@@ -83,7 +73,8 @@ const icons: Record<View, string> = {
   shiori: shioriIcon,
 };
 
-const state = ref<AppState>(initialState);
+/** The room's tab and sheet, as the URL has them */
+const state = computed(() => (where.value.kind === "room" ? where.value.state : initialState));
 /** Is this view the one on screen, with nothing covering it? */
 const live = (view: View) => state.value.tab === view && state.value.form === null;
 
@@ -97,8 +88,25 @@ watch(
   (tab) => opened.value.add(tab),
 );
 
+/**
+ * What happens to the shell goes into the URL. Opening a sheet is a step of its own, so back
+ * closes it; a tab replaces the step it is on, so back leaves the room rather than walking
+ * through every tab seen.
+ */
 function send(event: AppEvent) {
-  state.value = next(state.value, event);
+  const w = where.value;
+  if (w.kind !== "room") return Promise.resolve();
+  const to = locationOf({ ...w, state: next(w.state, event) });
+  if (event.type === "formClosed") {
+    // the sheet's own step: going back is closing it, and leaves nothing to go forward to
+    const back = (window.history.state as { back?: unknown } | null)?.back;
+    if (back === router.resolve(to).fullPath) {
+      router.back();
+      return Promise.resolve();
+    }
+    return router.replace(to);
+  }
+  return event.type === "tabSelected" ? router.replace(to) : router.push(to);
 }
 function onSave(input: NoteInput, keepOpen: boolean) {
   if (keepOpen) {
@@ -170,7 +178,7 @@ function onMemoSaved(input: NoteInput) {
       <Form v-if="sheet" :mode="sheet" @close="() => send({ type: 'formClosed' })" @save="onSave" />
     </Transition>
   </main>
-  <Rooms v-else @enter="(id) => room.connect(id)" />
+  <Rooms v-else />
   <Toast v-if="inRoom" :inert="state.form !== null" />
   <Connection v-if="inRoom" />
   <CtTabBar
