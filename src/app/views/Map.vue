@@ -325,6 +325,28 @@ section {
     height: var(--tap);
   }
 
+  /*
+   * MapLibre draws the attribution for a 24px button: its "i" is a background that repeats
+   * at any larger size, in a pill 24px tall. One centered "i", in a pill as tall as the button.
+   */
+  :deep(.maplibregl-ctrl-attrib-button) {
+    background-repeat: no-repeat;
+    background-position: center;
+    border-radius: calc(var(--tap) / 2);
+  }
+
+  :deep(.maplibregl-ctrl-attrib.maplibregl-compact) {
+    min-height: calc(var(--tap) - 4px);
+    padding-inline-end: var(--tap);
+    border-radius: calc(var(--tap) / 2);
+  }
+
+  /* open, the credit line sits in the middle of the pill, beside the button */
+  :deep(.maplibregl-ctrl-attrib.maplibregl-compact-show) {
+    min-height: 20px;
+    padding: 8px calc(var(--tap) + 4px) 8px 12px;
+  }
+
   /* the attribution would sit under the fit button otherwise */
   :deep(.maplibregl-ctrl-bottom-left) {
     inset-block-end: 76px;
