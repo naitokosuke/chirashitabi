@@ -11,6 +11,19 @@ import type { NewRoom } from "./types";
 export const MAX_NAME = 60;
 export const MAX_DAYS = 60;
 
+/** What the form offers */
+export const CURRENCIES = ["TWD", "JPY", "USD", "EUR", "KRW", "THB"] as const;
+export const MEMBER_COLORS = [
+  "#3c6ee0",
+  "#d7263d",
+  "#1b998b",
+  "#f4a261",
+  "#7b2cbf",
+  "#2a9d8f",
+] as const;
+/** Where the map opens for a new trip; the trip's places move it once there are pins */
+export const DEFAULT_CENTER = { lat: 25.05, lng: 121.54 };
+
 /** The room form as the person filled it in, every field as its input holds it */
 export interface RoomForm {
   name: string;

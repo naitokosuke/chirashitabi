@@ -15,6 +15,15 @@ export interface WireMember {
   color: string;
 }
 
+/** A room as `/api/me` lists it: the trip at a glance, without its notes */
+export interface WireRoomSummary {
+  name: string;
+  first: string | null; // YYYY-MM-DD, the first day; null while the trip has none
+  days: number;
+  members: Omit<WireMember, "id">[];
+  memos: number;
+}
+
 export interface WireDay {
   date: string; // YYYY-MM-DD
   intro: string;

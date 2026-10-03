@@ -363,6 +363,36 @@ describe("rooms", () => {
     expect((await invite(roomId, STRANGER, PARTNER)).status).toBe(403);
   });
 
+  test("me lists each room at a glance: name, days, members and memo count", async () => {
+    const email = "glance@example.com";
+    const partner = "glance-partner@example.com";
+    const { roomId } = await createRoom(email);
+    expect((await invite(roomId, email, partner)).status).toBe(200);
+    const a = await connect(roomId, email);
+    const b = await connect(roomId, partner);
+    a.send({ type: "note:add", note: memo("n1") });
+    await b.next();
+
+    const res = await post("/api/me", email, {});
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      rooms: [
+        {
+          id: roomId,
+          name: "Taiwan trip",
+          first: "2026-11-03",
+          days: 3,
+          members: [
+            { kind: "person", name: "Yuki", color: YUKI.color },
+            { kind: "person", name: "Ken", color: KEN.color },
+            { kind: "agent", name: "Claude", color: expect.any(String) },
+          ],
+          memos: 1,
+        },
+      ],
+    });
+  });
+
   test("an e-mail may hold ten rooms", async () => {
     const email = "collector@example.com";
     for (let i = 0; i < 10; i++) await createRoom(email);

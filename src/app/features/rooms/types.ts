@@ -15,10 +15,17 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const roomId = (value: unknown): RoomId | null =>
   typeof value === "string" && UUID.test(value) ? (value as RoomId) : null;
 
-/** A room as the list of a person's trips shows it */
+/**
+ * A room as the list of a person's trips shows it: the trip at a glance. `first` is null while
+ * the trip has no days; the members are the people first, then the agent.
+ */
 export interface RoomSummary {
   id: RoomId;
   name: string;
+  first: Temporal.PlainDate | null;
+  days: number;
+  members: { kind: "person" | "agent"; name: string; color: HexColor }[];
+  memos: number;
 }
 
 /**

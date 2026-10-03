@@ -78,6 +78,20 @@ export const useRoom = defineStore("room", () => {
     if (document.visibilityState === "hidden") keepNow();
   });
 
+  /**
+   * The room this device is in, remembered so the next visit opens it. Only once in: a link to a
+   * room that never lets this device in is not where the next visit should go.
+   */
+  function remember() {
+    const s = sync.session;
+    if (s.kind !== "in" || s.room === LOCAL) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, s.room);
+    } catch {
+      // not remembered, nothing else changes
+    }
+  }
+
   const socket = createRoomSocket({
     onSnapshot(msg) {
       show(
@@ -88,6 +102,7 @@ export const useRoom = defineStore("room", () => {
         }),
       );
       sync.session = synced(sync.session, msg.me as MemberId, Temporal.Now.instant());
+      remember();
       // ours the room has not answered go again: it may never have got them
       for (const p of ledger.pending) socket.send(p.m, p.cid);
     },
@@ -146,11 +161,8 @@ export const useRoom = defineStore("room", () => {
     sync.session = opened(id, was);
     // (and nothing of the room before: its unanswered changes were kept with it)
     show(ledger.restore(was?.confirmed ?? EMPTY_ROOM, was?.pending ?? []));
-    try {
-      localStorage.setItem(STORAGE_KEY, id);
-    } catch {
-      // not remembered, nothing else changes
-    }
+    // in at once when this device kept the room; otherwise once the room answers (onSnapshot)
+    remember();
     socket.connect(id);
     sync.transport = { commit, send: (m) => void socket.send(m) };
     // what the room's agent does for its members goes through the Worker, for this room

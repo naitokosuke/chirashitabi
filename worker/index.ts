@@ -145,7 +145,7 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
     if (upgrade) return status(403, "Forbidden");
     const ids = await index.rooms(email);
     const rooms = await Promise.all(
-      ids.map(async (id) => ({ id, name: await env.ROOM.getByName(id).title() })),
+      ids.map(async (id) => ({ id, ...(await env.ROOM.getByName(id).summary()) })),
     );
     return Response.json({ rooms });
   }

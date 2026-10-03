@@ -24,22 +24,42 @@ export const en = {
   "color.lilac": "Lilac",
   "color.white": "White",
 
-  "rooms.yours": "Your trips",
-  "rooms.none": "No trips yet",
+  "rooms.coming": "Coming up",
+  "rooms.been": "Been there",
+  "rooms.none": "No trips yet. Write a tag to start the first one.",
   "rooms.loading": "Looking up your trips…",
+  "rooms.listFailed": "Could not load your trips.",
+  "rooms.inDays": `
+.input {$count :integer}
+.match $count
+one {{In {$count} day}}
+*   {{In {$count} days}}
+`,
+  "rooms.tomorrow": "Tomorrow",
+  "rooms.during": "On the trip · day {$count :integer}",
+  "rooms.undated": "No dates",
+  "rooms.memos": `
+.input {$count :integer}
+.match $count
+one {{{$count} note}}
+*   {{{$count} notes}}
+`,
   "rooms.new": "New trip",
   "rooms.name": "Trip name",
   "rooms.namePlaceholder": "Taiwan trip",
   "rooms.firstDay": "First day",
   "rooms.days": "Days",
+  "rooms.fewer": "One day fewer",
+  "rooms.more": "One day more",
   "rooms.currency": "Currency",
   "rooms.you": "Your name",
   "rooms.color": "Your color",
-  "rooms.create": "Create",
-  "rooms.creating": "Creating…",
+  "rooms.create": "Make this trip",
+  "rooms.creating": "Making it…",
   "rooms.createFailed": "Could not create the trip. Try again.",
-  "rooms.connecting": "Connecting…",
-  "rooms.failed": "Could not reach the room.",
+  "rooms.connecting": "Opening {$name}…",
+  "rooms.connectingUnnamed": "Opening the trip…",
+  "rooms.failed": "Could not reach the trip.",
   "rooms.retry": "Try again",
 
   "room.reconnecting": "Connecting… showing the room as of {$time}",

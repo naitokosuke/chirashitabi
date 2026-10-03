@@ -244,7 +244,15 @@ Where the trip goes, as an object lying on the desk that is plainly not a note: 
 
 ### Home
 
-The first tab, shown rather than listed. The bar holds the wordmark `chirashitabi`. Under it: the trip's name in Display, its dates and length; a face per member (the initial on their color, deepened to carry white; the one place a member color fills, since the face is about them). Then the days side by side on a white panel, each a stack of its notes drawn as slips of their own paper, maybes faded on a dashed edge, the date and weekday under it. Then one bar of the plan's progress in three inks (confirmed, maybe, no day) with a small legend of counts; the budget in 22px with the maybes in small; and a tool button to open another trip. No row of labels and figures, and no "you".
+The first tab, shown rather than listed. The bar holds the wordmark `chirashitabi`. Under it: the trip's name in Display, its dates and length; a face per member (the initial on their color, deepened to carry white; the one place a member color fills, since the face is about them). Then the days side by side on a white panel, each a stack of its notes drawn as slips of their own paper, maybes faded on a dashed edge, the date and weekday under it. Then one bar of the plan's progress in three inks (confirmed, maybe, no day) with a small legend of counts; the budget in 22px with the maybes in small. The bar ends with a tool link back to the trip list. No row of labels and figures, and no "you".
+
+### Trips (the rooms screen)
+
+The person's trips, as the luggage tags they are on the desk, hung one under another in the page column under the app bar (the wordmark). Two groups under Heading: coming up (the trip under way first, then the soonest, the undated last) and been (the most recent first). A tag that is coming up is ink, like the desk's trip tag, with a ringed punched hole: the name at 22px, how soon at its far end ("あと 30 日", "明日から", "旅の途中 · 2 日目"), the dates and length, and a foot of member dots (round for a person, square for the agent) with the memo count. A tag that is over is white on a hairline in ink, so it recedes. The whole tag is a link into its trip; hovering lifts it with `--shadow-lift`.
+
+After the trips coming up hangs a blank tag: the tag's outline dashed, its hole dashed, a plus and "new trip" in Muted. It opens the new trip sheet (`/new`), which slides in like the note form: the bar's height with a back button, then the tag the trip will get, drawn live from the fields (the name in the placeholder's place faded until one is typed), then the name, the first day beside a stepper for the days, the currency as chips, your name, and your color as swatches ringed in ink when chosen. The one primary button sits in a footer under the fields, always in reach.
+
+While the list loads, two wash-colored tag shapes hold its place. With no trips, one line of Muted copy invites the first tag above the blank one. A trip that cannot be reached, or a list that does not come, is said once in a white notice with an ink "try again".
 
 ### Write button (`CtFab`)
 
