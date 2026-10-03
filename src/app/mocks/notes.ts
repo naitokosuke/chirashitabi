@@ -22,10 +22,11 @@ const on = (date: string, time: string, status: NoteStatus): Schedule => ({
 const pin = (lat: number, lng: number) => ({ lat, lng });
 
 let i = 0;
-const card = (): Pick<Memo, "id" | "color" | "rot" | "by" | "updatedAt"> => ({
+const card = (): Pick<Memo, "id" | "color" | "rot" | "scale" | "by" | "updatedAt"> => ({
   id: ("s" + i++) as NoteId,
   color: "#fff1b8",
   rot: 0,
+  scale: 1,
   by: YUKI,
   updatedAt: Temporal.Now.instant(),
 });

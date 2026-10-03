@@ -40,6 +40,8 @@ interface WireCard {
   x: number;
   y: number;
   rot: number;
+  /** How large the card is drawn, 1 being its own size (MIN_SCALE to MAX_SCALE) */
+  scale: number;
   by: string;
   updatedAt: string; // ISO instant
 }
@@ -90,7 +92,8 @@ export type WireMutation =
   | { type: "note:update"; id: string; patch: WireMemoPatch }
   | { type: "note:recolor"; id: string; color: NoteColor }
   | { type: "note:adopt"; id: string }
-  | { type: "note:move"; id: string; x: number; y: number }
+  // where a card is; as it is turned or resized, how it is turned and how large
+  | { type: "note:move"; id: string; x: number; y: number; rot?: number; scale?: number }
   | { type: "note:delete"; id: string }
   | { type: "day:intro"; date: string; intro: string }
   | { type: "member:profile"; name: string; color: string };
@@ -131,6 +134,12 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 const isText = (v: unknown, max: number): v is string => typeof v === "string" && v.length <= max;
 const isFinite_ = (v: unknown, max = COORD): v is number =>
   typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= max;
+/** How small and how large a card may be drawn, its own size being 1 */
+export const MIN_SCALE = 0.5;
+export const MAX_SCALE = 3;
+const isScale = (v: unknown): v is number =>
+  typeof v === "number" && Number.isFinite(v) && v >= MIN_SCALE && v <= MAX_SCALE;
+
 /** An image's id, as the room mints it (a UUID) */
 export const isImageId = (v: unknown): v is string =>
   typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v);
@@ -205,6 +214,8 @@ const parseNote = (v: unknown): WireNote | null => {
   if (!isRecord(v)) return null;
   if (!isId(v.id) || !isText(v.title, TITLE) || !isColor(v.color)) return null;
   if (!isFinite_(v.x) || !isFinite_(v.y) || !isFinite_(v.rot, 360)) return null;
+  // a client from before cards could be resized sends no scale: its own size
+  if (!(v.scale === undefined || isScale(v.scale))) return null;
   const card = {
     id: v.id,
     title: v.title,
@@ -212,6 +223,7 @@ const parseNote = (v: unknown): WireNote | null => {
     x: v.x,
     y: v.y,
     rot: v.rot,
+    scale: v.scale ?? 1,
     by: "",
     updatedAt: "",
   };
@@ -319,10 +331,19 @@ export function parseMutation(v: unknown): WireMutation | null {
         : null;
     case "note:adopt":
       return isId(v.id) ? { type: "note:adopt", id: v.id } : null;
-    case "note:move":
-      return isId(v.id) && isFinite_(v.x) && isFinite_(v.y)
-        ? { type: "note:move", id: v.id, x: v.x, y: v.y }
-        : null;
+    case "note:move": {
+      if (!isId(v.id) || !isFinite_(v.x) || !isFinite_(v.y)) return null;
+      if (!(v.rot === undefined || isFinite_(v.rot, 360))) return null;
+      if (!(v.scale === undefined || isScale(v.scale))) return null;
+      return {
+        type: "note:move",
+        id: v.id,
+        x: v.x,
+        y: v.y,
+        ...(v.rot === undefined ? {} : { rot: v.rot }),
+        ...(v.scale === undefined ? {} : { scale: v.scale }),
+      };
+    }
     case "note:delete":
       return isId(v.id) ? { type: "note:delete", id: v.id } : null;
     case "day:intro":

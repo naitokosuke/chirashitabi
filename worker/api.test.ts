@@ -194,6 +194,7 @@ const memo = (id: string, title = "Din Tai Fung") => ({
   x: 10,
   y: 20,
   rot: 0,
+  scale: 1,
   by: "forged",
   updatedAt: "1999-01-01T00:00:00Z",
   body: "",
@@ -425,6 +426,7 @@ describe("the socket", () => {
         x: 10,
         y: 20,
         rot: 0,
+        scale: 1,
         by: yuki,
         updatedAt: expect.any(String),
         body: "",
@@ -809,6 +811,31 @@ describe("pictures", () => {
     const n1 =
       b.snapshot.type === "snapshot" ? b.snapshot.notes.find((n) => n.id === "n1") : undefined;
     expect(n1).toMatchObject({ kind: "memo", image: null });
+    b.ws.close(1000, "done");
+  });
+});
+
+describe("turning and resizing a card", () => {
+  test("a move may say how the card is turned and how large; one that does not keeps both", async () => {
+    const email = "shapes@example.com";
+    const { roomId } = await createRoom(email);
+    const a = await connect(roomId, email);
+    a.send({ type: "note:add", note: memo("n1"), cid: "c1" });
+    expect((await a.next()).type).toBe("ack");
+    a.send({ type: "note:move", id: "n1", x: 50, y: 60, rot: -30, scale: 1.8, cid: "c2" });
+    expect((await a.next()).type).toBe("ack");
+    a.send({ type: "note:move", id: "n1", x: 70, y: 80, cid: "c3" });
+    expect((await a.next()).type).toBe("ack");
+    // too small, too large, or not a number: refused, and nothing changes
+    for (const scale of [0.1, 9, "big"]) {
+      a.send({ type: "note:move", id: "n1", x: 0, y: 0, scale, cid: "bad" });
+      expect(await a.next()).toMatchObject({ type: "rejected", cid: "bad" });
+    }
+    a.ws.close(1000, "done");
+
+    const b = await connect(roomId, email);
+    const n1 = b.snapshot.type === "snapshot" ? b.snapshot.notes.find((n) => n.id === "n1") : null;
+    expect(n1).toMatchObject({ x: 70, y: 80, rot: -30, scale: 1.8 });
     b.ws.close(1000, "done");
   });
 });

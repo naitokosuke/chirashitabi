@@ -23,13 +23,24 @@ interface Grab {
   ox: number;
   oy: number;
 }
+/** A card's middle on screen, which it turns and grows around */
+interface Pivot {
+  note: Note;
+  cx: number;
+  cy: number;
+}
 /** What the fingers (or the mouse) are doing right now: one thing at a time */
 type Gesture =
   | { kind: "idle" }
-  /** Down on a card, not moved yet: becomes a drag, a tap (edit) or a long press (menu) */
+  /** Down on a card, not moved yet: becomes a drag, a tap (pick; twice, edit) or a long press (menu) */
   | { kind: "press"; grab: Grab; sx: number; sy: number; timer: number }
   | { kind: "drag"; grab: Grab; lastSend: number }
-  | { kind: "pan"; x: number; y: number; tx: number; ty: number }
+  /** A picked card's corner handle: its size follows the finger's distance from the middle */
+  | { kind: "resize"; at: Pivot; d0: number; scale0: number; lastSend: number }
+  /** A picked card's top handle: it turns with the finger around the middle */
+  | { kind: "rotate"; at: Pivot; a0: number; rot0: number; lastSend: number }
+  /** Down on the desk: becomes a pan, or a tap that lets go of the picked card */
+  | { kind: "pan"; x: number; y: number; tx: number; ty: number; moved: boolean }
   | { kind: "pinch"; start: PinchStart };
 type Drag = Extract<Gesture, { kind: "drag" }>;
 const IDLE: Gesture = { kind: "idle" };
@@ -62,7 +73,7 @@ import {
 } from "../features/canvas/transform";
 import { useViewport } from "../features/canvas/useViewport";
 import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteId } from "../features/notes/types";
-import { useNotes } from "../features/notes/useNotes";
+import { useNotes, type Shape } from "../features/notes/useNotes";
 import { useToast } from "../features/toast/useToast";
 import FilterBar from "../features/tags/FilterBar.vue";
 import { useTags } from "../features/tags/useTags";
@@ -91,7 +102,9 @@ const dates = computed(() => {
 const { view, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
 const worldStyle = computed(
-  () => `transform: translate(${view.value.tx}px, ${view.value.ty}px) scale(${view.value.s})`,
+  // --zoom: the handles on a picked card undo it, to stay the same size on screen
+  () =>
+    `transform: translate(${view.value.tx}px, ${view.value.ty}px) scale(${view.value.s}); --zoom: ${view.value.s}`,
 );
 
 // ---- pointer state ----
@@ -122,8 +135,40 @@ function noteAt(el: EventTarget | null): Note | undefined {
   return card ? store.notes.find((n) => n.id === card.dataset.id) : undefined;
 }
 
+// ---- picking: a tap picks a card (framed, with handles and its toolbar); two taps open it ----
+const selectedId = ref<NoteId | null>(null);
+/** The picked card as it is now; a card that went (deleted here or by the partner) is let go */
+const selected = computed(() =>
+  selectedId.value === null ? null : (store.byId(selectedId.value) ?? null),
+);
+function select(note: Note | null) {
+  selectedId.value = note?.id ?? null;
+}
+/** The last tap on a card, to tell a second one (open it) from a first (pick it) */
+let lastTap: { id: NoteId; at: number } | null = null;
+const DOUBLE_TAP_MS = 350;
+
+/** Sizes a card may be drawn at; the room takes 0.5 to 3 (worker/wire.ts) */
+const MIN_SCALE = 0.6;
+const MAX_SCALE = 2.5;
+/** Holding Shift while turning snaps to this many degrees */
+const SNAP_DEG = 15;
+
+/** A card's middle on screen: what it turns and grows around (its transform's origin) */
+function pivotOf(note: Note): Pivot | null {
+  const r = cardEl(note)?.getBoundingClientRect();
+  return r ? { note, cx: r.left + r.width / 2, cy: r.top + r.height / 2 } : null;
+}
+const angleOf = (at: Pivot, p: Pt) => (Math.atan2(p.y - at.cy, p.x - at.cx) * 180) / Math.PI;
+/** Degrees in (-180, 180], so a card turned all the way round is stored as it looks */
+const wrap = (deg: number) => {
+  const d = ((((deg + 180) % 360) + 360) % 360) - 180;
+  return d === -180 ? 180 : d;
+};
+
 function onDown(e: PointerEvent) {
-  if ((e.target as HTMLElement).closest("button")) return;
+  const target = e.target as HTMLElement;
+  if (target.closest("button")) return;
   menu.value = null;
   vp.value!.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -133,9 +178,34 @@ function onDown(e: PointerEvent) {
     if (pointers.size === 2) setGesture({ kind: "pinch", start: startPinch(view.value, a, b) });
     return;
   }
-  const note = noteAt(e.target);
+  const note = noteAt(target);
   if (!note) {
-    setGesture({ kind: "pan", x: e.clientX, y: e.clientY, tx: view.value.tx, ty: view.value.ty });
+    setGesture({
+      kind: "pan",
+      x: e.clientX,
+      y: e.clientY,
+      tx: view.value.tx,
+      ty: view.value.ty,
+      moved: false,
+    });
+    return;
+  }
+  // a handle of the picked card: resize or turn it around its middle
+  const handle = target.closest<HTMLElement>("[data-handle]")?.dataset.handle;
+  const at = handle === undefined ? null : pivotOf(note);
+  if (at !== null) {
+    const p = { x: e.clientX, y: e.clientY };
+    setGesture(
+      handle === "resize"
+        ? {
+            kind: "resize",
+            at,
+            d0: Math.max(distance(p, { x: at.cx, y: at.cy }), 1),
+            scale0: note.scale,
+            lastSend: 0,
+          }
+        : { kind: "rotate", at, a0: angleOf(at, p), rot0: note.rot, lastSend: 0 },
+    );
     return;
   }
   const w = toWorld(e.clientX, e.clientY);
@@ -147,6 +217,8 @@ function onDown(e: PointerEvent) {
     // only fires while still pressing: moving or lifting clears it
     timer: window.setTimeout(() => {
       setGesture(IDLE);
+      select(note);
+      navigator.vibrate?.(10);
       openMenu(note);
     }, 420),
   });
@@ -158,6 +230,8 @@ function onMove(e: PointerEvent) {
   pointers.set(e.pointerId, p);
   let g = gesture.value;
   if (g.kind === "press" && distance(p, { x: g.sx, y: g.sy }) > 6) {
+    // a card that is dragged is the one picked
+    select(g.grab.note);
     g = { kind: "drag", grab: g.grab, lastSend: 0 };
     setGesture(g);
   }
@@ -169,26 +243,48 @@ function onMove(e: PointerEvent) {
     }
     case "drag":
       return dragTo(g, p);
+    case "resize": {
+      const d = distance(p, { x: g.at.cx, y: g.at.cy });
+      const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, (g.scale0 * d) / g.d0));
+      return shapeTo(g, { rot: g.at.note.rot, scale });
+    }
+    case "rotate": {
+      const turned = g.rot0 + angleOf(g.at, p) - g.a0;
+      const rot = wrap(e.shiftKey ? Math.round(turned / SNAP_DEG) * SNAP_DEG : turned);
+      return shapeTo(g, { rot, scale: g.at.note.scale });
+    }
     case "pan":
+      if (!g.moved && distance(p, { x: g.x, y: g.y }) <= 6) return;
+      g.moved = true;
       view.value.tx = g.tx + (p.x - g.x);
       view.value.ty = g.ty + (p.y - g.y);
   }
 }
 /**
- * A card under a finger is drawn from here, not from the cache: intermediate positions do not
- * belong in the room's data (docs/data-fetching.md). The drop writes it once.
+ * A card under a finger (moved, turned or resized) is drawn from here, not from the cache:
+ * intermediate states do not belong in the room's data (docs/data-fetching.md). Letting go
+ * writes it once.
  */
-const held = shallowRef<{ id: NoteId; x: number; y: number } | null>(null);
+const held = shallowRef<{ id: NoteId; x: number; y: number; shape?: Shape } | null>(null);
+/** The partner sees a held card change at ~12/s; here it follows every frame */
+function throttled(g: { lastSend: number }, send: () => void) {
+  const now = performance.now();
+  if (now - g.lastSend > 80) {
+    send();
+    g.lastSend = now;
+  }
+}
 function dragTo(g: Drag, p: Pt) {
   const { note, ox, oy } = g.grab;
   const w = toWorld(p.x, p.y);
-  held.value = { id: note.id, x: w.x - ox, y: w.y - oy };
-  // the partner sees it travel at ~12/s; here it follows every frame
-  const now = performance.now();
-  if (now - g.lastSend > 80) {
-    store.sendMove(note.id, held.value.x, held.value.y);
-    g.lastSend = now;
-  }
+  const h = { id: note.id, x: w.x - ox, y: w.y - oy };
+  held.value = h;
+  throttled(g, () => store.sendMove(h.id, h.x, h.y));
+}
+function shapeTo(g: Extract<Gesture, { kind: "resize" | "rotate" }>, shape: Shape) {
+  const { note } = g.at;
+  held.value = { id: note.id, x: note.x, y: note.y, shape };
+  throttled(g, () => store.sendMove(note.id, note.x, note.y, shape));
 }
 
 function onUp(e: PointerEvent) {
@@ -196,29 +292,52 @@ function onUp(e: PointerEvent) {
   const g = gesture.value;
   // a pinch lasts until fewer than two fingers are left
   if (g.kind === "pinch" && pointers.size >= 2) return;
-  // a tap on a memo opens it; suggestions are adopted with their own buttons
-  if (g.kind === "press" && e.type === "pointerup" && g.grab.note.kind === "memo")
-    emit("edit", g.grab.note);
-  // let go: the one write of where it landed
-  const dropped = held.value;
-  if (g.kind === "drag" && dropped !== null) store.move(dropped.id, dropped.x, dropped.y);
+  const tapped = e.type === "pointerup";
+  if (g.kind === "press" && tapped) tapCard(g.grab.note);
+  // a tap on the bare desk lets go of the picked card
+  if (g.kind === "pan" && !g.moved && tapped) select(null);
+  // let go: the one write of where it landed, how it is turned and how large
+  const h = held.value;
+  if ((g.kind === "drag" || g.kind === "resize" || g.kind === "rotate") && h !== null)
+    store.move(h.id, h.x, h.y, h.shape);
   held.value = null;
   setGesture(IDLE);
 }
+/** One tap picks the card and shows its toolbar; a second one soon after opens a memo */
+function tapCard(note: Note) {
+  const now = performance.now();
+  if (lastTap !== null && lastTap.id === note.id && now - lastTap.at < DOUBLE_TAP_MS) {
+    lastTap = null;
+    // suggestions are adopted with their own buttons, not opened
+    if (note.kind === "memo") emit("edit", note);
+    return;
+  }
+  lastTap = { id: note.id, at: now };
+  select(note);
+  openMenu(note, { focus: false });
+}
 
-// ---- keyboard: a focused card opens on Enter, its menu on the context-menu key or Shift+F10; Esc closes the menu ----
+// ---- keyboard: Enter opens a focused card, Delete removes it, the context-menu key or Shift+F10 shows its menu; Esc closes the menu, then lets go ----
 function onKey(e: KeyboardEvent) {
-  if (e.key === "Escape" && menu.value) {
-    closeMenu();
+  if (e.key === "Escape") {
+    if (menu.value) closeMenu();
+    else select(null);
     return;
   }
   const note = noteAt(e.target);
-  if (!note || note.kind !== "memo") return;
+  if (!note) return;
+  if (e.key === "Delete" || e.key === "Backspace") {
+    e.preventDefault();
+    remove(note);
+    return;
+  }
+  if (note.kind !== "memo") return;
   if (e.key === "Enter") {
     e.preventDefault();
     emit("edit", note);
   } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
     e.preventDefault();
+    select(note);
     openMenu(note);
   }
 }
@@ -233,16 +352,17 @@ function onWheel(e: WheelEvent) {
 }
 
 // ---- menu ----
+/** How far the menu keeps from the card: clear of the picked card's corner and top handles */
+const CLEAR = 28;
 /** Below the card, so the card stays visible while its color is picked; above it near the bottom edge */
-function openMenu(note: Note) {
-  navigator.vibrate?.(10);
+function openMenu(note: Note, { focus = true } = {}) {
   const r = vp.value!.getBoundingClientRect();
   const card = cardEl(note)?.getBoundingClientRect();
   if (!card) return;
   menu.value = {
     note,
     x: Math.max(8, card.left - r.left),
-    y: Math.max(card.bottom - r.top + 8, 8),
+    y: Math.max(card.bottom - r.top + CLEAR, 8),
   };
   // once it is drawn: measure it, keep it on screen (above the card near the bottom), and move focus in
   nextTick(() => {
@@ -251,10 +371,11 @@ function openMenu(note: Note) {
     const w = m.offsetWidth;
     const h = m.offsetHeight;
     const x = Math.max(8, Math.min(card.left - r.left, r.width - w - 8));
-    const below = card.bottom - r.top + 8;
-    const y = below + h > r.height - 100 ? card.top - r.top - h - 8 : below;
+    const below = card.bottom - r.top + CLEAR;
+    const y = below + h > r.height - 100 ? card.top - r.top - h - CLEAR : below;
     menu.value = { ...menu.value, x, y: Math.max(y, 8) };
-    m.querySelector<HTMLElement>("button")?.focus();
+    // the keyboard moves into it; a tap that picked the card leaves focus where it was
+    if (focus) m.querySelector<HTMLElement>("button")?.focus();
   });
 }
 const menuEl = useTemplateRef<HTMLElement>("menuEl");
@@ -327,7 +448,10 @@ const pendingDelete = ref(new Set<NoteId>());
 const shownNotes = computed(() =>
   store.notes
     .filter((n) => !pendingDelete.value.has(n.id))
-    .map((n) => (held.value?.id === n.id ? { ...n, x: held.value.x, y: held.value.y } : n)),
+    .map((n) => {
+      const h = held.value;
+      return h?.id === n.id ? { ...n, x: h.x, y: h.y, ...h.shape } : n;
+    }),
 );
 function remove(note: Note) {
   const card = cardEl(note);
@@ -465,6 +589,7 @@ watch(
             :key="n.id"
             :note="n"
             :dragging="draggingId === n.id"
+            :selected="selected?.id === n.id"
             :pop="pop?.id === n.id"
             :visibility="tags.visibility(n)"
             @adopt="() => store.adopt(n.id)"
