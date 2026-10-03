@@ -20,12 +20,12 @@ const i18n = useI18n();
 const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 
-/** "11/3 – 11/6", or nothing while the room has no days */
+/** "11/3 – 11/6", one date for a day trip, or nothing while the room has no days */
 const range = computed(() => {
   const first = trip.days[0]?.date;
   const last = trip.days.at(-1)?.date;
   if (first === undefined || last === undefined) return "";
-  return `${short(first)} – ${short(last)}`;
+  return first.equals(last) ? short(first) : `${short(first)} – ${short(last)}`;
 });
 
 /** Every memo in one of three piles: confirmed (or done), on a day as a maybe, or not on a day yet */

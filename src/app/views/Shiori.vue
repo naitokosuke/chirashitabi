@@ -120,6 +120,13 @@ const APPENDIX_TAGS = [PACKING_TAG, ARRIVAL_TAG];
 
 const totalFixed = computed(() => trip.budgetOf(undefined, true));
 const totalAll = computed(() => trip.budgetOf(undefined, false));
+/** "11/3 – 11/5", one date for a day trip, nothing while the trip has no days */
+const range = computed(() => {
+  const first = trip.days[0]?.date;
+  const last = trip.days.at(-1)?.date;
+  if (first === undefined || last === undefined) return "";
+  return first.equals(last) ? short(first) : `${short(first)} – ${short(last)}`;
+});
 
 function assign(n: Memo, date: Temporal.PlainDate | null) {
   store.update(n.id, assignTo(n, date));
@@ -207,7 +214,11 @@ function adoptDraft() {
 
     <!-- what holds for the whole trip stays put above the page; only the day's page morphs -->
     <div class="lead">
-      <p><template v-if="trip.days.length">{{ short(trip.days[0]!.date) }} – {{ short(trip.days.at(-1)!.date) }} · </template>{{ i18n.t("shiori.summary", { fixed: trip.fixedCount, total: price(totalFixed) }) }}<small v-if="totalAll > totalFixed">{{ i18n.t("shiori.withMaybes", { total: price(totalAll) }) }}</small></p>
+      <p><template v-if="range">{{ range }} · </template>{{
+          totalAll > 0
+            ? i18n.t("shiori.summary", { fixed: trip.fixedCount, total: price(totalFixed) })
+            : i18n.t("shiori.summaryCount", { fixed: trip.fixedCount })
+        }}<small v-if="totalAll > totalFixed">{{ i18n.t("shiori.withMaybes", { total: price(totalAll) }) }}</small></p>
 
       <!-- tray: memos without a day (edit mode only) -->
       <section v-if="editing">
@@ -512,8 +523,9 @@ article {
         gap: 8px;
         overflow-x: auto;
         scrollbar-width: none;
-        padding: 4px 24px 8px 2px;
-        margin: 0 -2px;
+        /* room for a picked card's ring (2px, 2px out) inside the row, which clips what overflows it */
+        padding: 6px 28px 8px 6px;
+        margin: -2px -6px 0;
         mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 
         &::-webkit-scrollbar {
