@@ -29,6 +29,7 @@ const memo = (id: string, extra: Partial<Memo> = {}): Memo => ({
   schedule: null,
   budget: null,
   checked: false,
+  image: null,
   ...extra,
 });
 const suggestion = (id: string): Suggestion => ({

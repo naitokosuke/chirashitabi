@@ -2,12 +2,15 @@
 import { useI18n } from "../../i18n/useI18n";
 
 import { useMembers } from "../members/useMembers";
+import { imageSrc } from "../notes/image";
 import { PAPERS, type Note } from "../notes/types";
+import { useSync } from "../sync/useSync";
 import type { Visibility } from "../tags/types";
 
 defineProps<{ note: Note; dragging: boolean; pop: boolean; visibility: Visibility }>();
 defineEmits<{ adopt: []; remove: [] }>();
 const members = useMembers();
+const sync = useSync();
 const i18n = useI18n();
 </script>
 
@@ -33,6 +36,14 @@ const i18n = useI18n();
       <footer><button type="button" @click.stop="() => $emit('adopt')">{{ i18n.t("note.adopt") }}</button><button type="button" @click.stop="() => $emit('remove')">{{ i18n.t("common.dismiss") }}</button></footer>
     </template>
     <template v-else>
+      <!-- the card's picture, across its top; the card is still what a finger holds -->
+      <img
+        v-if="note.image"
+        alt=""
+        draggable="false"
+        loading="lazy"
+        :src="imageSrc(sync.roomId, note.image)"
+      />
       <p>{{ note.title }}</p>
       <p v-if="note.body">{{ note.body }}</p>
       <ul v-if="note.tags.length"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
@@ -82,6 +93,18 @@ div {
     @media (--reduced-motion) {
       animation: none;
     }
+  }
+
+  /* the picture, edge to edge across the top; touches go to the card under it */
+  > img {
+    display: block;
+    width: calc(100% + 24px);
+    height: 110px;
+    margin: -12px -12px 10px;
+    object-fit: cover;
+    border-radius: 6px 6px 0 0;
+    background: color-mix(in oklch, var(--paper-ink) 6%, transparent);
+    pointer-events: none;
   }
 
   /* the title */

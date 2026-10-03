@@ -71,6 +71,10 @@ So a member who is logged in and opens a stranger's page would let that page ope
 Every API call is a `POST` with `Content-Type: application/json`, so the browser always sends `Origin`; the Worker rejects any API or upgrade request whose `Origin` is missing or is not the app's own origin, and the Access application's cookie is set to `SameSite=Strict`.
 There is no CORS configuration, so no other origin is ever allowed.
 
+Pictures on cards are the one exception, and only for reading.
+`GET /api/rooms/<id>/images/<image id>` comes from an `<img>`, which sends no `Origin`; it changes nothing, so it passes on Access's identity and the room membership alone, and answers only for a picture the room's list has, from that room's folder in the private R2 bucket.
+An upload (`POST /api/rooms/<id>/images`) carries the picture's bytes rather than JSON and is held to the same `Origin` check as every other call, to one of three image types, to 1 MB, and to 100 pictures a room.
+
 ## Who is asking
 
 Access is the first mechanism.

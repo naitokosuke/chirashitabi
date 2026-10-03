@@ -14,6 +14,8 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export const mockWorker = (): WorkerApi => ({
   // the mocks have no room to write into as the agent
   suggest: null,
+  // nor anywhere to keep a picture
+  uploadImage: null,
   async draftDay(_date, notes) {
     await wait(THINKING_MS);
     return {

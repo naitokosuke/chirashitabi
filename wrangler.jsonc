@@ -31,6 +31,10 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomsIndex", "Room"] }],
 
+  // Pictures on cards, as rooms/<room>/images/<id>. Private: only the Worker reads it, for a
+  // room's members (worker/index.ts); the room keeps which ones it has.
+  "r2_buckets": [{ "binding": "IMAGES", "bucket_name": "chirashitabi-images" }],
+
   // None of these is a secret; identify() checks the Access JWT against them.
   // ACCESS_CERTS_URL is deliberately absent: the keys come from the team domain. Only the
   // tests set it, to a stub that serves a throwaway key.

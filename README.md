@@ -48,7 +48,8 @@ src/app/            The app
 
   features/
     members/ Everyone in the room, people and agents alike
-    notes/   Notes: store, types; input (the form's text -> title, body, tags)
+    notes/   Notes: store, types; input (the form's text -> title, body, tags); image (a photo shrunk
+             on the device, and where a room's picture is shown from)
     sync/    useSync (the session: which room, who this device is in it, where changes go); keys
              (the room's cache keys); useRoom (the socket to a room, written into the cache); ledger
              (confirmed state and our unanswered changes); persist (the room kept on the device);
@@ -96,7 +97,8 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
                     the budget of paid calls per person (reserve before the call, refund on a provider error)
   claude.ts         Claude (claude-sonnet-5-5) for the room's agent: drafting a day, suggesting ideas;
                     each answer checked
-  room.ts           Room: the trip, its notes and members in SQLite; the socket: snapshot on connect,
+  room.ts           Room: the trip, its notes and members in SQLite, and which pictures it has (their bytes
+                    in the R2 bucket chirashitabi-images); the socket: snapshot on connect,
                     mutations checked, stamped (by, updatedAt), written and sent to the other sockets
   wire.ts           What crosses the socket (Temporal values as ISO strings) and the checks it must pass
   api.test.ts       The Worker in workerd via wrangler's test harness, Access stood in for by a throwaway key

@@ -45,6 +45,7 @@ type NoteRow = {
   sched_status: string | null;
   budget: number | null;
   checked: number;
+  image: string | null;
 };
 
 /**
@@ -113,6 +114,63 @@ export class Room extends DurableObject<Env> {
     if (!cols.some((c) => c.name === "checked")) {
       ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN checked INTEGER NOT NULL DEFAULT 0");
     }
+    // and the pictures on cards, once they arrived
+    if (!cols.some((c) => c.name === "image")) {
+      ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN image TEXT");
+    }
+    ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS pictures (
+        id TEXT PRIMARY KEY,
+        by TEXT NOT NULL,
+        type TEXT NOT NULL,
+        bytes INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+  }
+
+  // ---- pictures (RPC from the Worker; the bytes are in R2, the room keeps which it has) ----
+
+  /** Pictures a room keeps at most; each is at most MAX_IMAGE_BYTES */
+  static readonly MAX_IMAGES = 100;
+
+  /**
+   * Takes a picture member `by` is uploading into the room's list, before its bytes are
+   * written; the Worker has checked its type and size. Returns its id, or null when the room
+   * already holds as many as it may.
+   */
+  addImage(by: string, type: string, bytes: number): string | null {
+    this.assertMember(by);
+    const sql = this.ctx.storage.sql;
+    if (sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM pictures").one().n >= Room.MAX_IMAGES)
+      return null;
+    const id = crypto.randomUUID();
+    sql.exec(
+      "INSERT INTO pictures (id, by, type, bytes, created_at) VALUES (?, ?, ?, ?, ?)",
+      id,
+      by,
+      type,
+      bytes,
+      new Date().toISOString(),
+    );
+    return id;
+  }
+
+  /** Its bytes could not be written: the room does not have it after all */
+  dropImage(id: string): void {
+    this.ctx.storage.sql.exec("DELETE FROM pictures WHERE id = ?", id);
+  }
+
+  /** Whether the room has a picture by that id, asked for member `by` */
+  hasImageFor(by: string, id: string): boolean {
+    this.assertMember(by);
+    return this.hasImage(id);
+  }
+
+  private hasImage(id: string): boolean {
+    return (
+      this.ctx.storage.sql.exec("SELECT 1 FROM pictures WHERE id = ?", id).toArray().length > 0
+    );
   }
 
   // ---- membership (RPC from the Worker) ----
@@ -396,11 +454,14 @@ export class Room extends DurableObject<Env> {
                 schedule: null,
                 budget: null,
                 checked: false,
+                image: null,
               };
+        // a card shows only a picture the room has
+        if (memo.image !== null && !this.hasImage(memo.image)) return "no such image";
         sql.exec(
           `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at, body, tags, maps_url,
-             pin_lat, pin_lng, sched_date, sched_time, sched_status, budget, checked)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             pin_lat, pin_lng, sched_date, sched_time, sched_status, budget, checked, image)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           note.id,
           note.kind,
           note.title,
@@ -420,6 +481,7 @@ export class Room extends DurableObject<Env> {
           memo.schedule?.status ?? null,
           memo.budget,
           memo.checked ? 1 : 0,
+          memo.image,
         );
         return { type: "note:add", note };
       }
@@ -429,11 +491,13 @@ export class Room extends DurableObject<Env> {
         if (row.kind !== "memo") return "not a memo";
         const p = m.patch;
         const has = <K extends keyof typeof p>(k: K) => Object.hasOwn(p, k);
+        if (has("image") && typeof p.image === "string" && !this.hasImage(p.image))
+          return "no such image";
         sql.exec(
           `UPDATE notes SET
              title = ?, body = ?, tags = ?, color = ?, maps_url = ?, pin_lat = ?, pin_lng = ?,
-             sched_date = ?, sched_time = ?, sched_status = ?, budget = ?, checked = ?, x = ?, y = ?, rot = ?,
-             updated_at = ?
+             sched_date = ?, sched_time = ?, sched_status = ?, budget = ?, checked = ?, image = ?,
+             x = ?, y = ?, rot = ?, updated_at = ?
            WHERE id = ?`,
           has("title") ? p.title : row.title,
           has("body") ? p.body : row.body,
@@ -447,6 +511,7 @@ export class Room extends DurableObject<Env> {
           has("schedule") ? (p.schedule?.status ?? null) : row.sched_status,
           has("budget") ? p.budget : row.budget,
           has("checked") ? (p.checked === true ? 1 : 0) : row.checked,
+          has("image") ? (p.image ?? null) : row.image,
           has("x") ? p.x : row.x,
           has("y") ? p.y : row.y,
           has("rot") ? p.rot : row.rot,
@@ -547,5 +612,6 @@ const fromRow = (r: NoteRow): WireNote => {
         : { date: r.sched_date, time: r.sched_time, status: r.sched_status as NoteStatus },
     budget: r.budget,
     checked: r.checked === 1,
+    image: r.image ?? null,
   };
 };
