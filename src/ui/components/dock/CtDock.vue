@@ -99,6 +99,11 @@ nav {
   width: fit-content;
   inset-block-end: calc(env(safe-area-inset-bottom, 0px) + var(--dock-gap));
   z-index: var(--z-dock);
+  /*
+   * Its own region in a View Transition, drawn live above the views' (transitions.css): the
+   * screen box under it is the whole screen, and its snapshot would hide the dock mid-switch
+   */
+  view-transition-name: ct-dock;
   box-sizing: border-box;
   display: flex;
   align-items: center;

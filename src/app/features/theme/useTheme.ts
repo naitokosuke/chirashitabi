@@ -51,9 +51,10 @@ export const useTheme = defineStore("theme", () => {
   }
 
   /**
-   * To the other theme. With a point (where the switch was pressed), the new colors spread
-   * from it over the screen like ink (transitions.css, `theme`); under reduced motion, without
-   * the View Transition API, or with the page hidden, they are simply there.
+   * To the other theme. With a point (where the switch was pressed), light spreads out from it
+   * over the screen like ink (`theme-light`), and night closes in on it from the edges, the
+   * last of the day shrinking into the switch (`theme-dark`; transitions.css). Under reduced
+   * motion, without the View Transition API, or with the page hidden, the theme is simply there.
    */
   const transition = useViewTransition();
   function toggle(from?: { x: number; y: number }) {
@@ -69,7 +70,7 @@ export const useTheme = defineStore("theme", () => {
       "--theme-r",
       `${coverRadius(from.x, from.y, window.innerWidth, window.innerHeight)}px`,
     );
-    transition(() => pick(next), ["theme"]);
+    transition(() => pick(next), ["theme", `theme-${next}`]);
   }
 
   return { theme, picked, toggle };
