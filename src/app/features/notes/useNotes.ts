@@ -1,6 +1,6 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { ref } from "vue";
+import { shallowRef } from "vue";
 
 import { defineStore } from "pinia";
 
@@ -9,20 +9,30 @@ import { useMembers } from "../members/useMembers";
 import type { Mutation } from "../sync/types";
 import { useSync } from "../sync/useSync";
 
-import { adopted, duplicateInput } from "./input";
+import { applyToNotes } from "./apply";
+import { duplicateInput } from "./input";
 import type { Memo, MemoPatch, Note, NoteColor, NoteId, NoteInput } from "./types";
 
 const uid = () => Math.random().toString(36).slice(2, 10) as NoteId;
 const now = () => Temporal.Now.instant();
 
+/**
+ * The room's notes. Every change, ours or a member's, goes through `applyToNotes`, which
+ * returns a new array with new objects for what changed; the store only assigns the result
+ * (docs/data-fetching.md). Hold a note by its id, not by the object: the object is replaced
+ * whenever the note changes.
+ */
 export const useNotes = defineStore("notes", () => {
   const sync = useSync();
   const members = useMembers();
-  // Deep ref on purpose: cards read x/y through the array, so moving one card
-  // only touches that object. shallowRef would skip those nested updates.
-  const notes = ref<Note[]>([]);
+  const notes = shallowRef<Note[]>([]);
 
-  // ---- mutations (local first, then sync) ----
+  /** Ours: applied here at once, then sent */
+  function commit(m: Mutation) {
+    notes.value = applyToNotes(notes.value, m, members.me, now());
+    sync.send(m);
+  }
+
   function add(input: NoteInput, at: { x: number; y: number }): Memo {
     const n: Memo = {
       id: uid(),
@@ -37,37 +47,29 @@ export const useNotes = defineStore("notes", () => {
       checked: false,
       ...input,
     };
-    notes.value.push(n);
-    sync.send({ type: "note:add", note: n });
+    commit({ type: "note:add", note: n });
     return n;
   }
   /** Only memos have fields to edit; a suggestion is adopted first */
   function update(id: NoteId, patch: MemoPatch) {
-    const n = byId(id);
-    if (n?.kind !== "memo") return;
-    Object.assign(n, patch, { updatedAt: now() });
-    sync.send({ type: "note:update", id, patch });
+    if (byId(id)?.kind !== "memo") return;
+    commit({ type: "note:update", id, patch });
   }
   /** Any card can change color, suggestions included */
   function recolor(id: NoteId, color: NoteColor) {
-    const n = byId(id);
-    if (n === undefined) return;
-    n.color = color;
-    n.updatedAt = now();
-    sync.send({ type: "note:recolor", id, color });
+    if (byId(id) === undefined) return;
+    commit({ type: "note:recolor", id, color });
   }
-  function move(id: NoteId, x: number, y: number, final = false) {
-    const n = byId(id);
-    if (n === undefined) return;
-    n.x = x;
-    n.y = y;
-    if (final) n.updatedAt = now();
-    sync.send({ type: "note:move", id, x, y });
+  function move(id: NoteId, x: number, y: number) {
+    if (byId(id) === undefined) return;
+    commit({ type: "note:move", id, x, y });
+  }
+  /** A card under a finger, every frame: moved here only; `move` is what sends it, a few times a second */
+  function nudge(id: NoteId, x: number, y: number) {
+    notes.value = applyToNotes(notes.value, { type: "note:move", id, x, y }, members.me, now());
   }
   function remove(id: NoteId) {
-    const i = notes.value.findIndex((n) => n.id === id);
-    if (i >= 0) notes.value.splice(i, 1);
-    sync.send({ type: "note:delete", id });
+    commit({ type: "note:delete", id });
   }
   function duplicate(id: NoteId) {
     const n = byId(id);
@@ -76,11 +78,8 @@ export const useNotes = defineStore("notes", () => {
   }
   /** A suggestion becomes an ordinary memo; `by` still says whose idea it was */
   function adopt(id: NoteId) {
-    const i = notes.value.findIndex((n) => n.id === id);
-    const n = notes.value[i];
-    if (n?.kind !== "suggestion") return;
-    notes.value[i] = { ...adopted(n), updatedAt: now() };
-    sync.send({ type: "note:adopt", id });
+    if (byId(id)?.kind !== "suggestion") return;
+    commit({ type: "note:adopt", id });
   }
   const byId = (id: NoteId) => notes.value.find((n) => n.id === id);
 
@@ -91,40 +90,21 @@ export const useNotes = defineStore("notes", () => {
 
   /** A note mutation the room relays from a member (us too, after a reconnect): applied, never sent */
   function receive(m: Mutation, by: MemberId, at: Temporal.Instant) {
-    switch (m.type) {
-      case "note:add":
-        if (byId(m.note.id) === undefined) notes.value.push({ ...m.note, by, updatedAt: at });
-        return;
-      case "note:update": {
-        const n = byId(m.id);
-        if (n?.kind === "memo") Object.assign(n, m.patch, { updatedAt: at });
-        return;
-      }
-      case "note:recolor": {
-        const n = byId(m.id);
-        if (n !== undefined) Object.assign(n, { color: m.color, updatedAt: at });
-        return;
-      }
-      case "note:move": {
-        const n = byId(m.id);
-        if (n !== undefined) Object.assign(n, { x: m.x, y: m.y, updatedAt: at });
-        return;
-      }
-      case "note:delete": {
-        const i = notes.value.findIndex((n) => n.id === m.id);
-        if (i >= 0) notes.value.splice(i, 1);
-        return;
-      }
-      case "note:adopt": {
-        const i = notes.value.findIndex((n) => n.id === m.id);
-        const n = notes.value[i];
-        if (n?.kind === "suggestion") notes.value[i] = { ...adopted(n), updatedAt: at };
-        return;
-      }
-      default:
-        return; // not a note's
-    }
+    notes.value = applyToNotes(notes.value, m, by, at);
   }
 
-  return { notes, add, update, recolor, move, remove, duplicate, adopt, byId, apply, receive };
+  return {
+    notes,
+    add,
+    update,
+    recolor,
+    move,
+    nudge,
+    remove,
+    duplicate,
+    adopt,
+    byId,
+    apply,
+    receive,
+  };
 });

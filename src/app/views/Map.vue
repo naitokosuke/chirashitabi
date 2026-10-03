@@ -44,13 +44,17 @@ const i18n = useI18n();
 const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 const el = useTemplateRef<HTMLElement>("el");
-const selected = ref<Pinned | null>(null);
+/** The pin whose card is open, by id: the note object is replaced whenever it changes */
+const selectedId = ref<string | null>(null);
+const selected = computed(
+  (): Pinned | null => pinnedOf(store.notes).find((n) => n.id === selectedId.value) ?? null,
+);
 const day = ref<Temporal.PlainDate | null>(null); // show a day's route
 const isDay = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
 const toggleDay = (date: Temporal.PlainDate) => (day.value = isDay(date) ? null : date);
 const noPin = computed(() => store.notes.filter(needsPin).length);
 const showAllDays = () => (day.value = null);
-const closeCard = () => (selected.value = null);
+const closeCard = () => (selectedId.value = null);
 const editSelected = () => {
   if (selected.value) emit("edit", selected.value);
 };
@@ -91,7 +95,7 @@ onMounted(() => {
     syncMarkers();
     syncRoute();
   });
-  map.on("click", () => (selected.value = null));
+  map.on("click", () => (selectedId.value = null));
 
   // long press on the map = new memo pinned here
   let t: number | undefined,
@@ -129,7 +133,7 @@ function pinEl(n: Pinned) {
   d.append(dot, lbl);
   d.addEventListener("click", (e) => {
     e.stopPropagation();
-    selected.value = n;
+    selectedId.value = n.id;
     map?.easeTo({ center: lngLat(n.pin), duration: 300 });
   });
   return d;

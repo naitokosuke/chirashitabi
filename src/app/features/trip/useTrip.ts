@@ -1,6 +1,6 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 
 import { defineStore } from "pinia";
 
@@ -9,8 +9,10 @@ import { currencyCode } from "../../shared/money";
 import type { NoteStatus } from "../notes/types";
 import { useNotes } from "../notes/useNotes";
 import type { LatLng } from "../place/types";
+import type { Mutation } from "../sync/types";
 import { useSync } from "../sync/useSync";
 
+import { applyToDays } from "./apply";
 import * as itinerary from "./itinerary";
 import type { Day, TripSnapshot } from "./types";
 
@@ -19,7 +21,8 @@ export const useTrip = defineStore("trip", () => {
   const store = useNotes();
   const sync = useSync();
   const name = ref("");
-  const days = ref<Day[]>([]);
+  // replaced, never changed in place (apply.ts)
+  const days = shallowRef<Day[]>([]);
   const currency = ref(currencyCode("USD")!);
   const center = ref<LatLng | null>(null);
 
@@ -34,15 +37,14 @@ export const useTrip = defineStore("trip", () => {
 
   const dayOf = (date: Temporal.PlainDate) => days.value.find((d) => d.date.equals(date));
   function setIntro(date: Temporal.PlainDate, intro: string) {
-    const d = dayOf(date);
-    if (d !== undefined) d.intro = intro;
-    sync.send({ type: "day:intro", date, intro });
+    const m: Mutation = { type: "day:intro", date, intro };
+    days.value = applyToDays(days.value, m);
+    sync.send(m);
   }
 
   /** A day's intro as the room relays it: applied, never sent */
-  function receive(date: Temporal.PlainDate, intro: string) {
-    const d = dayOf(date);
-    if (d !== undefined) d.intro = intro;
+  function receive(m: Mutation) {
+    days.value = applyToDays(days.value, m);
   }
 
   /** Called by the room when an authoritative snapshot arrives. */
