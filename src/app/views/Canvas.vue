@@ -393,6 +393,12 @@ function placeAtCenter(input: NoteInput, how: PlaceHow) {
 onMounted(() => (placeOnMounted = placeAtCenter));
 onBeforeUnmount(() => (placeOnMounted = undefined));
 
+// The wheel is listened to on the desk itself, not with @wheel: Vapor delegates a template's
+// handlers to the document, where Chrome makes a wheel listener passive, so preventDefault is
+// ignored and a trackpad pinch zooms the whole page instead of the desk
+onMounted(() => vp.value!.addEventListener("wheel", onWheel, { passive: false }));
+onBeforeUnmount(() => vp.value?.removeEventListener("wheel", onWheel));
+
 // The first look shows every card, whatever the screen; an empty desk opens with room to write
 onMounted(() =>
   nextTick(() => {
@@ -447,7 +453,6 @@ watch(
         @pointermove="onMove"
         @pointerup="onUp"
         @pointercancel="onUp"
-        @wheel="onWheel"
         @keydown="onKey"
       >
         <div :style="worldStyle">
