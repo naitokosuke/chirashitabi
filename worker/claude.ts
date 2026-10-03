@@ -112,7 +112,17 @@ export async function draftDay(
     // no answer: it may have run, so it counts
     return { ok: false, refund: false, reason: `request failed: ${String(e)}` };
   }
-  if (!res.ok) return { ok: false, refund: true, reason: `Claude answered ${res.status}` };
+  if (!res.ok) {
+    // the API's own words (type and message, never the request) say what it refused
+    const err = (await res.json().catch(() => null)) as {
+      error?: { type?: string; message?: string };
+    } | null;
+    const why =
+      err?.error !== undefined
+        ? `: ${err.error.type ?? ""} ${err.error.message ?? ""}`.trimEnd()
+        : "";
+    return { ok: false, refund: true, reason: `Claude answered ${res.status}${why}` };
+  }
 
   const body = (await res.json()) as {
     content?: { type: string; name?: string; input?: unknown }[];
