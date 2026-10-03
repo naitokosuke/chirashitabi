@@ -47,7 +47,7 @@ import {
   watch,
 } from "vue";
 
-import { CtAppBar, CtFab } from "../../ui/index";
+import { CtFab } from "../../ui/index";
 
 import { useI18n } from "../i18n/useI18n";
 
@@ -427,10 +427,12 @@ watch(
 
 <template>
   <section>
-    <CtAppBar>
-      <!-- explicit: Vapor drops implicit default-slot content that sits beside a named slot -->
-      <template #default><FilterBar /></template>
-      <template #end>
+    <!-- no bar: the desk runs to the top, and what would sit in a bar floats on it -->
+    <div>
+      <p v-if="store.notes.length === 0">{{ i18n.t("canvas.empty") }}</p>
+
+      <div class="top">
+        <FilterBar />
         <button
           v-if="worker.api?.suggest"
           type="button"
@@ -438,11 +440,7 @@ watch(
           :aria-busy="thinking"
           @click="askForIdeas"
         >{{ i18n.t(thinking ? "canvas.thinking" : "canvas.askIdeas") }}</button>
-      </template>
-    </CtAppBar>
-
-    <div>
-      <p v-if="store.notes.length === 0">{{ i18n.t("canvas.empty") }}</p>
+      </div>
 
       <div
         ref="vp"
@@ -515,45 +513,68 @@ section {
   display: flex;
   flex-direction: column;
 
-  /* asking the room's agent for ideas, pinned at the bar's end: dashed, like the booklet's ask */
-  > header button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: var(--tap);
-    padding: 0 12px;
-    border-radius: 999px;
-    background: var(--surface);
-    border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
-    color: var(--ink);
-    font-size: var(--font-sm);
-    font-weight: 700;
-    white-space: nowrap;
-
-    &:disabled {
-      color: var(--muted);
-    }
-
-    /* waiting on the Worker: a dot breathing before the label */
-    &[aria-busy="true"]::before {
-      content: "";
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: currentColor;
-      animation: breathe 1s ease-in-out infinite alternate;
-
-      @media (--reduced-motion) {
-        animation: none;
-      }
-    }
-  }
-
-  /* everything under the bar: the dotted desk and what floats on it */
+  /* the whole view is the dotted desk, and what floats on it */
   > div {
     position: relative;
     flex: 1;
     min-height: 0;
+
+    /*
+     * Floating along the top, where a bar would be: the tag filter, and at its end the ask
+     * for ideas. Only the controls take touches; the desk between them still pans.
+     */
+    > .top {
+      position: absolute;
+      inset-inline: 0;
+      inset-block-start: 0;
+      z-index: var(--z-chrome);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-height: var(--bar);
+      padding: env(safe-area-inset-top, 0px) 12px 0 0;
+      pointer-events: none;
+
+      > * {
+        pointer-events: auto;
+      }
+
+      /* dashed, like the booklet's ask for a draft */
+      > button {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: var(--tap);
+        padding: 0 12px;
+        border-radius: 999px;
+        background: var(--surface);
+        border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
+        box-shadow: var(--shadow-tool);
+        color: var(--ink);
+        font-size: var(--font-sm);
+        font-weight: 700;
+        white-space: nowrap;
+
+        &:disabled {
+          color: var(--muted);
+        }
+
+        /* waiting on the Worker: a dot breathing before the label */
+        &[aria-busy="true"]::before {
+          content: "";
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: currentColor;
+          animation: breathe 1s ease-in-out infinite alternate;
+
+          @media (--reduced-motion) {
+            animation: none;
+          }
+        }
+      }
+    }
 
     /* An empty desk says what to do first */
     > p {
