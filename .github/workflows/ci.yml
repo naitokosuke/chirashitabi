@@ -3,6 +3,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # a deploy by hand, from the Actions tab; it still runs every check first
+  workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   build:
     # pinned, so a new Ubuntu arrives as a commit rather than under the latest label
@@ -21,3 +25,23 @@ jobs:
       # build before test: the Worker's integration tests start it with its assets directory
       - run: vp build
       - run: vp test
+
+  # main, once every check has passed, goes to chirashitabi.app; nothing else is deployed
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-26.04
+    # one deploy at a time, and a newer one waits for the one running instead of cutting it off
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: voidzero-dev/setup-vp@v1.21.1
+        with:
+          cache: true
+      # the same as by hand: a build without the mocks, then wrangler deploy
+      - run: vp run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
