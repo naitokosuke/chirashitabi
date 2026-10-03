@@ -30,7 +30,7 @@ Trip planners start from the schedule; this starts from the pile of ideas and le
 ## Operating Context
 
 - Sign-in is Cloudflare Access with an e-mail code; there is no account inside the app. A person belongs to rooms; a room holds at most two people and the agent.
-- Places arrive as Google Maps links pasted into the note form; coordinates come from the link, or from a long-press on the map.
+- Places arrive as Google Maps links pasted into the note form, or found from the note by Claude and OpenStreetMap (which makes the link); coordinates come from the link, or from a long-press on the map.
 - A trip has a name, a run of days, a currency and a map center. A note can carry tags, a body, a place, a day with a time and a status (maybe, confirmed, done), and a budget.
 - The interface is in Japanese and English, chosen per device.
 - The booklet (`shiori`) is read on the trip, on a phone; it must survive a bad connection.
@@ -51,6 +51,7 @@ Working today:
 
 The agent (Claude) drafts a day's order, times and intro, and leaves a few ideas as suggestion cards on the canvas, when a member asks, within a daily and per-trip budget.
 While writing a note, Clef (Workers AI) suggests tags that fit its words and photo, from the tags in use and candidates Claude proposed once for the trip.
+And when asked, Claude names the place a note is about and OpenStreetMap finds it, so a note can get its Google Maps link and its pin without leaving the app.
 Planned, not built: the invite screen, expanding short `maps.app.goo.gl` links, publishing the booklet as a public read-only page.
 
 Terminology: a note is a 付箋/sticky; the booklet is しおり/shiori; the people and the agent are members; a trip's shared space is a room.

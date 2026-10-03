@@ -16,6 +16,13 @@ export function parseMapsUrl(url: string): LatLng | null {
 }
 export const googleMapsLink = ({ lat, lng }: LatLng) =>
   `https://www.google.com/maps?q=${lat},${lng}`;
+/**
+ * A found place as a Google Maps link: a search for its name at its point, so Google opens
+ * on the place itself, and the point reads back out of the link (parseMapsUrl) as the pin
+ */
+export const placeSearchLink = (name: string, { lat, lng }: LatLng) =>
+  // fixed decimals: a whole-degree point still reads back (parseMapsUrl wants a decimal point)
+  `https://www.google.com/maps/search/${encodeURIComponent(name)}/@${lat.toFixed(6)},${lng.toFixed(6)},17z`;
 
 /**
  * A pasted link, or undefined unless it is http(s). Notes come from the other

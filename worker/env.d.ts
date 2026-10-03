@@ -9,4 +9,6 @@ interface Env {
   ANTHROPIC_BASE_URL?: string;
   /** Where Clef is called instead of the AI binding; only the tests set it */
   CLEF_BASE_URL?: string;
+  /** Where places are looked up (geocode.ts); unset in production, a local stub in the tests */
+  GEOCODER_BASE_URL?: string;
 }

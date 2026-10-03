@@ -319,3 +319,72 @@ export function checkProposal(v: unknown, ids: ReadonlySet<string>): DraftPropos
   }
   return { reason, intro, items };
 }
+
+// ---- where a memo is ----
+
+/** At most this many search strings per ask: the best guess, and one other way to say it */
+export const MAX_PLACE_QUERIES = 2;
+const PLACE_QUERY = 120;
+
+const PLACE_TOOL = {
+  name: "name_place",
+  description:
+    "Name the place a travel note is about, as search strings for an OpenStreetMap geocoder.",
+  input_schema: {
+    type: "object",
+    properties: {
+      queries: {
+        type: "array",
+        description: `Up to ${MAX_PLACE_QUERIES} search strings, the best first; empty when the note is not about a place one could find on a map.`,
+        items: {
+          type: "string",
+          description:
+            "The place's name as it is known where it is (in its own script), then its city and country, comma-separated; for example '寧夏夜市, 臺北市, 臺灣'.",
+        },
+      },
+    },
+    required: ["queries"],
+  },
+} as const;
+
+/** What the agent reads to name a memo's place: the trip, and the memo as it is being written */
+export interface PlaceContext {
+  trip: string;
+  days: string[];
+}
+
+/**
+ * Asks Claude which place a memo means, as search strings a geocoder can find; the coordinates
+ * come from the geocoder (geocode.ts), never from Claude
+ */
+export async function namePlace(
+  env: Env,
+  room: PlaceContext,
+  memo: { title: string; body: string; tags: string[] },
+): Promise<ClaudeResult<string[]>> {
+  const prompt = [
+    `Trip: ${room.trip}, ${room.days[0] ?? "?"} to ${room.days.at(-1) ?? "?"}.`,
+    "A note the travellers are writing (JSON):",
+    JSON.stringify(memo),
+    "",
+    "Which one place on a map is this note about: a shop, a sight, a market, a station, a hotel?",
+    "Give search strings an OpenStreetMap geocoder can find it by: the name as it is known",
+    "locally, in its own script, then the city and the country. If the note names a kind of",
+    'place rather than one ("a night market"), name the best-known one on this trip. If it is',
+    "not about a place at all, give none.",
+  ].join("\n");
+  return ask(env, PLACE_TOOL, prompt, checkQueries, "search strings");
+}
+
+/** Claude's search strings, trimmed, short, no repeats, at most MAX_PLACE_QUERIES; or null */
+export function checkQueries(v: unknown): string[] | null {
+  if (!isRecord(v) || !Array.isArray(v.queries)) return null;
+  const out: string[] = [];
+  for (const q of v.queries) {
+    const query = text(q, PLACE_QUERY);
+    if (query === null || query === "" || out.includes(query)) continue;
+    out.push(query);
+    if (out.length === MAX_PLACE_QUERIES) break;
+  }
+  return out;
+}

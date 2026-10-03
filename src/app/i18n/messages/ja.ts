@@ -119,6 +119,11 @@ export const ja: Messages = {
   "form.unpinned": "座標がないときは、地図画面を長押しして置けます",
   "form.urlNoPin":
     "このリンクからは座標が読めません。「共有」の長いリンクを貼るか、地図画面を長押しして置けます",
+  "form.findPlace": "場所を探す",
+  "form.placesAsking": "場所を探しています…",
+  "form.placesNone": "このメモからは、地図で見つかる場所が分かりませんでした。",
+  "form.placesFailed": "場所が届きませんでした。もう一度頼んでください。",
+  "form.placesCredit": "地図データ © OpenStreetMap contributors",
   "form.color": "色",
   "form.save": "保存",
   "form.saveToCanvas": "キャンバスに貼る",

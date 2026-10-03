@@ -179,7 +179,8 @@ The budget is what bounds a lost phone or a bug, so it is specified rather than 
 
 Cloudflare billing notifications and a Google Cloud budget alert are the second line; the index is the first.
 
-Built for `draftDay` (`POST /api/rooms/<id>/draft`), the agent's suggestions (`POST /api/rooms/<id>/suggest`) and tag suggestions (`POST /api/rooms/<id>/tags`), which share it.
+Built for `draftDay` (`POST /api/rooms/<id>/draft`), the agent's suggestions (`POST /api/rooms/<id>/suggest`), tag suggestions (`POST /api/rooms/<id>/tags`) and finding a memo's place (`POST /api/rooms/<id>/places`), which share it.
+Finding a place is one Claude call, which names the place as search strings; the coordinates then come from OpenStreetMap's geocoder (Nominatim), which is free and takes no key, so it is not budgeted. What reaches it is Claude's search string (a place's name, city and country), never the memo itself, with an identifying User-Agent, at most two queries a second apart, as its usage policy asks.
 A tag suggestion is one Clef call; the first one in a trip also makes the Claude call that proposes the trip's candidate tags, which the room then keeps, so each counts on its own.
 The ceilings count calls, `SPEND_PER_DAY` (20, a UTC day) and `SPEND_PER_TRIP` (200); a var that is missing or not a number allows nothing.
 `RoomsIndex.reserve` refuses past either with a 429 naming which, and the app says so instead of offering a retry.

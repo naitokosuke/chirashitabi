@@ -2,8 +2,9 @@ import type { RequestLogger } from "evlog";
 import { initWorkersLogger, withEvlog } from "evlog/workers";
 
 import { AccessVerifier, Unauthenticated } from "./access";
-import { draftDay, MODEL, proposeTags, suggestNotes } from "./claude";
+import { draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
 import { CLEF_MODEL, judgeTags, MAX_TAGS } from "./clef";
+import { geocode, SPACING_MS, type Place } from "./geocode";
 import { Room } from "./room";
 import {
   IMAGE_TYPES,
@@ -51,7 +52,7 @@ export default withEvlog<Env>(
 const booklet = () => new Response("Not Found", { status: 404 });
 
 const status = (code: number, text: string) => new Response(text, { status: code });
-const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws|draft|suggest|tags)$/;
+const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws|draft|suggest|tags|places)$/;
 /** A room's pictures: POST to upload one, GET `/images/<id>` to show it */
 const IMAGES = /^\/api\/rooms\/([0-9a-f-]{36})\/images(?:\/([0-9a-f-]{36}))?$/;
 
@@ -167,7 +168,7 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
   const [, roomId, action] = m as unknown as [
     string,
     string,
-    "invite" | "ws" | "draft" | "suggest" | "tags",
+    "invite" | "ws" | "draft" | "suggest" | "tags" | "places",
   ];
   const memberId = await index.resolve(email, roomId);
   if (memberId === null) return status(403, "Forbidden");
@@ -281,6 +282,54 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
     return Response.json({
       tags: judged.tags.map((t) => ({ tag: t.tag, p: t.p, isNew: !inUse.has(t.tag) })),
     });
+  }
+
+  if (action === "places") {
+    // the memo as it is being written; the places are named in the asker's language
+    const title = typeof body?.title === "string" ? body.title.trim().slice(0, 200) : "";
+    const text = typeof body?.body === "string" ? body.body.trim().slice(0, 4000) : "";
+    const tags = Array.isArray(body?.tags)
+      ? body.tags.filter((t): t is string => typeof t === "string").slice(0, 20)
+      : [];
+    const lang = body?.lang === "en" ? "en" : "ja";
+    if (title === "" && text === "") return status(400, "Bad Request");
+
+    const context = await room.placeContext(memberId);
+    const reserved = await index.reserve(email, roomId);
+    if ("refused" in reserved) {
+      log.set({ budget: { refused: reserved.refused } });
+      return status(429, `Budget: ${reserved.refused}`);
+    }
+    const named = await namePlace(env, context, { title, body: text, tags });
+    if (!named.ok) {
+      if (named.refund) await index.refund(reserved.id);
+      log.set({
+        claude: { model: MODEL, ok: false, refunded: named.refund, reason: named.reason },
+      });
+      return status(502, "Bad Gateway");
+    }
+    await room.recordAgentCall(memberId, "places", named.usage);
+
+    // the best query first; the other only when the first finds nothing, a second later
+    let places: Place[] = [];
+    for (const [i, query] of named.value.entries()) {
+      if (i > 0) await new Promise((r) => setTimeout(r, SPACING_MS));
+      const found = await geocode(env, query, lang);
+      if (found === null) {
+        log.set({
+          claude: { model: MODEL, ok: true, tokens: named.usage },
+          geocoder: { ok: false },
+        });
+        return status(502, "Bad Gateway");
+      }
+      places = found;
+      if (places.length > 0) break;
+    }
+    log.set({
+      claude: { model: MODEL, ok: true, tokens: named.usage, queries: named.value.length },
+      geocoder: { ok: true, found: places.length },
+    });
+    return Response.json({ places });
   }
 
   if (action === "suggest") {
