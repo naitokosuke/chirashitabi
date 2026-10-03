@@ -117,7 +117,10 @@ export async function draftDay(
     const err = (await res.json().catch(() => null)) as {
       error?: { type?: string; message?: string };
     } | null;
-    const why = err?.error ? `: ${err.error.type ?? ""} ${err.error.message ?? ""}`.trimEnd() : "";
+    const why =
+      err?.error !== undefined
+        ? `: ${err.error.type ?? ""} ${err.error.message ?? ""}`.trimEnd()
+        : "";
     return { ok: false, refund: true, reason: `Claude answered ${res.status}${why}` };
   }
 
