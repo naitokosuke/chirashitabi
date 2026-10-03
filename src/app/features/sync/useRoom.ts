@@ -13,7 +13,8 @@ import { useMembers } from "../members/useMembers";
 import { useToast } from "../toast/useToast";
 
 import { roomKey, type RoomSlice } from "./keys";
-import { createLedger, type RoomState } from "./ledger";
+import { createLedger, EMPTY_ROOM, type RoomState } from "./ledger";
+import { keep, kept } from "./persist";
 import { createRoomSocket, type SocketStatus } from "./socket";
 import type { Mutation } from "./types";
 import { NOWHERE, useSync } from "./useSync";
@@ -52,7 +53,31 @@ export const useRoom = defineStore("room", () => {
     put("notes", state.notes);
     put("members", state.members);
     if (state.trip !== null) put("trip", state.trip);
+    keepSoon();
   }
+
+  // ---- kept on this device (persist.ts): a moment after the last change, and when the page goes away ----
+  let keepTimer: ReturnType<typeof setTimeout> | null = null;
+  function keepNow() {
+    if (keepTimer !== null) clearTimeout(keepTimer);
+    keepTimer = null;
+    const id = sync.roomId;
+    if (id === null || syncedAt.value === null) return; // no room, or nothing from it yet
+    keep(localStorage, id, {
+      me: members.me,
+      confirmed: ledger.confirmed,
+      pending: [...ledger.pending],
+      savedAt: syncedAt.value,
+    });
+  }
+  function keepSoon() {
+    if (keepTimer !== null) clearTimeout(keepTimer);
+    keepTimer = setTimeout(keepNow, 400);
+  }
+  window.addEventListener("pagehide", keepNow);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") keepNow();
+  });
 
   const socket = createRoomSocket({
     onSnapshot(msg) {
@@ -108,10 +133,17 @@ export const useRoom = defineStore("room", () => {
   }
 
   function connect(id: string) {
+    keepNow(); // the room being left, as it was
     roomId.value = id;
-    // the stores read this room's cache entries from now on; empty until its snapshot
+    // the stores read this room's cache entries from now on
     sync.roomId = id;
-    syncedAt.value = null;
+    // as it was kept on this device, if it was: the booklet opens before the room answers
+    const was = kept(localStorage, id);
+    syncedAt.value = was?.savedAt ?? null;
+    // who we are in it, until the room says so again: what is written offline is signed
+    members.me = was?.me ?? ("" as MemberId);
+    // (and nothing of the room before: its unanswered changes were kept with it)
+    show(ledger.restore(was?.confirmed ?? EMPTY_ROOM, was?.pending ?? []));
     try {
       localStorage.setItem(STORAGE_KEY, id);
     } catch {
@@ -122,6 +154,7 @@ export const useRoom = defineStore("room", () => {
   }
 
   function leave() {
+    keepNow();
     socket.leave();
     roomId.value = null;
     sync.roomId = null;

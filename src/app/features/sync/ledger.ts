@@ -60,6 +60,15 @@ export function createLedger(me: () => MemberId) {
     get pending(): readonly Pending[] {
       return pending;
     },
+    get confirmed(): RoomState {
+      return confirmed;
+    },
+    /** As it was kept on this device (persist.ts), before the room says anything */
+    restore(state: RoomState, unanswered: readonly Pending[]): RoomState {
+      confirmed = state;
+      pending = [...unanswered];
+      return view();
+    },
     /** The room's state arrived whole; the pending ones stay on top, to be sent again */
     snapshot(state: RoomState): RoomState {
       confirmed = state;
