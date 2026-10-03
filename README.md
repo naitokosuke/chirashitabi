@@ -45,11 +45,12 @@ src/app/            The app
     Rooms.vue    The first screen: your trips, or make one (trip, your name and color)
 
   features/
-    members/ Everyone in the room, people and agents alike; who is using this device
+    members/ Everyone in the room, people and agents alike
     notes/   Notes: store, types; input (the form's text -> title, body, tags)
-    sync/    useSync (the transport the stores send through); useRoom (the socket to a room: snapshot
-             into the stores, the other member's mutations applied, reconnect with a queue); wire
-             (the room's JSON back into the app's types)
+    sync/    useSync (the session: which room, who this device is in it, where changes go); keys
+             (the room's cache keys); useRoom (the socket to a room, written into the cache); ledger
+             (confirmed state and our unanswered changes); persist (the room kept on the device);
+             wire (the room's JSON back into the app's types)
     trip/    The room's trip (name, days, currency, map center); itinerary (notes on a day,
              status, budgets, assigning a day, adopting a draft); formatting
     tags/    Tag colors and the tag filter (store, filter bar)
@@ -101,14 +102,14 @@ docs/               Design notes: auth-and-security.md (one hostname behind Acce
 
 ## Sync
 
-`transport.send(mutation)` in `features/sync/useSync.ts` is the only way out.
-`useRoom().connect(roomId)` installs a transport over the room's WebSocket and feeds what comes back into the stores:
-a snapshot goes to `useMembers().apply`, `useTrip().apply` and `useNotes().apply` (and sets `useMembers().me`);
-a mutation from the other member goes to the matching store's `receive`, which applies without sending.
-While the socket is down, mutations queue and are re-applied and sent after the next snapshot.
+`useSync().commit(mutation)` in `features/sync/useSync.ts` is the only way out.
+`useRoom().connect(roomId)` installs a transport over the room's WebSocket and writes what the room shows into the Pinia Colada query cache, one entry per slice (`roomKeys` in `features/sync/keys.ts`: notes, trip, members).
+`useNotes`, `useTrip` and `useMembers` read those entries with `useQueryState`; only the room writes them.
+A snapshot also sets `useSync().me`, the member this device is.
+Changes the room has not answered stay in the ledger and are sent again after the next snapshot (see `docs/data-fetching.md`).
 `useWorker().api` (drafting, export) is still the mock.
 
-`src/mocks/index.ts` fills the same stores by hand and marks the room as offline.
+`src/app/mocks/index.ts` hands the same state to `useRoom().offline`.
 
 `note:move` is throttled to every 80ms while dragging.
 

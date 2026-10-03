@@ -1,9 +1,22 @@
-/** The parts of a room that are cached on their own (docs/data-fetching.md) */
-export type RoomSlice = "notes" | "trip" | "members";
+import type { EntryKeyTagged } from "@pinia/colada";
+
+import type { Member } from "../members/types";
+import type { Note } from "../notes/types";
+import type { TripSnapshot } from "../trip/types";
+
+/** A slice's key, tagged with what the slice holds: reading or writing it is typed */
+const slice =
+  <T>(name: string) =>
+  (roomId: string | null) =>
+    ["room", roomId ?? "local", name] as unknown as EntryKeyTagged<T>;
 
 /**
- * A room slice's cache key. A session without a room (the mocks, the single-file build)
- * keeps its data under "local".
+ * The cache keys of a room's three slices (docs/data-fetching.md). The room writes them; the
+ * stores read them. A session without a room (the mocks, the single-file build) keeps its
+ * data under "local".
  */
-export const roomKey = (roomId: string | null, slice: RoomSlice) =>
-  ["room", roomId ?? "local", slice] as const;
+export const roomKeys = {
+  notes: slice<Note[]>("notes"),
+  trip: slice<TripSnapshot>("trip"),
+  members: slice<Member[]>("members"),
+};

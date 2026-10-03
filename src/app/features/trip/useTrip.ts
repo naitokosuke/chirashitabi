@@ -4,29 +4,27 @@ import { computed } from "vue";
 
 import { defineStore } from "pinia";
 
-import { useQueryCache } from "@pinia/colada";
+import { useQueryState } from "@pinia/colada";
 
 import { currencyCode } from "../../shared/money";
 
 import type { NoteStatus } from "../notes/types";
 import { useNotes } from "../notes/useNotes";
-import { roomKey } from "../sync/keys";
+import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
 import * as itinerary from "./itinerary";
-import type { TripSnapshot } from "./types";
 
 /**
  * The trip's days, and the notes placed on them. The trip itself is what the query cache holds
- * under `roomKey(room, "trip")`, written by the room (docs/data-fetching.md).
+ * (keys.ts), written by the room (docs/data-fetching.md).
  */
 export const useTrip = defineStore("trip", () => {
   const store = useNotes();
   const sync = useSync();
-  const queryCache = useQueryCache();
-  const key = computed(() => roomKey(sync.roomId, "trip"));
+  const { data } = useQueryState(() => roomKeys.trip(sync.roomId));
   /** Null until the room's first snapshot */
-  const trip = computed(() => queryCache.getQueryData<TripSnapshot>(key.value) ?? null);
+  const trip = computed(() => data.value ?? null);
 
   const name = computed(() => trip.value?.name ?? "");
   const days = computed(() => trip.value?.days ?? []);

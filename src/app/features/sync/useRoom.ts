@@ -4,15 +4,14 @@ import { ref } from "vue";
 
 import { defineStore } from "pinia";
 
-import { useQueryCache } from "@pinia/colada";
+import { type EntryKeyTagged, useQueryCache } from "@pinia/colada";
 
 import { useI18n } from "../../i18n/useI18n";
 
 import type { MemberId } from "../members/types";
-import { useMembers } from "../members/useMembers";
 import { useToast } from "../toast/useToast";
 
-import { roomKey, type RoomSlice } from "./keys";
+import { roomKeys } from "./keys";
 import { createLedger, EMPTY_ROOM, type RoomState } from "./ledger";
 import { keep, kept } from "./persist";
 import { createRoomSocket, type SocketStatus } from "./socket";
@@ -32,27 +31,26 @@ const STORAGE_KEY = "chirashitabi:room";
  */
 export const useRoom = defineStore("room", () => {
   const sync = useSync();
-  const members = useMembers();
   const queryCache = useQueryCache();
   const toast = useToast();
   const i18n = useI18n();
 
   const status = ref<RoomStatus>("idle");
-  const roomId = ref<string | null>(null);
   /** When the room's state last arrived whole; what the screen shows while reconnecting is from then */
   const syncedAt = ref<Temporal.Instant | null>(null);
 
-  const ledger = createLedger(() => members.me);
+  const ledger = createLedger(() => sync.me);
 
-  /** The ledger's view into the cache; a slice that did not change is not written */
+  /** A slice that did not change is not written, so what reads it is not woken */
+  function put<T>(key: EntryKeyTagged<T>, value: T) {
+    if (queryCache.getQueryData(key) !== value) queryCache.setQueryData(key, value);
+  }
+  /** The ledger's view into the cache */
   function show(state: RoomState) {
-    const put = (slice: RoomSlice, value: unknown) => {
-      const key = roomKey(sync.roomId, slice);
-      if (queryCache.getQueryData(key) !== value) queryCache.setQueryData(key, value);
-    };
-    put("notes", state.notes);
-    put("members", state.members);
-    if (state.trip !== null) put("trip", state.trip);
+    const id = sync.roomId;
+    put(roomKeys.notes(id), state.notes);
+    put(roomKeys.members(id), state.members);
+    if (state.trip !== null) put(roomKeys.trip(id), state.trip);
     keepSoon();
   }
 
@@ -64,7 +62,7 @@ export const useRoom = defineStore("room", () => {
     const id = sync.roomId;
     if (id === null || syncedAt.value === null) return; // no room, or nothing from it yet
     keep(localStorage, id, {
-      me: members.me,
+      me: sync.me,
       confirmed: ledger.confirmed,
       pending: [...ledger.pending],
       savedAt: syncedAt.value,
@@ -81,7 +79,7 @@ export const useRoom = defineStore("room", () => {
 
   const socket = createRoomSocket({
     onSnapshot(msg) {
-      members.me = msg.me as MemberId;
+      sync.me = msg.me as MemberId;
       show(
         ledger.snapshot({
           notes: msg.notes.map(reviveNote),
@@ -134,14 +132,13 @@ export const useRoom = defineStore("room", () => {
 
   function connect(id: string) {
     keepNow(); // the room being left, as it was
-    roomId.value = id;
     // the stores read this room's cache entries from now on
     sync.roomId = id;
     // as it was kept on this device, if it was: the booklet opens before the room answers
     const was = kept(localStorage, id);
     syncedAt.value = was?.savedAt ?? null;
     // who we are in it, until the room says so again: what is written offline is signed
-    members.me = was?.me ?? ("" as MemberId);
+    sync.me = was?.me ?? ("" as MemberId);
     // (and nothing of the room before: its unanswered changes were kept with it)
     show(ledger.restore(was?.confirmed ?? EMPTY_ROOM, was?.pending ?? []));
     try {
@@ -156,7 +153,6 @@ export const useRoom = defineStore("room", () => {
   function leave() {
     keepNow();
     socket.leave();
-    roomId.value = null;
     sync.roomId = null;
     syncedAt.value = null;
     sync.transport = NOWHERE;
@@ -169,7 +165,7 @@ export const useRoom = defineStore("room", () => {
   function offline(state: RoomState) {
     show(ledger.snapshot(state));
     sync.transport = {
-      commit: (m) => show(ledger.relayed(m, members.me, Temporal.Now.instant())),
+      commit: (m) => show(ledger.relayed(m, sync.me, Temporal.Now.instant())),
       send: () => {},
     };
     status.value = "connected";
@@ -178,7 +174,6 @@ export const useRoom = defineStore("room", () => {
 
   return {
     status,
-    roomId,
     syncedAt,
     remembered,
     connect,
