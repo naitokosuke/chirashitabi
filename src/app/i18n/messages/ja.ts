@@ -136,6 +136,7 @@ export const ja: Messages = {
   "map.openInGoogleMaps": "Google マップで開く",
 
   "shiori.summary": "確定 {$fixed :integer} 件 · {$total}",
+  "shiori.summaryCount": "確定 {$fixed :integer} 件",
   "shiori.withMaybes": "（候補込みで {$total}）",
   "shiori.mode": "モード",
   "shiori.read": "読む",

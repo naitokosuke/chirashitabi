@@ -157,6 +157,7 @@ one {{{$count} note has no place · long-press the map to place}}
   "map.openInGoogleMaps": "Open in Google Maps",
 
   "shiori.summary": "{$fixed :integer} confirmed · {$total}",
+  "shiori.summaryCount": "{$fixed :integer} confirmed",
   // follows another message directly; the space before it is part of the English
   "shiori.withMaybes": " ({$total} with maybes)",
   "shiori.mode": "Mode",

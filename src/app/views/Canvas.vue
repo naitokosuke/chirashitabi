@@ -92,12 +92,13 @@ const worker = useWorker();
 const tags = useTags();
 const trip = useTrip();
 const i18n = useI18n();
-/** "11/3 – 11/6", or nothing while the room has no days */
+/** "11/3 – 11/6", one date for a day trip, or nothing while the room has no days */
 const dates = computed(() => {
   const first = trip.days[0]?.date;
   const last = trip.days.at(-1)?.date;
   if (first === undefined || last === undefined) return "";
-  return `${shortDate(first, i18n.locale)} – ${shortDate(last, i18n.locale)}`;
+  const from = shortDate(first, i18n.locale);
+  return first.equals(last) ? from : `${from} – ${shortDate(last, i18n.locale)}`;
 });
 const { view, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
