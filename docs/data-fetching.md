@@ -2,7 +2,7 @@
 
 How the app gets its data, and how it is to move onto Pinia Colada.
 The plan is staged so that each step ships on its own and the next one can be dropped if it stops paying for itself.
-The first two steps are done; "What there is today" describes the app before them.
+The first three steps are done; "What there is today" describes the app before them.
 
 ## What there is today
 
@@ -231,6 +231,18 @@ Define the three room queries, write socket messages into the cache, and make th
 Add the drag layer and the connection chip.
 Measure a partner's live drag before and after.
 If the cache adds cost without making the code clearer, stop here and keep the stores on the reducers from the previous step; the maintainer's own view is that a realtime app may not need the library for its realtime part.
+
+Done, with one change to the design above.
+The slices are not `useQuery`s with a query function that waits for a snapshot: nothing ever fetches them, so the socket seeds them with `setQueryData` (as in [#483](https://github.com/posva/pinia-colada/discussions/483)) and the stores read them with `getQueryData` inside a `computed`, which tracks both the cache's map and the entry's state.
+Whether a room has arrived is the socket's status, as before, and `useRoom.syncedAt` says when it last did.
+The key's room id lives in `useSync`, so the stores do not depend on `useRoom`; a session without a room uses `"local"`.
+The stores keep their API, so no view changed except the canvas, whose held card is drawn from a local `held` position and written once on release (`sendMove` sends the throttled positions without touching the cache).
+The connection chip shows under the app bar while the socket is reconnecting, with the time of the last snapshot; giving up still leaves for the rooms screen.
+The browser's `online` event calls the socket's reconnect.
+
+The measurement: one tab in a room of 30 notes, a second socket in the same tab sending 36 `note:move`s over three seconds (a partner's drag), frame intervals recorded with `requestAnimationFrame`, three runs each, dev build.
+Before (main) and after both applied all 36 moves with a p95 frame of 17.4–17.7 ms, no frame over 20 ms and no long task; the one outlier run on main (the tab was hidden partway) is left out.
+So the cache costs nothing measurable here, and the code is uniform (every slice of every room is a cache entry, read and written the same way), which is why the next step goes ahead.
 
 ### Acknowledged mutations
 

@@ -32,6 +32,8 @@ export const useRoom = defineStore("room", () => {
 
   const status = ref<RoomStatus>("idle");
   const roomId = ref<string | null>(null);
+  /** When the room's state last arrived whole; what the screen shows while reconnecting is from then */
+  const syncedAt = ref<Temporal.Instant | null>(null);
 
   /** One mutation, from whoever, into whichever store it concerns */
   function apply(m: Mutation, by: MemberId, at: Temporal.Instant) {
@@ -56,6 +58,7 @@ export const useRoom = defineStore("room", () => {
       // What changed while we were away is applied on top again; the socket sends it next
       const now = Temporal.Now.instant();
       for (const m of queued) apply(m, members.me, now);
+      syncedAt.value = now;
     },
     onMutation(msg) {
       apply(reviveMutation(msg.mutation), msg.by as MemberId, Temporal.Instant.from(msg.updatedAt));
@@ -64,6 +67,9 @@ export const useRoom = defineStore("room", () => {
       status.value = next;
     },
   });
+
+  // The network is back: try the room now instead of waiting out the back-off (a live socket ignores this)
+  window.addEventListener("online", () => socket.reconnect());
 
   /** Remembered on this device so the next visit opens the same room */
   function remembered(): string | null {
@@ -76,6 +82,9 @@ export const useRoom = defineStore("room", () => {
 
   function connect(id: string) {
     roomId.value = id;
+    // the stores read this room's cache entries from now on; empty until its snapshot
+    sync.roomId = id;
+    syncedAt.value = null;
     try {
       localStorage.setItem(STORAGE_KEY, id);
     } catch {
@@ -88,13 +97,25 @@ export const useRoom = defineStore("room", () => {
   function leave() {
     socket.leave();
     roomId.value = null;
+    sync.roomId = null;
+    syncedAt.value = null;
     sync.transport = { send: () => {} };
   }
 
   /** The mock room: the stores are filled by hand and nothing goes anywhere */
   function offline() {
     status.value = "connected";
+    syncedAt.value = Temporal.Now.instant();
   }
 
-  return { status, roomId, remembered, connect, leave, reconnect: socket.reconnect, offline };
+  return {
+    status,
+    roomId,
+    syncedAt,
+    remembered,
+    connect,
+    leave,
+    reconnect: socket.reconnect,
+    offline,
+  };
 });
