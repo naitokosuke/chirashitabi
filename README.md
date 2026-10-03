@@ -47,10 +47,12 @@ src/app/            The app
     Map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add
     Shiori.vue   The booklet (edit / read, appendix, a member's draft of a day)
     Form.vue     Full-screen note form (new / edit, Google Maps link -> coordinates)
-    Rooms.vue    The first screen: your trips, or make one (trip, your name and color)
+    Rooms.vue    The trips (`/`): each a luggage tag, coming up then been; a blank tag makes one (`/new`)
 
   features/
     members/ Everyone in the room, people and agents alike
+    rooms/   The person's trips: api (/api/me, /api/rooms); when (days to go, under way, over);
+             TripTag (a trip as a luggage tag); NewTrip (the sheet that makes one, with its tag drawn live)
     notes/   Notes: store, types; input (the form's text -> title, body, tags); image (a photo shrunk
              on the device, and where a room's picture is shown from)
     sync/    useSync (the session: which room, who this device is in it, where changes go); keys

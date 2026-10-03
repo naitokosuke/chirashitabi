@@ -12,6 +12,7 @@ import {
   type WireMemo,
   type WireMutation,
   type WireNote,
+  type WireRoomSummary,
   type WireTrip,
 } from "./wire";
 
@@ -222,10 +223,22 @@ export class Room extends DurableObject<Env> {
     return id;
   }
 
-  /** The trip's name, for a member's list of rooms */
-  title(): string {
-    return this.ctx.storage.sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one()
-      .name;
+  /** The trip at a glance, for a member's list of rooms: its name, days, members and memo count */
+  summary(): WireRoomSummary {
+    const sql = this.ctx.storage.sql;
+    const { name } = sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one();
+    const days = sql
+      .exec<{ date: string }>("SELECT date FROM days ORDER BY position")
+      .toArray()
+      .map((d) => d.date);
+    // the people first, the creator leading; the agent after them
+    const members = this.members()
+      .sort((a, b) => Number(a.kind === "agent") - Number(b.kind === "agent"))
+      .map(({ kind, name, color }) => ({ kind, name, color }));
+    const { memos } = sql
+      .exec<{ memos: number }>("SELECT COUNT(*) AS memos FROM notes WHERE kind = 'memo'")
+      .one();
+    return { name, first: days[0] ?? null, days: days.length, members, memos };
   }
 
   // ---- the agent (RPC from the Worker, inside a member's request) ----

@@ -1,0 +1,52 @@
+import { Temporal } from "temporal-polyfill-lite";
+
+import { describe, expect, test } from "vite-plus/test";
+
+import { summaryOf } from "./api";
+
+const ID = "b082573b-b38b-4298-90be-f034f8b7d898";
+
+describe("summaryOf", () => {
+  test("reads an entry of /api/me", () => {
+    const s = summaryOf({
+      id: ID,
+      name: "Taiwan trip",
+      first: "2026-11-03",
+      days: 3,
+      members: [
+        { kind: "person", name: "Yuki", color: "#3c6ee0" },
+        { kind: "agent", name: "Claude", color: "#d97757" },
+      ],
+      memos: 12,
+    });
+    expect(s?.first?.equals(Temporal.PlainDate.from("2026-11-03"))).toBe(true);
+    expect(s).toMatchObject({ id: ID, name: "Taiwan trip", days: 3, memos: 12 });
+    expect(s?.members.map((m) => m.name)).toEqual(["Yuki", "Claude"]);
+  });
+
+  test("leaves out an entry without a room id or a name", () => {
+    expect(summaryOf({ id: "nope", name: "x" })).toBeNull();
+    expect(summaryOf({ id: ID })).toBeNull();
+    expect(summaryOf(null)).toBeNull();
+  });
+
+  test("keeps a trip whose glance is missing or odd, with that part empty", () => {
+    expect(summaryOf({ id: ID, name: "Old" })).toEqual({
+      id: ID,
+      name: "Old",
+      first: null,
+      days: 0,
+      members: [],
+      memos: 0,
+    });
+    const s = summaryOf({
+      id: ID,
+      name: "Odd",
+      first: "2026-02-30",
+      days: -1,
+      members: [{ kind: "person", name: "X", color: "red; background: url(x)" }, "junk"],
+      memos: 1.5,
+    });
+    expect(s).toMatchObject({ first: null, days: 0, members: [], memos: 0 });
+  });
+});
