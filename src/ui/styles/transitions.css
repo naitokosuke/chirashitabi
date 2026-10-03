@@ -58,7 +58,6 @@
   animation-timing-function: var(--ease-morph);
 }
 
-
 /*
  * The theme turning (useTheme, type `theme`). The page is one picture with a soft-edged circle
  * on the switch, and nothing else morphs meanwhile. Going light (`theme-light`), the new
