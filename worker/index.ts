@@ -1,10 +1,21 @@
+import type { RequestLogger } from "evlog";
+import { initWorkersLogger, withEvlog } from "evlog/workers";
+
 import { AccessVerifier, Unauthenticated } from "./access";
-import { draftDay } from "./claude";
+import { draftDay, MODEL } from "./claude";
 import { Room } from "./room";
 import { isDate, parseProfile, parseTrip } from "./wire";
 
 export { Room };
 export { RoomsIndex } from "./rooms-index";
+
+/**
+ * Structured logs (evlog): one wide event per API request, built up as the request goes
+ * (who, which room, what the budget and Claude said) and emitted once when it answers.
+ * Read live with `wrangler tail`. Member and room ids go in; an e-mail never does, and
+ * redaction catches one that slips into a message.
+ */
+initWorkersLogger({ env: { service: "chirashitabi" } });
 
 let verifier: AccessVerifier | null = null;
 const access = (env: Env) =>
@@ -14,16 +25,18 @@ const access = (env: Env) =>
     certsUrl: env.ACCESS_CERTS_URL,
   }));
 
-export default {
-  async fetch(request, env): Promise<Response> {
+export default withEvlog<Env>(
+  async (request, env, _ctx, log) => {
     const url = new URL(request.url);
     if (url.host === env.BOOKLET_HOST) return booklet();
     // `wrangler dev` presents requests under the first custom domain, so this holds locally too
     if (url.host !== env.APP_HOST) return new Response("Not Found", { status: 404 });
-    if (url.pathname.startsWith("/api/")) return api(request, env, url);
+    if (url.pathname.startsWith("/api/")) return api(request, env, url, log);
     return env.ASSETS.fetch(request);
   },
-} satisfies ExportedHandler<Env>;
+  // the app's files are not logged, only what the API decides
+  { include: ["/api/**"], redact: true },
+);
 
 /** Published booklets only; nothing here is behind Access, so nothing here may cost anything */
 const booklet = () => new Response("Not Found", { status: 404 });
@@ -31,13 +44,13 @@ const booklet = () => new Response("Not Found", { status: 404 });
 const status = (code: number, text: string) => new Response(text, { status: code });
 const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws|draft)$/;
 
-async function api(request: Request, env: Env, url: URL): Promise<Response> {
+async function api(request: Request, env: Env, url: URL, log: RequestLogger): Promise<Response> {
   let email: string;
   try {
     email = await access(env).identify(request);
   } catch (e) {
     if (!(e instanceof Unauthenticated)) throw e;
-    console.warn(`401: ${e.message}`);
+    log.set({ auth: { refused: e.message } });
     return status(401, "Unauthorized");
   }
 
@@ -80,6 +93,7 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   const [, roomId, action] = m as unknown as [string, string, "invite" | "ws" | "draft"];
   const memberId = await index.resolve(email, roomId);
   if (memberId === null) return status(403, "Forbidden");
+  log.set({ room: roomId, member: memberId, action });
   const room = env.ROOM.getByName(roomId);
 
   if (action === "ws") {
@@ -99,16 +113,25 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
     if (!isDate(date)) return status(400, "Bad Request");
     const day = await room.dayForDraft(memberId, date);
     if (day === null) return status(400, "Bad Request");
+    log.set({ draft: { date, notes: day.notes.length } });
     // reserve, call, settle (docs/auth-and-security.md): nothing is called past the budget
     const reserved = await index.reserve(email, roomId);
-    if ("refused" in reserved) return status(429, `Budget: ${reserved.refused}`);
+    if ("refused" in reserved) {
+      log.set({ budget: { refused: reserved.refused } });
+      return status(429, `Budget: ${reserved.refused}`);
+    }
     const result = await draftDay(env, { ...day, date });
     if (!result.ok) {
       if (result.refund) await index.refund(reserved.id);
-      console.warn(`draft: ${result.reason}`);
+      log.set({
+        claude: { model: MODEL, ok: false, refunded: result.refund, reason: result.reason },
+      });
       return status(502, "Bad Gateway");
     }
     await room.recordAgentCall(memberId, "draft", result.usage);
+    log.set({
+      claude: { model: MODEL, ok: true, tokens: result.usage, items: result.value.items.length },
+    });
     return Response.json({ by: Room.AGENT_ID, ...result.value });
   }
 

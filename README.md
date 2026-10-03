@@ -88,7 +88,8 @@ scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop 
                              or hooks); PROVENANCE.md says what is left out and why
 
 worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run check:worker` type-checks it)
-  index.ts          Branches on the hostname, then identify -> Origin check -> the room API
+  index.ts          Branches on the hostname, then identify -> Origin check -> the room API; one
+                    structured log event (evlog) per API request, read with `wrangler tail`
   access.ts         AccessVerifier: the Access JWT -> a verified e-mail (signature, aud, iss, exp, nbf)
   rooms-index.ts    RoomsIndex: e-mail -> { room, member id }; the only place an e-mail is stored;
                     the budget of paid calls per person (reserve before the call, refund on a provider error)
