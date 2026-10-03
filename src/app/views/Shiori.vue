@@ -910,6 +910,10 @@ function adoptDraft() {
   padding: 10px max(16px, calc((100% - 648px) / 2)) 12px;
   border-top: 1px solid var(--line);
   background: var(--bg);
+  & .failed {
+    margin: 0 0 8px;
+    text-align: center;
+  }
 }
 
 .export {
@@ -927,10 +931,5 @@ function adoptDraft() {
   &:disabled {
     opacity: 0.6;
   }
-}
-
-.foot .failed {
-  margin: 0 0 8px;
-  text-align: center;
 }
 </style>
