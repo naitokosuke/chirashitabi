@@ -1,5 +1,3 @@
-import { Temporal } from "temporal-polyfill-lite";
-
 import { computed } from "vue";
 
 import { defineStore } from "pinia";
@@ -10,7 +8,7 @@ import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
 import { duplicateInput } from "./input";
-import type { Memo, MemoPatch, Note, NoteColor, NoteId, NoteInput } from "./types";
+import type { MemoPatch, NewMemo, Note, NoteColor, NoteId, NoteInput } from "./types";
 
 const uid = () => Math.random().toString(36).slice(2, 10) as NoteId;
 
@@ -25,15 +23,11 @@ export const useNotes = defineStore("notes", () => {
   const { data } = useQueryState(() => roomKeys.notes(sync.roomId));
   const notes = computed(() => data.value ?? []);
 
-  /** A new memo near `at`; null out of a room, where there is no one to sign it */
-  function add(input: NoteInput, at: { x: number; y: number }): Memo | null {
-    const by = sync.me;
-    if (by === null) return null;
-    const n: Memo = {
+  /** A new memo near `at`; whose it is and when is stamped as it is applied */
+  function add(input: NoteInput, at: { x: number; y: number }): NewMemo {
+    const n: NewMemo = {
       id: uid(),
       kind: "memo",
-      by,
-      updatedAt: Temporal.Now.instant(),
       x: at.x + (Math.random() * 20 - 10),
       y: at.y + (Math.random() * 20 - 10),
       rot: Math.random() * 4 - 2,
