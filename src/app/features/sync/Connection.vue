@@ -30,11 +30,11 @@ const since = computed(() => {
     coming back after a drop, or unreachable. The data stays usable meanwhile, so this is a
     quiet chip over the view, never a cover.
   -->
-  <div aria-live="polite" class="connection">
-    <p v-if="room.status === 'connecting' || room.status === 'reconnecting'" class="chip">
-      <span aria-hidden="true" class="dot"></span>{{ i18n.t("room.reconnecting", { time: since }) }}
+  <div aria-live="polite">
+    <p v-if="room.status === 'connecting' || room.status === 'reconnecting'">
+      <span aria-hidden="true"></span>{{ i18n.t("room.reconnecting", { time: since }) }}
     </p>
-    <p v-else-if="room.status === 'failed'" class="chip">
+    <p v-else-if="room.status === 'failed'">
       {{ i18n.t("room.unreachable", { time: since }) }}
       <button type="button" @click="() => room.reconnect()">{{ i18n.t("rooms.retry") }}</button>
     </p>
@@ -42,8 +42,10 @@ const since = computed(() => {
 </template>
 
 <style scoped>
+@import "../../../ui/styles/media.css";
+
 /* below the app bar, centred; it covers a strip of the view only while the socket is down */
-.connection {
+div {
   position: absolute;
   inset-inline: 0;
   inset-block-start: calc(env(safe-area-inset-top, 0px) + var(--bar) + 8px);
@@ -51,39 +53,45 @@ const since = computed(() => {
   display: flex;
   justify-content: center;
   pointer-events: none;
-}
 
-.chip {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-float);
-  font-size: var(--font-sm);
-  font-weight: 700;
-  color: var(--muted);
-  pointer-events: auto;
-  & button {
+  > p {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     min-height: 32px;
-    padding: 0 4px;
-    color: var(--ink);
+    padding: 0 14px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-float);
+    font-size: var(--font-sm);
     font-weight: 700;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-}
+    color: var(--muted);
+    pointer-events: auto;
 
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  animation: breathe 1s ease-in-out infinite alternate;
+    /* breathing while it reconnects */
+    > span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: breathe 1s ease-in-out infinite alternate;
+
+      @media (--reduced-motion) {
+        animation: none;
+      }
+    }
+
+    > button {
+      min-height: 32px;
+      padding: 0 4px;
+      color: var(--ink);
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  }
 }
 
 @keyframes breathe {
@@ -92,12 +100,6 @@ const since = computed(() => {
   }
   to {
     opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dot {
-    animation: none;
   }
 }
 </style>

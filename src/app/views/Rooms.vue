@@ -74,14 +74,14 @@ onMounted(() => {
 
 <template>
   <div class="rooms">
-    <div class="head">
+    <header>
       <h1>chirashitabi</h1>
-      <p v-if="room.status === 'connecting'" class="state">{{ i18n.t("rooms.connecting") }}</p>
-      <p v-else-if="room.status === 'failed' || listStatus === 'error'" class="state">
+      <p v-if="room.status === 'connecting'">{{ i18n.t("rooms.connecting") }}</p>
+      <p v-else-if="room.status === 'failed' || listStatus === 'error'">
         {{ i18n.t("rooms.failed") }}
         <button type="button" @click="retry">{{ i18n.t("rooms.retry") }}</button>
       </p>
-    </div>
+    </header>
 
     <form v-if="creating" @submit.prevent="create">
       <h2>{{ i18n.t("rooms.new") }}</h2>
@@ -93,7 +93,7 @@ onMounted(() => {
         required
         :placeholder="i18n.t('rooms.namePlaceholder')"
       />
-      <div class="row">
+      <div>
         <div>
           <label :for="`${id}-first`">{{ i18n.t("rooms.firstDay") }}</label>
           <input :id="`${id}-first`" v-model="firstDay" required type="date" />
@@ -111,33 +111,33 @@ onMounted(() => {
       </div>
       <label :for="`${id}-me`">{{ i18n.t("rooms.you") }}</label>
       <input :id="`${id}-me`" v-model="me" maxlength="60" required />
-      <span :id="`${id}-color`" class="l">{{ i18n.t("rooms.color") }}</span>
-      <div class="colors" role="group" :aria-labelledby="`${id}-color`">
+      <span :id="`${id}-color`">{{ i18n.t("rooms.color") }}</span>
+      <div role="group" :aria-labelledby="`${id}-color`">
         <button
           v-for="c in MEMBER_COLORS"
           :key="c"
           type="button"
-          :class="{ on: color === c }"
+          :aria-pressed="color === c"
           :style="`background:${c}`"
           :aria-label="c"
           @click="() => (color = c)"
         ></button>
       </div>
-      <div class="actions">
+      <div>
         <button type="button" @click="() => (creating = false)">{{ i18n.t("common.close") }}</button>
         <button class="primary" type="submit" :disabled="busy || !name.trim() || !me.trim()">{{ i18n.t(busy ? "rooms.creating" : "rooms.create") }}</button>
       </div>
-      <p v-if="createError !== null" aria-live="polite" class="state">{{ i18n.t("rooms.createFailed") }}</p>
+      <p v-if="createError !== null" aria-live="polite">{{ i18n.t("rooms.createFailed") }}</p>
     </form>
 
     <section v-else>
       <h2>{{ i18n.t("rooms.yours") }}</h2>
-      <p v-if="listStatus === 'pending'" aria-live="polite" class="empty">{{ i18n.t("rooms.loading") }}</p>
+      <p v-if="listStatus === 'pending'" aria-live="polite">{{ i18n.t("rooms.loading") }}</p>
       <!-- "none" only when the list says so; a list that failed says nothing about what exists -->
-      <p v-else-if="listStatus === 'success' && (rooms ?? []).length === 0" class="empty">{{ i18n.t("rooms.none") }}</p>
+      <p v-else-if="listStatus === 'success' && (rooms ?? []).length === 0">{{ i18n.t("rooms.none") }}</p>
       <ul v-else>
         <li v-for="r in rooms" :key="r.id">
-          <button class="open" type="button" @click="() => emit('enter', r.id)">{{ r.name }}</button>
+          <button type="button" @click="() => emit('enter', r.id)">{{ r.name }}</button>
         </li>
       </ul>
       <button class="primary" type="button" @click="() => (creating = true)">{{ i18n.t("rooms.new") }}</button>
@@ -146,114 +146,139 @@ onMounted(() => {
 </template>
 
 <style scoped>
+@import "../../ui/styles/media.css";
+
+/* a class, not `div`: the form's rows are divs too */
 .rooms {
   position: absolute;
   inset: 0;
   overflow: auto;
   padding: calc(24px + env(safe-area-inset-top, 0px)) 20px 40px;
   background: var(--bg);
-  h1 {
-    margin: 0;
-    font-size: var(--font-3xl);
-    font-weight: 700;
+
+  > header {
+    > h1 {
+      margin: 0;
+      font-size: var(--font-3xl);
+      font-weight: 700;
+    }
+
+    > p {
+      color: var(--muted);
+    }
   }
+
   h2 {
     margin: 24px 0 8px;
     font-size: var(--font-xl);
     font-weight: 700;
   }
-}
 
-.state {
-  color: var(--muted);
-}
-
-.empty {
-  color: var(--muted);
-}
-
-ul {
-  list-style: none;
-  margin: 0 0 16px;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-
-.open {
-  width: 100%;
-  text-align: start;
-  padding: 14px 16px;
-  font-size: var(--font-lg);
-  font-weight: 700;
-  background: var(--surface);
-  border: 1.5px solid var(--line);
-  border-radius: 12px;
-  box-shadow: var(--shadow-tool);
-}
-
-form {
-  display: grid;
-  gap: 6px;
-  label, .l {
-    margin-top: 10px;
-    font-size: var(--font-sm);
-    color: var(--muted);
-  }
-  & input, & select {
-    padding: 10px 12px;
-    font: inherit;
-    background: var(--surface);
-    border: 1.5px solid var(--line);
-    border-radius: 10px;
-    box-shadow: var(--shadow-tool);
-  }
-}
-
-.row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  > div {
+  > form {
     display: grid;
     gap: 6px;
-  }
-}
 
-.colors {
-  display: flex;
-  gap: 10px;
-  button {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 3px solid transparent;
-    &.on {
-      border-color: var(--ink);
+    label,
+    > span {
+      margin-top: 10px;
+      font-size: var(--font-sm);
+      color: var(--muted);
+    }
+
+    input,
+    select {
+      padding: 10px 12px;
+      font: inherit;
+      background: var(--surface);
+      border: 1.5px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow-tool);
+    }
+
+    /* first day, days, currency: side by side */
+    > div:first-of-type {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+
+      > div {
+        display: grid;
+        gap: 6px;
+      }
+    }
+
+    > [role="group"] {
+      display: flex;
+      gap: 10px;
+
+      > button {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 3px solid transparent;
+
+        &[aria-pressed="true"] {
+          border-color: var(--ink);
+        }
+      }
+    }
+
+    /* close, create */
+    > div:last-of-type {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    > p {
+      color: var(--muted);
     }
   }
-}
 
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 16px;
-}
+  > section {
+    > p {
+      color: var(--muted);
+    }
 
-.primary {
-  padding: 12px 18px;
-  font-weight: 700;
-  color: var(--on-ink);
-  background: var(--ink);
-  border: 0;
-  border-radius: 999px;
-  &:disabled {
-    opacity: 0.4;
+    > ul {
+      list-style: none;
+      margin: 0 0 16px;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+
+      > li > button {
+        width: 100%;
+        text-align: start;
+        padding: 14px 16px;
+        font-size: var(--font-lg);
+        font-weight: 700;
+        background: var(--surface);
+        border: 1.5px solid var(--line);
+        border-radius: 12px;
+        box-shadow: var(--shadow-tool);
+      }
+    }
   }
-  @media (hover: hover) {
-    &:not(:disabled):hover {
-      box-shadow: var(--shadow-float);
+
+  /* the one filled button of each screen: create, new room */
+  .primary {
+    padding: 12px 18px;
+    font-weight: 700;
+    color: var(--on-ink);
+    background: var(--ink);
+    border: 0;
+    border-radius: 999px;
+
+    &:disabled {
+      opacity: 0.4;
+    }
+
+    @media (--can-hover) {
+      &:not(:disabled):hover {
+        box-shadow: var(--shadow-float);
+      }
     }
   }
 }

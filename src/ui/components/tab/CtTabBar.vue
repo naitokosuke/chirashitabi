@@ -13,9 +13,9 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.items
 </script>
 
 <template>
-  <nav ref="list" class="ct-tab-bar" :aria-label="label">
+  <nav ref="list" :aria-label="label">
     <!-- the highlight slides behind whichever item is current -->
-    <span aria-hidden="true" class="indicator" :class="{ ready }" :style></span>
+    <span aria-hidden="true" :data-ready="ready || undefined" :style></span>
     <button
       v-for="item in items"
       :key="item.value"
@@ -30,48 +30,45 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.items
 </template>
 
 <style scoped>
-.ct-tab-bar {
+@import "../../styles/media.css";
+nav {
   position: relative;
   display: grid;
   grid-auto-columns: 1fr;
   grid-auto-flow: column;
   gap: 4px;
-}
-
-.indicator {
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline-start: 0;
-  border-radius: 12px;
-  background: var(--wash);
-  pointer-events: none;
-
-  &.ready {
-    transition: transform var(--duration-morph) var(--ease-morph),
-      width var(--duration-morph) var(--ease-morph);
+  > span {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    border-radius: 12px;
+    background: var(--wash);
+    pointer-events: none;
+    &[data-ready] {
+      transition:
+        transform var(--duration-morph) var(--ease-morph),
+        width var(--duration-morph) var(--ease-morph);
+    }
   }
-}
-
-button {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  border-radius: 12px;
-  color: var(--muted);
-  font-size: var(--font-xs);
-  font-weight: 700;
-  transition: color var(--duration-swap) ease;
-
-  &[aria-current="page"] {
-    color: var(--ink);
-  }
-
-  @media (hover: hover) {
-    &:not([aria-current="page"]):hover {
+  > button {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border-radius: 12px;
+    color: var(--muted);
+    font-size: var(--font-xs);
+    font-weight: 700;
+    transition: color var(--duration-swap) ease;
+    &[aria-current="page"] {
       color: var(--ink);
+    }
+    @media (--can-hover) {
+      &:not([aria-current="page"]):hover {
+        color: var(--ink);
+      }
     }
   }
 }

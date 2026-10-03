@@ -9,13 +9,15 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <button class="ct-fab" type="button" :aria-label="label" @click="(e) => emit('click', e)">
+  <button type="button" :aria-label="label" @click="(e) => emit('click', e)">
     <slot></slot>
   </button>
 </template>
 
 <style scoped>
-.ct-fab {
+@import "../../styles/media.css";
+
+button {
   position: absolute;
   inset-inline-end: 16px;
   inset-block-end: 16px;
@@ -29,9 +31,10 @@ defineSlots<{ default(): unknown }>();
   align-items: center;
   justify-content: center;
   box-shadow: var(--shadow-float);
-  transition: box-shadow var(--duration-swap) ease, transform var(--duration-swap) var(--ease-morph);
+  transition: box-shadow var(--duration-swap) ease,
+    transform var(--duration-swap) var(--ease-morph);
 
-  @media (hover: hover) {
+  @media (--can-hover) {
     &:hover {
       box-shadow: var(--shadow-lift);
     }

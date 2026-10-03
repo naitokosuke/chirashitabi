@@ -61,6 +61,12 @@ export default defineConfig({
       ],
     },
   },
+  // LightningCSS instead of PostCSS: it resolves the named media queries in
+  // src/ui/styles/media.css, which each style block that uses one imports
+  css: {
+    transformer: "lightningcss",
+    lightningcss: { drafts: { customMedia: true } },
+  },
   server: {
     // /api goes to `wrangler dev`, carrying the dev Access token when the stub is running
     proxy: {

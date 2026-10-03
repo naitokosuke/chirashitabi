@@ -8,14 +8,14 @@ defineSlots<{ default(): unknown; end?(): unknown }>();
 </script>
 
 <template>
-  <header class="ct-app-bar">
-    <div class="main"><slot></slot></div>
-    <div class="end"><slot name="end"></slot></div>
+  <header>
+    <div><slot></slot></div>
+    <div><slot name="end"></slot></div>
   </header>
 </template>
 
 <style scoped>
-.ct-app-bar {
+header {
   flex-shrink: 0;
   position: relative;
   z-index: var(--z-chrome);
@@ -26,21 +26,23 @@ defineSlots<{ default(): unknown; end?(): unknown }>();
   align-items: center;
   background: var(--bg);
   border-block-end: 1px solid var(--line);
-}
 
-.main {
-  flex: 1;
-  min-width: 0;
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-}
+  /* what the view is about */
+  > div:first-child {
+    flex: 1;
+    min-width: 0;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+  }
 
-.end {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-inline-end: 12px;
+  /* pinned at the end */
+  > div:last-child {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-inline-end: 12px;
+  }
 }
 </style>

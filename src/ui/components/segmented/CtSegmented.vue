@@ -12,8 +12,9 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.optio
 </script>
 
 <template>
-  <div ref="list" class="ct-segmented" role="radiogroup" :aria-label="label">
-    <span aria-hidden="true" class="indicator" :class="{ ready }" :style></span>
+  <div ref="list" role="radiogroup" :aria-label="label">
+    <!-- the chosen option's pill, sliding under the labels -->
+    <span aria-hidden="true" :data-ready="ready || undefined" :style></span>
     <button
       v-for="o in options"
       :key="o.value"
@@ -26,46 +27,50 @@ const { style, ready } = useIndicator(list, () => [props.modelValue, props.optio
 </template>
 
 <style scoped>
-.ct-segmented {
+@import "../../styles/media.css";
+
+[role="radiogroup"] {
   position: relative;
   display: flex;
   padding: 2px;
   border-radius: 999px;
   background: var(--wash);
-}
 
-.indicator {
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline-start: 0;
-  border-radius: 999px;
-  background: var(--surface);
-  box-shadow: var(--shadow-tool), 0 0 0 1px var(--line);
-  pointer-events: none;
+  > span {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    border-radius: 999px;
+    background: var(--surface);
+    box-shadow: var(--shadow-tool), 0 0 0 1px var(--line);
+    pointer-events: none;
 
-  &.ready {
-    transition: transform var(--duration-morph) var(--ease-morph),
-      width var(--duration-morph) var(--ease-morph);
-  }
-}
-
-button {
-  position: relative;
-  min-height: 32px; /* with the track's 2px it is the 36px a thumb is asked to hit */
-  padding: 0 12px;
-  border-radius: 999px;
-  font-size: var(--font-sm);
-  font-weight: 700;
-  color: var(--muted);
-  transition: color var(--duration-swap) ease;
-
-  &[aria-checked="true"] {
-    color: var(--ink);
+    /* placed before it moves: it appears where it belongs instead of sliding in from the corner */
+    &[data-ready] {
+      transition:
+        transform var(--duration-morph) var(--ease-morph),
+        width var(--duration-morph) var(--ease-morph);
+    }
   }
 
-  @media (hover: hover) {
-    &:not([aria-checked="true"]):hover {
+  > button {
+    position: relative;
+    min-height: 32px; /* with the track's 2px it is the 36px a thumb is asked to hit */
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: var(--font-sm);
+    font-weight: 700;
+    color: var(--muted);
+    transition: color var(--duration-swap) ease;
+
+    &[aria-checked="true"] {
       color: var(--ink);
+    }
+
+    @media (--can-hover) {
+      &:not([aria-checked="true"]):hover {
+        color: var(--ink);
+      }
     }
   }
 }

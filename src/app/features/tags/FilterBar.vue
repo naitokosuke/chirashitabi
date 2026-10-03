@@ -28,13 +28,13 @@ function toggleOnly() {
         :count="t.count"
         @click="() => tags.toggleTag(t.name)"
       >#{{ t.name }}</CtChip>
-      <p v-if="tags.tagList.length === 0" class="none">{{ i18n.t("filter.none") }}</p>
+      <p v-if="tags.tagList.length === 0">{{ i18n.t("filter.none") }}</p>
     </CtChipRow>
     <!--
       Outside the row, at its end, and only while a tag is picked (they mean nothing before):
       appearing narrows the row, it never pushes a chip along.
     -->
-    <div v-if="tags.selected.size" class="picked">
+    <div v-if="tags.selected.size">
       <CtChip toggle :selected="tags.mode === 'only'" @click="toggleOnly">{{ i18n.t("filter.only") }}</CtChip>
       <CtChip class="clear" @click="clearTags">{{ i18n.t("filter.clear") }}</CtChip>
     </div>
@@ -47,23 +47,25 @@ function toggleOnly() {
   min-width: 0;
   display: flex;
   align-items: center;
-}
 
-.picked {
-  flex-shrink: 0;
-  display: flex;
-  gap: 6px;
-  padding-inline-end: 12px;
-}
+  /* the chip row says so when the room has no tags yet */
+  > div > p {
+    margin: 0;
+    font-size: var(--font-sm);
+    color: var(--muted);
+    white-space: nowrap;
+  }
 
-.clear {
-  border-style: dashed;
-}
+  /* the picked tags' controls, after the row */
+  > div + div {
+    flex-shrink: 0;
+    display: flex;
+    gap: 6px;
+    padding-inline-end: 12px;
 
-.none {
-  margin: 0;
-  font-size: var(--font-sm);
-  color: var(--muted);
-  white-space: nowrap;
+    > .clear {
+      border-style: dashed;
+    }
+  }
 }
 </style>
