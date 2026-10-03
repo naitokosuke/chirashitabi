@@ -53,6 +53,13 @@
   --paper-ink: oklch(0.23 0.01 260);
   --paper-muted: oklch(0.45 0.01 260);
 
+  /*
+   * The one other face: the device's own mincho, nothing downloaded, for what is printed on the
+   * desk rather than written on paper (the trip's nameplate). Everything else is the gothic.
+   */
+  --font-print:
+    "Hiragino Mincho ProN", "Yu Mincho", YuMincho, "Noto Serif JP", "Noto Serif CJK JP", serif;
+
   --font-2xs: 12px; /* the floor: nothing on a phone is set smaller */
   --font-xs: 12px;
   --font-sm: 13px;

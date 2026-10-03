@@ -582,9 +582,8 @@ watch(
         @keydown="onKey"
       >
         <div :style="worldStyle">
-          <!-- where the trip goes: a luggage tag lying on the desk, under the notes, panning with them -->
+          <!-- where the trip goes: a nameplate printed on the desk, under the notes, panning with them -->
           <div v-if="tagAt !== null" class="tag" :style="`--x: ${tagAt.x}px; --y: ${tagAt.y}px`">
-            <span aria-hidden="true"></span>
             <p>{{ trip.name }}</p>
             <p v-if="dates">{{ dates }}</p>
           </div>
@@ -744,9 +743,11 @@ section {
         will-change: transform;
 
         /*
-         * The trip's tag: a luggage tag in ink, level, with a punched hole and the trip's name. Not
-         * paper, so never mistaken for a note: ink instead of a tint, no tilt, a hole instead of a dot.
-         * Clicks go through it to the desk, so it pans like the desk does.
+         * The trip's nameplate: printed on the desk, not lying on it, so nothing about it says
+         * "pick me up". No fill and no shadow (what can be moved casts one), a capsule ruled in
+         * two hairlines of ink like a seal (a note's corners are 6px), and the trip's name in the
+         * device's mincho, spaced out, where every note is in the gothic. Clicks go through it
+         * to the desk, so it pans like the desk does.
          */
         > .tag {
           position: absolute;
@@ -755,48 +756,46 @@ section {
           transform: translate(var(--x), var(--y)) translate(-50%, -50%);
           display: flex;
           flex-direction: column;
-          align-items: flex-start;
-          max-width: 320px;
-          padding: 12px 22px 12px 40px;
-          border-radius: 12px 18px 18px 12px;
-          background: var(--ink);
-          color: var(--on-ink);
-          box-shadow: var(--shadow-paper);
+          align-items: center;
+          /* as wide as its name (the desk it sits in has no width of its own), up to a point */
+          width: max-content;
+          max-width: 360px;
+          padding: 12px 30px 11px;
+          border-radius: 999px;
+          border: 1.5px solid color-mix(in oklch, var(--ink) 75%, transparent);
+          /* the desk's own color inside, so the dot grid does not run through the name */
+          background: var(--bg);
+          /* the inner rule, a little in from the outer one */
+          box-shadow: inset 0 0 0 3px var(--bg), inset 0 0 0 4px color-mix(in oklch, var(--ink) 35%, transparent);
+          color: var(--ink);
           pointer-events: none;
           white-space: nowrap;
-
-          /* the punched hole */
-          > span {
-            position: absolute;
-            inset-inline-start: 14px;
-            inset-block-start: 50%;
-            translate: 0 -50%;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--bg);
-            box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.35);
-          }
+          user-select: none;
 
           > p {
             margin: 0;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
 
             /* the trip's name */
             &:first-of-type {
+              font-family: var(--font-print);
               font-size: var(--font-4xl);
-              font-weight: 700;
-              line-height: 1.25;
-              overflow: hidden;
-              text-overflow: ellipsis;
-              max-width: 100%;
+              font-weight: 600;
+              letter-spacing: 0.12em;
+              line-height: 1.3;
+              /* the spacing after the last character, matched before the first, keeps it centred */
+              padding-inline-start: 0.12em;
             }
 
-            /* its dates, under the name */
+            /* its dates, under it */
             & + p {
               margin-block-start: 2px;
-              font-size: var(--font-sm);
+              font-size: var(--font-xs);
               font-weight: 700;
-              opacity: 0.7;
+              letter-spacing: 0.08em;
+              color: var(--muted);
               font-variant-numeric: tabular-nums;
             }
           }

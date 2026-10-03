@@ -2,7 +2,7 @@
 import type { RoomSummary } from "./types";
 
 /**
- * A trip as a luggage tag, the same object the desk carries (Canvas.vue): ink, level, a
+ * A trip as a luggage tag on the list of trips, a link to pick up and go in: ink, level, a
  * punched hole at its start. Its name, its dates, where it stands (`when`), and who is on it:
  * a dot per member, round for a person and square for the agent, as on the desk's cards.
  * A trip that is over is drawn in white, receding behind the ones still to come.
