@@ -18,6 +18,7 @@ function memo(id: string, time: string | null, status: NoteStatus, editedAt: str
     x: 0,
     y: 0,
     rot: 0,
+    scale: 1,
     by: "m" as MemberId,
     updatedAt: Temporal.Instant.from(editedAt),
     body: "",

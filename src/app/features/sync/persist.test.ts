@@ -35,6 +35,7 @@ const memo: Memo = {
   x: 10,
   y: 20,
   rot: 1,
+  scale: 1,
   by: "yuki" as MemberId,
   updatedAt: at,
   body: "",

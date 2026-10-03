@@ -54,6 +54,8 @@ interface CardBase {
   x: number;
   y: number;
   rot: number;
+  /** How large the card is drawn, 1 being its own size */
+  scale: number;
   by: MemberId;
   updatedAt: Temporal.Instant;
 }

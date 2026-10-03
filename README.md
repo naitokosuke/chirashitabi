@@ -40,7 +40,8 @@ src/app/            The app
   main.ts, App.vue, style.css   Boot and view switching (the canvas stays mounted underneath)
 
   views/
-    Canvas.vue   Pan / pinch / drag / long-press, card menu, adding notes
+    Canvas.vue   Pan / pinch; pick a card (tap), move, resize and turn it (handles), open it (double tap),
+                 its toolbar; adding notes
     Map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add
     Shiori.vue   The booklet (edit / read, appendix, a member's draft of a day)
     Form.vue     Full-screen note form (new / edit, Google Maps link -> coordinates)

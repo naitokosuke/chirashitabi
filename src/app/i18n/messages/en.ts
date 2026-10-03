@@ -68,7 +68,7 @@ export const en = {
   "canvas.write": "Write a note",
   "canvas.added": "Added “{$title}”",
   "canvas.addedAway": "Added “{$title}” to the canvas",
-  "canvas.addedDrag": "Added “{$title}”. Drag to move; long-press for color, copy or delete",
+  "canvas.addedDrag": "Added “{$title}”. Tap to resize, turn or recolor it; double-tap to edit",
   "canvas.deleted": "Deleted “{$title}”",
   "canvas.empty": "An empty desk. Tap + to scatter the first idea",
   "canvas.askIdeas": "Ask for ideas",

@@ -35,7 +35,14 @@ export function applyToNotes(
     case "note:recolor":
       return edit(m.id, (n) => ({ ...n, color: m.color, updatedAt: at }));
     case "note:move":
-      return edit(m.id, (n) => ({ ...n, x: m.x, y: m.y, updatedAt: at }));
+      return edit(m.id, (n) => ({
+        ...n,
+        x: m.x,
+        y: m.y,
+        rot: m.rot ?? n.rot,
+        scale: m.scale ?? n.scale,
+        updatedAt: at,
+      }));
     case "note:adopt":
       return edit(m.id, (n) => (n.kind === "suggestion" ? { ...adopted(n), updatedAt: at } : null));
     case "note:delete":

@@ -20,6 +20,7 @@ const memo = (id: string, extra: Partial<Memo> = {}): Memo => ({
   x: 0,
   y: 0,
   rot: 0,
+  scale: 1,
   by: YUKI,
   updatedAt: t0,
   body: "",
@@ -40,6 +41,7 @@ const suggestion = (id: string): Suggestion => ({
   x: 0,
   y: 0,
   rot: 0,
+  scale: 1,
   by: KEN,
   updatedAt: t0,
 });

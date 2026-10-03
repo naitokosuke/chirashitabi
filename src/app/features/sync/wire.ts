@@ -36,6 +36,8 @@ export function reviveNote(n: WireNote): Note {
     x: n.x,
     y: n.y,
     rot: n.rot,
+    // a note kept on a device before cards could be resized is its own size
+    scale: n.scale ?? 1,
     by: n.by as MemberId,
     updatedAt: Temporal.Instant.from(n.updatedAt),
   };
@@ -90,7 +92,14 @@ export function reviveMutation(m: WireMutation): Mutation {
     case "note:adopt":
       return { type: "note:adopt", id: m.id as NoteId };
     case "note:move":
-      return { type: "note:move", id: m.id as NoteId, x: m.x, y: m.y };
+      return {
+        type: "note:move",
+        id: m.id as NoteId,
+        x: m.x,
+        y: m.y,
+        ...(m.rot === undefined ? {} : { rot: m.rot }),
+        ...(m.scale === undefined ? {} : { scale: m.scale }),
+      };
     case "note:delete":
       return { type: "note:delete", id: m.id as NoteId };
     case "day:intro":

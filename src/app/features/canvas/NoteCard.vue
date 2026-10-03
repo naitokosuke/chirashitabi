@@ -7,7 +7,14 @@ import { PAPERS, type Note } from "../notes/types";
 import { useSync } from "../sync/useSync";
 import type { Visibility } from "../tags/types";
 
-defineProps<{ note: Note; dragging: boolean; pop: boolean; visibility: Visibility }>();
+defineProps<{
+  note: Note;
+  dragging: boolean;
+  pop: boolean;
+  visibility: Visibility;
+  /** Picked on the desk: framed, with handles to resize and to turn it */
+  selected: boolean;
+}>();
 defineEmits<{ adopt: []; remove: [] }>();
 const members = useMembers();
 const sync = useSync();
@@ -20,8 +27,9 @@ const i18n = useI18n();
     :data-kind="note.kind"
     :data-dragging="dragging || undefined"
     :data-pop="pop || undefined"
+    :data-selected="selected || undefined"
     :data-visibility="visibility"
-    :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --card: ${PAPERS[note.color]}; --who: ${members.colorOf(note.by)}`"
+    :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}; --card: ${PAPERS[note.color]}; --who: ${members.colorOf(note.by)}`"
     :data-id="note.id"
     :tabindex="note.kind === 'memo' && visibility !== 'dimmed' ? 0 : undefined"
     :role="note.kind === 'memo' ? 'button' : undefined"
@@ -49,6 +57,11 @@ const i18n = useI18n();
       <ul v-if="note.tags.length"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
       <span></span>
     </template>
+    <!-- picked: a handle above to turn it, one at the corner to resize it (the canvas drives both) -->
+    <template v-if="selected">
+      <span aria-hidden="true" data-handle="rotate"></span>
+      <span aria-hidden="true" data-handle="resize"></span>
+    </template>
   </div>
 </template>
 
@@ -66,7 +79,7 @@ div {
   color: var(--paper-ink);
   box-shadow: var(--shadow-paper);
   /* the card's place and tilt live in variables so the pop can scale it where it lands */
-  transform: translate(var(--x), var(--y)) rotate(var(--rot));
+  transform: translate(var(--x), var(--y)) rotate(var(--rot)) scale(var(--scale, 1));
   transform-origin: center;
   transition: opacity .2s, filter .2s;
 
@@ -135,8 +148,8 @@ div {
     gap: 2px 8px;
   }
 
-  /* who wrote it */
-  > span {
+  /* who wrote it (the handles are spans too, and come after) */
+  > span:not([data-handle]) {
     position: absolute;
     inset-block-start: 8px;
     inset-inline-end: 8px;
@@ -144,6 +157,53 @@ div {
     height: 8px;
     border-radius: 50%;
     background: var(--who);
+  }
+
+  /* picked: framed in ink, lifted a little above the rest */
+  &[data-selected] {
+    z-index: var(--z-float);
+    box-shadow:
+      var(--shadow-float),
+      0 0 0 2px var(--ink);
+  }
+
+  /*
+   * The handles: a thumb-sized target with a small dot in it, the same size on screen whatever
+   * the card's scale and the desk's zoom (both undone by their own scale)
+   */
+  > span[data-handle] {
+    position: absolute;
+    width: var(--tap);
+    height: var(--tap);
+    display: grid;
+    place-items: center;
+    scale: calc(1 / (var(--scale, 1) * var(--zoom, 1)));
+    touch-action: none;
+
+    &::before {
+      content: "";
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--surface);
+      box-shadow:
+        0 0 0 2px var(--ink),
+        var(--shadow-tool);
+    }
+
+    /* at the bottom-end corner: dragged away from the middle, the card grows */
+    &[data-handle="resize"] {
+      inset-block-end: calc(var(--tap) / -2);
+      inset-inline-end: calc(var(--tap) / -2);
+      cursor: nwse-resize;
+    }
+
+    /* above the middle of the top edge: dragged around the middle, the card turns */
+    &[data-handle="rotate"] {
+      inset-block-start: calc(var(--tap) * -1.4);
+      inset-inline-start: calc(50% - var(--tap) / 2);
+      cursor: grab;
+    }
   }
 
   /* a machine's note: plain white stock cut straight, with a dashed edge, never a person's soft corner */
@@ -214,15 +274,15 @@ div {
 /* every frame keeps the card's translate, so it pops where it lands and never at the origin */
 @keyframes pop {
   0% {
-    transform: translate(var(--x), var(--y)) rotate(calc(var(--rot) - 8deg)) scale(.3);
+    transform: translate(var(--x), var(--y)) rotate(calc(var(--rot) - 8deg)) scale(calc(var(--scale, 1) * .3));
     opacity: 0
   }
   60% {
-    transform: translate(var(--x), var(--y)) rotate(calc(var(--rot) + 1deg)) scale(1.08);
+    transform: translate(var(--x), var(--y)) rotate(calc(var(--rot) + 1deg)) scale(calc(var(--scale, 1) * 1.08));
     opacity: 1
   }
   100% {
-    transform: translate(var(--x), var(--y)) rotate(var(--rot))
+    transform: translate(var(--x), var(--y)) rotate(var(--rot)) scale(var(--scale, 1))
   }
 }
 </style>

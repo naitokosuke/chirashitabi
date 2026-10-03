@@ -20,6 +20,7 @@ const memo = (id: string, title: string): Memo => ({
   x: 0,
   y: 0,
   rot: 0,
+  scale: 1,
   by: ME,
   updatedAt: t(0),
   body: "",

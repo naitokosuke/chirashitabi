@@ -272,6 +272,8 @@ Five equal columns (home, canvas, memo, map, booklet), icon over a 12px label in
 
 164px, 6px radius, one of the six stocks, 12px padding; title in Note, body in Caption (Paper Muted), tags as `#tag` in Paper Muted, an 8px dot of the author's color at the top end. Dimmed to 22% and desaturated when filtered out.
 
+Handled like an object, as in a native whiteboard. A tap picks it: an ink frame, a round handle above the middle to turn it (Shift snaps to 15°), one at the bottom-end corner to resize it (0.6× to 2.5×, text and picture with it), and its toolbar (paper colors, duplicate, delete) below, clear of the handles. A second tap soon after (or a double-click) opens it; a drag moves it and picks it; a long press picks it and shows the toolbar; a tap on the bare desk lets go. The handles keep their size on screen whatever the card's scale and the desk's zoom. With the keyboard, Enter opens a focused card, Delete removes it (the toast offers the undo), Esc closes the toolbar, then lets go.
+
 ### Suggestion
 
 186px, square, Paper White with a dashed hairline inset 5px; a header of the author's dot and name with "suggestion" in Paper Muted; two pills: adopt (Paper Ink fill) and dismiss (hairline).

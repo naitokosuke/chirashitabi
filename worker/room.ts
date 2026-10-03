@@ -33,6 +33,7 @@ type NoteRow = {
   x: number;
   y: number;
   rot: number;
+  scale: number;
   by: string;
   updated_at: string;
   body: string;
@@ -117,6 +118,10 @@ export class Room extends DurableObject<Env> {
     // and the pictures on cards, once they arrived
     if (!cols.some((c) => c.name === "image")) {
       ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN image TEXT");
+    }
+    // and how large a card is drawn, once cards could be resized
+    if (!cols.some((c) => c.name === "scale")) {
+      ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN scale REAL NOT NULL DEFAULT 1");
     }
     ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS pictures (
@@ -273,6 +278,7 @@ export class Room extends DurableObject<Env> {
         x: at.x - 82 + (i % 2 === 0 ? -12 : 12),
         y: at.y - 40 + i * 120,
         rot: Math.random() * 4 - 2,
+        scale: 1,
         by: Room.AGENT_ID,
         updatedAt: now,
       };
@@ -460,8 +466,8 @@ export class Room extends DurableObject<Env> {
         if (memo.image !== null && !this.hasImage(memo.image)) return "no such image";
         sql.exec(
           `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at, body, tags, maps_url,
-             pin_lat, pin_lng, sched_date, sched_time, sched_status, budget, checked, image)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             pin_lat, pin_lng, sched_date, sched_time, sched_status, budget, checked, image, scale)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           note.id,
           note.kind,
           note.title,
@@ -482,6 +488,7 @@ export class Room extends DurableObject<Env> {
           memo.budget,
           memo.checked ? 1 : 0,
           memo.image,
+          note.scale,
         );
         return { type: "note:add", note };
       }
@@ -539,8 +546,18 @@ export class Room extends DurableObject<Env> {
         return m;
       }
       case "note:move": {
-        if (this.note(m.id) === undefined) return "no such note";
-        sql.exec("UPDATE notes SET x = ?, y = ?, updated_at = ? WHERE id = ?", m.x, m.y, now, m.id);
+        const row = this.note(m.id);
+        if (row === undefined) return "no such note";
+        // a move that does not say how the card is turned or how large keeps what it was
+        sql.exec(
+          "UPDATE notes SET x = ?, y = ?, rot = ?, scale = ?, updated_at = ? WHERE id = ?",
+          m.x,
+          m.y,
+          m.rot ?? row.rot,
+          m.scale ?? row.scale,
+          now,
+          m.id,
+        );
         return m;
       }
       case "note:delete": {
@@ -595,6 +612,7 @@ const fromRow = (r: NoteRow): WireNote => {
     x: r.x,
     y: r.y,
     rot: r.rot,
+    scale: r.scale,
     by: r.by,
     updatedAt: r.updated_at,
   };

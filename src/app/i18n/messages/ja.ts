@@ -66,7 +66,8 @@ export const ja: Messages = {
   "canvas.write": "メモを書く",
   "canvas.added": "「{$title}」を追加しました",
   "canvas.addedAway": "「{$title}」をキャンバスに貼りました",
-  "canvas.addedDrag": "「{$title}」を追加しました。ドラッグで移動、長押しで色・複製・削除",
+  "canvas.addedDrag":
+    "「{$title}」を追加しました。タップで選んで大きさ・傾き・色、ダブルタップで編集",
   "canvas.deleted": "「{$title}」を削除しました",
   "canvas.empty": "まだ何もない机です。＋ から最初の思いつきを散らしましょう",
   "canvas.askIdeas": "提案を頼む",

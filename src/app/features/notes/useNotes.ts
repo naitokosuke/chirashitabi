@@ -12,6 +12,12 @@ import type { MemoPatch, NewMemo, NoteColor, NoteId, NoteInput } from "./types";
 
 const uid = () => Math.random().toString(36).slice(2, 10) as NoteId;
 
+/** How a card is turned (degrees) and how large it is drawn */
+export interface Shape {
+  rot: number;
+  scale: number;
+}
+
 /**
  * The room's notes, as the query cache holds them (keys.ts), and the
  * changes one can make to them. A change is committed to the room, which shows it at once
@@ -31,6 +37,7 @@ export const useNotes = defineStore("notes", () => {
       x: at.x + (Math.random() * 20 - 10),
       y: at.y + (Math.random() * 20 - 10),
       rot: Math.random() * 4 - 2,
+      scale: 1,
       schedule: null,
       budget: null,
       checked: false,
@@ -49,16 +56,18 @@ export const useNotes = defineStore("notes", () => {
     if (byId(id) === undefined) return;
     sync.commit({ type: "note:recolor", id, color });
   }
-  function move(id: NoteId, x: number, y: number) {
+  /** Where a card is, and, when it was turned or resized, how it is turned and how large */
+  function move(id: NoteId, x: number, y: number, shape?: Shape) {
     if (byId(id) === undefined) return;
-    sync.commit({ type: "note:move", id, x, y });
+    sync.commit({ type: "note:move", id, x, y, ...shape });
   }
   /**
-   * A card on its way under a finger: sent so the partner sees it travel, but not committed,
-   * since intermediate positions are not changes to keep; the drop is a `move`.
+   * A card on its way under a finger (moved, turned or resized): sent so the partner sees it
+   * change, but not committed, since intermediate states are not changes to keep; letting go
+   * is a `move`.
    */
-  function sendMove(id: NoteId, x: number, y: number) {
-    sync.send({ type: "note:move", id, x, y });
+  function sendMove(id: NoteId, x: number, y: number, shape?: Shape) {
+    sync.send({ type: "note:move", id, x, y, ...shape });
   }
   function remove(id: NoteId) {
     sync.commit({ type: "note:delete", id });
