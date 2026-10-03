@@ -24,6 +24,7 @@ import {
   PACKING_TAG,
   PAPERS,
   type Memo,
+  type NoteId,
   type Scheduled,
 } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
@@ -104,7 +105,15 @@ const modes = computed((): CtOption<Mode>[] => [
 const pickedMode = ref<Mode>("edit");
 const mode = ref<Mode>("edit");
 const editing = computed(() => mode.value === "edit");
-const picking = ref<Memo | null>(null); // note being assigned from the tray
+/** The memo being put on a day from the tray, by id */
+const pickingId = ref<NoteId | null>(null);
+/**
+ * That memo as it is now, while the tray is up and it still has no day: if the partner gives
+ * it one, or it goes, there is nothing left to put anywhere
+ */
+const picking = computed(() =>
+  editing.value ? (trip.unassigned.find((n) => n.id === pickingId.value) ?? null) : null,
+);
 const draft = ref<Draft | null>(null); // a member's draft of the open day
 
 const APPENDIX_TAGS = [PACKING_TAG, ARRIVAL_TAG];
@@ -114,11 +123,11 @@ const totalAll = computed(() => trip.budgetOf(undefined, false));
 
 function assign(n: Memo, date: Temporal.PlainDate | null) {
   store.update(n.id, assignTo(n, date));
-  picking.value = null;
+  pickingId.value = null;
   if (date) showTab(date.toString());
 }
 function togglePick(n: Memo) {
-  picking.value = picking.value?.id === n.id ? null : n;
+  pickingId.value = pickingId.value === n.id ? null : n.id;
 }
 /** The tray's pick row: the picked memo goes on this day */
 function putPickedOn(date: Temporal.PlainDate) {
@@ -223,7 +232,7 @@ function adoptDraft() {
             type="button"
             @click="() => putPickedOn(d.date)"
           >{{ short(d.date) }}</button>
-          <button type="button" @click="() => (picking = null)">{{ i18n.t("shiori.later") }}</button>
+          <button type="button" @click="() => (pickingId = null)">{{ i18n.t("shiori.later") }}</button>
         </div>
       </section>
 
