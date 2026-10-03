@@ -642,3 +642,91 @@ describe("the agent's draft of a day", () => {
     ]);
   });
 });
+
+describe("the agent's suggestions", () => {
+  const suggesting = (titles: string[]) => ({
+    status: 200,
+    body: {
+      content: [
+        {
+          type: "tool_use",
+          id: "t1",
+          name: "suggest_notes",
+          input: { suggestions: titles.map((title) => ({ title })) },
+        },
+      ],
+      usage: { input_tokens: 90, output_tokens: 30 },
+    },
+  });
+  const suggest = (roomId: string, email: string, body: unknown = { at: { x: 400, y: 300 } }) =>
+    post(`/api/rooms/${roomId}/suggest`, email, body);
+
+  test("ideas land as the agent's cards where the asker looks, on every socket", async () => {
+    const email = "ideas@example.com";
+    const { roomId } = await createRoom(email);
+    const a = await connect(roomId, email);
+    a.send({ type: "note:add", note: memo("n1", "Din Tai Fung"), cid: "c1" });
+    expect((await a.next()).type).toBe("ack");
+    answer = () =>
+      suggesting([
+        "Elephant Mountain at sunset",
+        "din tai fung",
+        "Beitou hot springs",
+        "Jiufen",
+        "Yehliu",
+      ]);
+
+    const res = await suggest(roomId, email);
+    expect(res.status).toBe(200);
+    // the one the notes have is left out, and no more than three
+    expect(await res.json()).toEqual({ added: 3 });
+    const prompt = (asked.at(-1) as { messages: { content: string }[] }).messages[0]!.content;
+    expect(prompt).toContain("Din Tai Fung");
+
+    // the asker's own socket gets them too: nobody made them on their device
+    const got = [await a.next(), await a.next(), await a.next()];
+    expect(got.map((m) => m.type)).toEqual(["mutation", "mutation", "mutation"]);
+    for (const m of got) {
+      if (m.type !== "mutation" || m.mutation.type !== "note:add") throw new Error("not an add");
+      expect(m.by).toBe("agent:claude");
+      expect(m.mutation.note).toMatchObject({ kind: "suggestion", by: "agent:claude" });
+      expect(Math.abs(m.mutation.note.x - 318)).toBeLessThanOrEqual(12);
+    }
+    expect(
+      got.map((m) =>
+        m.type === "mutation" && m.mutation.type === "note:add" ? m.mutation.note.title : "",
+      ),
+    ).toEqual(["Elephant Mountain at sunset", "Beitou hot springs", "Jiufen"]);
+
+    const room = await server.getWorker().getDurableObjectStorage("Room", { name: roomId });
+    expect(
+      await room.exec(
+        "SELECT COUNT(*) AS n FROM notes WHERE kind = 'suggestion' AND by = 'agent:claude'",
+      ),
+    ).toEqual([{ n: 3 }]);
+    expect(await room.exec("SELECT what FROM agent_calls")).toEqual([{ what: "suggest" }]);
+    a.ws.close(1000, "done");
+  });
+
+  test("without where to put them, nothing is called", async () => {
+    const email = "nowhere@example.com";
+    const { roomId } = await createRoom(email);
+    const before = asked.length;
+    expect((await suggest(roomId, email, {})).status).toBe(400);
+    expect((await suggest(roomId, email, { at: { x: "a", y: 1 } })).status).toBe(400);
+    expect(asked.length).toBe(before);
+  });
+
+  test("a provider error writes nothing and costs nothing", async () => {
+    const email = "ideasdown@example.com";
+    const { roomId } = await createRoom(email);
+    answer = () => ({ status: 500, body: { type: "error" } });
+    expect((await suggest(roomId, email)).status).toBe(502);
+    const room = await server.getWorker().getDurableObjectStorage("Room", { name: roomId });
+    expect(await room.exec("SELECT COUNT(*) AS n FROM notes")).toEqual([{ n: 0 }]);
+    const index = await server.getWorker().getDurableObjectStorage("RoomsIndex", { name: "index" });
+    expect(await index.exec("SELECT refunded FROM spends WHERE email = ?", email)).toEqual([
+      { refunded: 1 },
+    ]);
+  });
+});

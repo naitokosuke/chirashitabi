@@ -155,6 +155,9 @@ const isUrl = (v: unknown): v is string => {
 };
 const isLatLng = (v: unknown): v is { lat: number; lng: number } =>
   isRecord(v) && isFinite_(v.lat, 90) && isFinite_(v.lng, 180) && Object.keys(v).length === 2;
+/** A point on the desk, as `{ x, y }` within the canvas's bounds */
+export const parsePoint = (v: unknown): { x: number; y: number } | null =>
+  isRecord(v) && isFinite_(v.x) && isFinite_(v.y) ? { x: v.x, y: v.y } : null;
 const isTags = (v: unknown): v is string[] =>
   Array.isArray(v) && v.length <= TAGS && v.every((t) => isText(t, TAG) && t !== "");
 const isSchedule = (v: unknown): v is WireSchedule =>

@@ -39,3 +39,15 @@ export function useExportBooklet() {
     },
   });
 }
+
+/** The room's agent leaves a few ideas on the desk around `at` */
+export function useSuggest() {
+  const get = api();
+  return useMutation({
+    mutation: (at: { x: number; y: number }) => {
+      const suggest = get().suggest;
+      if (suggest === null) throw new Error("The Worker cannot suggest yet");
+      return suggest(at);
+    },
+  });
+}

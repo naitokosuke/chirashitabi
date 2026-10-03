@@ -71,6 +71,18 @@ export const en = {
   "canvas.addedDrag": "Added “{$title}”. Drag to move; long-press for color, copy or delete",
   "canvas.deleted": "Deleted “{$title}”",
   "canvas.empty": "An empty desk. Tap + to scatter the first idea",
+  "canvas.askIdeas": "Ask for ideas",
+  "canvas.thinking": "Thinking…",
+  "canvas.ideasAdded": `
+.input {$count :integer}
+.match $count
+one {{Claude left {$count} idea here}}
+*   {{Claude left {$count} ideas here}}
+`,
+  "canvas.noIdeas": "Claude had nothing new to add",
+  "canvas.ideasFailed": "The ideas did not come back. Ask again.",
+  "canvas.ideasLimit": "That is all Claude can do today. Ask again tomorrow.",
+  "canvas.ideasTripLimit": "This trip has used all it can ask Claude for.",
 
   "note.suggestion": "suggestion",
   "note.adopt": "Make it a note",

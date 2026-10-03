@@ -13,6 +13,11 @@ export interface DayDraft {
 
 /** What the Cloudflare Worker will do for the room, besides sync */
 export interface WorkerApi {
+  /**
+   * Have the room's agent leave a few ideas as suggestion cards around `at` on the desk; they
+   * reach the room like any change. Resolves with how many it left; null while it cannot
+   */
+  suggest: ((at: { x: number; y: number }) => Promise<number>) | null;
   /** Have a member order a day's notes and give them times */
   draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<DayDraft>;
   /**

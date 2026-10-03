@@ -68,12 +68,16 @@ import FilterBar from "../features/tags/FilterBar.vue";
 import { useTags } from "../features/tags/useTags";
 import { shortDate } from "../features/trip/format";
 import { useTrip } from "../features/trip/useTrip";
+import { OverBudget } from "../features/worker/api";
+import { useWorker } from "../features/worker/useWorker";
+import { useSuggest } from "../features/worker/useWorkerCalls";
 import Icon from "../icons/Icon.vue";
 import plusIcon from "../icons/plus.svg";
 
 const emit = defineEmits<{ write: []; edit: [note: Memo] }>();
 const store = useNotes();
 const toast = useToast();
+const worker = useWorker();
 const tags = useTags();
 const trip = useTrip();
 const i18n = useI18n();
@@ -346,6 +350,27 @@ function remove(note: Note) {
   if (hadFocus)
     nextTick(() => document.querySelector<HTMLElement>('[role="status"] button')?.focus());
 }
+const { mutateAsync: suggestAt, isLoading: thinking } = useSuggest();
+/**
+ * The room's agent leaves a few ideas where the person is looking. They arrive as the room's
+ * changes, like the partner's cards; the toast says how many, or why none came.
+ */
+async function askForIdeas() {
+  if (thinking.value) return;
+  const r = vp.value!.getBoundingClientRect();
+  const c = toWorld(r.width / 2, r.height / 2);
+  try {
+    const n = await suggestAt({ x: c.x, y: c.y });
+    toast.show(n === 0 ? i18n.t("canvas.noIdeas") : i18n.t("canvas.ideasAdded", { count: n }));
+  } catch (e) {
+    const key = !(e instanceof OverBudget)
+      ? "canvas.ideasFailed"
+      : e.ceiling === "trip"
+        ? "canvas.ideasTripLimit"
+        : "canvas.ideasLimit";
+    toast.show(i18n.t(key));
+  }
+}
 function write() {
   emit("write");
 }
@@ -396,7 +421,19 @@ watch(
 
 <template>
   <section>
-    <CtAppBar><FilterBar /></CtAppBar>
+    <CtAppBar>
+      <!-- explicit: Vapor drops implicit default-slot content that sits beside a named slot -->
+      <template #default><FilterBar /></template>
+      <template #end>
+        <button
+          v-if="worker.api?.suggest"
+          type="button"
+          :disabled="thinking"
+          :aria-busy="thinking"
+          @click="askForIdeas"
+        >{{ i18n.t(thinking ? "canvas.thinking" : "canvas.askIdeas") }}</button>
+      </template>
+    </CtAppBar>
 
     <div>
       <p v-if="store.notes.length === 0">{{ i18n.t("canvas.empty") }}</p>
@@ -472,6 +509,40 @@ section {
   isolation: isolate; /* keep the canvas chrome's z-index inside this view */
   display: flex;
   flex-direction: column;
+
+  /* asking the room's agent for ideas, pinned at the bar's end: dashed, like the booklet's ask */
+  > header button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: var(--tap);
+    padding: 0 12px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
+    color: var(--ink);
+    font-size: var(--font-sm);
+    font-weight: 700;
+    white-space: nowrap;
+
+    &:disabled {
+      color: var(--muted);
+    }
+
+    /* waiting on the Worker: a dot breathing before the label */
+    &[aria-busy="true"]::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: breathe 1s ease-in-out infinite alternate;
+
+      @media (--reduced-motion) {
+        animation: none;
+      }
+    }
+  }
 
   /* everything under the bar: the dotted desk and what floats on it */
   > div {
@@ -675,6 +746,15 @@ section {
 }
 
 /* every frame keeps the ring's translate: it expands around where the card landed */
+@keyframes breathe {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes ring {
   0% {
     transform: translate(var(--x), var(--y)) scale(.6);

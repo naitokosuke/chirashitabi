@@ -2,6 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 
 import type { NoteStatus } from "../src/app/features/notes/types";
 
+import type { SuggestContext } from "./claude";
 import {
   MAX_MESSAGE_BYTES,
   parseCid,
@@ -178,6 +179,57 @@ export class Room extends DurableObject<Env> {
       (n): n is WireMemo => n.kind === "memo" && n.schedule?.date === date,
     );
     return { trip: trip.name, currency: trip.currency, notes };
+  }
+
+  /** What the agent reads to suggest ideas, asked by member `by` */
+  contextForSuggest(by: string): SuggestContext {
+    this.assertMember(by);
+    const trip = this.trip();
+    return {
+      trip: trip.name,
+      days: trip.days.map((d) => d.date),
+      notes: this.notes().map((n) => ({
+        title: n.title,
+        tags: n.kind === "memo" ? n.tags : [],
+        date: n.kind === "memo" ? (n.schedule?.date ?? null) : null,
+      })),
+    };
+  }
+
+  /**
+   * The agent's ideas as suggestion cards, written as the agent (never as the member who
+   * asked) around `at` on the desk, and sent to every socket, the asker's too: nobody made
+   * them on their own device. Returns how many were written.
+   */
+  addSuggestions(by: string, titles: string[], at: { x: number; y: number }): number {
+    this.assertMember(by);
+    const now = new Date().toISOString();
+    let added = 0;
+    titles.forEach((title, i) => {
+      const note: WireNote = {
+        id: crypto.randomUUID(),
+        kind: "suggestion",
+        title,
+        color: "#ffffff",
+        // a short column under where the asker was looking, slightly askew like any card
+        x: at.x - 82 + (i % 2 === 0 ? -12 : 12),
+        y: at.y - 40 + i * 120,
+        rot: Math.random() * 4 - 2,
+        by: Room.AGENT_ID,
+        updatedAt: now,
+      };
+      const result = this.apply({ type: "note:add", note }, Room.AGENT_ID, now);
+      if (typeof result === "string") return;
+      added++;
+      const out = JSON.stringify({
+        type: "mutation",
+        mutation: result,
+        by: Room.AGENT_ID,
+        updatedAt: now,
+      } satisfies ServerMessage);
+      for (const ws of this.ctx.getWebSockets()) ws.send(out);
+    });
+    return added;
   }
 
   /**
