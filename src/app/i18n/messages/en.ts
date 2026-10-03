@@ -132,9 +132,11 @@ one {{Claude left {$count} idea here}}
   "form.photoFull": "This trip holds as many photos as it can.",
   "form.mapsPlaceholder": "Paste a Google Maps link",
   "form.pinned": "This drops a pin on the map",
-  "form.unpinned": "No coordinates? Long-press on the map view to place it",
-  "form.urlNoPin":
-    "No coordinates in that link. Try the long link from “Share”, or long-press on the map to place it",
+  "form.unpinned": "Paste a Google Maps link to drop a pin on the map",
+  "form.unpinnedFind": "Paste a link or use “Find the place” to drop a pin on the map",
+  "form.urlNoPin": "No coordinates in that link. Paste the long link from “Share”",
+  "form.urlNoPinFind":
+    "No coordinates in that link. Paste the long link from “Share”, or use “Find the place”",
   "form.findPlace": "Find the place",
   "form.placesAsking": "Looking for the place…",
   "form.placesNone": "Could not tell a place on the map from this note.",
@@ -156,8 +158,14 @@ one {{Claude left {$count} idea here}}
   "map.noPin": `
 .input {$count :integer}
 .match $count
-one {{{$count} note has no place · long-press the map to place}}
-*   {{{$count} notes have no place · long-press the map to place}}
+one {{{$count} note has no place}}
+*   {{{$count} notes have no place}}
+`,
+  "map.noPinFind": `
+.input {$count :integer}
+.match $count
+one {{{$count} note has no place · open it and use “Find the place”}}
+*   {{{$count} notes have no place · open one and use “Find the place”}}
 `,
   "map.openInGoogleMaps": "Open in Google Maps",
 

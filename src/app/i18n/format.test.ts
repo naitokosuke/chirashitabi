@@ -15,15 +15,9 @@ describe("messages", () => {
   });
 
   test("a plural picks its form in en, while ja has only one", () => {
-    expect(plain(format("en", "map.noPin", { count: 1 }))).toBe(
-      "1 note has no place · long-press the map to place",
-    );
-    expect(plain(format("en", "map.noPin", { count: 3 }))).toBe(
-      "3 notes have no place · long-press the map to place",
-    );
-    expect(plain(format("ja", "map.noPin", { count: 3 }))).toBe(
-      "場所のないメモが 3 件 · 地図を長押しして置けます",
-    );
+    expect(plain(format("en", "map.noPin", { count: 1 }))).toBe("1 note has no place");
+    expect(plain(format("en", "map.noPin", { count: 3 }))).toBe("3 notes have no place");
+    expect(plain(format("ja", "map.noPin", { count: 3 }))).toBe("場所のないメモが 3 件");
   });
 });
 

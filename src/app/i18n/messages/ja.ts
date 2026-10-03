@@ -116,9 +116,11 @@ export const ja: Messages = {
   "form.photoFull": "この旅に置ける写真は上限に達しました。",
   "form.mapsPlaceholder": "Google マップのリンクを貼り付け",
   "form.pinned": "地図にピンが立ちます",
-  "form.unpinned": "座標がないときは、地図画面を長押しして置けます",
-  "form.urlNoPin":
-    "このリンクからは座標が読めません。「共有」の長いリンクを貼るか、地図画面を長押しして置けます",
+  "form.unpinned": "Google マップのリンクを貼ると、地図にピンが立ちます",
+  "form.unpinnedFind": "リンクを貼るか「場所を探す」で、地図にピンが立ちます",
+  "form.urlNoPin": "このリンクからは座標が読めません。「共有」から長いリンクを貼ってください",
+  "form.urlNoPinFind":
+    "このリンクからは座標が読めません。「共有」の長いリンクを貼るか、「場所を探す」を使ってください",
   "form.findPlace": "場所を探す",
   "form.placesAsking": "場所を探しています…",
   "form.placesNone": "このメモからは、地図で見つかる場所が分かりませんでした。",
@@ -137,7 +139,8 @@ export const ja: Messages = {
 
   "map.all": "すべて",
   "map.route": "{$date} のルート",
-  "map.noPin": "場所のないメモが {$count :integer} 件 · 地図を長押しして置けます",
+  "map.noPin": "場所のないメモが {$count :integer} 件",
+  "map.noPinFind": "場所のないメモが {$count :integer} 件 · メモを開いて「場所を探す」で置けます",
   "map.openInGoogleMaps": "Google マップで開く",
 
   "shiori.summary": "確定 {$fixed :integer} 件 · {$total}",
