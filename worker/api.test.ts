@@ -45,7 +45,10 @@ const judged: { state: unknown; questions: Record<string, unknown>; images?: unk
 
 /** Stands in for OpenStreetMap's geocoder: each test sets what a query finds; `looked` keeps the queries */
 let geocoder: Server;
-let find: (query: string) => { status: number; body: unknown } = () => ({ status: 200, body: [] });
+let find: (query: string, url: URL) => { status: number; body: unknown } = () => ({
+  status: 200,
+  body: [],
+});
 const looked: { q: string | null; lang: string | null; agent: string | undefined }[] = [];
 
 beforeAll(async () => {
@@ -110,7 +113,7 @@ beforeAll(async () => {
       lang: url.searchParams.get("accept-language"),
       agent: req.headers["user-agent"],
     });
-    const { status, body: out } = find(q ?? "");
+    const { status, body: out } = find(q ?? "", url);
     res.statusCode = status;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify(out));
@@ -1154,5 +1157,81 @@ describe("finding a memo's place", () => {
   test("only members may ask", async () => {
     const { roomId } = await createRoom("finder5@example.com");
     expect((await ask(roomId, STRANGER, { title: "寧夏夜市" })).status).toBe(403);
+  });
+});
+
+describe("what is at a pinned point", () => {
+  const where = (roomId: string, email: string, body: unknown) =>
+    post(`/api/rooms/${roomId}/where`, email, body);
+
+  test("the place at the point, named in the asker's language, at the point itself; no paid call", async () => {
+    const email = "where@example.com";
+    const { roomId } = await createRoom(email);
+    let asked_at: URL | null = null;
+    find = (_, url) => {
+      asked_at = url;
+      return {
+        status: 200,
+        body: {
+          name: "鼎泰豐 信義店",
+          display_name: "鼎泰豐 信義店, 信義路二段, 大安區, 臺北市, 臺灣",
+          lat: "25.0336",
+          lon: "121.5300",
+        },
+      };
+    };
+    const calls = asked.length;
+    const res = await where(roomId, email, { lat: 25.03361, lng: 121.53005, lang: "en" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      place: {
+        name: "鼎泰豐 信義店",
+        address: "信義路二段, 大安區, 臺北市, 臺灣",
+        lat: 25.03361,
+        lng: 121.53005,
+      },
+    });
+    expect(asked.length).toBe(calls);
+    const url = asked_at as unknown as URL;
+    expect(url.pathname).toBe("/reverse");
+    expect(url.searchParams.get("lat")).toBe("25.03361");
+    expect(url.searchParams.get("accept-language")).toBe("en");
+  });
+
+  test("a point with no name of its own takes its street's, never a bare house number", async () => {
+    const email = "where3@example.com";
+    const { roomId } = await createRoom(email);
+    find = () => ({
+      status: 200,
+      body: {
+        name: "",
+        display_name: "36號, 寧夏路, 大同區, 臺北市, 103, 臺灣",
+        address: { house_number: "36號", road: "寧夏路", suburb: "大同區", city: "臺北市" },
+        lat: "25.0561",
+        lon: "121.5152",
+      },
+    });
+    expect(await (await where(roomId, email, { lat: 25.056188, lng: 121.515222 })).json()).toEqual({
+      place: {
+        name: "寧夏路",
+        address: "大同區, 臺北市, 103, 臺灣",
+        lat: 25.056188,
+        lng: 121.515222,
+      },
+    });
+  });
+
+  test("nothing there is an answer; a bad point is refused; a geocoder that fails is a 502", async () => {
+    const email = "where2@example.com";
+    const { roomId } = await createRoom(email);
+    find = () => ({ status: 200, body: { error: "Unable to geocode" } });
+    expect(await (await where(roomId, email, { lat: 10, lng: 150 })).json()).toEqual({
+      place: null,
+    });
+    expect((await where(roomId, email, { lat: 91, lng: 0 })).status).toBe(400);
+    expect((await where(roomId, email, { lat: "25", lng: 121 })).status).toBe(400);
+    find = () => ({ status: 503, body: {} });
+    expect((await where(roomId, email, { lat: 25, lng: 121 })).status).toBe(502);
+    expect((await where(roomId, STRANGER, { lat: 25, lng: 121 })).status).toBe(403);
   });
 });

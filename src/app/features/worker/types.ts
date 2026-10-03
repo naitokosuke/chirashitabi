@@ -2,7 +2,7 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import type { MemberId } from "../members/types";
 import type { ImageId, Scheduled } from "../notes/types";
-import type { FoundPlace } from "../place/types";
+import type { FoundPlace, LatLng } from "../place/types";
 
 /** A suggested order and times for one day, from whichever member drafted it */
 export interface DayDraft {
@@ -50,6 +50,11 @@ export interface WorkerApi {
         lang: "ja" | "en";
       }) => Promise<FoundPlace[]>)
     | null;
+  /**
+   * What is at a point pinned on the map, from OpenStreetMap: the place there or the street,
+   * named in `lang`; null when it has nothing there. Free, so not budgeted. Null while it cannot
+   */
+  whereIs: ((at: LatLng, lang: "ja" | "en") => Promise<FoundPlace | null>) | null;
   /** Have a member order a day's notes and give them times */
   draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<DayDraft>;
   /**

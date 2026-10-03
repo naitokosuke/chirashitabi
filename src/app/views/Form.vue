@@ -43,7 +43,7 @@ import {
   type NoteInput,
 } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
-import { placeFromUrl, placeSearchLink } from "../features/place/google-maps";
+import { googleMapsLink, placeFromUrl, placeSearchLink } from "../features/place/google-maps";
 import type { FoundPlace } from "../features/place/types";
 import { useSync } from "../features/sync/useSync";
 import { useTags } from "../features/tags/useTags";
@@ -191,6 +191,40 @@ function choosePlace(p: FoundPlace) {
   onMapsUrl();
   found.value = [];
 }
+
+/**
+ * A memo started at a point pinned on the map gets that point's link at once; then OpenStreetMap
+ * says what is there, and the link names it and an empty title takes its name. Nothing the
+ * person has typed or pasted meanwhile is overwritten.
+ */
+const naming = ref(false);
+/** The title and link came from OpenStreetMap: its credit is shown, as its licence asks */
+const namedByOsm = ref(false);
+function nameThePin() {
+  const at = form.value.pin;
+  if (editing.value || at === null) return;
+  mapsUrl.value = googleMapsLink(at);
+  onMapsUrl();
+  const auto = mapsUrl.value;
+  const ask = worker.api?.whereIs;
+  if (ask === null || ask === undefined) return;
+  naming.value = true;
+  ask(at, i18n.locale === "en" ? "en" : "ja")
+    .then((place) => {
+      if (place === null) return;
+      if (mapsUrl.value === auto) {
+        mapsUrl.value = placeSearchLink(place.name, at);
+        onMapsUrl();
+      }
+      if (text.value.trim() === "") text.value = place.name;
+      namedByOsm.value = true;
+    })
+    .catch(() => {
+      // the link to the point is there already; a name is a nicety
+    })
+    .finally(() => (naming.value = false));
+}
+nameThePin();
 
 const textEl = useTemplateRef<HTMLTextAreaElement>("textEl");
 const focusText = () => nextTick(() => textEl.value?.focus());
@@ -359,15 +393,17 @@ function submit() {
         />
         <p aria-live="polite">{{
             i18n.t(
-              hasPin()
-                ? "form.pinned"
-                : mapsUrl.trim()
-                  ? worker.api?.findPlaces
-                    ? "form.urlNoPinFind"
-                    : "form.urlNoPin"
-                  : worker.api?.findPlaces
-                    ? "form.unpinnedFind"
-                    : "form.unpinned",
+              naming
+                ? "form.placeNaming"
+                : hasPin()
+                  ? "form.pinned"
+                  : mapsUrl.trim()
+                    ? worker.api?.findPlaces
+                      ? "form.urlNoPinFind"
+                      : "form.urlNoPin"
+                    : worker.api?.findPlaces
+                      ? "form.unpinnedFind"
+                      : "form.unpinned",
             )
           }}</p>
         <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
@@ -386,7 +422,7 @@ function submit() {
               </button>
             </li>
           </ul>
-          <p v-if="found.length" class="credit">{{ i18n.t("form.placesCredit") }}</p>
+          <p v-if="found.length || namedByOsm" class="credit">{{ i18n.t("form.placesCredit") }}</p>
           <p v-if="placeState !== 'idle'" aria-live="polite">{{ i18n.t(PLACE_STATE[placeState]) }}</p>
         </div>
       </div>
