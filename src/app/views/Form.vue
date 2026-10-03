@@ -357,7 +357,19 @@ function submit() {
           :placeholder="i18n.t('form.mapsPlaceholder')"
           @change="onMapsUrl"
         />
-        <p aria-live="polite">{{ i18n.t(hasPin() ? "form.pinned" : mapsUrl.trim() ? "form.urlNoPin" : "form.unpinned") }}</p>
+        <p aria-live="polite">{{
+            i18n.t(
+              hasPin()
+                ? "form.pinned"
+                : mapsUrl.trim()
+                  ? worker.api?.findPlaces
+                    ? "form.urlNoPinFind"
+                    : "form.urlNoPin"
+                  : worker.api?.findPlaces
+                    ? "form.unpinnedFind"
+                    : "form.unpinned",
+            )
+          }}</p>
         <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
         <div v-if="worker.api?.findPlaces" class="places">
           <button

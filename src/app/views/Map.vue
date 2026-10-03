@@ -32,6 +32,7 @@ import type { LatLng } from "../features/place/types";
 import { useTags } from "../features/tags/useTags";
 import { hhmm, shortDate } from "../features/trip/format";
 import { useTrip } from "../features/trip/useTrip";
+import { useWorker } from "../features/worker/useWorker";
 import closeIcon from "../icons/close.svg";
 import Icon from "../icons/Icon.vue";
 import plusIcon from "../icons/plus.svg";
@@ -42,9 +43,14 @@ const store = useNotes();
 const tags = useTags();
 const trip = useTrip();
 const i18n = useI18n();
+/** Whether a memo's place can be found from its words (the form's "Find the place") */
+const worker = useWorker();
 const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 const el = useTemplateRef<HTMLElement>("el");
+/** How long a press is held to write a memo there; where it is held, while it is */
+const HOLD_MS = 500;
+const holding = ref<{ x: number; y: number } | null>(null);
 /** The pin whose card is open, by id: the note object is replaced whenever it changes */
 const selectedId = ref<string | null>(null);
 const selected = computed(
@@ -97,24 +103,53 @@ onMounted(() => {
     syncMarkers();
     syncRoute();
   });
-  map.on("click", () => (selectedId.value = null));
+  map.on("click", () => {
+    // the click that ends a long press is not also a click on the map (closing the open card)
+    if (held) held = false;
+    else selectedId.value = null;
+  });
 
-  // long press on the map = new memo pinned here
-  let t: number | undefined,
-    start: { x: number; y: number } | null = null;
-  map.on("touchstart", (e) => {
-    if (e.originalEvent.touches.length !== 1) return;
-    start = { x: e.point.x, y: e.point.y };
+  // a long press (a finger or a mouse) writes a new memo pinned where it was held; a ring
+  // fills at the point while it is held, so holding visibly does something
+  let t: number | undefined;
+  let start: { x: number; y: number } | null = null;
+  let held = false;
+  function hold(point: { x: number; y: number }, at: LatLng) {
+    cancelHold();
+    start = point;
+    holding.value = point;
     t = window.setTimeout(() => {
+      held = true;
+      holding.value = null;
       navigator.vibrate?.(10);
-      emit("write", { lat: e.lngLat.lat, lng: e.lngLat.lng });
-    }, 500);
+      emit("write", at);
+    }, HOLD_MS);
+  }
+  function moved(point: { x: number; y: number }) {
+    if (start && Math.hypot(point.x - start.x, point.y - start.y) > 8) cancelHold();
+  }
+  function cancelHold() {
+    clearTimeout(t);
+    start = null;
+    holding.value = null;
+  }
+  map.on("touchstart", (e) => {
+    if (e.originalEvent.touches.length !== 1) return cancelHold();
+    hold(e.point, { lat: e.lngLat.lat, lng: e.lngLat.lng });
   });
-  map.on("touchmove", (e) => {
-    if (start && Math.hypot(e.point.x - start.x, e.point.y - start.y) > 8) clearTimeout(t);
+  map.on("touchmove", (e) => moved(e.point));
+  map.on("touchend", cancelHold);
+  map.on("touchcancel", cancelHold);
+  map.on("mousedown", (e) => {
+    if (e.originalEvent.button !== 0) return;
+    held = false;
+    hold(e.point, { lat: e.lngLat.lat, lng: e.lngLat.lng });
   });
-  map.on("touchend", () => clearTimeout(t));
-  map.on("contextmenu", (e) => emit("write", { lat: e.lngLat.lat, lng: e.lngLat.lng })); // desktop: right click
+  map.on("mousemove", (e) => moved(e.point));
+  map.on("mouseup", cancelHold);
+  map.on("mouseout", cancelHold);
+  map.on("dragstart", cancelHold);
+  map.on("contextmenu", (e) => emit("write", { lat: e.lngLat.lat, lng: e.lngLat.lng })); // a right click too
 });
 onBeforeUnmount(() => {
   markers.forEach((m) => m.remove());
@@ -229,8 +264,16 @@ function fitAll() {
             @click="() => tags.toggleTag(t.name)"
           >#{{ t.name }}</CtChip>
         </div>
-        <p v-if="noPin">{{ i18n.t("map.noPin", { count: noPin }) }}</p>
+        <p v-if="noPin">{{ i18n.t(worker.api?.findPlaces ? "map.noPinFind" : "map.noPin", { count: noPin }) }}</p>
       </div>
+
+      <!-- the press being held: a ring that fills, and the memo is written when it closes -->
+      <span
+        v-if="holding"
+        aria-hidden="true"
+        class="hold"
+        :style="`--x: ${holding.x}px; --y: ${holding.y}px; --hold: ${HOLD_MS}ms`"
+      ></span>
 
       <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
 
@@ -256,6 +299,8 @@ function fitAll() {
 </template>
 
 <style scoped>
+@import "../../ui/styles/media.css";
+
 section {
   position: absolute;
   inset: 0;
@@ -425,6 +470,30 @@ section {
       }
     }
 
+    /* a ring that closes as the press is held, at the point held */
+    > .hold {
+      position: absolute;
+      inset-inline-start: 0;
+      inset-block-start: 0;
+      z-index: var(--z-float-top);
+      width: 56px;
+      height: 56px;
+      margin: -28px 0 0 -28px;
+      translate: var(--x) var(--y);
+      border-radius: 50%;
+      pointer-events: none;
+      /* the tiles are light in both themes, so the paper's ink, which is always dark */
+      background: conic-gradient(var(--paper-ink) calc(var(--fill) * 1turn), transparent 0);
+      mask: radial-gradient(circle, transparent 22px, #000 23px);
+      animation: hold var(--hold) linear both;
+
+      @media (--reduced-motion) {
+        animation: none;
+        --fill: 1;
+        opacity: 0.6;
+      }
+    }
+
     /* level with the write button's middle, as on the desk */
     > .jump {
       position: absolute;
@@ -527,6 +596,20 @@ section {
         }
       }
     }
+  }
+}
+
+@property --fill {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+@keyframes hold {
+  from {
+    --fill: 0;
+  }
+  to {
+    --fill: 1;
   }
 }
 </style>
