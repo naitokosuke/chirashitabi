@@ -45,6 +45,7 @@
  * bar included, is shown live at once, so its own indicator slides as usual instead of being
  * cross-faded with a snapshot of itself.
  *   view-transition-name: ct-screen  the box a view sits in: views cross-fade
+ *   view-transition-name: ct-dock    the dock: on top and live, never a picture of itself
  * A page whose content is replaced (a booklet's day) does not cross-fade, which would show two
  * different pages through each other: it turns, with usePageTurn.
  */
@@ -63,13 +64,22 @@
 ::view-transition-new(ct-screen) {
   animation-duration: 0.18s;
 }
+::view-transition-old(ct-dock) {
+  display: none;
+}
+::view-transition-group(ct-dock),
+::view-transition-new(ct-dock) {
+  animation: none;
+}
 
 /*
- * The theme turning (useTheme, type `theme`). The page is one picture: the new colors spread
- * over the old from where the switch was pressed, like ink soaking into paper, with a soft wet
- * edge; nothing else morphs meanwhile. The new picture is live, so the switch's own icon
- * turns inside the spreading ink. `--theme-x`, `--theme-y` and `--theme-r` are set on the root
- * just before: the point, and how far the ink must go to cover the screen.
+ * The theme turning (useTheme, type `theme`). The page is one picture with a soft-edged circle
+ * on the switch, and nothing else morphs meanwhile. Going light (`theme-light`), the new
+ * colors spread out from the switch like ink soaking into paper; the new picture is live, so
+ * the icon turns inside the spreading ink. Going dark (`theme-dark`), night comes in from the
+ * edges: the old, lit picture lies on top and its circle shrinks into the switch until it
+ * goes out. `--theme-x`, `--theme-y` and `--theme-r` are set on the root just before: the
+ * point, and how far the circle must reach to cover the screen.
  */
 @property --ink-r {
   syntax: "<length>";
@@ -83,14 +93,22 @@
   &::view-transition-old(root) {
     opacity: 1;
   }
-  &::view-transition-new(root) {
-    mask-image: radial-gradient(
-      circle at var(--theme-x) var(--theme-y),
-      #000 calc(var(--ink-r) - 56px),
-      transparent var(--ink-r)
-    );
-    animation: ct-ink 0.75s cubic-bezier(0.65, 0, 0.35, 1) both;
-  }
+}
+:root:active-view-transition-type(theme-light)::view-transition-new(root),
+:root:active-view-transition-type(theme-dark)::view-transition-old(root) {
+  mask-image: radial-gradient(
+    circle at var(--theme-x) var(--theme-y),
+    #000 calc(var(--ink-r) - 56px),
+    transparent var(--ink-r)
+  );
+}
+:root:active-view-transition-type(theme-light)::view-transition-new(root) {
+  animation: ct-ink 0.75s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+/* the day on top, closing in on the switch: slow to start, and the last of it lingering there */
+:root:active-view-transition-type(theme-dark)::view-transition-old(root) {
+  z-index: 1;
+  animation: ct-dusk 0.9s cubic-bezier(0.7, 0, 0.3, 1) both;
 }
 @keyframes ct-ink {
   from {
@@ -98,5 +116,13 @@
   }
   to {
     --ink-r: calc(var(--theme-r) + 56px);
+  }
+}
+@keyframes ct-dusk {
+  from {
+    --ink-r: calc(var(--theme-r) + 56px);
+  }
+  to {
+    --ink-r: 0px;
   }
 }
