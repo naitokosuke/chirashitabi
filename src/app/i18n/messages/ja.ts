@@ -40,6 +40,8 @@ export const ja: Messages = {
   "rooms.failed": "ルームに接続できませんでした。",
   "rooms.retry": "もう一度",
 
+  "room.reconnecting": "再接続中… {$time} 時点の内容です",
+
   "status.idea": "候補",
   "status.fixed": "確定",
   "status.done": "済み",

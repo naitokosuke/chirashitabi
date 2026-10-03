@@ -51,6 +51,7 @@ import mapIcon from "./icons/map.svg";
 import memoIcon from "./icons/memo.svg";
 import shioriIcon from "./icons/shiori.svg";
 import { useRoom } from "./features/sync/useRoom";
+import Connection from "./features/sync/Connection.vue";
 import Toast from "./features/toast/Toast.vue";
 import Canvas, { place } from "./views/Canvas.vue";
 import Form from "./views/Form.vue";
@@ -170,6 +171,7 @@ function onMemoSaved(input: NoteInput) {
   </div>
   <Rooms v-else @enter="(id) => room.connect(id)" />
   <Toast v-if="inRoom" :inert="state.form !== null" />
+  <Connection v-if="inRoom" />
   <CtTabBar
     v-if="inRoom"
     class="nav"

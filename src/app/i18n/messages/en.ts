@@ -42,6 +42,8 @@ export const en = {
   "rooms.failed": "Could not reach the room.",
   "rooms.retry": "Try again",
 
+  "room.reconnecting": "Reconnecting… showing the room as of {$time}",
+
   "status.idea": "Maybe",
   "status.fixed": "Confirmed",
   "status.done": "Done",

@@ -170,16 +170,20 @@ function onMove(e: PointerEvent) {
       view.value.ty = g.ty + (p.y - g.y);
   }
 }
+/**
+ * A card under a finger is drawn from here, not from the cache: intermediate positions do not
+ * belong in the room's data (docs/data-fetching.md). The drop writes it once.
+ */
+const held = shallowRef<{ id: NoteId; x: number; y: number } | null>(null);
 function dragTo(g: Drag, p: Pt) {
   const { note, ox, oy } = g.grab;
   const w = toWorld(p.x, p.y);
-  // throttle network sends to ~12/s; local position updates every frame
+  held.value = { id: note.id, x: w.x - ox, y: w.y - oy };
+  // the partner sees it travel at ~12/s; here it follows every frame
   const now = performance.now();
   if (now - g.lastSend > 80) {
-    store.move(note.id, w.x - ox, w.y - oy);
+    store.sendMove(note.id, held.value.x, held.value.y);
     g.lastSend = now;
-  } else {
-    store.nudge(note.id, w.x - ox, w.y - oy);
   }
 }
 
@@ -191,9 +195,10 @@ function onUp(e: PointerEvent) {
   // a tap on a memo opens it; suggestions are adopted with their own buttons
   if (g.kind === "press" && e.type === "pointerup" && g.grab.note.kind === "memo")
     emit("edit", g.grab.note);
-  // where it was let go, as the store has it now: the grabbed object is from before the drag
-  const dropped = g.kind === "drag" ? store.byId(g.grab.note.id) : undefined;
-  if (dropped !== undefined) store.move(dropped.id, dropped.x, dropped.y);
+  // let go: the one write of where it landed
+  const dropped = held.value;
+  if (g.kind === "drag" && dropped !== null) store.move(dropped.id, dropped.x, dropped.y);
+  held.value = null;
   setGesture(IDLE);
 }
 
@@ -315,7 +320,11 @@ const undoAdd = (id: NoteId) => ({ undo: () => store.remove(id) });
 
 // ---- deleting: the card leaves at once; the room hears about it once the toast is gone ----
 const pendingDelete = ref(new Set<NoteId>());
-const shownNotes = computed(() => store.notes.filter((n) => !pendingDelete.value.has(n.id)));
+const shownNotes = computed(() =>
+  store.notes
+    .filter((n) => !pendingDelete.value.has(n.id))
+    .map((n) => (held.value?.id === n.id ? { ...n, x: held.value.x, y: held.value.y } : n)),
+);
 function remove(note: Note) {
   const card = cardEl(note);
   const hadFocus =

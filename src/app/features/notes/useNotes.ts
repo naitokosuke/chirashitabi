@@ -1,11 +1,14 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { shallowRef } from "vue";
+import { computed } from "vue";
 
 import { defineStore } from "pinia";
 
+import { useQueryCache } from "@pinia/colada";
+
 import type { MemberId } from "../members/types";
 import { useMembers } from "../members/useMembers";
+import { roomKey } from "../sync/keys";
 import type { Mutation } from "../sync/types";
 import { useSync } from "../sync/useSync";
 
@@ -17,19 +20,23 @@ const uid = () => Math.random().toString(36).slice(2, 10) as NoteId;
 const now = () => Temporal.Now.instant();
 
 /**
- * The room's notes. Every change, ours or a member's, goes through `applyToNotes`, which
- * returns a new array with new objects for what changed; the store only assigns the result
- * (docs/data-fetching.md). Hold a note by its id, not by the object: the object is replaced
- * whenever the note changes.
+ * The room's notes, as they sit in the query cache under `roomKey(room, "notes")`: the store
+ * reads them from there and writes them back, and the room's socket writes there too
+ * (docs/data-fetching.md). Every change, ours or a member's, goes through `applyToNotes`,
+ * which returns a new array with new objects for what changed. Hold a note by its id, not by
+ * the object: the object is replaced whenever the note changes.
  */
 export const useNotes = defineStore("notes", () => {
   const sync = useSync();
   const members = useMembers();
-  const notes = shallowRef<Note[]>([]);
+  const queryCache = useQueryCache();
+  const key = computed(() => roomKey(sync.roomId, "notes"));
+  const notes = computed(() => queryCache.getQueryData<Note[]>(key.value) ?? []);
+  const write = (next: Note[]) => queryCache.setQueryData(key.value, next);
 
   /** Ours: applied here at once, then sent */
   function commit(m: Mutation) {
-    notes.value = applyToNotes(notes.value, m, members.me, now());
+    write(applyToNotes(notes.value, m, members.me, now()));
     sync.send(m);
   }
 
@@ -64,9 +71,12 @@ export const useNotes = defineStore("notes", () => {
     if (byId(id) === undefined) return;
     commit({ type: "note:move", id, x, y });
   }
-  /** A card under a finger, every frame: moved here only; `move` is what sends it, a few times a second */
-  function nudge(id: NoteId, x: number, y: number) {
-    notes.value = applyToNotes(notes.value, { type: "note:move", id, x, y }, members.me, now());
+  /**
+   * A card on its way under a finger: sent so the partner sees it travel, but not written to
+   * the cache, where intermediate positions do not belong; the drop is a `move`.
+   */
+  function sendMove(id: NoteId, x: number, y: number) {
+    sync.send({ type: "note:move", id, x, y });
   }
   function remove(id: NoteId) {
     commit({ type: "note:delete", id });
@@ -85,12 +95,13 @@ export const useNotes = defineStore("notes", () => {
 
   /** Called by the room when an authoritative snapshot arrives. */
   function apply(snapshot: Note[]) {
-    notes.value = snapshot;
+    write(snapshot);
   }
 
   /** A note mutation the room relays from a member (us too, after a reconnect): applied, never sent */
   function receive(m: Mutation, by: MemberId, at: Temporal.Instant) {
-    notes.value = applyToNotes(notes.value, m, by, at);
+    const next = applyToNotes(notes.value, m, by, at);
+    if (next !== notes.value) write(next);
   }
 
   return {
@@ -99,7 +110,7 @@ export const useNotes = defineStore("notes", () => {
     update,
     recolor,
     move,
-    nudge,
+    sendMove,
     remove,
     duplicate,
     adopt,
