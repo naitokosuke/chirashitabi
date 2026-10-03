@@ -101,10 +101,14 @@ export async function draftDay(
       body: JSON.stringify({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        system:
+        system: [
           "You are a member of two friends' trip-planning room, helping them shape their days.",
+          `Always answer by calling the ${DRAFT_TOOL.name} tool, once, and write nothing else.`,
+        ].join(" "),
         tools: [DRAFT_TOOL],
-        tool_choice: { type: "tool", name: DRAFT_TOOL.name },
+        // this model does not take a forced tool ("tool" or "any"); the system prompt asks for
+        // it, and an answer without the call is not a draft (and is spent)
+        tool_choice: { type: "auto" },
         messages: [{ role: "user", content: prompt }],
       }),
     });
