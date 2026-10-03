@@ -18,6 +18,7 @@ export const mockWorker = (): WorkerApi => ({
   uploadImage: null,
   // nor Clef to ask
   suggestTags: null,
+  findPlaces: null,
   async draftDay(_date, notes) {
     await wait(THINKING_MS);
     return {

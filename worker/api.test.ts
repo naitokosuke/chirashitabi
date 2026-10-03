@@ -43,6 +43,11 @@ let judge: (input: { state: unknown; questions: Record<string, unknown>; images?
 } = () => ({ status: 500, body: {} });
 const judged: { state: unknown; questions: Record<string, unknown>; images?: unknown[] }[] = [];
 
+/** Stands in for OpenStreetMap's geocoder: each test sets what a query finds; `looked` keeps the queries */
+let geocoder: Server;
+let find: (query: string) => { status: number; body: unknown } = () => ({ status: 200, body: [] });
+const looked: { q: string | null; lang: string | null; agent: string | undefined }[] = [];
+
 beforeAll(async () => {
   const pair = (await crypto.subtle.generateKey(
     {
@@ -97,6 +102,22 @@ beforeAll(async () => {
   await new Promise<void>((resolve) => clef.listen(0, "127.0.0.1", resolve));
   const clefPort = (clef.address() as AddressInfo).port;
 
+  geocoder = createServer((req, res) => {
+    const url = new URL(req.url ?? "/", "http://stub");
+    const q = url.searchParams.get("q");
+    looked.push({
+      q,
+      lang: url.searchParams.get("accept-language"),
+      agent: req.headers["user-agent"],
+    });
+    const { status, body: out } = find(q ?? "");
+    res.statusCode = status;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify(out));
+  });
+  await new Promise<void>((resolve) => geocoder.listen(0, "127.0.0.1", resolve));
+  const geocoderPort = (geocoder.address() as AddressInfo).port;
+
   // The Worker as it is deployed, but for its Workers AI binding: that one only runs against
   // Cloudflare (a login, which CI does not have), so Clef is the stub at CLEF_BASE_URL instead.
   // Written to a folder of its own, away from a developer's .dev.vars, with its paths made whole.
@@ -121,6 +142,7 @@ beforeAll(async () => {
           ANTHROPIC_BASE_URL: `http://127.0.0.1:${claudePort}`,
           ANTHROPIC_API_KEY: "test-key",
           CLEF_BASE_URL: `http://127.0.0.1:${clefPort}`,
+          GEOCODER_BASE_URL: `http://127.0.0.1:${geocoderPort}`,
           SPEND_PER_DAY: String(PER_DAY),
         },
       },
@@ -134,6 +156,7 @@ afterAll(async () => {
   certs?.close();
   claude?.close();
   clef?.close();
+  geocoder?.close();
 });
 
 const b64url = (data: Uint8Array | string) => {
@@ -1028,5 +1051,108 @@ describe("tags suggested for a memo", () => {
     expect((await ask(roomId, email, { body: "no title" })).status).toBe(400);
     expect((await ask(roomId, email, { title: "x", image: "not-an-id" })).status).toBe(400);
     expect(judged.length).toBe(before);
+  });
+});
+
+describe("finding a memo's place", () => {
+  const naming = (queries: string[]) => ({
+    status: 200,
+    body: {
+      content: [{ type: "tool_use", id: "t1", name: "name_place", input: { queries } }],
+      usage: { input_tokens: 40, output_tokens: 12 },
+    },
+  });
+  const NINGXIA = {
+    name: "寧夏夜市",
+    display_name: "寧夏夜市, 寧夏路, 大同區, 臺北市, 103, 臺灣",
+    lat: "25.0563",
+    lon: "121.5154",
+  };
+  const ask = (roomId: string, email: string, body: unknown) =>
+    post(`/api/rooms/${roomId}/places`, email, body);
+
+  test("Claude names the place, the geocoder finds it; the coordinates are the geocoder's", async () => {
+    const email = "finder@example.com";
+    const { roomId } = await createRoom(email);
+    answer = () => naming(["寧夏夜市, 臺北市, 臺灣", "Ningxia Night Market, Taipei"]);
+    find = (q) => ({
+      status: 200,
+      body: q.startsWith("寧夏") ? [NINGXIA, { display_name: "x" }] : [],
+    });
+    const calls = asked.length;
+    const seen = looked.length;
+
+    const res = await ask(roomId, email, {
+      title: "寧夏夜市 グルメ食べ歩き",
+      body: "",
+      tags: ["夜市"],
+      lang: "ja",
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      places: [
+        {
+          name: "寧夏夜市",
+          address: "寧夏路, 大同區, 臺北市, 103, 臺灣",
+          lat: 25.0563,
+          lng: 121.5154,
+        },
+      ],
+    });
+    // one paid call; one lookup (the first query found it), identified, in the asker's language
+    expect(asked.length).toBe(calls + 1);
+    expect(looked.slice(seen)).toEqual([
+      { q: "寧夏夜市, 臺北市, 臺灣", lang: "ja", agent: expect.stringContaining("chirashitabi") },
+    ]);
+    const prompt = (asked.at(-1) as { messages: { content: string }[] }).messages[0]!.content;
+    expect(prompt).toContain("寧夏夜市 グルメ食べ歩き");
+    expect(prompt).toContain("Taiwan trip");
+  });
+
+  test("the second query is tried only when the first finds nothing", async () => {
+    const email = "finder2@example.com";
+    const { roomId } = await createRoom(email);
+    answer = () => naming(["nowhere at all", "Ningxia Night Market, Taipei"]);
+    find = (q) => ({ status: 200, body: q.startsWith("Ningxia") ? [NINGXIA] : [] });
+    const seen = looked.length;
+    const res = await ask(roomId, email, { title: "night market", body: "", tags: [], lang: "en" });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { places: unknown[] }).places).toHaveLength(1);
+    expect(looked.slice(seen).map((l) => l.q)).toEqual([
+      "nowhere at all",
+      "Ningxia Night Market, Taipei",
+    ]);
+  });
+
+  test("a memo about no place finds none, and the geocoder is not asked", async () => {
+    const email = "finder3@example.com";
+    const { roomId } = await createRoom(email);
+    answer = () => naming([]);
+    const seen = looked.length;
+    const res = await ask(roomId, email, {
+      title: "pack sunscreen",
+      body: "",
+      tags: [],
+      lang: "ja",
+    });
+    expect(await res.json()).toEqual({ places: [] });
+    expect(looked.length).toBe(seen);
+  });
+
+  test("an empty memo is refused before anything is paid; a geocoder that fails is a 502", async () => {
+    const email = "finder4@example.com";
+    const { roomId } = await createRoom(email);
+    const calls = asked.length;
+    expect((await ask(roomId, email, { title: "  ", body: "" })).status).toBe(400);
+    expect(asked.length).toBe(calls);
+
+    answer = () => naming(["寧夏夜市, 臺北市, 臺灣"]);
+    find = () => ({ status: 503, body: {} });
+    expect((await ask(roomId, email, { title: "寧夏夜市", body: "" })).status).toBe(502);
+  });
+
+  test("only members may ask", async () => {
+    const { roomId } = await createRoom("finder5@example.com");
+    expect((await ask(roomId, STRANGER, { title: "寧夏夜市" })).status).toBe(403);
   });
 });

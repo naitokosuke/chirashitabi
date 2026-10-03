@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 
 import type { NoteStatus } from "../src/app/features/notes/types";
 
-import type { SuggestContext, TagContext } from "./claude";
+import type { PlaceContext, SuggestContext, TagContext } from "./claude";
 import {
   MAX_MESSAGE_BYTES,
   parseCid,
@@ -255,6 +255,15 @@ export class Room extends DurableObject<Env> {
       (n): n is WireMemo => n.kind === "memo" && n.schedule?.date === date,
     );
     return { trip: trip.name, currency: trip.currency, notes };
+  }
+
+  // ---- places: where a memo is ----
+
+  /** What naming a memo's place needs, asked by member `by`: which trip, and when */
+  placeContext(by: string): PlaceContext {
+    this.assertMember(by);
+    const trip = this.trip();
+    return { trip: trip.name, days: trip.days.map((d) => d.date) };
   }
 
   // ---- tags: the ones in use, and the agent's candidates for the trip ----

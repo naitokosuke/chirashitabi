@@ -2,6 +2,7 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import type { MemberId } from "../members/types";
 import type { ImageId, Scheduled } from "../notes/types";
+import type { FoundPlace } from "../place/types";
 
 /** A suggested order and times for one day, from whichever member drafted it */
 export interface DayDraft {
@@ -35,6 +36,19 @@ export interface WorkerApi {
         image: ImageId | null;
         chosen: string[];
       }) => Promise<{ tag: string; isNew: boolean }[]>)
+    | null;
+  /**
+   * Where a memo is: the room's agent names the place from its words, and OpenStreetMap finds
+   * it, so the points are real ones. Up to three to choose from, none when the memo is not
+   * about a place. Null while it cannot
+   */
+  findPlaces:
+    | ((memo: {
+        title: string;
+        body: string;
+        tags: string[];
+        lang: "ja" | "en";
+      }) => Promise<FoundPlace[]>)
     | null;
   /** Have a member order a day's notes and give them times */
   draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<DayDraft>;

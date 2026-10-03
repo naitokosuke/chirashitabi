@@ -43,7 +43,8 @@ import {
   type NoteInput,
 } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
-import { placeFromUrl } from "../features/place/google-maps";
+import { placeFromUrl, placeSearchLink } from "../features/place/google-maps";
+import type { FoundPlace } from "../features/place/types";
 import { useSync } from "../features/sync/useSync";
 import { useTags } from "../features/tags/useTags";
 import { OverBudget, RoomFull } from "../features/worker/api";
@@ -155,6 +156,42 @@ async function askForTags() {
     tagState.value = err instanceof OverBudget ? err.ceiling : "failed";
   }
 }
+// ---- where the memo is: the agent names the place, OpenStreetMap finds it; one is chosen ----
+type PlaceState = "idle" | "asking" | "none" | "failed" | "day" | "trip";
+const placeState = ref<PlaceState>("idle");
+const PLACE_STATE = {
+  asking: "form.placesAsking",
+  none: "form.placesNone",
+  failed: "form.placesFailed",
+  day: "form.tagsLimit",
+  trip: "form.tagsTripLimit",
+} as const satisfies Record<Exclude<PlaceState, "idle">, string>;
+const found = ref<FoundPlace[]>([]);
+async function findPlaces() {
+  const ask = worker.api?.findPlaces;
+  if (ask === null || ask === undefined || placeState.value === "asking") return;
+  const { title, body, tags: inline } = parseNoteText(text.value);
+  placeState.value = "asking";
+  found.value = [];
+  try {
+    found.value = await ask({
+      title,
+      body,
+      tags: [...form.value.tags, ...inline],
+      lang: i18n.locale === "en" ? "en" : "ja",
+    });
+    placeState.value = found.value.length === 0 ? "none" : "idle";
+  } catch (err) {
+    placeState.value = err instanceof OverBudget ? err.ceiling : "failed";
+  }
+}
+/** The chosen place becomes the memo's link, and its point the pin, as a pasted link would */
+function choosePlace(p: FoundPlace) {
+  mapsUrl.value = placeSearchLink(p.name, p.at);
+  onMapsUrl();
+  found.value = [];
+}
+
 const textEl = useTemplateRef<HTMLTextAreaElement>("textEl");
 const focusText = () => nextTick(() => textEl.value?.focus());
 onMounted(() => {
@@ -321,6 +358,25 @@ function submit() {
           @change="onMapsUrl"
         />
         <p aria-live="polite">{{ i18n.t(hasPin() ? "form.pinned" : mapsUrl.trim() ? "form.urlNoPin" : "form.unpinned") }}</p>
+        <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
+        <div v-if="worker.api?.findPlaces" class="places">
+          <button
+            type="button"
+            :disabled="placeState === 'asking' || !text.trim()"
+            :aria-busy="placeState === 'asking'"
+            @click="findPlaces"
+          >{{ i18n.t("form.findPlace") }}</button>
+          <ul v-if="found.length">
+            <li v-for="p in found" :key="`${p.at.lat},${p.at.lng}`">
+              <button type="button" @click="() => choosePlace(p)">
+                <span>{{ p.name }}</span>
+                <small>{{ p.address }}</small>
+              </button>
+            </li>
+          </ul>
+          <p v-if="found.length" class="credit">{{ i18n.t("form.placesCredit") }}</p>
+          <p v-if="placeState !== 'idle'" aria-live="polite">{{ i18n.t(PLACE_STATE[placeState]) }}</p>
+        </div>
       </div>
       <div v-if="worker.api?.uploadImage">
         <label :for="`${id}-photo`">{{ i18n.t("form.photo") }}</label>
@@ -503,6 +559,99 @@ form {
       }
 
       /* the ask for tags, dashed like every ask of the agent's, then what came back */
+      /* the ask for the place, dashed like every ask of the agent's, then the places to choose */
+      > .places {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        margin-top: 8px;
+
+        > button {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          min-height: var(--tap);
+          padding: 0 12px;
+          border-radius: 999px;
+          background: var(--surface);
+          border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
+          font-size: var(--font-sm);
+          font-weight: 700;
+          color: var(--ink);
+
+          &:disabled {
+            color: var(--muted);
+          }
+
+          &[aria-busy="true"]::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: breathe 1s ease-in-out infinite alternate;
+
+            @media (--reduced-motion) {
+              animation: none;
+            }
+          }
+        }
+
+        /* each place: its name, and where it is under it; a tap makes it the memo's */
+        > ul {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: grid;
+          gap: 6px;
+          align-self: stretch;
+
+          button {
+            width: 100%;
+            display: grid;
+            gap: 2px;
+            padding: 10px 12px;
+            text-align: start;
+            border-radius: 10px;
+            background: var(--surface);
+            border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
+            color: var(--ink);
+
+            > span {
+              font-size: var(--font-md);
+              font-weight: 700;
+            }
+
+            > small {
+              font-size: var(--font-xs);
+              color: var(--muted);
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            @media (--can-hover) {
+              &:hover {
+                border-style: solid;
+                border-color: var(--ink);
+              }
+            }
+
+            &:focus-visible {
+              outline: 2px solid var(--ink);
+              outline-offset: 2px;
+            }
+          }
+        }
+
+        > p {
+          margin: 0;
+          font-size: var(--font-xs);
+          color: var(--muted);
+        }
+      }
+
       > .suggested {
         display: flex;
         flex-wrap: wrap;

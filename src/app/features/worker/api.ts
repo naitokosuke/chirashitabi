@@ -2,6 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import type { MemberId } from "../members/types";
 import type { ImageId, NoteId } from "../notes/types";
+import type { FoundPlace } from "../place/types";
 import type { RoomId } from "../rooms/types";
 
 import type { WorkerApi } from "./types";
@@ -26,7 +27,7 @@ interface WireDraft {
 /** A POST to one of the room's agent calls; a refusal by the budget is an OverBudget */
 async function call(
   room: RoomId,
-  what: "draft" | "suggest" | "tags",
+  what: "draft" | "suggest" | "tags" | "places",
   body: unknown,
 ): Promise<Response> {
   const res = await fetch(`/api/rooms/${room}/${what}`, {
@@ -58,6 +59,17 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
   async suggestTags(memo) {
     const res = await call(room, "tags", memo);
     return ((await res.json()) as { tags: { tag: string; isNew: boolean }[] }).tags;
+  },
+  async findPlaces(memo) {
+    const res = await call(room, "places", memo);
+    const { places } = (await res.json()) as {
+      places: { name: string; address: string; lat: number; lng: number }[];
+    };
+    return places.map((p): FoundPlace => ({
+      name: p.name,
+      address: p.address,
+      at: { lat: p.lat, lng: p.lng },
+    }));
   },
   async suggest(at) {
     const res = await call(room, "suggest", { at });

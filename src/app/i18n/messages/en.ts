@@ -135,6 +135,11 @@ one {{Claude left {$count} idea here}}
   "form.unpinned": "No coordinates? Long-press on the map view to place it",
   "form.urlNoPin":
     "No coordinates in that link. Try the long link from “Share”, or long-press on the map to place it",
+  "form.findPlace": "Find the place",
+  "form.placesAsking": "Looking for the place…",
+  "form.placesNone": "Could not tell a place on the map from this note.",
+  "form.placesFailed": "The places did not come back. Ask again.",
+  "form.placesCredit": "Map data © OpenStreetMap contributors",
   "form.color": "Color",
   "form.save": "Save",
   "form.saveToCanvas": "Save to canvas",
