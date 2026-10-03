@@ -2,7 +2,7 @@
 
 How the app gets its data, and how it is to move onto Pinia Colada.
 The plan is staged so that each step ships on its own and the next one can be dropped if it stops paying for itself.
-The first three steps are done; "What there is today" describes the app before them.
+The first four steps are done; "What there is today" describes the app before them.
 
 ## What there is today
 
@@ -252,6 +252,20 @@ Local writes become `useMutation` whose mutation function awaits the ack, with t
 Incoming changes that conflict with one of our unacknowledged ones are held back until it settles, as Figma does.
 A rejection then undoes one change instead of reloading the room.
 
+Done, without `useMutation`.
+The snapshot-and-restore recipe undoes the wrong thing when two of our changes to the same note are in flight, which is the case TkDodo's concurrent-updates post works around; a ledger does not have the problem (`features/sync/ledger.ts`).
+It keeps what the room has confirmed and our changes it has not answered, each with its `cid`, and the cache shows the confirmed state with ours applied on top, in order.
+A member's change is applied to the confirmed state, so it lands under ours: that is the Figma rule without a separate hold-back.
+An ack moves ours into the confirmed state at the room's `updatedAt`; a rejection drops that one change, a toast says so, and everything else stays.
+After a reconnect the snapshot replaces the confirmed state and every unanswered change is sent again; each is safe to apply twice, and one the room had already applied comes back rejected (`duplicate id`, `no such note`) and is dropped, leaving what the snapshot says.
+So nothing waits on a timer: the open question about how long to hold back is answered by the next ack, rejection or snapshot.
+
+On the wire, a client mutation may carry `cid` beside its fields; the room answers its sender `{ type: "ack", cid, updatedAt }` or `{ type: "rejected", reason, cid }`, relays as before, and treats a mutation without a `cid` (a card's position mid-drag) as before.
+A rejection without a `cid` (a message it could not read) still makes the client resync.
+The socket no longer queues: the ledger is what is sent again.
+Stores commit through `useSync().commit`; only the room writes the cache.
+The mocks hand their state to `useRoom().offline`, where a commit is confirmed at once.
+
 ### Later
 
 `@pinia/colada-plugin-cache-persister` for reading the booklet offline on the trip, restricted to the room keys.
@@ -263,3 +277,4 @@ A rejection then undoes one change instead of reloading the room.
   The design picks three and the third step can revisit it.
 - Whether the stores stay as a facade over the cache for good, or components call the queries directly once the move is done.
 - How long a held-back incoming change may wait for its ack before the client gives up on it and takes the room's version.
+  Answered by the ledger: until the next ack, rejection or snapshot, with no timer.

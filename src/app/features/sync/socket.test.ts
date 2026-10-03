@@ -46,20 +46,23 @@ const intro: Mutation = { type: "day:intro", date: "2026-11-03" as never, intro:
 function setup() {
   const sockets: FakeSocket[] = [];
   const statuses: SocketStatus[] = [];
-  const snapshots: (readonly Mutation[])[] = [];
+  const snapshots: SocketStatus[] = []; // the status each snapshot found the socket in
   const mutations: ServerMessage[] = [];
+  const answers: string[] = [];
   const socket = createRoomSocket({
     open: () => {
       const s = new FakeSocket();
       sockets.push(s);
       return s;
     },
-    onSnapshot: (_msg, queued) => snapshots.push(queued),
+    onSnapshot: () => snapshots.push(socket.status),
     onMutation: (msg) => mutations.push(msg),
+    onAck: (cid, at) => answers.push(`ack ${cid} ${at}`),
+    onRejected: (cid, reason) => answers.push(`rejected ${cid} ${reason}`),
     onStatus: (s) => statuses.push(s),
   });
   const last = () => sockets.at(-1)!;
-  return { socket, sockets, statuses, snapshots, mutations, last };
+  return { socket, sockets, statuses, snapshots, mutations, answers, last };
 }
 
 beforeEach(() => vi.useFakeTimers());
@@ -74,29 +77,37 @@ describe("createRoomSocket", () => {
     expect(statuses.at(-1)).toBe("connected");
   });
 
-  test("sends at once while connected", () => {
+  test("sends at once while connected, with the cid beside the mutation when there is one", () => {
     const { socket, last } = setup();
     socket.connect("room-1");
     last().serve(snapshot);
-    socket.send(intro);
-    expect(last().sent).toEqual([intro]);
+    expect(socket.send(intro)).toBe(true);
+    expect(socket.send(intro, "c1")).toBe(true);
+    expect(last().sent).toEqual([intro, { ...intro, cid: "c1" }]);
   });
 
-  test("what is sent while down waits, comes with the next snapshot, and is then sent", () => {
+  test("while down nothing is sent, and the snapshot finds the socket connected so the caller can send again", () => {
     const { socket, sockets, snapshots, last } = setup();
     socket.connect("room-1");
     last().serve(snapshot);
     last().drop();
     expect(socket.status).toBe("reconnecting");
-
-    socket.send(intro);
+    expect(socket.send(intro, "c1")).toBe(false);
     expect(sockets[0]!.sent).toEqual([]);
 
     vi.advanceTimersByTime(1000);
-    expect(sockets).toHaveLength(2);
     last().serve(snapshot);
-    expect(snapshots.at(-1)).toEqual([intro]); // applied on top of the snapshot by the caller
-    expect(last().sent).toEqual([intro]); // and then sent
+    expect(snapshots).toEqual(["connected", "connected"]);
+  });
+
+  test("acks and rejections that name a cid go to the caller", () => {
+    const { socket, answers, last } = setup();
+    socket.connect("room-1");
+    last().serve(snapshot);
+    last().serve({ type: "ack", cid: "c1", updatedAt: "2026-10-01T00:00:00Z" });
+    last().serve({ type: "rejected", cid: "c2", reason: "no such note" });
+    expect(answers).toEqual(["ack c1 2026-10-01T00:00:00Z", "rejected c2 no such note"]);
+    expect(last().closed).toBeNull();
   });
 
   test("backs off 1s, 2s, 4s… and gives up after eight tries", () => {
@@ -132,7 +143,7 @@ describe("createRoomSocket", () => {
     expect(sockets).toHaveLength(4);
   });
 
-  test("a rejection closes the socket so the next snapshot is the truth", () => {
+  test("a rejection that names no cid closes the socket so the next snapshot is the truth", () => {
     const { socket, last } = setup();
     vi.spyOn(console, "warn").mockImplementation(() => {});
     socket.connect("room-1");
@@ -155,12 +166,11 @@ describe("createRoomSocket", () => {
     expect(mutations).toEqual([msg]);
   });
 
-  test("leaving closes the socket, drops the queue, and an old socket's close is ignored", () => {
+  test("leaving closes the socket, and an old socket's close is ignored", () => {
     const { socket, sockets, last } = setup();
     socket.connect("room-1");
     last().serve(snapshot);
     last().drop();
-    socket.send(intro);
     socket.leave();
     expect(socket.status).toBe("idle");
     vi.advanceTimersByTime(60_000);

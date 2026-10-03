@@ -92,13 +92,22 @@ export type WireMutation =
   | { type: "day:intro"; date: string; intro: string }
   | { type: "member:profile"; name: string; color: string };
 
-/** The client sends mutations as they are */
-export type ClientMessage = WireMutation;
+/**
+ * The client sends mutations as they are, with an optional `cid` beside the mutation's own
+ * fields. A mutation with a `cid` is answered to its sender only: `ack` once it is applied
+ * (with the room's `updatedAt`), or `rejected` with that `cid`. One without (a card's
+ * position while it is being dragged) is relayed and not answered.
+ */
+export type ClientMessage = WireMutation & { cid?: string };
 
 export type ServerMessage =
   | { type: "snapshot"; me: string; members: WireMember[]; trip: WireTrip; notes: WireNote[] }
   | { type: "mutation"; mutation: WireMutation; by: string; updatedAt: string }
-  | { type: "rejected"; reason: string };
+  | { type: "ack"; cid: string; updatedAt: string }
+  | { type: "rejected"; reason: string; cid?: string };
+
+/** The client's id for one of its mutations, if the message carries a valid one */
+export const parseCid = (v: unknown): string | null => (isRecord(v) && isId(v.cid) ? v.cid : null);
 
 export const MAX_MESSAGE_BYTES = 32 * 1024;
 

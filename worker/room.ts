@@ -4,6 +4,7 @@ import type { NoteStatus } from "../src/app/features/notes/types";
 
 import {
   MAX_MESSAGE_BYTES,
+  parseCid,
   parseMutation,
   type ServerMessage,
   type WireMember,
@@ -186,12 +187,19 @@ export class Room extends DurableObject<Env> {
   webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
     const by = this.ctx.getTags(ws)[0];
     if (by === undefined) return ws.close(1008, "no member");
+    // the client's id for this mutation, once it is known: an answer names it
+    let cid: string | null = null;
     const reject = (reason: string) =>
-      ws.send(JSON.stringify({ type: "rejected", reason } satisfies ServerMessage));
+      ws.send(
+        JSON.stringify({
+          type: "rejected",
+          reason,
+          ...(cid === null ? {} : { cid }),
+        } satisfies ServerMessage),
+      );
 
     if (typeof message !== "string") return reject("text only");
     if (message.length > MAX_MESSAGE_BYTES) return reject("too large");
-    if (!this.withinRate(by)) return reject("too many messages");
 
     let parsed: unknown;
     try {
@@ -199,12 +207,17 @@ export class Room extends DurableObject<Env> {
     } catch {
       return reject("not JSON");
     }
+    cid = parseCid(parsed);
+    if (!this.withinRate(by)) return reject("too many messages");
     const mutation = parseMutation(parsed);
     if (mutation === null) return reject("not a mutation");
 
     const updatedAt = new Date().toISOString();
     const result = this.apply(mutation, by, updatedAt);
     if (typeof result === "string") return reject(result);
+
+    if (cid !== null)
+      ws.send(JSON.stringify({ type: "ack", cid, updatedAt } satisfies ServerMessage));
 
     const out = JSON.stringify({
       type: "mutation",

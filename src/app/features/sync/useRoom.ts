@@ -4,14 +4,19 @@ import { ref } from "vue";
 
 import { defineStore } from "pinia";
 
+import { useQueryCache } from "@pinia/colada";
+
+import { useI18n } from "../../i18n/useI18n";
+
 import type { MemberId } from "../members/types";
 import { useMembers } from "../members/useMembers";
-import { useNotes } from "../notes/useNotes";
-import { useTrip } from "../trip/useTrip";
+import { useToast } from "../toast/useToast";
 
+import { roomKey, type RoomSlice } from "./keys";
+import { createLedger, type RoomState } from "./ledger";
 import { createRoomSocket, type SocketStatus } from "./socket";
 import type { Mutation } from "./types";
-import { useSync } from "./useSync";
+import { NOWHERE, useSync } from "./useSync";
 import { reviveMember, reviveMutation, reviveNote, reviveTrip } from "./wire";
 
 export type RoomStatus = SocketStatus;
@@ -19,54 +24,76 @@ export type RoomStatus = SocketStatus;
 const STORAGE_KEY = "chirashitabi:room";
 
 /**
- * A room, as the stores see it. The socket (socket.ts) connects and queues; this feeds what
- * comes back into the stores: a snapshot replaces their state and what was changed here while
- * the socket was down is applied on top again, and a mutation from another member is applied
- * as it is. Connecting installs the transport the stores send through.
+ * A room, between the socket (socket.ts) and the cache the stores read (keys.ts). What the
+ * room has confirmed and what of ours it has not answered yet is the ledger's (ledger.ts);
+ * whatever it shows is written into the cache's three slices. Connecting installs the
+ * transport the stores commit through (docs/data-fetching.md).
  */
 export const useRoom = defineStore("room", () => {
   const sync = useSync();
   const members = useMembers();
-  const trip = useTrip();
-  const notes = useNotes();
+  const queryCache = useQueryCache();
+  const toast = useToast();
+  const i18n = useI18n();
 
   const status = ref<RoomStatus>("idle");
   const roomId = ref<string | null>(null);
   /** When the room's state last arrived whole; what the screen shows while reconnecting is from then */
   const syncedAt = ref<Temporal.Instant | null>(null);
 
-  /** One mutation, from whoever, into whichever store it concerns */
-  function apply(m: Mutation, by: MemberId, at: Temporal.Instant) {
-    switch (m.type) {
-      case "day:intro":
-        trip.receive(m);
-        return;
-      case "member:profile":
-        members.receive(m, by);
-        return;
-      default:
-        notes.receive(m, by, at);
-    }
+  const ledger = createLedger(() => members.me);
+
+  /** The ledger's view into the cache; a slice that did not change is not written */
+  function show(state: RoomState) {
+    const put = (slice: RoomSlice, value: unknown) => {
+      const key = roomKey(sync.roomId, slice);
+      if (queryCache.getQueryData(key) !== value) queryCache.setQueryData(key, value);
+    };
+    put("notes", state.notes);
+    put("members", state.members);
+    if (state.trip !== null) put("trip", state.trip);
   }
 
   const socket = createRoomSocket({
-    onSnapshot(msg, queued) {
-      members.apply(msg.members.map(reviveMember));
+    onSnapshot(msg) {
       members.me = msg.me as MemberId;
-      trip.apply(reviveTrip(msg.trip));
-      notes.apply(msg.notes.map(reviveNote));
-      // What changed while we were away is applied on top again; the socket sends it next
-      const now = Temporal.Now.instant();
-      for (const m of queued) apply(m, members.me, now);
-      syncedAt.value = now;
+      show(
+        ledger.snapshot({
+          notes: msg.notes.map(reviveNote),
+          trip: reviveTrip(msg.trip),
+          members: msg.members.map(reviveMember),
+        }),
+      );
+      syncedAt.value = Temporal.Now.instant();
+      // ours the room has not answered go again: it may never have got them
+      for (const p of ledger.pending) socket.send(p.m, p.cid);
     },
     onMutation(msg) {
-      apply(reviveMutation(msg.mutation), msg.by as MemberId, Temporal.Instant.from(msg.updatedAt));
+      const m = reviveMutation(msg.mutation);
+      show(ledger.relayed(m, msg.by as MemberId, Temporal.Instant.from(msg.updatedAt)));
+    },
+    onAck(cid, updatedAt) {
+      show(ledger.ack(cid, Temporal.Instant.from(updatedAt)));
+    },
+    onRejected(cid, reason) {
+      const { dropped, view } = ledger.reject(cid);
+      show(view);
+      if (dropped !== undefined) {
+        console.warn(`room: ${dropped.m.type} refused: ${reason}`);
+        toast.show(i18n.t("room.refused"));
+      }
     },
     onStatus(next) {
       status.value = next;
     },
   });
+
+  /** Ours: shown at once, kept until the room answers, sent now or after the next snapshot */
+  function commit(m: Mutation) {
+    const cid = crypto.randomUUID();
+    show(ledger.commit(m, cid, Temporal.Now.instant()));
+    socket.send(m, cid);
+  }
 
   // The network is back: try the room now instead of waiting out the back-off (a live socket ignores this)
   window.addEventListener("online", () => socket.reconnect());
@@ -91,7 +118,7 @@ export const useRoom = defineStore("room", () => {
       // not remembered, nothing else changes
     }
     socket.connect(id);
-    sync.transport = { send: socket.send };
+    sync.transport = { commit, send: (m) => void socket.send(m) };
   }
 
   function leave() {
@@ -99,11 +126,19 @@ export const useRoom = defineStore("room", () => {
     roomId.value = null;
     sync.roomId = null;
     syncedAt.value = null;
-    sync.transport = { send: () => {} };
+    sync.transport = NOWHERE;
   }
 
-  /** The mock room: the stores are filled by hand and nothing goes anywhere */
-  function offline() {
+  /**
+   * A room with no server (the mocks): `state` is the room, and ours are applied as the room
+   * would confirm them, at once.
+   */
+  function offline(state: RoomState) {
+    show(ledger.snapshot(state));
+    sync.transport = {
+      commit: (m) => show(ledger.relayed(m, members.me, Temporal.Now.instant())),
+      send: () => {},
+    };
     status.value = "connected";
     syncedAt.value = Temporal.Now.instant();
   }

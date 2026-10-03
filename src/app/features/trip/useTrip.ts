@@ -11,16 +11,14 @@ import { currencyCode } from "../../shared/money";
 import type { NoteStatus } from "../notes/types";
 import { useNotes } from "../notes/useNotes";
 import { roomKey } from "../sync/keys";
-import type { Mutation } from "../sync/types";
 import { useSync } from "../sync/useSync";
 
-import { applyToDays } from "./apply";
 import * as itinerary from "./itinerary";
 import type { TripSnapshot } from "./types";
 
 /**
- * The trip's days, and the notes placed on them. The trip itself sits in the query cache
- * under `roomKey(room, "trip")` and is replaced, never changed in place (docs/data-fetching.md).
+ * The trip's days, and the notes placed on them. The trip itself is what the query cache holds
+ * under `roomKey(room, "trip")`, written by the room (docs/data-fetching.md).
  */
 export const useTrip = defineStore("trip", () => {
   const store = useNotes();
@@ -29,7 +27,6 @@ export const useTrip = defineStore("trip", () => {
   const key = computed(() => roomKey(sync.roomId, "trip"));
   /** Null until the room's first snapshot */
   const trip = computed(() => queryCache.getQueryData<TripSnapshot>(key.value) ?? null);
-  const write = (next: TripSnapshot) => queryCache.setQueryData(key.value, next);
 
   const name = computed(() => trip.value?.name ?? "");
   const days = computed(() => trip.value?.days ?? []);
@@ -47,27 +44,9 @@ export const useTrip = defineStore("trip", () => {
 
   const dayOf = (date: Temporal.PlainDate) => days.value.find((d) => d.date.equals(date));
 
-  /** Ours and the room's alike; nothing to apply before the first snapshot */
-  function applyDays(m: Mutation) {
-    const t = trip.value;
-    if (t === null) return;
-    const next = applyToDays(t.days, m);
-    if (next !== t.days) write({ ...t, days: next });
-  }
+  /** Committed to the room, which shows it at once (ledger.ts) */
   function setIntro(date: Temporal.PlainDate, intro: string) {
-    const m: Mutation = { type: "day:intro", date, intro };
-    applyDays(m);
-    sync.send(m);
-  }
-
-  /** A day's intro as the room relays it: applied, never sent */
-  function receive(m: Mutation) {
-    applyDays(m);
-  }
-
-  /** Called by the room when an authoritative snapshot arrives. */
-  function apply(snapshot: TripSnapshot) {
-    write(snapshot);
+    sync.commit({ type: "day:intro", date, intro });
   }
 
   return {
@@ -83,7 +62,5 @@ export const useTrip = defineStore("trip", () => {
     dayNumber,
     dayOf,
     setIntro,
-    receive,
-    apply,
   };
 });
