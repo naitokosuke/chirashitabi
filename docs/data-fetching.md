@@ -233,7 +233,7 @@ Measure a partner's live drag before and after.
 If the cache adds cost without making the code clearer, stop here and keep the stores on the reducers from the previous step; the maintainer's own view is that a realtime app may not need the library for its realtime part.
 
 Done, with one change to the design above.
-The slices are not `useQuery`s with a query function that waits for a snapshot: nothing ever fetches them, so the socket seeds them with `setQueryData` (as in [#483](https://github.com/posva/pinia-colada/discussions/483)) and the stores read them with `getQueryData` inside a `computed`, which tracks both the cache's map and the entry's state.
+The slices are not `useQuery`s with a query function that waits for a snapshot: nothing ever fetches them, so the socket seeds them with `setQueryData` (as in [#483](https://github.com/posva/pinia-colada/discussions/483)) and the stores read them with `getQueryData` inside a `computed`, which tracks both the cache's map and the entry's state (since replaced by `useQueryState`, below).
 Whether a room has arrived is the socket's status, as before, and `useRoom.syncedAt` says when it last did.
 The key's room id lives in `useSync`, so the stores do not depend on `useRoom`; a session without a room uses `"local"`.
 The stores keep their API, so no view changed except the canvas, whose held card is drawn from a local `held` position and written once on release (`sendMove` sends the throttled positions without touching the cache).
@@ -277,11 +277,20 @@ Opening a kept room shows it at once, before the socket answers; the app counts 
 What was written offline is signed by this device's member, survives closing the app, and is sent once the room is back.
 The kept format has a version; another version is ignored, not migrated.
 
+### The stores and the cache, tidied
+
+Each store had built its own key in a `computed`, read it with `getQueryData` and named the slice's type by hand; `me` lived in `useMembers` though only the room wrote it, and the room id was held twice, in `useRoom` and `useSync`.
+
+The keys are `roomKeys` in `features/sync/keys.ts`, one function per slice, tagged with what the slice holds (`EntryKeyTagged`), so a read or a write of the wrong type does not compile.
+The stores read with `useQueryState`, Pinia Colada's reactive read of an entry that never fetches it; an entry the room creates later wakes them, since the cache's map is tracked.
+`useSync` is the session: which room, who this device is in it (`me`), and where changes go; `useRoom` sets all three and no longer depends on any store.
+
 ## Open questions
 
 - Whether the three slices should be one `["room", roomId]` entry instead.
   One entry makes the snapshot a single write; three keep a note's change from re-rendering the trip and members.
   The design picks three and the third step can revisit it.
 - Whether the stores stay as a facade over the cache for good, or components call the queries directly once the move is done.
+  They stay: a store is a slice read with `useQueryState` plus what is derived from it (`nameOf`, `forDay`, the tag counts) and the commits a view makes; a component calling the cache would have to know the room's keys.
 - How long a held-back incoming change may wait for its ack before the client gives up on it and takes the room's version.
   Answered by the ledger: until the next ack, rejection or snapshot, with no timer.

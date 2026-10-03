@@ -4,10 +4,9 @@ import { computed } from "vue";
 
 import { defineStore } from "pinia";
 
-import { useQueryCache } from "@pinia/colada";
+import { useQueryState } from "@pinia/colada";
 
-import { useMembers } from "../members/useMembers";
-import { roomKey } from "../sync/keys";
+import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
 import { duplicateInput } from "./input";
@@ -16,23 +15,21 @@ import type { Memo, MemoPatch, Note, NoteColor, NoteId, NoteInput } from "./type
 const uid = () => Math.random().toString(36).slice(2, 10) as NoteId;
 
 /**
- * The room's notes, as the query cache holds them under `roomKey(room, "notes")`, and the
+ * The room's notes, as the query cache holds them (keys.ts), and the
  * changes one can make to them. A change is committed to the room, which shows it at once
  * and keeps it until the room answers (ledger.ts, docs/data-fetching.md). Hold a note by its
  * id, not by the object: the object is replaced whenever the note changes.
  */
 export const useNotes = defineStore("notes", () => {
   const sync = useSync();
-  const members = useMembers();
-  const queryCache = useQueryCache();
-  const key = computed(() => roomKey(sync.roomId, "notes"));
-  const notes = computed(() => queryCache.getQueryData<Note[]>(key.value) ?? []);
+  const { data } = useQueryState(() => roomKeys.notes(sync.roomId));
+  const notes = computed(() => data.value ?? []);
 
   function add(input: NoteInput, at: { x: number; y: number }): Memo {
     const n: Memo = {
       id: uid(),
       kind: "memo",
-      by: members.me,
+      by: sync.me,
       updatedAt: Temporal.Now.instant(),
       x: at.x + (Math.random() * 20 - 10),
       y: at.y + (Math.random() * 20 - 10),
