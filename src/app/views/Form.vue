@@ -1,9 +1,21 @@
 <script lang="ts">
-import type { Memo } from "../features/notes/types";
+import type { NoteId } from "../features/notes/types";
 import type { LatLng } from "../features/place/types";
 
-/** What the form is open on: a new memo (pinned when written from the map), or an existing one */
-export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; note: Memo };
+/**
+ * What a sheet is open on: a new memo (pinned when written from the map), or an existing one,
+ * by id, so the form always edits the memo as it is now
+ */
+export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; id: NoteId };
+
+/**
+ * Where the form is. The memo tab itself: always a new, unplaced memo, never closed, each save
+ * goes to the canvas and leaves it blank; `active` while the tab is up. Or a sheet over a tab
+ * (`from`, so the back control and the copy speak of it), on a target.
+ */
+export type FormMode =
+  | { kind: "tab"; active: boolean }
+  | { kind: "sheet"; target: FormTarget; from: "home" | "canvas" | "memo" | "map" | "shiori" };
 </script>
 
 <script setup lang="ts" vapor>
@@ -43,28 +55,38 @@ import backIcon from "../icons/back.svg";
 import closeIcon from "../icons/close.svg";
 import Icon from "../icons/Icon.vue";
 
-/**
- * `from`: the tab the sheet was opened over, so the back control and the copy speak of it.
- * `docked`: the form is the memo tab itself rather than a sheet over a tab: it never closes,
- * every save goes to the canvas and leaves it blank for the next one. `active`: the tab is up.
- */
-const props = defineProps<{
-  target: FormTarget;
-  from: "home" | "canvas" | "memo" | "map" | "shiori";
-  docked?: boolean;
-  active?: boolean;
-}>();
+const props = defineProps<{ mode: FormMode }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
 const store = useNotes();
 const tags = useTags();
 const i18n = useI18n();
 const id = useId();
-const editing = computed(() => props.target.kind === "edit");
+const docked = computed(() => props.mode.kind === "tab");
+const active = computed(() => props.mode.kind === "tab" && props.mode.active);
+/** The tab a sheet was opened over; the memo tab stands for itself */
+const from = computed(() => (props.mode.kind === "sheet" ? props.mode.from : "memo"));
+const target = computed(
+  (): FormTarget => (props.mode.kind === "sheet" ? props.mode.target : { kind: "new", pin: null }),
+);
+/** The memo being edited, as it is now; undefined for a new one, or once it is gone */
+const editingNote = computed(() => {
+  const t = target.value;
+  if (t.kind !== "edit") return undefined;
+  const n = store.byId(t.id);
+  return n?.kind === "memo" ? n : undefined;
+});
+const editing = computed(() => target.value.kind === "edit");
+// a memo deleted (or turned into something else) while it is open: nothing is left to edit
+watch(editingNote, (n) => {
+  if (editing.value && n === undefined) emit("close");
+});
 
-const startingInput = (): NoteInput =>
-  props.target.kind === "edit"
-    ? inputFromNote(props.target.note)
-    : blankInput(props.docked ? [] : tags.selected, props.target.pin);
+const startingInput = (): NoteInput => {
+  const t = target.value;
+  if (t.kind === "edit")
+    return editingNote.value ? inputFromNote(editingNote.value) : blankInput([], null);
+  return blankInput(docked.value ? [] : tags.selected, t.pin);
+};
 const form = ref<NoteInput>(startingInput());
 const mapsUrl = ref(form.value.mapsUrl ?? "");
 function onMapsUrl() {
@@ -77,15 +99,12 @@ const keepOpen = ref(false);
 const textEl = useTemplateRef<HTMLTextAreaElement>("textEl");
 const focusText = () => nextTick(() => textEl.value?.focus());
 onMounted(() => {
-  if (!props.docked || props.active === true) focusText();
+  if (!docked.value || active.value) focusText();
 });
 // the memo tab is ready to type into whenever it comes up
-watch(
-  () => props.active,
-  (active) => {
-    if (active === true) focusText();
-  },
-);
+watch(active, (up) => {
+  if (up) focusText();
+});
 
 // Esc closes the sheet, the way it closes anything that covers something
 function onKey(e: KeyboardEvent) {
@@ -94,11 +113,11 @@ function onKey(e: KeyboardEvent) {
 // Focus goes back where it came from once the sheet is gone and the layer under it is live again
 const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 onMounted(() => {
-  if (!props.docked) window.addEventListener("keydown", onKey);
+  if (!docked.value) window.addEventListener("keydown", onKey);
 });
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKey);
-  if (!props.docked && opener && opener !== document.body)
+  if (!docked.value && opener && opener !== document.body)
     setTimeout(() => opener.isConnected && opener.focus());
 });
 
@@ -110,9 +129,9 @@ const BACK = {
   shiori: "nav.booklet",
 } as const;
 /** From the map with a place: the note is a pin there (and a card on the desk) */
-const atPlace = computed(() => props.from === "map" && hasPin());
+const atPlace = computed(() => from.value === "map" && hasPin());
 /** From the map's stamp with no place yet: it still lands on the canvas, so say so instead of "save to canvas" from a map */
-const noPlace = computed(() => props.from === "map" && !hasPin());
+const noPlace = computed(() => from.value === "map" && !hasPin());
 const saveLabel = computed(() =>
   editing.value
     ? "form.save"
@@ -123,7 +142,7 @@ const saveLabel = computed(() =>
         : "form.saveToCanvas",
 );
 const hintKey = computed(() =>
-  props.docked
+  docked.value
     ? "form.hintDocked"
     : atPlace.value
       ? "form.hintHere"
@@ -161,12 +180,12 @@ function submit() {
     mapsUrl: form.value.mapsUrl,
     pin: form.value.pin,
   };
-  if (props.target.kind === "edit") {
-    store.update(props.target.note.id, input);
+  if (target.value.kind === "edit") {
+    store.update(target.value.id, input);
     emit("close");
     return;
   }
-  if (props.docked) {
+  if (docked.value) {
     emit("save", input, true);
     // a fresh sheet for the next one
     form.value = startingInput();
