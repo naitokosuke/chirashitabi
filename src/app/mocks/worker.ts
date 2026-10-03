@@ -12,6 +12,8 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Stands in for the Cloudflare Worker: canned drafts, no real export. */
 export const mockWorker = (): WorkerApi => ({
+  // the mocks have no room to write into as the agent
+  suggest: null,
   async draftDay(_date, notes) {
     await wait(THINKING_MS);
     return {

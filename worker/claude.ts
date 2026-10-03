@@ -89,6 +89,21 @@ export async function draftDay(
     "Write `reason` and `intro` in the language the notes are written in.",
   ].join("\n");
 
+  const ids = new Set(day.notes.map((n) => n.id));
+  return ask(env, DRAFT_TOOL, prompt, (input) => checkProposal(input, ids), "a draft");
+}
+
+/**
+ * One call: Claude answers by calling `tool`, and `check` turns its input into the value, or
+ * null when it is not one. Every way it can fail says whether anything was spent.
+ */
+async function ask<T>(
+  env: Env,
+  tool: { name: string },
+  prompt: string,
+  check: (input: unknown) => T | null,
+  what: string,
+): Promise<ClaudeResult<T>> {
   let res: Response;
   try {
     res = await fetch(`${env.ANTHROPIC_BASE_URL ?? API}/v1/messages`, {
@@ -102,12 +117,12 @@ export async function draftDay(
         model: MODEL,
         max_tokens: MAX_TOKENS,
         system: [
-          "You are a member of two friends' trip-planning room, helping them shape their days.",
-          `Always answer by calling the ${DRAFT_TOOL.name} tool, once, and write nothing else.`,
+          "You are a member of two friends' trip-planning room, helping them plan their trip.",
+          `Always answer by calling the ${tool.name} tool, once, and write nothing else.`,
         ].join(" "),
-        tools: [DRAFT_TOOL],
+        tools: [tool],
         // this model does not take a forced tool ("tool" or "any"); the system prompt asks for
-        // it, and an answer without the call is not a draft (and is spent)
+        // it, and an answer without the call is not an answer (and is spent)
         tool_choice: { type: "auto" },
         messages: [{ role: "user", content: prompt }],
       }),
@@ -133,11 +148,85 @@ export async function draftDay(
     usage?: { input_tokens?: number; output_tokens?: number };
   };
   const usage = { input: body.usage?.input_tokens ?? 0, output: body.usage?.output_tokens ?? 0 };
-  const call = body.content?.find((c) => c.type === "tool_use" && c.name === DRAFT_TOOL.name);
-  const proposal = checkProposal(call?.input, new Set(day.notes.map((n) => n.id)));
-  return proposal === null
-    ? { ok: false, refund: false, reason: "Claude's answer was not a draft" }
-    : { ok: true, value: proposal, usage };
+  const call = body.content?.find((c) => c.type === "tool_use" && c.name === tool.name);
+  const value = check(call?.input);
+  return value === null
+    ? { ok: false, refund: false, reason: `Claude's answer was not ${what}` }
+    : { ok: true, value, usage };
+}
+
+// ---- suggestions ----
+
+/** At most this many cards per ask: a handful of ideas, not a flood */
+export const MAX_SUGGESTIONS = 3;
+const SUGGESTION_TITLE = 60;
+
+const SUGGEST_TOOL = {
+  name: "suggest_notes",
+  description: "Leave a few new ideas for the trip as suggestion cards on the shared desk.",
+  input_schema: {
+    type: "object",
+    properties: {
+      suggestions: {
+        type: "array",
+        description: `Up to ${MAX_SUGGESTIONS} ideas the notes do not have yet.`,
+        items: {
+          type: "object",
+          properties: {
+            title: {
+              type: "string",
+              description: `The idea as a card's title, at most ${SUGGESTION_TITLE} characters.`,
+            },
+          },
+          required: ["title"],
+        },
+      },
+    },
+    required: ["suggestions"],
+  },
+} as const;
+
+/** What the agent reads to suggest: the trip, and every note as a line */
+export interface SuggestContext {
+  trip: string;
+  days: string[];
+  notes: { title: string; tags: string[]; date: string | null }[];
+}
+
+/** Asks Claude for a few ideas the notes do not have; the titles are checked */
+export async function suggestNotes(
+  env: Env,
+  room: SuggestContext,
+): Promise<ClaudeResult<string[]>> {
+  const prompt = [
+    `Trip: ${room.trip}, ${room.days[0] ?? "?"} to ${room.days.at(-1) ?? "?"}.`,
+    "The notes so far (JSON):",
+    JSON.stringify(room.notes),
+    "",
+    `Suggest up to ${MAX_SUGGESTIONS} places, foods or things to do that would suit this trip and`,
+    "that the notes do not have yet. Each is a short card title, concrete enough to look up.",
+    "Write them in the language the notes are written in.",
+  ].join("\n");
+  const taken = new Set(room.notes.map((n) => n.title.trim().toLowerCase()));
+  return ask(env, SUGGEST_TOOL, prompt, (input) => checkSuggestions(input, taken), "suggestions");
+}
+
+/**
+ * Claude's ideas as titles, or null. Trimmed, at most the card's length, none the notes
+ * already have, no repeats, at most MAX_SUGGESTIONS; an empty list is a fine answer.
+ */
+export function checkSuggestions(v: unknown, taken: ReadonlySet<string>): string[] | null {
+  if (!isRecord(v) || !Array.isArray(v.suggestions)) return null;
+  const out: string[] = [];
+  const seen = new Set(taken);
+  for (const s of v.suggestions) {
+    const title = isRecord(s) ? text(s.title, SUGGESTION_TITLE) : null;
+    if (title === null || title === "" || seen.has(title.toLowerCase())) continue;
+    seen.add(title.toLowerCase());
+    out.push(title);
+    if (out.length === MAX_SUGGESTIONS) break;
+  }
+  return out;
 }
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;

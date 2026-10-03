@@ -69,6 +69,13 @@ export const ja: Messages = {
   "canvas.addedDrag": "「{$title}」を追加しました。ドラッグで移動、長押しで色・複製・削除",
   "canvas.deleted": "「{$title}」を削除しました",
   "canvas.empty": "まだ何もない机です。＋ から最初の思いつきを散らしましょう",
+  "canvas.askIdeas": "提案を頼む",
+  "canvas.thinking": "考えています…",
+  "canvas.ideasAdded": "Claude が提案を {$count :integer} 枚貼りました",
+  "canvas.noIdeas": "新しい提案はありませんでした",
+  "canvas.ideasFailed": "提案が届きませんでした。もう一度頼んでください。",
+  "canvas.ideasLimit": "今日 Claude に頼めるのはここまでです。また明日頼んでください。",
+  "canvas.ideasTripLimit": "この旅で Claude に頼める回数はここまでです。",
 
   "note.suggestion": "提案",
   "note.adopt": "メモにする",

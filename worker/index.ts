@@ -2,9 +2,9 @@ import type { RequestLogger } from "evlog";
 import { initWorkersLogger, withEvlog } from "evlog/workers";
 
 import { AccessVerifier, Unauthenticated } from "./access";
-import { draftDay, MODEL } from "./claude";
+import { draftDay, MODEL, suggestNotes } from "./claude";
 import { Room } from "./room";
-import { isDate, parseProfile, parseTrip } from "./wire";
+import { isDate, parsePoint, parseProfile, parseTrip } from "./wire";
 
 export { Room };
 export { RoomsIndex } from "./rooms-index";
@@ -42,7 +42,7 @@ export default withEvlog<Env>(
 const booklet = () => new Response("Not Found", { status: 404 });
 
 const status = (code: number, text: string) => new Response(text, { status: code });
-const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws|draft)$/;
+const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws|draft|suggest)$/;
 
 async function api(request: Request, env: Env, url: URL, log: RequestLogger): Promise<Response> {
   let email: string;
@@ -90,7 +90,11 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
 
   const m = ROOM.exec(url.pathname);
   if (m === null) return status(404, "Not Found");
-  const [, roomId, action] = m as unknown as [string, string, "invite" | "ws" | "draft"];
+  const [, roomId, action] = m as unknown as [
+    string,
+    string,
+    "invite" | "ws" | "draft" | "suggest",
+  ];
   const memberId = await index.resolve(email, roomId);
   if (memberId === null) return status(403, "Forbidden");
   log.set({ room: roomId, member: memberId, action });
@@ -133,6 +137,31 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
       claude: { model: MODEL, ok: true, tokens: result.usage, items: result.value.items.length },
     });
     return Response.json({ by: Room.AGENT_ID, ...result.value });
+  }
+
+  if (action === "suggest") {
+    // where the asker is looking on the desk: the cards land there
+    const at = parsePoint(body?.at);
+    if (at === null) return status(400, "Bad Request");
+    const context = await room.contextForSuggest(memberId);
+    log.set({ suggest: { notes: context.notes.length } });
+    const reserved = await index.reserve(email, roomId);
+    if ("refused" in reserved) {
+      log.set({ budget: { refused: reserved.refused } });
+      return status(429, `Budget: ${reserved.refused}`);
+    }
+    const result = await suggestNotes(env, context);
+    if (!result.ok) {
+      if (result.refund) await index.refund(reserved.id);
+      log.set({
+        claude: { model: MODEL, ok: false, refunded: result.refund, reason: result.reason },
+      });
+      return status(502, "Bad Gateway");
+    }
+    await room.recordAgentCall(memberId, "suggest", result.usage);
+    const added = await room.addSuggestions(memberId, result.value, at);
+    log.set({ claude: { model: MODEL, ok: true, tokens: result.usage, items: added } });
+    return Response.json({ added });
   }
 
   const invitee = parseProfile(body);
