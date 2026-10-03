@@ -172,7 +172,8 @@ export const parseProfile = (v: unknown): { name: string; color: string } | null
 export const parseTrip = (v: unknown): WireTrip | null => {
   if (!isRecord(v)) return null;
   if (!isText(v.name, NAME) || v.name.trim() === "") return null;
-  if (!Array.isArray(v.days) || v.days.length > DAYS || !v.days.every(isDate)) return null;
+  if (!Array.isArray(v.days) || v.days.length === 0 || v.days.length > DAYS) return null;
+  if (!v.days.every(isDate)) return null;
   if (new Set(v.days).size !== v.days.length) return null;
   if (typeof v.currency !== "string" || currencyCode(v.currency) === null) return null;
   if (!isLatLng(v.center)) return null;

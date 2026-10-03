@@ -1,3 +1,4 @@
+import { toWire } from "./newRoom";
 import { roomId, type NewRoom, type RoomId, type RoomSummary } from "./types";
 
 const headers = { "Content-Type": "application/json" };
@@ -20,7 +21,8 @@ export async function listRooms(): Promise<RoomSummary[]> {
 
 /** Creates a room with its trip and its first member; resolves with the new room's id */
 export async function createRoom(room: NewRoom): Promise<RoomId> {
-  const res = await fetch("/api/rooms", { method: "POST", headers, body: JSON.stringify(room) });
+  const body = JSON.stringify(toWire(room));
+  const res = await fetch("/api/rooms", { method: "POST", headers, body });
   const id = roomId((await json<{ roomId: unknown }>(res)).roomId);
   if (id === null) throw new Error("/api/rooms answered without a room id");
   return id;

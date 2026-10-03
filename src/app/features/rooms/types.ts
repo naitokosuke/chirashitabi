@@ -1,4 +1,10 @@
+import type { Temporal } from "temporal-polyfill-lite";
+
 import type { Brand } from "../../shared/brand";
+import type { HexColor } from "../../shared/color";
+import type { CurrencyCode } from "../../shared/money";
+
+import type { LatLng } from "../place/types";
 
 /** A room's id, as the Worker mints it: a UUID */
 export type RoomId = Brand<string, "RoomId">;
@@ -15,8 +21,18 @@ export interface RoomSummary {
   name: string;
 }
 
-/** What a room is created with; the Worker checks it again */
+/**
+ * A trip as it is started, checked (newRoom.ts): a name, `days` days in a row from `first`
+ * (at least one), a currency this runtime can format; and its first member, named, in a color
+ * that can go into a style.
+ */
 export interface NewRoom {
-  trip: { name: string; days: string[]; currency: string; center: { lat: number; lng: number } };
-  me: { name: string; color: string };
+  trip: {
+    name: string;
+    first: Temporal.PlainDate;
+    days: number;
+    currency: CurrencyCode;
+    center: LatLng;
+  };
+  me: { name: string; color: HexColor };
 }

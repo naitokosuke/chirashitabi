@@ -239,6 +239,7 @@ describe("rooms", () => {
     ["no profile", { trip: TRIP }],
     ["a currency Intl does not know", { trip: { ...TRIP, currency: "XXX" }, me: YUKI }],
     ["a day that is not a date", { trip: { ...TRIP, days: ["2026-11-31"] }, me: YUKI }],
+    ["no days", { trip: { ...TRIP, days: [] }, me: YUKI }],
     ["a color that is not hex", { trip: TRIP, me: { ...YUKI, color: "red" } }],
     ["a blank name", { trip: TRIP, me: { ...YUKI, name: "  " } }],
   ])("create refuses %s", async (_, body) => {
