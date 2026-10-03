@@ -1,7 +1,7 @@
 <script lang="ts">
-import type { Memo } from "./features/notes/types";
+import type { NoteId } from "./features/notes/types";
 import type { LatLng } from "./features/place/types";
-import type { FormTarget } from "./views/Form.vue";
+import type { FormMode, FormTarget } from "./views/Form.vue";
 
 export type View = "home" | "canvas" | "memo" | "map" | "shiori";
 
@@ -13,7 +13,7 @@ export type AppEvent =
   | { type: "tabSelected"; tab: View }
   | { type: "writeRequested" }
   | { type: "writeAtPinRequested"; pin: LatLng | null } // null: from the map's write button, no place yet
-  | { type: "editRequested"; note: Memo }
+  | { type: "editRequested"; id: NoteId }
   | { type: "formClosed" };
 
 export const initialState: AppState = { tab: "canvas", form: null };
@@ -29,7 +29,7 @@ export function next(state: AppState, event: AppEvent): AppState {
     case "writeAtPinRequested":
       return { ...state, form: { kind: "new", pin: event.pin } };
     case "editRequested":
-      return { ...state, form: { kind: "edit", note: event.note } };
+      return { ...state, form: { kind: "edit", id: event.id } };
     case "formClosed":
       return { ...state, form: null };
   }
@@ -117,8 +117,14 @@ function selectTab(tab: View) {
   if (tab === state.value.tab && state.value.form === null) return;
   viewTransition(() => send({ type: "tabSelected", tab }));
 }
-/** The memo tab writes a new, unplaced note every time */
-const NEW_NOTE: FormTarget = { kind: "new", pin: null };
+/** The memo tab is the form itself, live while the tab is up */
+const memoTab = computed((): FormMode => ({ kind: "tab", active: live("memo") }));
+/** The one sheet, over the tab it was opened from, while it is open */
+const sheet = computed((): FormMode | null =>
+  state.value.form === null
+    ? null
+    : { kind: "sheet", target: state.value.form, from: state.value.tab },
+);
 /** From the memo tab the note lands on the canvas quietly; the toast says so and offers the undo */
 function onMemoSaved(input: NoteInput) {
   place(input, "away");
@@ -137,16 +143,13 @@ function onMemoSaved(input: NoteInput) {
       :class="{ away: state.tab !== 'canvas' }"
       :inert="!live('canvas')"
       @write="() => send({ type: 'writeRequested' })"
-      @edit="(note) => send({ type: 'editRequested', note })"
+      @edit="(note) => send({ type: 'editRequested', id: note.id })"
     />
     <Home v-if="opened.has('home')" :class="{ away: state.tab !== 'home' }" :inert="!live('home')" />
     <!-- the memo tab is the canvas's form, always open: each save goes on the canvas and only there -->
     <Form
       v-if="opened.has('memo')"
-      docked
-      from="memo"
-      :target="NEW_NOTE"
-      :active="live('memo')"
+      :mode="memoTab"
       :class="{ away: state.tab !== 'memo' }"
       :inert="!live('memo')"
       @save="onMemoSaved"
@@ -156,7 +159,7 @@ function onMemoSaved(input: NoteInput) {
       :class="{ away: state.tab !== 'map' }"
       :inert="!live('map')"
       @write="(pin) => send({ type: 'writeAtPinRequested', pin })"
-      @edit="(note) => send({ type: 'editRequested', note })"
+      @edit="(note) => send({ type: 'editRequested', id: note.id })"
     />
     <Shiori
       v-if="opened.has('shiori')"
@@ -164,13 +167,7 @@ function onMemoSaved(input: NoteInput) {
       :inert="!live('shiori')"
     />
     <Transition name="ct-slide">
-      <Form
-        v-if="state.form"
-        :target="state.form"
-        :from="state.tab"
-        @close="() => send({ type: 'formClosed' })"
-        @save="onSave"
-      />
+      <Form v-if="sheet" :mode="sheet" @close="() => send({ type: 'formClosed' })" @save="onSave" />
     </Transition>
   </main>
   <Rooms v-else @enter="(id) => room.connect(id)" />

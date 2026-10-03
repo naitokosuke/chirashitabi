@@ -8,7 +8,7 @@ import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
 import { duplicateInput } from "./input";
-import type { MemoPatch, NewMemo, Note, NoteColor, NoteId, NoteInput } from "./types";
+import type { MemoPatch, NewMemo, NoteColor, NoteId, NoteInput } from "./types";
 
 const uid = () => Math.random().toString(36).slice(2, 10) as NoteId;
 
