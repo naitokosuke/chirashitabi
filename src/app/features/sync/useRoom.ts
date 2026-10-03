@@ -152,8 +152,17 @@ export const useRoom = defineStore("room", () => {
     sync.transport = { commit, send: (m) => void socket.send(m) };
   }
 
+  /**
+   * Out to the rooms screen to choose another trip. The room is no longer the one to reopen,
+   * or the rooms screen would open it again at once; what this device kept of it stays.
+   */
   function leave() {
     keepNow();
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // still remembered: the next visit reopens it, nothing else changes
+    }
     socket.leave();
     sync.session = OUT;
     sync.transport = NOWHERE;
