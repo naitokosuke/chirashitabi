@@ -62,14 +62,12 @@ import Shiori from "./views/Shiori.vue";
 
 const i18n = useI18n();
 const room = useRoom();
-/** The room's views only once it has answered; until then, the rooms screen */
-const inRoom = computed(
-  () =>
-    room.status === "connected" ||
-    room.status === "reconnecting" ||
-    // a room kept on this device opens before it answers, and stays open if it cannot be reached
-    (room.status !== "idle" && room.syncedAt !== null),
-);
+/**
+ * The room's views once this device is in the room (session.ts): when the room has answered,
+ * or at once with what this device kept of it, which stays open if the room cannot be reached.
+ * Until then, the rooms screen.
+ */
+const inRoom = computed(() => room.session.kind === "in");
 const views = computed((): CtOption<View>[] => [
   { value: "home", label: i18n.t("nav.home") },
   { value: "canvas", label: i18n.t("nav.canvas") },

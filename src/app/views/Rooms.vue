@@ -19,18 +19,22 @@ export const DEFAULT_CENTER = { lat: 25.05, lng: 121.54 };
 </script>
 
 <script setup lang="ts" vapor>
-import { onMounted, ref, useId } from "vue";
+import { computed, onMounted, ref, useId } from "vue";
 
 import { useI18n } from "../i18n/useI18n";
 
-import type { NewRoom } from "../features/rooms/types";
+import type { NewRoom, RoomId } from "../features/rooms/types";
 import { useCreateRoom, useRoomList } from "../features/rooms/useRooms";
 import { useRoom } from "../features/sync/useRoom";
 
-const emit = defineEmits<{ enter: [roomId: string] }>();
+const emit = defineEmits<{ enter: [roomId: RoomId] }>();
 const i18n = useI18n();
 const room = useRoom();
 const id = useId();
+/** Joining a room this device has nothing of: still trying, or given up; null otherwise */
+const joining = computed(() =>
+  room.session.kind !== "joining" ? null : room.session.link === "failed" ? "failed" : "connecting",
+);
 
 const { data: rooms, status: listStatus, refetch: refetchList } = useRoomList();
 const { mutateAsync: createAsync, isLoading: busy, error: createError } = useCreateRoom();
@@ -68,7 +72,7 @@ function retry() {
 onMounted(() => {
   // the room this device was in last opens by itself; the list is for choosing another
   const last = room.remembered();
-  if (last !== null && room.status === "idle") emit("enter", last);
+  if (last !== null && room.session.kind === "out") emit("enter", last);
 });
 </script>
 
@@ -76,8 +80,8 @@ onMounted(() => {
   <div class="rooms">
     <header>
       <h1>chirashitabi</h1>
-      <p v-if="room.status === 'connecting'">{{ i18n.t("rooms.connecting") }}</p>
-      <p v-else-if="room.status === 'failed' || listStatus === 'error'">
+      <p v-if="joining === 'connecting'">{{ i18n.t("rooms.connecting") }}</p>
+      <p v-else-if="joining === 'failed' || listStatus === 'error'">
         {{ i18n.t("rooms.failed") }}
         <button type="button" @click="retry">{{ i18n.t("rooms.retry") }}</button>
       </p>

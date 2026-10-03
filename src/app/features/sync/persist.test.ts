@@ -68,6 +68,7 @@ describe("keep and kept", () => {
         cid: "c1",
         m: { type: "day:intro" as const, date: Temporal.PlainDate.from("2026-11-03"), intro: "x" },
         at,
+        by: "yuki" as MemberId,
       },
     ];
     keep(storage, "r1", { me: "yuki" as MemberId, confirmed: room, pending, savedAt: at });
@@ -79,6 +80,23 @@ describe("keep and kept", () => {
     const s = (back?.confirmed.notes[0] as Memo).schedule!;
     expect(s.date).toBeInstanceOf(Temporal.PlainDate);
     expect(s.time?.toString()).toBe("12:30:00");
+  });
+
+  test("unanswered changes kept before they were signed are this device's", () => {
+    const storage = memoryStorage();
+    keep(storage, "r1", { me: "yuki" as MemberId, confirmed: room, pending: [], savedAt: at });
+    const saved = JSON.parse(storage.getItem("chirashitabi:room:r1")!);
+    saved.pending = [
+      { cid: "c1", m: { type: "day:intro", date: "2026-11-03", intro: "x" }, at: at.toString() },
+    ];
+    storage.setItem("chirashitabi:room:r1", JSON.stringify(saved));
+    expect(kept(storage, "r1")?.pending[0]?.by).toBe("yuki");
+  });
+
+  test("kept without who this device is: nothing, since nothing of it could be signed", () => {
+    const storage = memoryStorage();
+    keep(storage, "r1", { me: "" as MemberId, confirmed: room, pending: [], savedAt: at });
+    expect(kept(storage, "r1")).toBeNull();
   });
 
   test("rooms are kept apart", () => {

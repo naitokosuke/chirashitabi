@@ -285,6 +285,10 @@ The keys are `roomKeys` in `features/sync/keys.ts`, one function per slice, tagg
 The stores read with `useQueryState`, Pinia Colada's reactive read of an entry that never fetches it; an entry the room creates later wakes them, since the cache's map is tracked.
 `useSync` is the session: which room, who this device is in it (`me`), and where changes go; `useRoom` sets all three and no longer depends on any store.
 
+The session is one value, `Session` in `features/sync/session.ts`: out, joining a room (nothing of it to show), or in it, which needs who this device is and the moment the room is shown as of.
+Its transitions (`opened`, `synced`, `linked`) are pure functions, so a connected room without a member, or a member without a room, cannot be written down.
+Each unanswered change in the ledger carries who made it, so the ledger no longer asks who this device is; changes kept on a device before that are read back as `me`'s.
+
 ## Open questions
 
 - Whether the three slices should be one `["room", roomId]` entry instead.

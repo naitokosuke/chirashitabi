@@ -22,7 +22,8 @@ interface Saved {
   savedAt: string;
   me: string;
   confirmed: { notes: WireNote[]; trip: WireTrip | null; members: WireMember[] };
-  pending: { cid: string; m: WireMutation; at: string }[];
+  /** `by` since this device signed each one; kept before that, they are all `me`'s */
+  pending: { cid: string; m: WireMutation; at: string; by?: string }[];
 }
 
 /** A room as this device kept it; `me` is who this device is in it, so offline notes are signed */
@@ -43,13 +44,13 @@ export function keep(storage: Storage, roomId: string, room: Kept) {
   }
 }
 
-/** The room as it was kept, or null: never kept, from another version, or unreadable */
+/** The room as it was kept, or null: never kept, from another version, without who this device is, or unreadable */
 export function kept(storage: Storage, roomId: string): Kept | null {
   try {
     const raw = storage.getItem(keyOf(roomId));
     if (raw === null) return null;
     const saved = JSON.parse(raw) as Saved;
-    if (saved.v !== VERSION) return null;
+    if (saved.v !== VERSION || saved.me === "") return null;
     return {
       me: saved.me as MemberId,
       confirmed: {
@@ -61,6 +62,7 @@ export function kept(storage: Storage, roomId: string): Kept | null {
         cid: p.cid,
         m: reviveMutation(p.m),
         at: Temporal.Instant.from(p.at),
+        by: (p.by ?? saved.me) as MemberId,
       })),
       savedAt: Temporal.Instant.from(saved.savedAt),
     };

@@ -1,25 +1,26 @@
-import { ref, shallowRef } from "vue";
+import { computed, shallowRef } from "vue";
 
 import { defineStore } from "pinia";
 
-import type { MemberId } from "../members/types";
-
+import { OUT, roomOf, type Session } from "./session";
 import type { Mutation, Transport } from "./types";
 
 /** Before a room is installed, changes go nowhere */
 export const NOWHERE: Transport = { commit: () => {}, send: () => {} };
 
 /**
- * The session, as the stores need it without depending on the room: which room's cache
- * entries they read (keys.ts), who this device is in it, and where their changes go.
- * `useRoom` sets all three.
+ * The session (session.ts) and where changes go, as the stores need them without depending
+ * on the room: which room's cache entries they read (keys.ts), and who this device is in it.
+ * `useRoom` sets both.
  */
 export const useSync = defineStore("sync", () => {
-  const roomId = ref<string | null>(null);
-  /** Who is using this device; their notes are signed with this id. "" until the room says */
-  const me = ref("" as MemberId);
+  const session = shallowRef<Session>(OUT);
   const transport = shallowRef<Transport>(NOWHERE);
+  /** The room whose cache entries the stores read */
+  const roomId = computed(() => roomOf(session.value));
+  /** Who is using this device, once in a room; their notes are signed with this id */
+  const me = computed(() => (session.value.kind === "in" ? session.value.me : null));
   const commit = (msg: Mutation) => transport.value.commit(msg);
   const send = (msg: Mutation) => transport.value.send(msg);
-  return { roomId, me, transport, commit, send };
+  return { session, transport, roomId, me, commit, send };
 });

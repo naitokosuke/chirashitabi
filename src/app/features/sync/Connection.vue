@@ -12,11 +12,12 @@ import { useRoom } from "./useRoom";
 const room = useRoom();
 const i18n = useI18n();
 
+/** The socket, while in a room; this chip is shown only there */
+const link = computed(() => (room.session.kind === "in" ? room.session.link : null));
 /** "12:30", or "11/2 12:30" from another day: when what is on screen was last the room's */
 const since = computed(() => {
-  const at = room.syncedAt;
-  if (at === null) return "";
-  const local = at.toZonedDateTimeISO(Temporal.Now.timeZoneId());
+  if (room.session.kind !== "in") return "";
+  const local = room.session.syncedAt.toZonedDateTimeISO(Temporal.Now.timeZoneId());
   const time = hhmm(local.toPlainTime());
   return local.toPlainDate().equals(Temporal.Now.plainDateISO())
     ? time
@@ -31,10 +32,10 @@ const since = computed(() => {
     quiet chip over the view, never a cover.
   -->
   <div aria-live="polite">
-    <p v-if="room.status === 'connecting' || room.status === 'reconnecting'">
+    <p v-if="link === 'connecting' || link === 'reconnecting'">
       <span aria-hidden="true"></span>{{ i18n.t("room.reconnecting", { time: since }) }}
     </p>
-    <p v-else-if="room.status === 'failed'">
+    <p v-else-if="link === 'failed'">
       {{ i18n.t("room.unreachable", { time: since }) }}
       <button type="button" @click="() => room.reconnect()">{{ i18n.t("rooms.retry") }}</button>
     </p>

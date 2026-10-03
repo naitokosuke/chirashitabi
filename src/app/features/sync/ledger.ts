@@ -16,11 +16,12 @@ export interface RoomState {
   members: Member[];
 }
 
-/** One of ours the room has not answered yet; `cid` is how its answer names it */
+/** One of ours the room has not answered yet, signed by who made it; `cid` is how its answer names it */
 export interface Pending {
   cid: string;
   m: Mutation;
   at: Temporal.Instant;
+  by: MemberId;
 }
 
 export const EMPTY_ROOM: RoomState = { notes: [], trip: null, members: [] };
@@ -51,10 +52,10 @@ export function applyToRoom(
  * ones are sent again: every mutation is safe to apply twice, and a second `note:add` or a
  * change to what is gone is rejected and dropped, which leaves what the snapshot says.
  */
-export function createLedger(me: () => MemberId) {
+export function createLedger() {
   let confirmed: RoomState = EMPTY_ROOM;
   let pending: Pending[] = [];
-  const view = () => pending.reduce((s, p) => applyToRoom(s, p.m, me(), p.at), confirmed);
+  const view = () => pending.reduce((s, p) => applyToRoom(s, p.m, p.by, p.at), confirmed);
 
   return {
     get pending(): readonly Pending[] {
@@ -79,9 +80,9 @@ export function createLedger(me: () => MemberId) {
       confirmed = applyToRoom(confirmed, m, by, at);
       return view();
     },
-    /** One of ours, sent with `cid` */
-    commit(m: Mutation, cid: string, at: Temporal.Instant): RoomState {
-      pending = [...pending, { cid, m, at }];
+    /** One of ours, made by `by` (this device) and sent with `cid` */
+    commit(m: Mutation, cid: string, at: Temporal.Instant, by: MemberId): RoomState {
+      pending = [...pending, { cid, m, at, by }];
       return view();
     },
     /** The room applied ours at `at` */
@@ -89,7 +90,7 @@ export function createLedger(me: () => MemberId) {
       const p = pending.find((x) => x.cid === cid);
       if (p === undefined) return view();
       pending = pending.filter((x) => x !== p);
-      confirmed = applyToRoom(confirmed, p.m, me(), at);
+      confirmed = applyToRoom(confirmed, p.m, p.by, at);
       return view();
     },
     /** The room refused ours: it goes, and only it */
