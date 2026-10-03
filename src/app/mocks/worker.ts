@@ -21,7 +21,7 @@ export const mockWorker = (): WorkerApi => ({
       intro: "Xiaolongbao for lunch, Jiufen in the evening, then beer in Xinyi.",
     };
   },
-  async exportBooklet() {
+  exportBooklet: async () => {
     window.alert("In production this exports a static page to /r/<slug>/shiori");
   },
 });

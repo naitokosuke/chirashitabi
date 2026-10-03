@@ -11,6 +11,8 @@ import { useI18n } from "../../i18n/useI18n";
 import type { MemberId } from "../members/types";
 import { roomId, type RoomId } from "../rooms/types";
 import { useToast } from "../toast/useToast";
+import { roomWorkerApi } from "../worker/api";
+import { useWorker } from "../worker/useWorker";
 
 import { roomKeys } from "./keys";
 import { createLedger, EMPTY_ROOM, type RoomState } from "./ledger";
@@ -34,6 +36,7 @@ export const useRoom = defineStore("room", () => {
   const sync = useSync();
   const queryCache = useQueryCache();
   const toast = useToast();
+  const worker = useWorker();
   const i18n = useI18n();
 
   const ledger = createLedger();
@@ -150,6 +153,8 @@ export const useRoom = defineStore("room", () => {
     }
     socket.connect(id);
     sync.transport = { commit, send: (m) => void socket.send(m) };
+    // what the room's agent does for its members goes through the Worker, for this room
+    worker.api = roomWorkerApi(id);
   }
 
   /**
@@ -166,6 +171,7 @@ export const useRoom = defineStore("room", () => {
     socket.leave();
     sync.session = OUT;
     sync.transport = NOWHERE;
+    worker.api = null;
   }
 
   /**

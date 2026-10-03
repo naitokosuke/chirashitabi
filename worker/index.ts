@@ -1,6 +1,7 @@
 import { AccessVerifier, Unauthenticated } from "./access";
+import { draftDay } from "./claude";
 import { Room } from "./room";
-import { parseProfile, parseTrip } from "./wire";
+import { isDate, parseProfile, parseTrip } from "./wire";
 
 export { Room };
 export { RoomsIndex } from "./rooms-index";
@@ -28,7 +29,7 @@ export default {
 const booklet = () => new Response("Not Found", { status: 404 });
 
 const status = (code: number, text: string) => new Response(text, { status: code });
-const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws)$/;
+const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws|draft)$/;
 
 async function api(request: Request, env: Env, url: URL): Promise<Response> {
   let email: string;
@@ -76,7 +77,7 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
 
   const m = ROOM.exec(url.pathname);
   if (m === null) return status(404, "Not Found");
-  const [, roomId, action] = m as unknown as [string, string, "invite" | "ws"];
+  const [, roomId, action] = m as unknown as [string, string, "invite" | "ws" | "draft"];
   const memberId = await index.resolve(email, roomId);
   if (memberId === null) return status(403, "Forbidden");
   const room = env.ROOM.getByName(roomId);
@@ -92,6 +93,25 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   }
 
   const body = await json(request);
+
+  if (action === "draft") {
+    const date = body?.date;
+    if (!isDate(date)) return status(400, "Bad Request");
+    const day = await room.dayForDraft(memberId, date);
+    if (day === null) return status(400, "Bad Request");
+    // reserve, call, settle (docs/auth-and-security.md): nothing is called past the budget
+    const reserved = await index.reserve(email, roomId);
+    if ("refused" in reserved) return status(429, `Budget: ${reserved.refused}`);
+    const result = await draftDay(env, { ...day, date });
+    if (!result.ok) {
+      if (result.refund) await index.refund(reserved.id);
+      console.warn(`draft: ${result.reason}`);
+      return status(502, "Bad Gateway");
+    }
+    await room.recordAgentCall(memberId, "draft", result.usage);
+    return Response.json({ by: Room.AGENT_ID, ...result.value });
+  }
+
   const invitee = parseProfile(body);
   const inviteeEmail = body?.email;
   if (invitee === null || typeof inviteeEmail !== "string" || inviteeEmail === "") {

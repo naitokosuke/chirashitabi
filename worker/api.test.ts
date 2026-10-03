@@ -17,6 +17,16 @@ let privateKey: CryptoKey;
 let certs: Server;
 let server: TestHarness;
 
+/**
+ * Stands in for the Claude API. Each test sets how it answers; `asked` keeps the request
+ * bodies it got, so a test can see what was sent and how many paid calls were made.
+ */
+let claude: Server;
+let answer: (request: { messages: { content: string }[] }) => { status: number; body: unknown };
+const asked: unknown[] = [];
+/** The test's budget: paid calls one person may make in a day */
+const PER_DAY = 3;
+
 beforeAll(async () => {
   const pair = (await crypto.subtle.generateKey(
     {
@@ -41,11 +51,31 @@ beforeAll(async () => {
   await new Promise<void>((resolve) => certs.listen(0, "127.0.0.1", resolve));
   const { port } = certs.address() as AddressInfo;
 
+  claude = createServer((req, res) => {
+    let raw = "";
+    req.on("data", (c) => (raw += c));
+    req.on("end", () => {
+      const body = JSON.parse(raw);
+      asked.push(body);
+      const { status, body: out } = answer(body);
+      res.statusCode = status;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify(out));
+    });
+  });
+  await new Promise<void>((resolve) => claude.listen(0, "127.0.0.1", resolve));
+  const claudePort = (claude.address() as AddressInfo).port;
+
   server = createTestHarness({
     workers: [
       {
         configPath: "./wrangler.jsonc",
-        vars: { ACCESS_CERTS_URL: `http://127.0.0.1:${port}/certs` },
+        vars: {
+          ACCESS_CERTS_URL: `http://127.0.0.1:${port}/certs`,
+          ANTHROPIC_BASE_URL: `http://127.0.0.1:${claudePort}`,
+          ANTHROPIC_API_KEY: "test-key",
+          SPEND_PER_DAY: String(PER_DAY),
+        },
       },
     ],
   });
@@ -55,6 +85,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await server?.close();
   certs?.close();
+  claude?.close();
 });
 
 const b64url = (data: Uint8Array | string) => {
@@ -502,5 +533,112 @@ describe("the socket", () => {
     a.idle();
     b.idle();
     for (const s of [a, b]) s.ws.close(1000, "done");
+  });
+});
+
+describe("the agent's draft of a day", () => {
+  const DAY = TRIP.days[0]!;
+  const onDay = (id: string, title: string) => ({
+    ...memo(id, title),
+    schedule: { date: DAY, time: null, status: "idea" },
+  });
+  /** Claude's tool call, as the API answers it */
+  const proposing = (input: unknown) => ({
+    status: 200,
+    body: {
+      content: [{ type: "tool_use", id: "t1", name: "propose_day", input }],
+      usage: { input_tokens: 120, output_tokens: 40 },
+    },
+  });
+
+  /** A room of `email`'s with two memos on the first day */
+  async function roomWithDay(email: string) {
+    const { roomId } = await createRoom(email);
+    const a = await connect(roomId, email);
+    a.send({ type: "note:add", note: onDay("lunch", "Din Tai Fung"), cid: "c1" });
+    expect((await a.next()).type).toBe("ack");
+    a.send({ type: "note:add", note: onDay("night", "Raohe night market"), cid: "c2" });
+    expect((await a.next()).type).toBe("ack");
+    a.ws.close(1000, "done");
+    return roomId;
+  }
+  const draft = (roomId: string, email: string, date = DAY) =>
+    post(`/api/rooms/${roomId}/draft`, email, { date });
+
+  test("Claude orders the day's notes; the draft is the agent's, and the call is on the ledger", async () => {
+    const roomId = await roomWithDay("drafter@example.com");
+    answer = () =>
+      proposing({
+        reason: "Lunch first, the market after dark.",
+        intro: "Dumplings, then the night market.",
+        items: [
+          { id: "lunch", time: "12:30" },
+          { id: "night", time: "19:00" },
+          { id: "not-on-this-day", time: "09:00" },
+          { id: "lunch", time: "13:00" },
+        ],
+      });
+    const before = asked.length;
+    const res = await draft(roomId, "drafter@example.com");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      by: "agent:claude",
+      reason: "Lunch first, the market after dark.",
+      intro: "Dumplings, then the night market.",
+      items: [
+        { id: "lunch", time: "12:30" },
+        { id: "night", time: "19:00" },
+      ],
+    });
+    expect(asked.length).toBe(before + 1);
+    // the prompt carries the day's notes and nothing of other days
+    const prompt = (asked.at(-1) as { messages: { content: string }[] }).messages[0]!.content;
+    expect(prompt).toContain("Raohe night market");
+
+    const room = await server.getWorker().getDurableObjectStorage("Room", { name: roomId });
+    expect(await room.exec("SELECT what, input_tokens, output_tokens FROM agent_calls")).toEqual([
+      { what: "draft", input_tokens: 120, output_tokens: 40 },
+    ]);
+  });
+
+  test("a day the trip does not have, or no date, is refused before anything is called", async () => {
+    const roomId = await roomWithDay("nodate@example.com");
+    const before = asked.length;
+    expect((await draft(roomId, "nodate@example.com", "2030-01-01")).status).toBe(400);
+    expect((await post(`/api/rooms/${roomId}/draft`, "nodate@example.com", {})).status).toBe(400);
+    expect(asked.length).toBe(before);
+  });
+
+  test("someone outside the room cannot ask, and nothing is called", async () => {
+    const roomId = await roomWithDay("owner@example.com");
+    const before = asked.length;
+    expect((await draft(roomId, "outsider@example.com")).status).toBe(403);
+    expect(asked.length).toBe(before);
+  });
+
+  test("past the day's budget nothing is called; a provider error is refunded", async () => {
+    const email = "budget@example.com";
+    const roomId = await roomWithDay(email);
+    // an error from Claude costs nothing: these do not count
+    answer = () => ({ status: 529, body: { type: "error" } });
+    for (let i = 0; i < PER_DAY + 1; i++) expect((await draft(roomId, email)).status).toBe(502);
+
+    answer = () => proposing({ reason: "r", intro: "i", items: [] });
+    for (let i = 0; i < PER_DAY; i++) expect((await draft(roomId, email)).status).toBe(200);
+    const before = asked.length;
+    const over = await draft(roomId, email);
+    expect(over.status).toBe(429);
+    expect(asked.length).toBe(before);
+  });
+
+  test("an answer that is not a draft is a failure, and it was spent", async () => {
+    const email = "garbled@example.com";
+    const roomId = await roomWithDay(email);
+    answer = () => ({ status: 200, body: { content: [{ type: "text", text: "Sure!" }] } });
+    expect((await draft(roomId, email)).status).toBe(502);
+    const index = await server.getWorker().getDurableObjectStorage("RoomsIndex", { name: "index" });
+    expect(await index.exec("SELECT refunded FROM spends WHERE email = ?", email)).toEqual([
+      { refunded: 0 },
+    ]);
   });
 });

@@ -128,6 +128,8 @@ export const ja: Messages = {
   "shiori.askDraft": "順番と時刻の下書きを頼む",
   "shiori.drafting": "下書きを作っています…",
   "shiori.draftFailed": "下書きが届きませんでした。もう一度頼んでください。",
+  "shiori.draftLimit": "今日頼める下書きはここまでです。また明日頼んでください。",
+  "shiori.draftTripLimit": "この旅で頼める下書きはここまでです。",
   "shiori.dayTotal": "この日の予算 {$total}",
   "shiori.tagEmpty": "このタグのメモはまだありません",
   "shiori.export": "書き出す",

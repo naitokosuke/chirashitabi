@@ -31,5 +31,11 @@ export function useDraftDay() {
 /** Publishes the booklet as a static page */
 export function useExportBooklet() {
   const get = api();
-  return useMutation({ mutation: () => get().exportBooklet() });
+  return useMutation({
+    mutation: () => {
+      const publish = get().exportBooklet;
+      if (publish === null) throw new Error("The Worker cannot publish yet");
+      return publish();
+    },
+  });
 }

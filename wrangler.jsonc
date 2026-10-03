@@ -39,6 +39,11 @@
     "ACCESS_AUD": "283aabc752ef29220bf9efc1ca77335383ed2f8753a1e65e45801fbe44f4f65d",
     "APP_HOST": "chirashitabi.app",
     "BOOKLET_HOST": "shiori.chirashitabi.app",
+    // The budget (rooms-index.ts): paid calls one person may make in a day (UTC), and in one
+    // trip over its life. Raising either is a deploy; the Anthropic console's monthly limit
+    // stays the outer bound.
+    "SPEND_PER_DAY": "20",
+    "SPEND_PER_TRIP": "200",
   },
 
   // Workers Logs is metered past its free tier; nothing is switched on by accident.
