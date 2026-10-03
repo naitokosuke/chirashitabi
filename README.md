@@ -16,6 +16,8 @@ vp run check:worker                 # wrangler types + tsc on worker/
 vp run deploy                       # VITE_MOCK=false build, then wrangler deploy
 ```
 
+CI (`.github/workflows/ci.yml`) runs the checks on every pull request and push, and deploys `main` with `vp run deploy` once they pass, using the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; "Run workflow" in the Actions tab does the same by hand.
+
 `vp dev` on its own boots with the mock data in `src/mocks/` (a Taiwan trip) and talks to no Worker.
 
 ## Running against the Worker
