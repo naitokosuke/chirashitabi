@@ -1,0 +1,104 @@
+/**
+ * Clef on Workers AI (@cf/cloudflare/clef-flash): a model that answers typed questions about a
+ * state with probabilities. It only decides among what it is given; it never writes a word, so
+ * the tags it judges come from the room and from the agent's candidates (claude.ts).
+ * Called through the AI binding, so there is no key; each call is reserved against the
+ * person's budget first, like any paid call (docs/auth-and-security.md).
+ */
+
+export const CLEF_MODEL = "@cf/cloudflare/clef-flash";
+
+/** A tag's likelihood above this is offered */
+const OFFER_AT = 0.5;
+/** At most this many tags are offered at once */
+const MAX_OFFERS = 6;
+/** Clef takes at most 64 questions a call */
+export const MAX_TAGS = 64;
+
+/** A memo as Clef reads it; `image` is its picture, if it has one */
+export interface MemoToTag {
+  title: string;
+  body: string;
+  image: { type: string; base64: string } | null;
+}
+
+export type ClefResult =
+  | { ok: true; tags: { tag: string; p: number }[] }
+  /** `refund`: the provider answered with an error, so nothing was spent */
+  | { ok: false; refund: boolean; reason: string };
+
+/** Clef's input, as the model's schema has it */
+interface ClefInput {
+  model: "clef-flash";
+  state: unknown;
+  questions: Record<
+    string,
+    { type: "noul"; instructions: string; criteria: { true: string; false: string } }
+  >;
+  images?: { content_type: string; base64: string }[];
+}
+
+/**
+ * How likely each tag fits the memo, its text and its picture; the likely ones, most likely
+ * first. Asks one yes/no question per tag, all in one call.
+ */
+export async function judgeTags(env: Env, memo: MemoToTag, tags: string[]): Promise<ClefResult> {
+  const names = tags.slice(0, MAX_TAGS);
+  // question ids are the tags' positions: a tag may hold characters an id may not
+  const questions: ClefInput["questions"] = Object.fromEntries(
+    names.map((tag, i) => [
+      `t${i}`,
+      {
+        type: "noul",
+        instructions: `Does this travel note belong under the tag "#${tag}"?`,
+        criteria: {
+          true: `The note is about something the tag "#${tag}" names.`,
+          false: `The tag "#${tag}" does not describe the note.`,
+        },
+      },
+    ]),
+  );
+  const input: ClefInput = {
+    model: "clef-flash",
+    state: { title: memo.title, body: memo.body },
+    questions,
+    ...(memo.image === null
+      ? {}
+      : { images: [{ content_type: memo.image.type, base64: memo.image.base64 }] }),
+  };
+
+  let output: unknown;
+  try {
+    output = await run(env, input);
+  } catch (e) {
+    if (e instanceof Refused) return { ok: false, refund: true, reason: e.message };
+    // no answer: it may have run, so it counts
+    return { ok: false, refund: false, reason: `Clef failed: ${String(e)}` };
+  }
+  const answers = (output as { answers?: Record<string, { noul?: unknown }> } | null)?.answers;
+  if (answers === undefined)
+    return { ok: false, refund: false, reason: "Clef's answer had no answers" };
+  const scored = names
+    .map((tag, i) => ({ tag, p: answers[`t${i}`]?.noul }))
+    .filter((t): t is { tag: string; p: number } => typeof t.p === "number" && t.p >= OFFER_AT)
+    .sort((a, b) => b.p - a.p)
+    .slice(0, MAX_OFFERS);
+  return { ok: true, tags: scored };
+}
+
+/** The provider refused the call (a 4xx or 5xx): nothing was spent */
+class Refused extends Error {}
+
+/** Through the binding; in the tests, through a stub at CLEF_BASE_URL (the binding needs Cloudflare) */
+async function run(env: Env, input: ClefInput): Promise<unknown> {
+  if (env.CLEF_BASE_URL !== undefined) {
+    const res = await fetch(env.CLEF_BASE_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Refused(`Clef answered ${res.status}`);
+    return res.json();
+  }
+  return env.AI.run(CLEF_MODEL as Parameters<Ai["run"]>[0], input as never);
+}

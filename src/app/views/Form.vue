@@ -53,7 +53,7 @@ import { useNotes } from "../features/notes/useNotes";
 import { placeFromUrl } from "../features/place/google-maps";
 import { useSync } from "../features/sync/useSync";
 import { useTags } from "../features/tags/useTags";
-import { RoomFull } from "../features/worker/api";
+import { OverBudget, RoomFull } from "../features/worker/api";
 import { useWorker } from "../features/worker/useWorker";
 import backIcon from "../icons/back.svg";
 import closeIcon from "../icons/close.svg";
@@ -130,6 +130,37 @@ async function onPhoto(e: Event) {
 }
 function removePhoto() {
   form.value.image = null;
+}
+
+// ---- tags Clef finds fitting: asked for with a tap, offered as chips to add ----
+type TagState = "idle" | "asking" | "none" | "failed" | "day" | "trip";
+const tagState = ref<TagState>("idle");
+const TAG_STATE = {
+  asking: "form.tagsAsking",
+  none: "form.tagsNone",
+  failed: "form.tagsFailed",
+  day: "form.tagsLimit",
+  trip: "form.tagsTripLimit",
+} as const satisfies Record<Exclude<TagState, "idle">, string>;
+const offered = ref<{ tag: string; isNew: boolean }[]>([]);
+/** The offers not on the memo yet: one added from them, or typed, goes */
+const offers = computed(() => offered.value.filter((o) => !form.value.tags.includes(o.tag)));
+async function askForTags() {
+  const ask = worker.api?.suggestTags;
+  if (ask === null || ask === undefined || tagState.value === "asking") return;
+  const { title, body, tags: inline } = parseNoteText(text.value);
+  tagState.value = "asking";
+  try {
+    offered.value = await ask({
+      title,
+      body,
+      image: form.value.image,
+      chosen: [...form.value.tags, ...inline],
+    });
+    tagState.value = offered.value.length === 0 ? "none" : "idle";
+  } catch (err) {
+    tagState.value = err instanceof OverBudget ? err.ceiling : "failed";
+  }
 }
 const textEl = useTemplateRef<HTMLTextAreaElement>("textEl");
 const focusText = () => nextTick(() => textEl.value?.focus());
@@ -277,6 +308,17 @@ function submit() {
           <template v-for="t in tags.tagList.slice(0, 8)" :key="t.name">
             <CtChip v-if="!form.tags.includes(t.name)" @click="() => addTag(t.name)">#{{ t.name }}</CtChip>
           </template>
+        </div>
+        <!-- what Clef finds fitting, from the words and the photo; a new tag is marked as such -->
+        <div v-if="worker.api?.suggestTags" class="suggested">
+          <button
+            type="button"
+            :disabled="tagState === 'asking' || !text.trim()"
+            :aria-busy="tagState === 'asking'"
+            @click="askForTags"
+          >{{ i18n.t("form.suggestTags") }}</button>
+          <CtChip v-for="o in offers" :key="o.tag" @click="() => addTag(o.tag)">#{{ o.tag }}<small v-if="o.isNew">{{ i18n.t("form.newTag") }}</small></CtChip>
+          <p v-if="tagState !== 'idle'" aria-live="polite">{{ i18n.t(TAG_STATE[tagState]) }}</p>
         </div>
       </div>
       <div>
@@ -475,6 +517,67 @@ form {
         margin-top: 8px;
       }
 
+      /* the ask for tags, dashed like every ask of the agent's, then what came back */
+      > .suggested {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+
+        /* the ask itself */
+        > button:first-child {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          min-height: var(--tap);
+          padding: 0 12px;
+          border-radius: 999px;
+          background: var(--surface);
+          border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
+          font-size: var(--font-sm);
+          font-weight: 700;
+          color: var(--ink);
+
+          &:disabled {
+            color: var(--muted);
+          }
+
+          /* waiting on Clef: a dot breathing before the label */
+          &[aria-busy="true"]::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: breathe 1s ease-in-out infinite alternate;
+
+            @media (--reduced-motion) {
+              animation: none;
+            }
+          }
+        }
+
+        /* what Clef offered: a chip like any other, its edge dashed as the agent's things are */
+        > button:not(:first-child) {
+          border-style: dashed;
+        }
+
+        /* "new": no note has this tag yet */
+        small {
+          font-size: var(--font-2xs);
+          font-weight: 400;
+          color: var(--muted);
+        }
+
+        > p {
+          flex-basis: 100%;
+          margin: 0;
+          font-size: var(--font-xs);
+          color: var(--muted);
+        }
+      }
+
       > input {
         width: 100%;
         font: inherit;
@@ -599,6 +702,15 @@ form {
       font-size: var(--font-xs);
       color: var(--muted);
     }
+  }
+}
+
+@keyframes breathe {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
   }
 }
 </style>

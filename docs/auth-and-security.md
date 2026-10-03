@@ -179,7 +179,8 @@ The budget is what bounds a lost phone or a bug, so it is specified rather than 
 
 Cloudflare billing notifications and a Google Cloud budget alert are the second line; the index is the first.
 
-Built for `draftDay` (`POST /api/rooms/<id>/draft`) and the agent's suggestions (`POST /api/rooms/<id>/suggest`), which share it.
+Built for `draftDay` (`POST /api/rooms/<id>/draft`), the agent's suggestions (`POST /api/rooms/<id>/suggest`) and tag suggestions (`POST /api/rooms/<id>/tags`), which share it.
+A tag suggestion is one Clef call; the first one in a trip also makes the Claude call that proposes the trip's candidate tags, which the room then keeps, so each counts on its own.
 The ceilings count calls, `SPEND_PER_DAY` (20, a UTC day) and `SPEND_PER_TRIP` (200); a var that is missing or not a number allows nothing.
 `RoomsIndex.reserve` refuses past either with a 429 naming which, and the app says so instead of offering a retry.
 A provider answer outside 2xx refunds; no answer, or an answer that is not a draft, is spent.

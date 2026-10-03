@@ -24,7 +24,11 @@ interface WireDraft {
 }
 
 /** A POST to one of the room's agent calls; a refusal by the budget is an OverBudget */
-async function call(room: RoomId, what: "draft" | "suggest", body: unknown): Promise<Response> {
+async function call(
+  room: RoomId,
+  what: "draft" | "suggest" | "tags",
+  body: unknown,
+): Promise<Response> {
   const res = await fetch(`/api/rooms/${room}/${what}`, {
     method: "POST",
     headers,
@@ -50,6 +54,10 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
     if (res.status === 409) throw new RoomFull();
     if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
     return ((await res.json()) as { id: string }).id as ImageId;
+  },
+  async suggestTags(memo) {
+    const res = await call(room, "tags", memo);
+    return ((await res.json()) as { tags: { tag: string; isNew: boolean }[] }).tags;
   },
   async suggest(at) {
     const res = await call(room, "suggest", { at });

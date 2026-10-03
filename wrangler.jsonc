@@ -35,6 +35,9 @@
   // room's members (worker/index.ts); the room keeps which ones it has.
   "r2_buckets": [{ "binding": "IMAGES", "bucket_name": "chirashitabi-images" }],
 
+  // Workers AI, for Clef: a binding, so there is no key to leak (docs/auth-and-security.md)
+  "ai": { "binding": "AI" },
+
   // None of these is a secret; identify() checks the Access JWT against them.
   // ACCESS_CERTS_URL is deliberately absent: the keys come from the team domain. Only the
   // tests set it, to a stub that serves a throwaway key.

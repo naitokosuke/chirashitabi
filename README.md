@@ -96,8 +96,10 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
   access.ts         AccessVerifier: the Access JWT -> a verified e-mail (signature, aud, iss, exp, nbf)
   rooms-index.ts    RoomsIndex: e-mail -> { room, member id }; the only place an e-mail is stored;
                     the budget of paid calls per person (reserve before the call, refund on a provider error)
-  claude.ts         Claude (claude-sonnet-5-5) for the room's agent: drafting a day, suggesting ideas;
+  claude.ts         Claude (claude-sonnet-5-5) for the room's agent: drafting a day, suggesting ideas,
+                    proposing the trip's candidate tags;
                     each answer checked
+  clef.ts           Clef on Workers AI (clef-flash): which tags fit a memo, from its words and photo
   room.ts           Room: the trip, its notes and members in SQLite, and which pictures it has (their bytes
                     in the R2 bucket chirashitabi-images); the socket: snapshot on connect,
                     mutations checked, stamped (by, updatedAt), written and sent to the other sockets
