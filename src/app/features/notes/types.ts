@@ -78,6 +78,12 @@ export type Note = Memo | Suggestion;
 /** A memo that is on a day */
 export type Scheduled = Memo & { schedule: Schedule };
 
+/**
+ * A memo as its writer makes it. Who wrote it and when is the room's to stamp (the Worker
+ * ignores both), so a new memo has neither until the room or the ledger applies it.
+ */
+export type NewMemo = Omit<Memo, "by" | "updatedAt">;
+
 /** What the form writes */
 export type NoteInput = Pick<Memo, "title" | "body" | "tags" | "color" | "mapsUrl" | "pin">;
 
