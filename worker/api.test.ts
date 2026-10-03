@@ -468,4 +468,38 @@ describe("the socket", () => {
     b.idle();
     for (const s of [a, b]) s.ws.close(1000, "done");
   });
+
+  test("a mutation with a cid is answered to its sender: ack with the room's time, or rejected with the cid", async () => {
+    // its own people: the others above have used up what one e-mail may hold
+    const owner = "acks@example.com";
+    const partner = "acks-partner@example.com";
+    const { roomId } = await createRoom(owner);
+    await invite(roomId, owner, partner);
+    const a = await connect(roomId, owner);
+    const b = await connect(roomId, partner);
+
+    a.send({ type: "note:add", note: memo("n1"), cid: "c1" });
+    const ack = await a.next();
+    const relayed = await b.next();
+    expect(ack).toEqual({ type: "ack", cid: "c1", updatedAt: expect.any(String) });
+    // the partner hears the mutation as before, without the cid, at the same time
+    expect(relayed.type === "mutation" && relayed.updatedAt).toBe(
+      ack.type === "ack" && ack.updatedAt,
+    );
+    expect(relayed.type === "mutation" && "cid" in relayed.mutation).toBe(false);
+
+    a.send({ type: "note:add", note: memo("n1"), cid: "c2" });
+    expect(await a.next()).toEqual({ type: "rejected", reason: "duplicate id", cid: "c2" });
+    a.send({ type: "note:eat", cid: "c3" });
+    expect(await a.next()).toEqual({ type: "rejected", reason: "not a mutation", cid: "c3" });
+    // a cid that is not an id is ignored, and the answer is the old unnamed one
+    a.send({ type: "note:eat", cid: "no spaces allowed" });
+    expect(await a.next()).toEqual({ type: "rejected", reason: "not a mutation" });
+
+    a.send({ type: "note:move", id: "n1", x: 1, y: 2 }); // no cid: relayed, not answered
+    expect((await b.next()).type).toBe("mutation");
+    a.idle();
+    b.idle();
+    for (const s of [a, b]) s.ws.close(1000, "done");
+  });
 });

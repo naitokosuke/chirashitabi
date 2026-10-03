@@ -21,10 +21,14 @@ export interface SocketLike {
 export interface RoomSocketOptions {
   /** Opens a socket to a room; defaults to a WebSocket on this origin's `/api/rooms/<id>/ws` */
   open?: (roomId: string) => SocketLike;
-  /** The room's state, and what was changed here while the socket was down: apply both, in that order */
-  onSnapshot(msg: Extract<ServerMessage, { type: "snapshot" }>, queued: readonly Mutation[]): void;
+  /** The room's state, whole; the socket is connected by then, so what is pending can be sent again */
+  onSnapshot(msg: Extract<ServerMessage, { type: "snapshot" }>): void;
   /** A member's change, relayed by the room */
   onMutation(msg: Extract<ServerMessage, { type: "mutation" }>): void;
+  /** The room applied one of ours, sent with this `cid`, at `updatedAt` */
+  onAck(cid: string, updatedAt: string): void;
+  /** The room refused one of ours */
+  onRejected(cid: string, reason: string): void;
   onStatus(status: SocketStatus): void;
 }
 
@@ -38,10 +42,10 @@ function openOnThisOrigin(roomId: string): SocketLike {
 }
 
 /**
- * The socket to a room, and nothing else: connecting, backing off and retrying, queueing what
- * is sent while it is down, and the status. What the messages mean is the caller's
- * (docs/data-fetching.md). The room's first message on every connection is a snapshot, so a
- * reconnect is a resync: the queue is handed over with it and then sent.
+ * The socket to a room, and nothing else: connecting, backing off and retrying, and the
+ * status. What the messages mean, and what to send again after a reconnect, is the caller's
+ * (ledger.ts, docs/data-fetching.md). The room's first message on every connection is a
+ * snapshot, so a reconnect is a resync. A message sent while the socket is down is dropped.
  */
 export function createRoomSocket(options: RoomSocketOptions) {
   const open = options.open ?? openOnThisOrigin;
@@ -50,7 +54,6 @@ export function createRoomSocket(options: RoomSocketOptions) {
   let ws: SocketLike | null = null;
   let attempt = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let pending: Mutation[] = [];
 
   function setStatus(next: SocketStatus) {
     status = next;
@@ -81,36 +84,40 @@ export function createRoomSocket(options: RoomSocketOptions) {
 
   function receive(msg: ServerMessage) {
     switch (msg.type) {
-      case "snapshot": {
+      case "snapshot":
         attempt = 0;
-        const queued = pending;
-        pending = [];
-        options.onSnapshot(msg, queued);
         setStatus("connected");
-        for (const m of queued) send(m);
+        options.onSnapshot(msg);
         return;
-      }
       case "mutation":
         options.onMutation(msg);
         return;
+      case "ack":
+        options.onAck(msg.cid, msg.updatedAt);
+        return;
       case "rejected":
-        // The room refused something of ours; the next snapshot is the truth
+        if (msg.cid !== undefined) {
+          options.onRejected(msg.cid, msg.reason);
+          return;
+        }
+        // refused without saying which (it could not read ours): the next snapshot is the truth
         console.warn(`room: ${msg.reason}`);
         ws?.close(4000, "resync");
         return;
     }
   }
 
-  function send(m: Mutation) {
-    if (ws?.readyState === OPEN && status === "connected") ws.send(JSON.stringify(m));
-    else pending.push(m);
+  /** Sends now if connected; `cid` asks the room to answer. Returns whether it went */
+  function send(m: Mutation, cid?: string): boolean {
+    if (ws?.readyState !== OPEN || status !== "connected") return false;
+    ws.send(JSON.stringify(cid === undefined ? m : { ...m, cid }));
+    return true;
   }
 
   function leave() {
     if (timer !== null) clearTimeout(timer);
     timer = null;
     attempt = 0;
-    pending = [];
     ws?.close(1000, "left");
     ws = null;
     roomId = null;
