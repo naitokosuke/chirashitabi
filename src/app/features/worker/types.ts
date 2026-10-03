@@ -15,6 +15,9 @@ export interface DayDraft {
 export interface WorkerApi {
   /** Have a member order a day's notes and give them times */
   draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<DayDraft>;
-  /** Publish the booklet as a static page at /r/<slug>/shiori, with a fresh slug each time */
-  exportBooklet(): Promise<void>;
+  /**
+   * Publish the booklet as a static page at /r/<slug>/shiori, with a fresh slug each time;
+   * null while the Worker cannot, and the UI hides it
+   */
+  exportBooklet: (() => Promise<void>) | null;
 }

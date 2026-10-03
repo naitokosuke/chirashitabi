@@ -34,6 +34,7 @@ import { assignTo, cycleStatus, draftUpdates } from "../features/trip/itinerary"
 import { useTrip } from "../features/trip/useTrip";
 import type { DayDraft } from "../features/worker/types";
 import { useWorker } from "../features/worker/useWorker";
+import { OverBudget } from "../features/worker/api";
 import { useDraftDay, useExportBooklet } from "../features/worker/useWorkerCalls";
 
 type Draft = DayDraft & { date: Temporal.PlainDate };
@@ -169,6 +170,12 @@ async function askForDraft() {
     // the error state says so by the button; asking again is the person's tap, never a retry
   }
 }
+/** Why the last draft did not come: the budget is spent (asking again will not help), or it failed */
+const draftFailure = computed(() => {
+  const e = draftError.value;
+  if (!(e instanceof OverBudget)) return "shiori.draftFailed";
+  return e.ceiling === "trip" ? "shiori.draftTripLimit" : "shiori.draftLimit";
+});
 const { mutate: exportBooklet, isLoading: exporting, error: exportError } = useExportBooklet();
 
 function adoptDraft() {
@@ -336,7 +343,7 @@ function adoptDraft() {
                 :aria-busy="drafting && askedHere"
                 @click="askForDraft"
               >{{ i18n.t(drafting && askedHere ? "shiori.drafting" : "shiori.askDraft") }}</button>
-              <p v-if="draftError !== null && askedHere && !drafting" aria-live="polite">{{ i18n.t("shiori.draftFailed") }}</p>
+              <p v-if="draftError !== null && askedHere && !drafting" aria-live="polite">{{ i18n.t(draftFailure) }}</p>
             </template>
           </template>
 
@@ -360,7 +367,7 @@ function adoptDraft() {
       </CtTabPanel>
     </div>
 
-    <footer v-if="!editing && worker.api">
+    <footer v-if="!editing && worker.api?.exportBooklet">
       <p v-if="exportError !== null && !exporting" aria-live="polite">{{ i18n.t("shiori.exportFailed") }}</p>
       <button
         type="button"

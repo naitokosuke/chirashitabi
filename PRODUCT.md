@@ -48,7 +48,8 @@ Working today:
 - Suggestions: a card anyone (including the agent) can leave, adopted into an ordinary note or dismissed.
 - Rooms: create, remember on the device, reconnect; both members see each other's changes live.
 
-Planned, not built: the agent drafting a day's order and times (Claude), the invite screen, expanding short `maps.app.goo.gl` links, publishing the booklet as a public read-only page.
+The agent (Claude) drafts a day's order, times and intro when a member asks, within a daily and per-trip budget.
+Planned, not built: the invite screen, expanding short `maps.app.goo.gl` links, publishing the booklet as a public read-only page.
 
 Terminology: a note is a 付箋/sticky; the booklet is しおり/shiori; the people and the agent are members; a trip's shared space is a room.
 

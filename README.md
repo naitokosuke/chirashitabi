@@ -58,7 +58,7 @@ src/app/            The app
     tags/    Tag colors and the tag filter (store, filter bar)
     place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON
     canvas/  Sticky note card; transform (screen <-> world, zoom, pinch, fit); useViewport (the animated view)
-    worker/  WorkerApi: drafting a day, booklet export
+    worker/  WorkerApi: drafting a day (POST /api/rooms/<id>/draft, by the room's agent), booklet export
 
   shared/  Types every feature can use: Brand; CurrencyCode and formatMoney; HexColor
 
@@ -90,12 +90,15 @@ scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop 
 worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run check:worker` type-checks it)
   index.ts          Branches on the hostname, then identify -> Origin check -> the room API
   access.ts         AccessVerifier: the Access JWT -> a verified e-mail (signature, aud, iss, exp, nbf)
-  rooms-index.ts    RoomsIndex: e-mail -> { room, member id }; the only place an e-mail is stored
+  rooms-index.ts    RoomsIndex: e-mail -> { room, member id }; the only place an e-mail is stored;
+                    the budget of paid calls per person (reserve before the call, refund on a provider error)
+  claude.ts         Claude (claude-sonnet-5-5) for the room's agent: drafting a day, its answer checked
   room.ts           Room: the trip, its notes and members in SQLite; the socket: snapshot on connect,
                     mutations checked, stamped (by, updatedAt), written and sent to the other sockets
   wire.ts           What crosses the socket (Temporal values as ISO strings) and the checks it must pass
   api.test.ts       The Worker in workerd via wrangler's test harness, Access stood in for by a throwaway key
-  env.d.ts          ACCESS_CERTS_URL, the one var only the tests set
+  env.d.ts          ANTHROPIC_API_KEY (a secret), and ACCESS_CERTS_URL and ANTHROPIC_BASE_URL, which only
+                    the tests set
 
 docs/               Design notes: auth-and-security.md (one hostname behind Access, rooms and members, agents,
                     paid-API budgets, what stays public), data-fetching.md (the room in the query cache),

@@ -164,6 +164,47 @@ export class Room extends DurableObject<Env> {
       .name;
   }
 
+  // ---- the agent (RPC from the Worker, inside a member's request) ----
+
+  /** What the agent needs to draft `date`, asked by member `by`; null when the trip has no such day */
+  dayForDraft(
+    by: string,
+    date: string,
+  ): { trip: string; currency: string; notes: WireMemo[] } | null {
+    this.assertMember(by);
+    const trip = this.trip();
+    if (!trip.days.some((d) => d.date === date)) return null;
+    const notes = this.notes().filter(
+      (n): n is WireMemo => n.kind === "memo" && n.schedule?.date === date,
+    );
+    return { trip: trip.name, currency: trip.currency, notes };
+  }
+
+  /**
+   * The ledger of the agent's paid calls: who asked, when, for what and how many tokens, for
+   * tracing a surprising bill. Member ids only, never an e-mail.
+   */
+  recordAgentCall(by: string, what: string, tokens: { input: number; output: number }): void {
+    const sql = this.ctx.storage.sql;
+    sql.exec(`
+      CREATE TABLE IF NOT EXISTS agent_calls (
+        at TEXT NOT NULL,
+        by TEXT NOT NULL,
+        what TEXT NOT NULL,
+        input_tokens INTEGER NOT NULL,
+        output_tokens INTEGER NOT NULL
+      )
+    `);
+    sql.exec(
+      "INSERT INTO agent_calls (at, by, what, input_tokens, output_tokens) VALUES (?, ?, ?, ?, ?)",
+      new Date().toISOString(),
+      by,
+      what,
+      tokens.input,
+      tokens.output,
+    );
+  }
+
   // ---- the socket ----
 
   /**

@@ -136,6 +136,8 @@ one {{{$count} note has no place · long-press the map to place}}
   "shiori.askDraft": "Draft the order and times",
   "shiori.drafting": "Drafting…",
   "shiori.draftFailed": "The draft did not come back. Ask again.",
+  "shiori.draftLimit": "That is all the drafts for today. Ask again tomorrow.",
+  "shiori.draftTripLimit": "This trip has used all the drafts it can ask for.",
   "shiori.dayTotal": "Budget for the day {$total}",
   "shiori.tagEmpty": "No notes with this tag yet",
   "shiori.export": "Export",
