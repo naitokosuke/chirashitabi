@@ -214,7 +214,8 @@ form {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  & > div {
+
+  > div {
     display: grid;
     gap: 6px;
   }
@@ -223,6 +224,7 @@ form {
 .colors {
   display: flex;
   gap: 10px;
+
   button {
     width: 32px;
     height: 32px;
