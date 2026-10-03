@@ -138,6 +138,7 @@ one {{Claude left {$count} idea here}}
   "form.urlNoPinFind":
     "No coordinates in that link. Paste the long link from “Share”, or use “Find the place”",
   "form.findPlace": "Find the place",
+  "form.placeNaming": "Looking up what is here…",
   "form.placesAsking": "Looking for the place…",
   "form.placesNone": "Could not tell a place on the map from this note.",
   "form.placesFailed": "The places did not come back. Ask again.",

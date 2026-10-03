@@ -62,3 +62,76 @@ export function placesFrom(raw: unknown): Place[] {
   }
   return out;
 }
+
+/**
+ * What is at a point: the place there (a shop, a sight) or, short of one, the street; null
+ * inside when OpenStreetMap has nothing there, null outside when it could not be asked
+ */
+export async function reverseGeocode(
+  env: Env,
+  at: { lat: number; lng: number },
+  lang: "ja" | "en",
+): Promise<{ place: Place | null } | null> {
+  const params = new URLSearchParams({
+    lat: String(at.lat),
+    lon: String(at.lng),
+    format: "jsonv2",
+    // a building's level: the shop or the sight the point is on, not the district
+    zoom: "18",
+    addressdetails: "1",
+    "accept-language": lang,
+  });
+  let res: Response;
+  try {
+    res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/reverse?${params}`, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+    });
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+  return { place: placeAt(await res.json().catch(() => null), at) };
+}
+
+/** What a place at a point is called, most telling first: never a bare house number */
+const NAMED = [
+  "tourism",
+  "attraction",
+  "amenity",
+  "shop",
+  "leisure",
+  "historic",
+  "building",
+  "road",
+  "pedestrian",
+  "neighbourhood",
+  "quarter",
+  "suburb",
+] as const;
+
+/**
+ * Nominatim's reverse answer as the place at `at`: its own name when it has one (a shop, a
+ * sight), else the most telling part of its address (a building, then the street); the point
+ * stays the one pinned. Null when there is nothing there (the sea: `{ "error": … }`).
+ */
+export function placeAt(raw: unknown, at: { lat: number; lng: number }): Place | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const r = raw as Record<string, unknown>;
+  const line = typeof r.display_name === "string" ? r.display_name : null;
+  if (line === null) return null;
+  const address =
+    typeof r.address === "object" && r.address !== null
+      ? (r.address as Record<string, unknown>)
+      : {};
+  const own = typeof r.name === "string" ? r.name.trim() : "";
+  const part = NAMED.map((k) => address[k]).find(
+    (v): v is string => typeof v === "string" && v.trim() !== "",
+  );
+  const name = (own !== "" ? own : (part ?? "")).trim();
+  if (name === "") return null;
+  // the address line, without the name and without what comes before it (a house number)
+  const parts = line.split(",").map((p) => p.trim());
+  const from = parts.indexOf(name);
+  const rest = (from === -1 ? parts : parts.slice(from + 1)).join(", ");
+  return { name: name.slice(0, 120), address: rest.slice(0, 240), lat: at.lat, lng: at.lng };
+}

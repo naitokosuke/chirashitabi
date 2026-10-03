@@ -51,7 +51,7 @@ Working today:
 
 The agent (Claude) drafts a day's order, times and intro, and leaves a few ideas as suggestion cards on the canvas, when a member asks, within a daily and per-trip budget.
 While writing a note, Clef (Workers AI) suggests tags that fit its words and photo, from the tags in use and candidates Claude proposed once for the trip.
-And when asked, Claude names the place a note is about and OpenStreetMap finds it, so a note can get its Google Maps link and its pin without leaving the app.
+And when asked, Claude names the place a note is about and OpenStreetMap finds it, so a note can get its Google Maps link and its pin without leaving the app. A note started at a point on the map gets that point's link at once, and OpenStreetMap's name for what is there as its title when it has none.
 Planned, not built: the invite screen, expanding short `maps.app.goo.gl` links, publishing the booklet as a public read-only page.
 
 Terminology: a note is a 付箋/sticky; the booklet is しおり/shiori; the people and the agent are members; a trip's shared space is a room.

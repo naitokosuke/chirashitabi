@@ -4,7 +4,7 @@ import { initWorkersLogger, withEvlog } from "evlog/workers";
 import { AccessVerifier, Unauthenticated } from "./access";
 import { draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
 import { CLEF_MODEL, judgeTags, MAX_TAGS } from "./clef";
-import { geocode, SPACING_MS, type Place } from "./geocode";
+import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
 import { Room } from "./room";
 import {
   IMAGE_TYPES,
@@ -52,7 +52,7 @@ export default withEvlog<Env>(
 const booklet = () => new Response("Not Found", { status: 404 });
 
 const status = (code: number, text: string) => new Response(text, { status: code });
-const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws|draft|suggest|tags|places)$/;
+const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws|draft|suggest|tags|places|where)$/;
 /** A room's pictures: POST to upload one, GET `/images/<id>` to show it */
 const IMAGES = /^\/api\/rooms\/([0-9a-f-]{36})\/images(?:\/([0-9a-f-]{36}))?$/;
 
@@ -168,7 +168,7 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
   const [, roomId, action] = m as unknown as [
     string,
     string,
-    "invite" | "ws" | "draft" | "suggest" | "tags" | "places",
+    "invite" | "ws" | "draft" | "suggest" | "tags" | "places" | "where",
   ];
   const memberId = await index.resolve(email, roomId);
   if (memberId === null) return status(403, "Forbidden");
@@ -282,6 +282,24 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
     return Response.json({
       tags: judged.tags.map((t) => ({ tag: t.tag, p: t.p, isNew: !inUse.has(t.tag) })),
     });
+  }
+
+  if (action === "where") {
+    // what is at a point the asker pinned on the map: free (no agent), so not budgeted
+    const lat = body?.lat;
+    const lng = body?.lng;
+    if (
+      typeof lat !== "number" ||
+      typeof lng !== "number" ||
+      Math.abs(lat) > 90 ||
+      Math.abs(lng) > 180
+    )
+      return status(400, "Bad Request");
+    const lang = body?.lang === "en" ? "en" : "ja";
+    const found = await reverseGeocode(env, { lat, lng }, lang);
+    log.set({ geocoder: { reverse: true, ok: found !== null, found: found?.place != null } });
+    if (found === null) return status(502, "Bad Gateway");
+    return Response.json(found);
   }
 
   if (action === "places") {

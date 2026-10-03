@@ -122,6 +122,7 @@ export const ja: Messages = {
   "form.urlNoPinFind":
     "このリンクからは座標が読めません。「共有」の長いリンクを貼るか、「場所を探す」を使ってください",
   "form.findPlace": "場所を探す",
+  "form.placeNaming": "この場所の名前を調べています…",
   "form.placesAsking": "場所を探しています…",
   "form.placesNone": "このメモからは、地図で見つかる場所が分かりませんでした。",
   "form.placesFailed": "場所が届きませんでした。もう一度頼んでください。",
