@@ -1,12 +1,6 @@
 <script lang="ts">
 import { Temporal } from "temporal-polyfill-lite";
 
-/** What the room is created with; the Worker checks it again */
-export interface NewRoom {
-  trip: { name: string; days: string[]; currency: string; center: { lat: number; lng: number } };
-  me: { name: string; color: string };
-}
-
 /** `count` days from `first`, as the ISO dates the room stores */
 export const daysFrom = (first: Temporal.PlainDate, count: number): string[] =>
   Array.from({ length: count }, (_, i) => first.add({ days: i }).toString());
@@ -29,6 +23,8 @@ import { onMounted, ref, useId } from "vue";
 
 import { useI18n } from "../i18n/useI18n";
 
+import type { NewRoom } from "../features/rooms/types";
+import { useCreateRoom, useRoomList } from "../features/rooms/useRooms";
 import { useRoom } from "../features/sync/useRoom";
 
 const emit = defineEmits<{ enter: [roomId: string] }>();
@@ -36,11 +32,9 @@ const i18n = useI18n();
 const room = useRoom();
 const id = useId();
 
-type Listed = { id: string; name: string };
-const rooms = ref<Listed[] | null>(null);
-const listFailed = ref(false);
+const { data: rooms, status: listStatus, refetch: refetchList } = useRoomList();
+const { mutateAsync: createAsync, isLoading: busy, error: createError } = useCreateRoom();
 const creating = ref(false);
-const busy = ref(false);
 
 const name = ref("");
 const firstDay = ref(Temporal.Now.plainDateISO().add({ days: 30 }).toString());
@@ -49,23 +43,8 @@ const currency = ref<string>(CURRENCIES[0]);
 const me = ref("");
 const color = ref<string>(MEMBER_COLORS[0]);
 
-const headers = { "Content-Type": "application/json" };
-
-async function list() {
-  listFailed.value = false;
-  try {
-    const res = await fetch("/api/me", { method: "POST", headers, body: "{}" });
-    if (!res.ok) throw new Error(String(res.status));
-    rooms.value = ((await res.json()) as { rooms: Listed[] }).rooms;
-  } catch {
-    listFailed.value = true;
-    rooms.value = [];
-  }
-}
-
 async function create() {
   if (busy.value) return;
-  busy.value = true;
   const body: NewRoom = {
     trip: {
       name: name.value.trim(),
@@ -76,21 +55,20 @@ async function create() {
     me: { name: me.value.trim(), color: color.value },
   };
   try {
-    const res = await fetch("/api/rooms", { method: "POST", headers, body: JSON.stringify(body) });
-    if (!res.ok) throw new Error(String(res.status));
-    emit("enter", ((await res.json()) as { roomId: string }).roomId);
+    emit("enter", await createAsync(body));
   } catch {
-    listFailed.value = true;
-  } finally {
-    busy.value = false;
+    // the mutation's error state says so under the form; the person tries again
   }
+}
+function retry() {
+  room.reconnect();
+  void refetchList();
 }
 
 onMounted(() => {
   // the room this device was in last opens by itself; the list is for choosing another
   const last = room.remembered();
   if (last !== null && room.status === "idle") emit("enter", last);
-  void list();
 });
 </script>
 
@@ -99,15 +77,9 @@ onMounted(() => {
     <div class="head">
       <h1>chirashitabi</h1>
       <p v-if="room.status === 'connecting'" class="state">{{ i18n.t("rooms.connecting") }}</p>
-      <p v-else-if="room.status === 'failed' || listFailed" class="state">
+      <p v-else-if="room.status === 'failed' || listStatus === 'error'" class="state">
         {{ i18n.t("rooms.failed") }}
-        <button
-          type="button"
-          @click="() => {
-            room.reconnect();
-            list();
-          }"
-        >{{ i18n.t("rooms.retry") }}</button>
+        <button type="button" @click="retry">{{ i18n.t("rooms.retry") }}</button>
       </p>
     </div>
 
@@ -153,14 +125,16 @@ onMounted(() => {
       </div>
       <div class="actions">
         <button type="button" @click="() => (creating = false)">{{ i18n.t("common.close") }}</button>
-        <button class="primary" type="submit" :disabled="busy || !name.trim() || !me.trim()">{{ i18n.t("rooms.create") }}</button>
+        <button class="primary" type="submit" :disabled="busy || !name.trim() || !me.trim()">{{ i18n.t(busy ? "rooms.creating" : "rooms.create") }}</button>
       </div>
+      <p v-if="createError !== null" aria-live="polite" class="state">{{ i18n.t("rooms.createFailed") }}</p>
     </form>
 
     <section v-else>
       <h2>{{ i18n.t("rooms.yours") }}</h2>
-      <p v-if="rooms === null" aria-live="polite" class="empty">{{ i18n.t("rooms.loading") }}</p>
-      <p v-else-if="rooms !== null && rooms.length === 0" class="empty">{{ i18n.t("rooms.none") }}</p>
+      <p v-if="listStatus === 'pending'" aria-live="polite" class="empty">{{ i18n.t("rooms.loading") }}</p>
+      <!-- "none" only when the list says so; a list that failed says nothing about what exists -->
+      <p v-else-if="listStatus === 'success' && (rooms ?? []).length === 0" class="empty">{{ i18n.t("rooms.none") }}</p>
       <ul v-else>
         <li v-for="r in rooms" :key="r.id">
           <button class="open" type="button" @click="() => emit('enter', r.id)">{{ r.name }}</button>
@@ -178,14 +152,12 @@ onMounted(() => {
   overflow: auto;
   padding: calc(24px + env(safe-area-inset-top, 0px)) 20px 40px;
   background: var(--bg);
-
-  & h1 {
+  h1 {
     margin: 0;
     font-size: var(--font-3xl);
     font-weight: 700;
   }
-
-  & h2 {
+  h2 {
     margin: 24px 0 8px;
     font-size: var(--font-xl);
     font-weight: 700;
@@ -223,13 +195,11 @@ ul {
 form {
   display: grid;
   gap: 6px;
-
-  & label, & .l {
+  label, .l {
     margin-top: 10px;
     font-size: var(--font-sm);
     color: var(--muted);
   }
-
   & input, & select {
     padding: 10px 12px;
     font: inherit;
@@ -245,7 +215,7 @@ form {
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 
-  & > div {
+  > div {
     display: grid;
     gap: 6px;
   }
@@ -255,12 +225,11 @@ form {
   display: flex;
   gap: 10px;
 
-  & button {
+  button {
     width: 32px;
     height: 32px;
     border-radius: 50%;
     border: 3px solid transparent;
-
     &.on {
       border-color: var(--ink);
     }
@@ -281,11 +250,9 @@ form {
   background: var(--ink);
   border: 0;
   border-radius: 999px;
-
   &:disabled {
     opacity: 0.4;
   }
-
   @media (hover: hover) {
     &:not(:disabled):hover {
       box-shadow: var(--shadow-float);

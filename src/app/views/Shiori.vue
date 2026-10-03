@@ -33,6 +33,7 @@ import { assignTo, cycleStatus, draftUpdates } from "../features/trip/itinerary"
 import { useTrip } from "../features/trip/useTrip";
 import type { DayDraft } from "../features/worker/types";
 import { useWorker } from "../features/worker/useWorker";
+import { useDraftDay, useExportBooklet } from "../features/worker/useWorkerCalls";
 
 type Draft = DayDraft & { date: Temporal.PlainDate };
 
@@ -139,14 +140,27 @@ function setIntro(e: Event) {
   trip.setIntro(day.value, (e.target as HTMLTextAreaElement).value);
 }
 
+const {
+  mutateAsync: draftDay,
+  isLoading: drafting,
+  error: draftError,
+  variables: draftAsked,
+} = useDraftDay();
+/** Whether the last ask for a draft was for the day on the page: its pending and error belong there */
+const askedHere = computed(() => {
+  const asked = draftAsked.value?.date;
+  return asked !== undefined && day.value !== null && asked.equals(day.value);
+});
 async function askForDraft() {
   const date = day.value;
-  if (!date || !worker.api) return;
-  draft.value = { date, ...(await worker.api.draftDay(date, trip.forDay(date))) };
+  if (date === null || drafting.value) return;
+  try {
+    draft.value = { date, ...(await draftDay({ date, notes: trip.forDay(date) })) };
+  } catch {
+    // the error state says so by the button; asking again is the person's tap, never a retry
+  }
 }
-function exportBooklet() {
-  void worker.api?.exportBooklet();
-}
+const { mutate: exportBooklet, isLoading: exporting, error: exportError } = useExportBooklet();
 
 function adoptDraft() {
   if (!draft.value) return;
@@ -317,7 +331,21 @@ function adoptDraft() {
               <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}</li></ol>
               <div class="act"><button class="ok" type="button" @click="adoptDraft">{{ i18n.t("shiori.adoptDraft") }}</button><button class="no" type="button" @click="() => (draft = null)">{{ i18n.t("common.dismiss") }}</button></div>
             </div>
-            <button v-else class="ask" data-turn type="button" @click="askForDraft">{{ i18n.t("shiori.askDraft") }}</button>
+            <template v-else>
+              <button
+                class="ask"
+                data-turn
+                type="button"
+                :disabled="drafting"
+                :aria-busy="drafting && askedHere"
+                @click="askForDraft"
+              >{{ i18n.t(drafting && askedHere ? "shiori.drafting" : "shiori.askDraft") }}</button>
+              <p
+                v-if="draftError !== null && askedHere && !drafting"
+                aria-live="polite"
+                class="failed"
+              >{{ i18n.t("shiori.draftFailed") }}</p>
+            </template>
           </template>
 
           <p v-if="trip.budgetOf(day)" class="daytotal" data-turn>{{ i18n.t("shiori.dayTotal", { total: price(trip.budgetOf(day)) }) }}<small v-if="trip.budgetOf(day, false) > trip.budgetOf(day)">{{ i18n.t("shiori.withMaybes", { total: price(trip.budgetOf(day, false)) }) }}</small></p>
@@ -341,7 +369,14 @@ function adoptDraft() {
     </main>
 
     <footer v-if="!editing && worker.api" class="foot">
-      <button class="export" type="button" @click="exportBooklet">{{ i18n.t("shiori.export") }}</button>
+      <p v-if="exportError !== null && !exporting" aria-live="polite" class="failed">{{ i18n.t("shiori.exportFailed") }}</p>
+      <button
+        class="export"
+        type="button"
+        :disabled="exporting"
+        :aria-busy="exporting"
+        @click="() => exportBooklet()"
+      >{{ i18n.t(exporting ? "shiori.exporting" : "shiori.export") }}</button>
     </footer>
   </div>
 </template>
@@ -723,6 +758,47 @@ function adoptDraft() {
   color: var(--ink);
   font-size: var(--font-sm);
   font-weight: 700;
+  &:disabled {
+    color: var(--muted);
+  }
+}
+
+/* waiting on the Worker: a dot breathing before the label, the label saying what is happening */
+.ask,
+.export {
+  &[aria-busy="true"]::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: breathe 1s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes breathe {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask,
+  .export {
+    &[aria-busy="true"]::before {
+      animation: none;
+    }
+  }
+}
+
+/* a Worker call that did not go through; trying again is the button's own tap */
+.failed {
+  margin: 8px 0 0;
+  font-size: var(--font-sm);
+  color: var(--danger);
 }
 
 .draft {
@@ -839,10 +915,22 @@ function adoptDraft() {
 .export {
   width: 100%;
   height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border-radius: 999px;
   background: var(--ink);
   color: var(--on-ink);
   font-size: var(--font-base);
   font-weight: 700;
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+
+.foot .failed {
+  margin: 0 0 8px;
+  text-align: center;
 }
 </style>

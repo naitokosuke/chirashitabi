@@ -1,7 +1,8 @@
 # Data fetching
 
 How the app gets its data, and how it is to move onto Pinia Colada.
-Nothing here is implemented yet; the plan is staged so that each step ships on its own and the next one can be dropped if it stops paying for itself.
+The plan is staged so that each step ships on its own and the next one can be dropped if it stops paying for itself.
+The first step is done; "What there is today" describes the app before it.
 
 ## What there is today
 
@@ -206,6 +207,11 @@ Each step is one pull request and leaves the app working.
 Install `@pinia/colada`, register `PiniaColada`, and move the rooms list, room creation, `draftDay` and `exportBooklet` onto `useQuery` and `useMutation`.
 This is where Vapor compatibility is proven in the real app.
 The "ask for a draft" button gets its pending state.
+
+Done.
+The calls live in `features/rooms/api.ts` (plain `fetch`), `features/rooms/useRooms.ts` and `features/worker/useWorkerCalls.ts`, and Pinia Colada 1.4.6 runs under Vapor with no change to it.
+One thing learned: Pinia Colada awaits `onSettled` before a mutation leaves `loading`, so a hook that returns a failing `invalidateQueries` leaves the mutation loading for good.
+Follow-up invalidations in mutation hooks are fired, caught and not returned.
 
 ### Socket and reducers out of the stores
 

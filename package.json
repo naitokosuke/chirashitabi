@@ -7,6 +7,7 @@
     "deploy": "VITE_MOCK=false vp build && wrangler deploy"
   },
   "dependencies": {
+    "@pinia/colada": "^1.4.6",
     "maplibre-gl": "^6.11.2",
     "messageformat": "^4.0.0",
     "pinia": "^4.0.3",
