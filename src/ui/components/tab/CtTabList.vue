@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="V extends string" vapor>
-import { useTemplateRef } from "vue";
+import { nextTick, onMounted, useTemplateRef, watch } from "vue";
 
 import { useIndicator } from "../../composables/useIndicator";
 import type { CtOption } from "../../types";
@@ -9,6 +9,29 @@ const emit = defineEmits<{ "update:modelValue": [value: V] }>();
 
 const list = useTemplateRef<HTMLElement>("list");
 const { style, ready } = useIndicator(list, () => [props.modelValue, props.tabs.length]);
+
+/**
+ * A row longer than its box scrolls; the chosen tab is brought into it, so the choice is never
+ * off to the side. Only the row scrolls, never the page around it.
+ */
+async function reveal(smooth: boolean) {
+  await nextTick();
+  const row = list.value;
+  const tab = row?.querySelector<HTMLElement>('[aria-selected="true"]');
+  if (!row || !tab) return;
+  const pad = 24;
+  const left = tab.offsetLeft - pad;
+  const right = tab.offsetLeft + tab.offsetWidth + pad - row.clientWidth;
+  const to = left < row.scrollLeft ? left : right > row.scrollLeft ? right : null;
+  if (to === null) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  row.scrollTo({ left: to, behavior: smooth && !reduce ? "smooth" : "auto" });
+}
+watch(
+  () => props.modelValue,
+  () => void reveal(true),
+);
+onMounted(() => void reveal(false));
 </script>
 
 <template>
