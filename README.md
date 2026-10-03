@@ -88,7 +88,7 @@ src/ui/             The design system: props, slots and events only, no app impo
     segmented/   CtSegmented: the pill morphs to the choice
     tab/         CtTabList: the underline slides to the tab; CtTabPanel: content morphs in
     dock/        CtDock: the floating menu, magnifying under a mouse, sinking away under a sheet;
-                 CtDockItem (an icon, its name above, a dot when open, a bounce when pressed),
+                 CtDockItem (an icon, its name above), one dot sliding under the open one,
                  CtDockGroup (items that fold away together), CtDockDivider
   composables/   useIndicator: measures the selected child so an indicator can slide to it
   index.ts, types.ts   The public entry and the shared CtOption type

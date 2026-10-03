@@ -1,22 +1,14 @@
 <script setup lang="ts" vapor>
-import { ref } from "vue";
-
 /**
  * One icon in the dock (`CtDock`). The icon says what it is; its name shows above it under
- * a hovering pointer and is the accessible name everywhere. `current` puts a dot under it,
- * as a dock marks what is open. Pressed, it gives one small bounce. With `href` it is a link
- * (a place of its own, which a modified click opens elsewhere), otherwise a button.
+ * a hovering pointer and is the accessible name everywhere. `current` marks it as the one
+ * open, which the dock shows with a dot sliding under it. With `href` it is a link (a place
+ * of its own, which a modified click opens elsewhere), otherwise a button.
  */
-const props = defineProps<{ label: string; current?: boolean; href?: string }>();
+defineProps<{ label: string; current?: boolean; href?: string }>();
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
 defineSlots<{ default(): unknown }>();
-
-const bouncing = ref(false);
-function onClick(e: MouseEvent) {
-  if (!props.current) bouncing.value = true;
-  emit("click", e);
-}
-const settle = () => (bouncing.value = false);
+const onClick = (e: MouseEvent) => emit("click", e);
 </script>
 
 <template>
@@ -26,13 +18,10 @@ const settle = () => (bouncing.value = false);
     :href
     :aria-label="label"
     :aria-current="current ? 'page' : undefined"
-    :data-bounce="bouncing || undefined"
     @click="onClick"
-    @animationend="settle"
   >
     <span class="icon"><slot></slot></span>
     <span aria-hidden="true" class="tip">{{ label }}</span>
-    <span aria-hidden="true" class="dot"></span>
   </a>
   <button
     v-else
@@ -40,13 +29,10 @@ const settle = () => (bouncing.value = false);
     type="button"
     :aria-label="label"
     :aria-current="current ? 'page' : undefined"
-    :data-bounce="bouncing || undefined"
     @click="onClick"
-    @animationend="settle"
   >
     <span class="icon"><slot></slot></span>
     <span aria-hidden="true" class="tip">{{ label }}</span>
-    <span aria-hidden="true" class="dot"></span>
   </button>
 </template>
 
@@ -118,13 +104,6 @@ button {
     background: var(--wash);
   }
 
-  &[data-bounce] > .icon {
-    animation: bounce 0.5s cubic-bezier(0.3, 0.7, 0.4, 1);
-
-    @media (--reduced-motion) {
-      animation-duration: 0.01s;
-    }
-  }
 
   /* its name, above it, once a pointer rests on it (or the keyboard is on it) */
   > .tip {
@@ -157,42 +136,5 @@ button {
     translate: -50% 0;
   }
 
-  /* what is open: a dot under it */
-  > .dot {
-    position: absolute;
-    inset-block-end: -6px;
-    inset-inline-start: 50%;
-    width: 4px;
-    height: 4px;
-    margin-inline-start: -2px;
-    border-radius: 50%;
-    background: var(--ink);
-    scale: 0;
-    transition: scale var(--duration-morph) var(--ease-spring);
-  }
-
-  &[aria-current="page"] > .dot {
-    scale: 1;
-  }
-}
-
-/* a dock's launch bounce, once, small */
-@keyframes bounce {
-  0%,
-  100% {
-    translate: 0 0;
-  }
-  30% {
-    translate: 0 -12px;
-  }
-  55% {
-    translate: 0 0;
-  }
-  72% {
-    translate: 0 -4px;
-  }
-  86% {
-    translate: 0 0;
-  }
 }
 </style>

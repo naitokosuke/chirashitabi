@@ -41,11 +41,8 @@
 }
 
 /*
- * View Transitions (useViewTransition). Only named regions morph; everything else, the tab
- * bar included, is shown live at once, so its own indicator slides as usual instead of being
- * cross-faded with a snapshot of itself.
- *   view-transition-name: ct-screen  the box a view sits in: views cross-fade
- *   view-transition-name: ct-dock    the dock: on top and live, never a picture of itself
+ * View Transitions (useViewTransition). Only named regions morph; everything else is shown
+ * live at once. Switching tabs takes none: the views are kept layers that cross-fade.
  * A page whose content is replaced (a booklet's day) does not cross-fade, which would show two
  * different pages through each other: it turns, with usePageTurn.
  */
@@ -60,17 +57,7 @@
   animation-duration: var(--duration-swap);
   animation-timing-function: var(--ease-morph);
 }
-::view-transition-old(ct-screen),
-::view-transition-new(ct-screen) {
-  animation-duration: 0.18s;
-}
-::view-transition-old(ct-dock) {
-  display: none;
-}
-::view-transition-group(ct-dock),
-::view-transition-new(ct-dock) {
-  animation: none;
-}
+
 
 /*
  * The theme turning (useTheme, type `theme`). The page is one picture with a soft-edged circle

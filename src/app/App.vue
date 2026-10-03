@@ -2,14 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import {
-  CtDock,
-  CtDockDivider,
-  CtDockGroup,
-  CtDockItem,
-  useViewTransition,
-  type CtOption,
-} from "../ui/index";
+import { CtDock, CtDockDivider, CtDockGroup, CtDockItem, type CtOption } from "../ui/index";
 
 import { useI18n } from "./i18n/useI18n";
 
@@ -128,11 +121,13 @@ function onSave(input: NoteInput, keepOpen: boolean) {
   // let the sheet leave first, then place
   setTimeout(() => place(input, how), 220);
 }
-const viewTransition = useViewTransition();
-/** The views cross-fade, the screen box being the one region that morphs (`ct-screen`) */
+/**
+ * The views cross-fade, each a layer that is kept: no snapshot of the screen is taken, so
+ * nothing over the views (the dock) is ever pictured, scaled or covered on the way
+ */
 function selectTab(tab: View) {
   if (tab === state.value.tab && state.value.form === null) return;
-  viewTransition(() => send({ type: "tabSelected", tab }));
+  void send({ type: "tabSelected", tab });
 }
 /** Out to the trips (`/`), which leaves the room; a modified click is left to the browser */
 function toTrips(e: MouseEvent) {
@@ -167,30 +162,34 @@ function onMemoSaved(input: NoteInput) {
   -->
   <main v-if="inRoom">
     <Canvas
-      :class="{ away: state.tab !== 'canvas' }"
+      :class="['view', { away: state.tab !== 'canvas' }]"
       :inert="!live('canvas')"
       @write="() => send({ type: 'writeRequested' })"
       @edit="(note) => send({ type: 'editRequested', id: note.id })"
     />
-    <Home v-if="opened.has('home')" :class="{ away: state.tab !== 'home' }" :inert="!live('home')" />
+    <Home
+      v-if="opened.has('home')"
+      :class="['view', { away: state.tab !== 'home' }]"
+      :inert="!live('home')"
+    />
     <!-- the memo tab is the canvas's form, always open: each save goes on the canvas and only there -->
     <Form
       v-if="opened.has('memo')"
       :mode="memoTab"
-      :class="{ away: state.tab !== 'memo' }"
+      :class="['view', { away: state.tab !== 'memo' }]"
       :inert="!live('memo')"
       @save="onMemoSaved"
     />
     <Map
       v-if="opened.has('map')"
-      :class="{ away: state.tab !== 'map' }"
+      :class="['view', { away: state.tab !== 'map' }]"
       :inert="!live('map')"
       @write="(pin) => send({ type: 'writeAtPinRequested', pin })"
       @edit="(note) => send({ type: 'editRequested', id: note.id })"
     />
     <Shiori
       v-if="opened.has('shiori')"
-      :class="{ away: state.tab !== 'shiori' }"
+      :class="['view', { away: state.tab !== 'shiori' }]"
       :inert="!live('shiori')"
     />
     <Transition name="ct-slide">
@@ -229,17 +228,25 @@ main {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  /* the region that cross-fades when the tab changes (transitions.css) */
-  view-transition-name: ct-screen;
 
   /*
    * Kept laid out at full size (the map and the desk measure themselves), just not painted.
    * Opacity too: MapLibre sets `visibility: visible` on its own attribution, which would show
    * through a hidden map. Clicks pass through either way, since the layer is inert.
    */
+  /* the one coming up fades in over the one going, which is hidden once it has faded out */
+  > .view {
+    transition:
+      opacity 0.18s ease,
+      visibility 0s;
+  }
+
   > .away {
     visibility: hidden;
     opacity: 0;
+    transition:
+      opacity 0.18s ease,
+      visibility 0s 0.18s;
 
     /*
      * And no part in a View Transition: a named region inside (the booklet's page) would be
