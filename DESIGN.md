@@ -187,13 +187,14 @@ A neutral desk, white tools, one ink, and tinted paper. Nothing in the chrome is
 ## Typography
 
 **Display Font:** the device's own Japanese gothic (Noto Sans JP / Noto Sans CJK JP on Android, Hiragino Sans on iPhone and Mac, Yu Gothic UI / Meiryo on Windows)
-**Body Font:** the same (one voice for everything; nothing is downloaded)
+**Body Font:** the same (one voice for everything written; nothing is downloaded)
+**Print Font:** the device's own mincho (Hiragino Mincho, Yu Mincho, Noto Serif JP), only for what is printed on the desk rather than written on it: the trip's nameplate
 
 **Character:** A plain modern gothic, Japanese first, the one each phone already speaks. Size and weight carry the hierarchy, never a second family.
 
 ### Hierarchy
 
-- **Display** (700, 32px, 1.2): the trip's name on the home view (on the desk it is the trip tag's 22px). The only size above the fixed scale's top step.
+- **Display** (700, 32px, 1.2): the trip's name on the home view (on the desk it is the nameplate's 22px, in the mincho). The only size above the fixed scale's top step.
 - **Title** (700, 18px, 1.3): a sheet's or the memo tab's title, the wordmark on the home view.
 - **Heading** (700, 18px, 1.35): a day in the booklet, a group on the rooms screen.
 - **Body** (400, 16px, 1.5): reading text in the booklet and in forms; 17px in the note field.
@@ -209,7 +210,7 @@ A neutral desk, white tools, one ink, and tinted paper. Nothing in the chrome is
 
 ## Layout
 
-A full-screen app shell with no bars. Every view takes the whole screen, and what it keeps at hand floats on it: along the top, in a 52px row under the status bar (the canvas's tag chips and its ask for ideas, the map's days, the booklet's day tabs and edit/read switch, a sheet's way back), and at the bottom, the **dock**. A page with nothing floating over it (home, the memo tab, the trips) opens with a large title instead, at the same height on each. The row at the top and the dock's footprint (`--top-clear`, `--dock-clear`) are the same on every view, so moving between views, or between the trips and a trip, moves nothing that stays. Where the trip goes is said on the home view and by the trip tag on the desk. The app opens on the canvas. Each tab and each open sheet has its own URL: switching tabs replaces the step, a sheet is a step of its own, so the back button closes the sheet, then leaves the room for the list.
+A full-screen app shell with no bars. Every view takes the whole screen, and what it keeps at hand floats on it: along the top, in a 52px row under the status bar (the canvas's tag chips and its ask for ideas, the map's days, the booklet's day tabs and edit/read switch, a sheet's way back), and at the bottom, the **dock**. A page with nothing floating over it (home, the memo tab, the trips) opens with a large title instead, at the same height on each. The row at the top and the dock's footprint (`--top-clear`, `--dock-clear`) are the same on every view, so moving between views, or between the trips and a trip, moves nothing that stays. Where the trip goes is said on the home view and by the nameplate on the desk. The app opens on the canvas. Each tab and each open sheet has its own URL: switching tabs replaces the step, a sheet is a step of its own, so the back button closes the sheet, then leaves the room for the list.
 
 Views are built the first time they are opened and then kept: switching only says which one is painted, and nothing reloads (the map keeps its tiles, the booklet its scroll, the canvas its pan and zoom). A hidden view is inert, and takes no part in a View Transition.
 
@@ -245,9 +246,9 @@ The dock's last icon is the theme that is up: a sun, or a crescent. Pressed, the
 
 The canvas's top row is the tag chips. While a tag is picked, two chips appear pinned at the row's end: "only these" (a toggle: off dims the other notes, on hides them) and a dashed "clear". Before a tag is picked neither means anything, so neither is shown.
 
-### Trip tag
+### Trip nameplate
 
-Where the trip goes, as an object lying on the desk that is plainly not a note: a luggage tag in ink (`--ink` fill, `--on-ink` text), level where stickies tilt, with a punched hole where a sticky has its author's dot, the trip's name at 22px and its dates under it. It sits in desk coordinates and pans and zooms with the notes, under them; clicks pass through it to the desk. It is placed once the desk's notes are known, centred over the pile and hanging just above it (`tagSpot`), or above where the first note will land on an empty desk, and then stays put. A fit counts it as one more card, so "fit all" always shows it.
+Where the trip goes, printed on the desk rather than lying on it, so nothing about it invites a grab: no fill and no shadow (whatever can be moved casts one), a capsule (fully round, where a note's corners are 6px) ruled in two hairlines of ink like a seal, the desk's own color inside. The trip's name is set in the device's mincho (`--font-print`, the one other face, nothing downloaded) at 22px, spaced 0.12em, with its dates under it in small spaced gothic, Muted. It sits in desk coordinates and pans and zooms with the notes, under them; clicks pass through it to the desk. It is placed once the desk's notes are known, centred over the pile and hanging just above it (`tagSpot`), or above where the first note will land on an empty desk, and then stays put. A fit counts it as one more card, so "fit all" always shows it.
 
 ### Home
 
@@ -255,7 +256,7 @@ The first tab, shown rather than listed. The trip's name in Display as the large
 
 ### Trips (the rooms screen)
 
-The person's trips, as the luggage tags they are on the desk, hung one under another in the page column under the wordmark `chirashitabi`, set as the large title. Two groups under Heading: coming up (the trip under way first, then the soonest, the undated last) and been (the most recent first). A tag that is coming up is ink, like the desk's trip tag, with a ringed punched hole: the name at 22px, how soon at its far end ("あと 30 日", "明日から", "旅の途中 · 2 日目"), the dates and length, and a foot of member dots (round for a person, square for the agent) with the memo count. A tag that is over is white on a hairline in ink, so it recedes. The whole tag is a link into its trip; hovering lifts it with `--shadow-lift`.
+The person's trips, as luggage tags, hung one under another in the page column under the wordmark `chirashitabi`, set as the large title. Two groups under Heading: coming up (the trip under way first, then the soonest, the undated last) and been (the most recent first). A tag that is coming up is ink, with a ringed punched hole: the name at 22px, how soon at its far end ("あと 30 日", "明日から", "旅の途中 · 2 日目"), the dates and length, and a foot of member dots (round for a person, square for the agent) with the memo count. A tag that is over is white on a hairline in ink, so it recedes. The whole tag is a link into its trip; hovering lifts it with `--shadow-lift`.
 
 After the trips coming up hangs a blank tag: the tag's outline dashed, its hole dashed, a plus and "new trip" in Muted. It opens the new trip sheet (`/new`), which slides in like the note form: its way back floating at the top, the title, then the tag the trip will get, drawn live from the fields (the name in the placeholder's place faded until one is typed), then the name, the first day beside a stepper for the days, the currency as chips, your name, and your color as swatches ringed in ink when chosen. The one primary button sits in a footer under the fields, always in reach.
 
