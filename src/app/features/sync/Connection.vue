@@ -5,29 +5,38 @@ import { computed } from "vue";
 
 import { useI18n } from "../../i18n/useI18n";
 
-import { hhmm } from "../trip/format";
+import { hhmm, shortDate } from "../trip/format";
 
 import { useRoom } from "./useRoom";
 
 const room = useRoom();
 const i18n = useI18n();
 
-/** "12:30": when what is on screen was last known to be the room's */
+/** "12:30", or "11/2 12:30" from another day: when what is on screen was last the room's */
 const since = computed(() => {
   const at = room.syncedAt;
-  return at === null ? "" : hhmm(at.toZonedDateTimeISO(Temporal.Now.timeZoneId()).toPlainTime());
+  if (at === null) return "";
+  const local = at.toZonedDateTimeISO(Temporal.Now.timeZoneId());
+  const time = hhmm(local.toPlainTime());
+  return local.toPlainDate().equals(Temporal.Now.plainDateISO())
+    ? time
+    : `${shortDate(local.toPlainDate(), i18n.locale)} ${time}`;
 });
 </script>
 
 <template>
   <!--
-    Inside a room, the socket coming back. The data on screen stays usable meanwhile, so this
-    is a quiet chip over the view, never a cover. Giving up leaves the room for the rooms
-    screen, which says so and offers to retry.
+    Inside a room, whenever what is on screen is not live: opening from what this device kept,
+    coming back after a drop, or unreachable. The data stays usable meanwhile, so this is a
+    quiet chip over the view, never a cover.
   -->
   <div aria-live="polite" class="connection">
-    <p v-if="room.status === 'reconnecting'" class="chip">
+    <p v-if="room.status === 'connecting' || room.status === 'reconnecting'" class="chip">
       <span aria-hidden="true" class="dot"></span>{{ i18n.t("room.reconnecting", { time: since }) }}
+    </p>
+    <p v-else-if="room.status === 'failed'" class="chip">
+      {{ i18n.t("room.unreachable", { time: since }) }}
+      <button type="button" @click="() => room.reconnect()">{{ i18n.t("rooms.retry") }}</button>
     </p>
   </div>
 </template>
@@ -58,6 +67,15 @@ const since = computed(() => {
   font-size: var(--font-sm);
   font-weight: 700;
   color: var(--muted);
+  pointer-events: auto;
+  & button {
+    min-height: 32px;
+    padding: 0 4px;
+    color: var(--ink);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 }
 
 .dot {

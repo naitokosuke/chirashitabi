@@ -2,7 +2,7 @@
 
 How the app gets its data, and how it is to move onto Pinia Colada.
 The plan is staged so that each step ships on its own and the next one can be dropped if it stops paying for itself.
-The first four steps are done; "What there is today" describes the app before them.
+Every step, the later one included, is done; "What there is today" describes the app before them.
 
 ## What there is today
 
@@ -33,7 +33,7 @@ What the user sees of all this is uneven.
 ## Non-goals
 
 - Persisting the cache for offline reading of the booklet.
-  It is a later step with `@pinia/colada-plugin-cache-persister` and is listed at the end.
+  It is a later step and is listed at the end (done since, without the plugin).
 - Normalized entity caching.
   The app has one collection per kind and no entity appears under two keys.
 - Replacing every Pinia store in one change.
@@ -269,6 +269,13 @@ The mocks hand their state to `useRoom().offline`, where a commit is confirmed a
 ### Later
 
 `@pinia/colada-plugin-cache-persister` for reading the booklet offline on the trip, restricted to the room keys.
+
+Done, without the plugin (`features/sync/persist.ts`).
+The plugin needs `@pinia/colada` 1.4.7, which the repository's release-age rule does not install yet; and it keeps the cache only, so the changes made offline and not yet answered would be lost when the app closes, and it cannot revive Temporal values.
+So the room keeps its own: per room in `localStorage`, who this device is, what the room last confirmed and the ledger's unanswered changes, written as the wire's JSON a moment after each change and when the page is hidden, and read back with the wire's revive functions.
+Opening a kept room shows it at once, before the socket answers; the app counts a room with kept data as open even while connecting or unreachable, and the connection chip says it is connecting, or offline with a retry, and as of when.
+What was written offline is signed by this device's member, survives closing the app, and is sent once the room is back.
+The kept format has a version; another version is ignored, not migrated.
 
 ## Open questions
 
