@@ -1,9 +1,10 @@
 <script setup lang="ts" vapor>
-import { useTemplateRef } from "vue";
+import { onBeforeUnmount, onMounted, ref, useTemplateRef } from "vue";
 
 /**
  * The app's one menu: a pane of glass floating at the bottom middle, over whatever view is
- * up, the same on every screen so moving between them never moves it. It holds
+ * up, the same on every screen so moving between them never moves it. Under the item that is
+ * open (`current`) sits one dot, and only the dot moves: it slides to the next one. It holds
  * `CtDockItem`s, `CtDockGroup`s of them that fold away, and `CtDockDivider`s.
  *
  * Under a mouse it magnifies like a dock: the icons near the pointer grow, the nearest the
@@ -42,10 +43,43 @@ function magnify() {
     // smoothstep: a soft shoulder rather than a cone
     el.style.setProperty("--m", (1 + GROW * t * t * (3 - 2 * t)).toFixed(3));
   }
+  placeDot();
 }
 const schedule = () => {
   if (frame === 0) frame = requestAnimationFrame(magnify);
 };
+
+/**
+ * Where the dot is: under the middle of the open item, or nowhere when none is open (or it is
+ * folded away). Placed once before it may slide, so it appears in place rather than flying in.
+ */
+const dot = ref<number | null>(null);
+const dotReady = ref(false);
+function placeDot() {
+  const n = nav.value;
+  const el = n?.querySelector<HTMLElement>('[data-dock-item][aria-current="page"]');
+  if (!n || !el || el.closest("[data-closed]") !== null) {
+    dot.value = null;
+    return;
+  }
+  const a = n.getBoundingClientRect();
+  const b = el.getBoundingClientRect();
+  dot.value = b.left - a.left + b.width / 2;
+  if (!dotReady.value) requestAnimationFrame(() => (dotReady.value = true));
+}
+// what moves the dot: another item opening, a group folding, the dock's width changing
+let watchers: { disconnect(): void }[] = [];
+onMounted(() => {
+  const n = nav.value;
+  if (!n) return;
+  const changed = new MutationObserver(placeDot);
+  changed.observe(n, { subtree: true, attributeFilter: ["aria-current", "data-closed"] });
+  const resized = new ResizeObserver(placeDot);
+  resized.observe(n);
+  watchers = [changed, resized];
+  placeDot();
+});
+onBeforeUnmount(() => watchers.forEach((w) => w.disconnect()));
 
 function onEnter(e: PointerEvent) {
   if (e.pointerType !== "mouse") return;
@@ -79,6 +113,13 @@ function onLeave() {
     @pointerleave="onLeave"
   >
     <slot></slot>
+    <span
+      aria-hidden="true"
+      class="dot"
+      :data-ready="dotReady || undefined"
+      :data-shown="dot !== null || undefined"
+      :style="dot === null ? undefined : `--x: ${dot}px`"
+    ></span>
   </nav>
 </template>
 
@@ -99,11 +140,6 @@ nav {
   width: fit-content;
   inset-block-end: calc(env(safe-area-inset-bottom, 0px) + var(--dock-gap));
   z-index: var(--z-dock);
-  /*
-   * Its own region in a View Transition, drawn live above the views' (transitions.css): the
-   * screen box under it is the whole screen, and its snapshot would hide the dock mid-switch
-   */
-  view-transition-name: ct-dock;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -122,6 +158,31 @@ nav {
   transition:
     translate var(--duration-morph) var(--ease-morph),
     opacity var(--duration-swap) ease;
+
+  /* what is open: one dot under it, sliding to the next */
+  > .dot {
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block-end: 5px;
+    width: 4px;
+    height: 4px;
+    margin-inline-start: -2px;
+    border-radius: 50%;
+    background: var(--ink);
+    translate: var(--x, 0) 0;
+    opacity: 0;
+    pointer-events: none;
+
+    &[data-shown] {
+      opacity: 1;
+    }
+
+    &[data-ready] {
+      transition:
+        translate var(--duration-morph) var(--ease-morph),
+        opacity var(--duration-swap) ease;
+    }
+  }
 
   &[data-away] {
     translate: 0 calc(100% + var(--dock-gap) + env(safe-area-inset-bottom, 0px));
