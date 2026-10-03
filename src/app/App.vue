@@ -134,7 +134,7 @@ function onMemoSaved(input: NoteInput) {
     no view is rebuilt, nothing slides, nothing blinks; a View Transition cross-fades the box.
     A hidden or covered view is inert.
   -->
-  <div v-if="inRoom" class="screen">
+  <main v-if="inRoom">
     <Canvas
       :class="{ away: state.tab !== 'canvas' }"
       :inert="!live('canvas')"
@@ -174,7 +174,7 @@ function onMemoSaved(input: NoteInput) {
         @save="onSave"
       />
     </Transition>
-  </div>
+  </main>
   <Rooms v-else @enter="(id) => room.connect(id)" />
   <Toast v-if="inRoom" :inert="state.form !== null" />
   <Connection v-if="inRoom" />
@@ -192,7 +192,7 @@ function onMemoSaved(input: NoteInput) {
 </template>
 
 <style scoped>
-.screen {
+main {
   position: absolute;
   inset: 0;
   inset-block-end: var(--navh);

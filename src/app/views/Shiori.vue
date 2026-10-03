@@ -231,7 +231,7 @@ function adoptDraft() {
       <h2 :aria-label="heading.map((p) => p.text).join('')"><CtTextMorph :parts="heading" /></h2>
     </div>
 
-    <main ref="page">
+    <div ref="page">
       <!-- the page (this scrolling body) morphs when the day or the mode changes: see showTab -->
       <CtTabPanel>
         <!-- ---------- a day ---------- -->
@@ -349,7 +349,7 @@ function adoptDraft() {
           </section>
         </template>
       </CtTabPanel>
-    </main>
+    </div>
 
     <footer v-if="!editing && worker.api">
       <p v-if="exportError !== null && !exporting" aria-live="polite">{{ i18n.t("shiori.exportFailed") }}</p>
@@ -388,7 +388,7 @@ article {
   }
 
   /* above the page and never scrolled: the trip's sums and, in edit mode, the tray */
-  > div {
+  > div:first-of-type {
     flex-shrink: 0;
     padding: 0 var(--page-margin) 4px;
     border-block-end: 1px solid var(--line);
@@ -532,7 +532,7 @@ article {
   }
 
   /* a booklet is read at a page's width, on a laptop too */
-  > main {
+  > div:last-of-type {
     flex: 1;
     overflow-y: auto;
     padding: 0 var(--page-margin) 24px;

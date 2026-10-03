@@ -50,7 +50,7 @@ const allTotal = computed(() => trip.budgetOf(undefined, false));
   <section>
     <CtAppBar><p>chirashitabi</p></CtAppBar>
 
-    <main>
+    <div>
       <header>
         <h1>{{ trip.name }}</h1>
         <p v-if="range">{{ range }} · {{ i18n.t("home.days", { count: trip.days.length }) }}</p>
@@ -99,7 +99,7 @@ const allTotal = computed(() => trip.budgetOf(undefined, false));
       <p><small>{{ i18n.t("home.budget") }}</small>{{ price(fixedTotal) }}<small v-if="allTotal > fixedTotal">{{ i18n.t("shiori.withMaybes", { total: price(allTotal) }) }}</small></p>
 
       <button type="button" @click="() => room.leave()">{{ i18n.t("home.leave") }}</button>
-    </main>
+    </div>
   </section>
 </template>
 
@@ -121,7 +121,7 @@ section {
     font-weight: 700;
   }
 
-  > main {
+  > div {
     flex: 1;
     overflow-y: auto;
     padding: 28px var(--page-margin) 32px;
