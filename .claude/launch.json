@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "access",
+      "runtimeExecutable": "vp",
+      "runtimeArgs": ["node", "scripts/dev-access.mjs", "dev@localhost"],
+      "port": 8788
+    },
+    {
       "name": "worker",
       "runtimeExecutable": "vp",
       "runtimeArgs": ["exec", "wrangler", "dev", "--port", "8787"],

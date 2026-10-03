@@ -1,4 +1,4 @@
-import type { NewRoom, RoomSummary } from "./types";
+import { roomId, type NewRoom, type RoomId, type RoomSummary } from "./types";
 
 const headers = { "Content-Type": "application/json" };
 
@@ -8,14 +8,20 @@ async function json<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** The rooms the signed-in person is a member of */
+/** The rooms the signed-in person is a member of; an entry without a room id is left out */
 export async function listRooms(): Promise<RoomSummary[]> {
   const res = await fetch("/api/me", { method: "POST", headers, body: "{}" });
-  return (await json<{ rooms: RoomSummary[] }>(res)).rooms;
+  const { rooms } = await json<{ rooms: { id: unknown; name: string }[] }>(res);
+  return rooms.flatMap((r) => {
+    const id = roomId(r.id);
+    return id === null ? [] : [{ id, name: r.name }];
+  });
 }
 
 /** Creates a room with its trip and its first member; resolves with the new room's id */
-export async function createRoom(room: NewRoom): Promise<string> {
+export async function createRoom(room: NewRoom): Promise<RoomId> {
   const res = await fetch("/api/rooms", { method: "POST", headers, body: JSON.stringify(room) });
-  return (await json<{ roomId: string }>(res)).roomId;
+  const id = roomId((await json<{ roomId: unknown }>(res)).roomId);
+  if (id === null) throw new Error("/api/rooms answered without a room id");
+  return id;
 }

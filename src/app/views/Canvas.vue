@@ -4,7 +4,7 @@ import type { Memo, Note, NoteInput } from "../features/notes/types";
 
 // Module scope is shared with every importer. The canvas is mounted once and
 // never unmounted, so one slot is enough.
-let placeOnMounted: ((input: NoteInput, how: PlaceHow) => Memo) | undefined;
+let placeOnMounted: ((input: NoteInput, how: PlaceHow) => Memo | undefined) | undefined;
 
 /** `pop`: the canvas is in view; `quiet`: the form stays open; `away`: written from another tab */
 export type PlaceHow = "pop" | "quiet" | "away";
@@ -353,6 +353,7 @@ function placeAtCenter(input: NoteInput, how: PlaceHow) {
   const r = vp.value!.getBoundingClientRect();
   const c = toWorld(r.width / 2, r.height / 2);
   const n = store.add(input, { x: c.x - 82, y: c.y - 40 });
+  if (n === null) return undefined;
   if (how === "pop") {
     pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
     window.setTimeout(() => (pop.value = null), 900);

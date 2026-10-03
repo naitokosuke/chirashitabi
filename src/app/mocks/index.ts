@@ -1,5 +1,4 @@
 import { useRoom } from "../features/sync/useRoom";
-import { useSync } from "../features/sync/useSync";
 import { useWorker } from "../features/worker/useWorker";
 
 import { mockMe, mockMembers } from "./members";
@@ -9,7 +8,6 @@ import { mockWorker } from "./worker";
 
 /** Fill the stores the way a room would. Call after Pinia is installed. */
 export function installMocks() {
-  useSync().me = mockMe;
   useWorker().api = mockWorker();
-  useRoom().offline({ notes: mockNotes(), trip: mockTrip(), members: mockMembers() });
+  useRoom().offline({ notes: mockNotes(), trip: mockTrip(), members: mockMembers() }, mockMe);
 }

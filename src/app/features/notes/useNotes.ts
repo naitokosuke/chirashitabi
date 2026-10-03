@@ -25,11 +25,14 @@ export const useNotes = defineStore("notes", () => {
   const { data } = useQueryState(() => roomKeys.notes(sync.roomId));
   const notes = computed(() => data.value ?? []);
 
-  function add(input: NoteInput, at: { x: number; y: number }): Memo {
+  /** A new memo near `at`; null out of a room, where there is no one to sign it */
+  function add(input: NoteInput, at: { x: number; y: number }): Memo | null {
+    const by = sync.me;
+    if (by === null) return null;
     const n: Memo = {
       id: uid(),
       kind: "memo",
-      by: sync.me,
+      by,
       updatedAt: Temporal.Now.instant(),
       x: at.x + (Math.random() * 20 - 10),
       y: at.y + (Math.random() * 20 - 10),

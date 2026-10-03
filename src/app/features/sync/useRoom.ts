@@ -1,6 +1,6 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { ref } from "vue";
+import { computed } from "vue";
 
 import { defineStore } from "pinia";
 
@@ -9,25 +9,26 @@ import { type EntryKeyTagged, useQueryCache } from "@pinia/colada";
 import { useI18n } from "../../i18n/useI18n";
 
 import type { MemberId } from "../members/types";
+import { roomId, type RoomId } from "../rooms/types";
 import { useToast } from "../toast/useToast";
 
 import { roomKeys } from "./keys";
 import { createLedger, EMPTY_ROOM, type RoomState } from "./ledger";
 import { keep, kept } from "./persist";
-import { createRoomSocket, type SocketStatus } from "./socket";
+import { linked, LOCAL, opened, OUT, synced } from "./session";
+import { createRoomSocket } from "./socket";
 import type { Mutation } from "./types";
 import { NOWHERE, useSync } from "./useSync";
 import { reviveMember, reviveMutation, reviveNote, reviveTrip } from "./wire";
 
-export type RoomStatus = SocketStatus;
-
 const STORAGE_KEY = "chirashitabi:room";
 
 /**
- * A room, between the socket (socket.ts) and the cache the stores read (keys.ts). What the
- * room has confirmed and what of ours it has not answered yet is the ledger's (ledger.ts);
- * whatever it shows is written into the cache's three slices. Connecting installs the
- * transport the stores commit through (docs/data-fetching.md).
+ * A room, between the socket (socket.ts) and the cache the stores read (keys.ts). Where this
+ * device is, out, joining or in, is the session's (session.ts), moved only by its transitions.
+ * What the room has confirmed and what of ours it has not answered yet is the ledger's
+ * (ledger.ts); whatever it shows is written into the cache's three slices. Connecting installs
+ * the transport the stores commit through (docs/data-fetching.md).
  */
 export const useRoom = defineStore("room", () => {
   const sync = useSync();
@@ -35,11 +36,7 @@ export const useRoom = defineStore("room", () => {
   const toast = useToast();
   const i18n = useI18n();
 
-  const status = ref<RoomStatus>("idle");
-  /** When the room's state last arrived whole; what the screen shows while reconnecting is from then */
-  const syncedAt = ref<Temporal.Instant | null>(null);
-
-  const ledger = createLedger(() => sync.me);
+  const ledger = createLedger();
 
   /** A slice that did not change is not written, so what reads it is not woken */
   function put<T>(key: EntryKeyTagged<T>, value: T) {
@@ -59,13 +56,14 @@ export const useRoom = defineStore("room", () => {
   function keepNow() {
     if (keepTimer !== null) clearTimeout(keepTimer);
     keepTimer = null;
-    const id = sync.roomId;
-    if (id === null || syncedAt.value === null) return; // no room, or nothing from it yet
-    keep(localStorage, id, {
-      me: sync.me,
+    const s = sync.session;
+    // only a room with a server, and only once this device is in it
+    if (s.kind !== "in" || s.room === LOCAL) return;
+    keep(localStorage, s.room, {
+      me: s.me,
       confirmed: ledger.confirmed,
       pending: [...ledger.pending],
-      savedAt: syncedAt.value,
+      savedAt: s.syncedAt,
     });
   }
   function keepSoon() {
@@ -79,7 +77,6 @@ export const useRoom = defineStore("room", () => {
 
   const socket = createRoomSocket({
     onSnapshot(msg) {
-      sync.me = msg.me as MemberId;
       show(
         ledger.snapshot({
           notes: msg.notes.map(reviveNote),
@@ -87,7 +84,7 @@ export const useRoom = defineStore("room", () => {
           members: msg.members.map(reviveMember),
         }),
       );
-      syncedAt.value = Temporal.Now.instant();
+      sync.session = synced(sync.session, msg.me as MemberId, Temporal.Now.instant());
       // ours the room has not answered go again: it may never have got them
       for (const p of ledger.pending) socket.send(p.m, p.cid);
     },
@@ -107,14 +104,21 @@ export const useRoom = defineStore("room", () => {
       }
     },
     onStatus(next) {
-      status.value = next;
+      // "idle" is the socket left behind; the session leaves the room itself (leave)
+      if (next !== "idle") sync.session = linked(sync.session, next);
     },
   });
 
-  /** Ours: shown at once, kept until the room answers, sent now or after the next snapshot */
+  /**
+   * Ours: shown at once, kept until the room answers, sent now or after the next snapshot.
+   * Only in a room, where this device knows whose change it is; the views that make changes
+   * are not shown before that.
+   */
   function commit(m: Mutation) {
+    const s = sync.session;
+    if (s.kind !== "in") return;
     const cid = crypto.randomUUID();
-    show(ledger.commit(m, cid, Temporal.Now.instant()));
+    show(ledger.commit(m, cid, Temporal.Now.instant(), s.me));
     socket.send(m, cid);
   }
 
@@ -122,23 +126,21 @@ export const useRoom = defineStore("room", () => {
   window.addEventListener("online", () => socket.reconnect());
 
   /** Remembered on this device so the next visit opens the same room */
-  function remembered(): string | null {
+  function remembered(): RoomId | null {
     try {
-      return localStorage.getItem(STORAGE_KEY);
+      return roomId(localStorage.getItem(STORAGE_KEY));
     } catch {
       return null;
     }
   }
 
-  function connect(id: string) {
+  function connect(id: RoomId) {
     keepNow(); // the room being left, as it was
-    // the stores read this room's cache entries from now on
-    sync.roomId = id;
-    // as it was kept on this device, if it was: the booklet opens before the room answers
+    // as it was kept on this device, if it was: the booklet opens before the room answers,
+    // and what is written offline is signed by who this device was in it
     const was = kept(localStorage, id);
-    syncedAt.value = was?.savedAt ?? null;
-    // who we are in it, until the room says so again: what is written offline is signed
-    sync.me = was?.me ?? ("" as MemberId);
+    // the stores read this room's cache entries from now on
+    sync.session = opened(id, was);
     // (and nothing of the room before: its unanswered changes were kept with it)
     show(ledger.restore(was?.confirmed ?? EMPTY_ROOM, was?.pending ?? []));
     try {
@@ -153,28 +155,32 @@ export const useRoom = defineStore("room", () => {
   function leave() {
     keepNow();
     socket.leave();
-    sync.roomId = null;
-    syncedAt.value = null;
+    sync.session = OUT;
     sync.transport = NOWHERE;
   }
 
   /**
-   * A room with no server (the mocks): `state` is the room, and ours are applied as the room
-   * would confirm them, at once.
+   * A room with no server (the mocks): `state` is the room, `me` who this device is in it, and
+   * ours are applied as the room would confirm them, at once.
    */
-  function offline(state: RoomState) {
+  function offline(state: RoomState, me: MemberId) {
+    sync.session = {
+      kind: "in",
+      room: LOCAL,
+      me,
+      syncedAt: Temporal.Now.instant(),
+      link: "connected",
+    };
     show(ledger.snapshot(state));
     sync.transport = {
-      commit: (m) => show(ledger.relayed(m, sync.me, Temporal.Now.instant())),
+      commit: (m) => show(ledger.relayed(m, me, Temporal.Now.instant())),
       send: () => {},
     };
-    status.value = "connected";
-    syncedAt.value = Temporal.Now.instant();
   }
 
   return {
-    status,
-    syncedAt,
+    /** Where this device is; read it here, the session moves only through this store */
+    session: computed(() => sync.session),
     remembered,
     connect,
     leave,
