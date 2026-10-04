@@ -24,7 +24,7 @@
     "@vizejs/vite-plugin": "^0.432.0",
     "@vizejs/vite-plugin-musea": "^0.432.0",
     "@vue/devtools-api": "^8.2.1",
-    "msw": "^2.15.0",
+    "msw": "^3.0.2",
     "playwright": "catalog:",
     "typescript": "^5.9.2",
     "vite": "catalog:",
@@ -42,10 +42,5 @@
       "version": "26.10.0",
       "onFail": "download"
     }
-  },
-  "msw": {
-    "workerDirectory": [
-      "public"
-    ]
   }
 }
