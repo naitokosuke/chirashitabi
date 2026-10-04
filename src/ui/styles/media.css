@@ -7,6 +7,8 @@
 
 /* A pointer that can hover: hover styles never stick on a tapped phone */
 @custom-media --can-hover (hover: hover);
+/* The rest: a finger, which slides rows aside where a mouse would point at a button */
+@custom-media --no-hover (hover: none);
 /* The person asked for less motion */
 @custom-media --reduced-motion (prefers-reduced-motion: reduce);
 /* The dark desk, unless the page is forced light (tokens.css) */

@@ -4,6 +4,8 @@ import { Temporal } from "temporal-polyfill-lite";
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+import { CtSwipeRow } from "../../ui/index";
+
 import { useI18n } from "../i18n/useI18n";
 
 import moreIcon from "../icons/more.svg";
@@ -43,6 +45,12 @@ const none = computed(
 /** The trip whose way off the list is open under its tag */
 const asking = ref<RoomId | null>(null);
 const toggleAsk = (id: RoomId) => (asking.value = asking.value === id ? null : id);
+/** The trip a finger slid aside, its way off the list showing at its end; one at a time */
+const slid = ref<RoomId | null>(null);
+function slide(id: RoomId, open: boolean) {
+  if (open) slid.value = id;
+  else if (slid.value === id) slid.value = null;
+}
 const { mutateAsync: remove, isLoading: removing } = useRemoveRoom();
 const removeFailed = ref(false);
 /** Off the list: deleted by its owner (then on the deleted shelf), left by anyone else */
@@ -51,10 +59,12 @@ async function takeOff(r: RoomSummary) {
   try {
     await remove({ room: r.id, owner: r.owner });
     asking.value = null;
+    slid.value = null;
     // the device's own memory of it too, so the root does not reopen it
     if (room.remembered() === r.id) room.leave();
   } catch {
     removeFailed.value = true;
+    slid.value = null;
   }
 }
 
@@ -172,20 +182,30 @@ function retry() {
             <h2 v-else>{{ i18n.t("rooms.coming") }}</h2>
             <ul class="tags">
               <li v-for="r in shelves.coming" :key="r.id">
-                <div class="held">
-                  <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
-                    <TripTag v-bind="tagOf(r)" />
-                  </a>
-                  <button
-                    class="more"
-                    type="button"
-                    :aria-expanded="asking === r.id"
-                    :aria-label="i18n.t('rooms.actions', { name: r.name })"
-                    @click="() => toggleAsk(r.id)"
-                  >
-                    <Icon :size="20" :src="moreIcon" />
-                  </button>
-                </div>
+                <!-- under a finger the tag slides aside to show the way off the list; elsewhere "…" asks -->
+                <CtSwipeRow :open="slid === r.id" @toggle="(open) => slide(r.id, open)">
+                  <template #default>
+                    <div class="held">
+                      <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
+                        <TripTag v-bind="tagOf(r)" />
+                      </a>
+                      <button
+                        class="more"
+                        type="button"
+                        :aria-expanded="asking === r.id"
+                        :aria-label="i18n.t('rooms.actions', { name: r.name })"
+                        @click="() => toggleAsk(r.id)"
+                      >
+                        <Icon :size="20" :src="moreIcon" />
+                      </button>
+                    </div>
+                  </template>
+                  <template #actions>
+                    <button class="off" type="button" :disabled="removing" @click="() => takeOff(r)">
+                      {{ r.owner ? i18n.t("rooms.delete") : i18n.t("rooms.leave") }}
+                    </button>
+                  </template>
+                </CtSwipeRow>
                 <!-- the way off the list, asked twice: the owner deletes it, anyone else leaves -->
                 <div v-if="asking === r.id" class="ask">
                   <button class="danger" type="button" :disabled="removing" @click="() => takeOff(r)">
@@ -208,20 +228,30 @@ function retry() {
             <h2>{{ i18n.t("rooms.been") }}</h2>
             <ul class="tags">
               <li v-for="r in shelves.been" :key="r.id">
-                <div class="held">
-                  <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
-                    <TripTag v-bind="tagOf(r)" past />
-                  </a>
-                  <button
-                    class="more"
-                    type="button"
-                    :aria-expanded="asking === r.id"
-                    :aria-label="i18n.t('rooms.actions', { name: r.name })"
-                    @click="() => toggleAsk(r.id)"
-                  >
-                    <Icon :size="20" :src="moreIcon" />
-                  </button>
-                </div>
+                <!-- under a finger the tag slides aside to show the way off the list; elsewhere "…" asks -->
+                <CtSwipeRow :open="slid === r.id" @toggle="(open) => slide(r.id, open)">
+                  <template #default>
+                    <div class="held">
+                      <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
+                        <TripTag v-bind="tagOf(r)" past />
+                      </a>
+                      <button
+                        class="more"
+                        type="button"
+                        :aria-expanded="asking === r.id"
+                        :aria-label="i18n.t('rooms.actions', { name: r.name })"
+                        @click="() => toggleAsk(r.id)"
+                      >
+                        <Icon :size="20" :src="moreIcon" />
+                      </button>
+                    </div>
+                  </template>
+                  <template #actions>
+                    <button class="off" type="button" :disabled="removing" @click="() => takeOff(r)">
+                      {{ r.owner ? i18n.t("rooms.delete") : i18n.t("rooms.leave") }}
+                    </button>
+                  </template>
+                </CtSwipeRow>
                 <!-- the way off the list, asked twice: the owner deletes it, anyone else leaves -->
                 <div v-if="asking === r.id" class="ask">
                   <button class="danger" type="button" :disabled="removing" @click="() => takeOff(r)">
@@ -413,6 +443,32 @@ h2 {
         color: var(--ink);
       }
     }
+
+    /* a finger slides the tag aside instead; a screen reader still finds the button */
+    @media (--no-hover) {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+  }
+}
+
+/* slid aside, the way off the list at the tag's end: red, since the trip goes */
+.off {
+  flex: 1;
+  min-inline-size: 84px;
+  padding: 0 16px;
+  border-radius: 16px;
+  border: 0;
+  background: var(--danger);
+  color: var(--on-ink);
+  font-size: var(--font-sm);
+  font-weight: 700;
+
+  &:disabled {
+    opacity: 0.35;
   }
 }
 

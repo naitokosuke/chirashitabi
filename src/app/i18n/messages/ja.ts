@@ -63,6 +63,8 @@ export const ja: Messages = {
   "rooms.restoreUntil": "{$date} まで元に戻せます",
   "rooms.restore": "元に戻す",
   "rooms.actions": "{$name} の操作",
+  "rooms.delete": "削除",
+  "rooms.leave": "抜ける",
   "rooms.restoreFailed": "元に戻せませんでした。もう一度お試しください。",
 
   "room.reconnecting": "接続中… {$time} 時点の内容です",

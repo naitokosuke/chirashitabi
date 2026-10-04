@@ -90,6 +90,7 @@ src/ui/             The design system: props, slots and events only, no app impo
   components/
     chip/        CtChip: a pill, optionally tinted, selected or a toggle
     segmented/   CtSegmented: the pill morphs to the choice
+    swipe/       CtSwipeRow: a row a finger slides left to show its actions behind it (swipe.ts: the math)
     tab/         CtTabList: the underline slides to the tab; CtTabPanel: content morphs in
     dock/        CtDock: the floating menu, magnifying under a mouse, sinking away under a sheet;
                  CtDockItem (an icon, its name above), one dot sliding under the open one,
