@@ -10,6 +10,7 @@ import { currencyCode } from "../../shared/money";
 
 import type { NoteStatus } from "../notes/types";
 import { useNotes } from "../notes/useNotes";
+import { MAX_NAME } from "../rooms/newRoom";
 import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
@@ -46,6 +47,12 @@ export const useTrip = defineStore("trip", () => {
   function setIntro(date: Temporal.PlainDate, intro: string) {
     sync.commit({ type: "day:intro", date, intro });
   }
+  /** A new name for the trip; a blank one, or the same one, changes nothing */
+  function rename(next: string) {
+    const n = next.trim();
+    if (n === "" || n === name.value) return;
+    sync.commit({ type: "trip:rename", name: n.slice(0, MAX_NAME) });
+  }
 
   return {
     name,
@@ -60,5 +67,6 @@ export const useTrip = defineStore("trip", () => {
     dayNumber,
     dayOf,
     setIntro,
+    rename,
   };
 });

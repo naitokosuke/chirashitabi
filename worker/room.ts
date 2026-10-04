@@ -814,6 +814,10 @@ export class Room extends DurableObject<Env> {
         sql.exec("UPDATE members SET name = ?, color = ? WHERE id = ?", m.name, m.color, by);
         return m;
       }
+      case "trip:rename": {
+        sql.exec("UPDATE trip SET name = ? WHERE id = 1", m.name);
+        return m;
+      }
     }
   }
 

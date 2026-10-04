@@ -123,6 +123,7 @@ one {{{$count} note}}
   "home.trips": "All trips",
 
   "canvas.undo": "Undo",
+  "canvas.tripName": "Trip name",
   "canvas.duplicate": "Duplicate",
   "canvas.delete": "Delete",
   "canvas.write": "Write a note",

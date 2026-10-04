@@ -105,7 +105,9 @@ export type WireMutation =
   | { type: "note:move"; id: string; x: number; y: number; rot?: number; scale?: number }
   | { type: "note:delete"; id: string }
   | { type: "day:intro"; date: string; intro: string }
-  | { type: "member:profile"; name: string; color: string };
+  | { type: "member:profile"; name: string; color: string }
+  // the trip's name, as written on the desk
+  | { type: "trip:rename"; name: string };
 
 /**
  * The client sends mutations as they are, with an optional `cid` beside the mutation's own
@@ -379,6 +381,10 @@ export function parseMutation(v: unknown): WireMutation | null {
       const profile = parseProfile(v);
       return profile === null ? null : { type: "member:profile", ...profile };
     }
+    case "trip:rename":
+      return isText(v.name, NAME) && v.name.trim() !== ""
+        ? { type: "trip:rename", name: v.name.trim() }
+        : null;
     default:
       return null;
   }

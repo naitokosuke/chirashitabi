@@ -4,7 +4,7 @@ import { applyToMembers } from "../members/apply";
 import type { Member, MemberId } from "../members/types";
 import { applyToNotes } from "../notes/apply";
 import type { Note } from "../notes/types";
-import { applyToDays } from "../trip/apply";
+import { applyToTrip } from "../trip/apply";
 import type { TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
@@ -35,9 +35,7 @@ export function applyToRoom(
 ): RoomState {
   const notes = applyToNotes(s.notes, m, by, at);
   const members = applyToMembers(s.members, m, by);
-  const days = s.trip === null ? null : applyToDays(s.trip.days, m);
-  const trip =
-    s.trip === null || days === null || days === s.trip.days ? s.trip : { ...s.trip, days };
+  const trip = s.trip === null ? null : applyToTrip(s.trip, m);
   return notes === s.notes && members === s.members && trip === s.trip
     ? s
     : { notes, trip, members };

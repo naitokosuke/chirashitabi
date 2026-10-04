@@ -108,5 +108,7 @@ export function reviveMutation(m: WireMutation): Mutation {
       return { type: "day:intro", date: Temporal.PlainDate.from(m.date), intro: m.intro };
     case "member:profile":
       return { type: "member:profile", name: m.name, color: hexColor(m.color)! };
+    case "trip:rename":
+      return { type: "trip:rename", name: m.name };
   }
 }
