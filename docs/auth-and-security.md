@@ -224,7 +224,7 @@ A secret URL is fine there as long as the page costs nothing to view.
 - The room records who published, and whether a room publishes at all is a room setting that the creator or both members control.
 
 The deployed build is made with `VITE_MOCK=false`, so the mocks (`src/app/mocks/`, which answer `/api` and the socket in the page) are not in its bundle.
-MSW's service worker, `public/mockServiceWorker.js`, is still copied into it as a static file; nothing in that bundle registers it, so it never runs.
+MSW's service worker is emitted by its Vite plugin only beside a bundle that imports the mocks, so it is not in the deployed build either.
 
 ## Crawlers and metered features
 

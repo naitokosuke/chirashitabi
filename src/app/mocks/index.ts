@@ -1,5 +1,3 @@
-import { setupWorker } from "msw/browser";
-
 import { handlers } from "./handlers";
 
 /**
@@ -7,5 +5,8 @@ import { handlers } from "./handlers";
  * runs against the Worker. Call before anything asks: the service worker has to be in place.
  */
 export async function startMocks() {
-  await setupWorker(...handlers).start({ onUnhandledRequest: "bypass", quiet: true });
+  // the network comes from msw's Vite plugin (vite.config.ts), which serves the service worker
+  const { network } = await import("virtual:msw");
+  network.configure({ handlers, onUnhandledFrame: "bypass", context: { quiet: true } });
+  await network.enable();
 }
