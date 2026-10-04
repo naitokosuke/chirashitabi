@@ -36,10 +36,10 @@ const place = usePlace();
 const i18n = useI18n();
 const { creating, hrefOf, newHref, open, create, close, created } = useTrips();
 
-/** The room the URL names; only a room id matches this page (pages/__params/roomId.ts) */
-const id = computed(() => route.params.roomId);
+// The room the URL names, `route.params.roomId`: only a room id matches this page
+// (pages/__params/roomId.ts)
 watch(
-  id,
+  () => route.params.roomId,
   (r) => {
     const s = sync.session;
     if (s.kind === "out" || s.room !== r) room.connect(r);
@@ -51,11 +51,13 @@ onBeforeUnmount(() => room.leave());
 watch(
   () => room.gone,
   (g) => {
-    if (g !== null && g.room === id.value) void router.replace("/");
+    if (g !== null && g.room === route.params.roomId) void router.replace("/");
   },
 );
 
-const inRoom = computed(() => sync.session.kind === "in" && sync.session.room === id.value);
+const inRoom = computed(
+  () => sync.session.kind === "in" && sync.session.room === route.params.roomId,
+);
 const tab = computed(() => viewOf(route.name) ?? "canvas");
 const form = computed(() => sheetOf(route.params));
 const BACK = {
@@ -82,7 +84,7 @@ const sheet = computed((): FormMode | null =>
  * with no sheet is its name and the room alone: the sheet's query is params of the route too.
  */
 function closeSheet() {
-  const tabOnly = { name: route.name, params: { roomId: id.value } };
+  const tabOnly = { name: route.name, params: { roomId: route.params.roomId } };
   const back = (window.history.state as { back?: unknown } | null)?.back;
   if (back === router.resolve(tabOnly).fullPath) router.back();
   else void router.replace(tabOnly);
