@@ -74,9 +74,7 @@ async function no() {
 
     <div class="field">
       <span>{{ i18n.t("rooms.color") }}</span>
-      <!-- the swatches lie on the card, not the page -->
       <CtSwatches
-        style="--swatch-ground: var(--surface)"
         :colors="MEMBER_COLORS"
         :selected="color"
         :label="i18n.t('rooms.color')"

@@ -2,6 +2,7 @@ export type { CtOption } from "./types";
 export { usePageTurn } from "./composables/usePageTurn";
 export { useViewTransition } from "./composables/useViewTransition";
 export { default as CtChip } from "./components/chip/CtChip.vue";
+export { default as CtChipPick } from "./components/chip/CtChipPick.vue";
 export { default as CtChipRow } from "./components/chip/CtChipRow.vue";
 export { default as CtFab } from "./components/fab/CtFab.vue";
 export { default as CtSegmented } from "./components/segmented/CtSegmented.vue";
