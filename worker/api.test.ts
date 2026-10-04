@@ -349,6 +349,16 @@ describe("rooms", () => {
     expect(rows).toEqual([{ email: ME, member_id: memberId }]);
   });
 
+  test("a person may be nameless: told apart by color alone", async () => {
+    const res = await post("/api/rooms", ME, { trip: TRIP, me: { name: "  ", color: "#3c6ee0" } });
+    expect(res.status).toBe(200);
+    const { roomId, memberId } = (await res.json()) as { roomId: string; memberId: string };
+    const room = await server.getWorker().getDurableObjectStorage("Room", { name: roomId });
+    expect(await room.exec("SELECT name FROM members WHERE id = ?", memberId)).toEqual([
+      { name: "" },
+    ]);
+  });
+
   test.each([
     ["no trip", { me: YUKI }],
     ["no profile", { trip: TRIP }],
@@ -356,7 +366,7 @@ describe("rooms", () => {
     ["a day that is not a date", { trip: { ...TRIP, days: ["2026-11-31"] }, me: YUKI }],
     ["no days", { trip: { ...TRIP, days: [] }, me: YUKI }],
     ["a color that is not hex", { trip: TRIP, me: { ...YUKI, color: "red" } }],
-    ["a blank name", { trip: TRIP, me: { ...YUKI, name: "  " } }],
+    ["a name that is not text", { trip: TRIP, me: { ...YUKI, name: 1 } }],
   ])("create refuses %s", async (_, body) => {
     expect((await post("/api/rooms", ME, body)).status).toBe(400);
   });
@@ -457,7 +467,7 @@ describe("invitations", () => {
     const a = await connect(roomId, owner);
     expect((await invite(roomId, owner, guest)).status).toBe(200);
 
-    expect((await accept(roomId, guest, { name: " ", color: "#000000" })).status).toBe(400);
+    expect((await accept(roomId, guest, { name: "Ken", color: "black" })).status).toBe(400);
     const res = await accept(roomId, guest, KEN);
     expect(res.status).toBe(200);
     const { memberId } = (await res.json()) as { memberId: string };

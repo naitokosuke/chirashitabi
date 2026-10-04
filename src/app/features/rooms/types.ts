@@ -63,7 +63,7 @@ export interface NewRoom {
   me: Profile;
 }
 
-/** How a person is shown in a room: a name, and a color that can go into a style */
+/** How a person is shown in a room: a color that can go into a style, and a name (blank for now: people are told apart by color alone) */
 export interface Profile {
   name: string;
   color: HexColor;

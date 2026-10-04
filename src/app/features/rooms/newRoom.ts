@@ -24,13 +24,15 @@ export const MEMBER_COLORS = [
 /** Where the map opens for a new trip; the trip's places move it once there are pins */
 export const DEFAULT_CENTER = { lat: 25.05, lng: 121.54 };
 
-/** The room form as the person filled it in, every field as its input holds it */
+/**
+ * The room form as the person filled it in, every field as its input holds it. No name for
+ * the person: for now people are told apart by their color alone, so a name is not asked
+ */
 export interface RoomForm {
   name: string;
   firstDay: string;
   days: number;
   currency: string;
-  me: string;
   color: string;
 }
 
@@ -46,25 +48,21 @@ const date = (s: string) => {
   }
 };
 
-/** A name and a color as the Worker takes them for a person, or null while they are not */
-export function profileOf(name: string, color: string): Profile | null {
-  const n = named(name);
+/** A person as the Worker takes one, in `color`, nameless; or null while the color is not one */
+export function profileOf(color: string): Profile | null {
   const c = hexColor(color);
-  return n === null || c === null ? null : { name: n, color: c };
+  return c === null ? null : { name: "", color: c };
 }
 
 /** The form as a room the Worker will accept, or null while it is not one yet */
 export function newRoom(form: RoomForm, center: LatLng): NewRoom | null {
   const name = named(form.name);
-  const me = named(form.me);
+  const me = profileOf(form.color);
   const first = date(form.firstDay);
   const currency = currencyCode(form.currency);
-  const color = hexColor(form.color);
   const days = Number.isInteger(form.days) && form.days >= 1 && form.days <= MAX_DAYS;
-  if (name === null || me === null || first === null || currency === null || color === null)
-    return null;
-  if (!days) return null;
-  return { trip: { name, first, days: form.days, currency, center }, me: { name: me, color } };
+  if (name === null || me === null || first === null || currency === null || !days) return null;
+  return { trip: { name, first, days: form.days, currency, center }, me };
 }
 
 /** `count` days from `first`, as the ISO dates the room stores */

@@ -102,7 +102,7 @@ const isMe = (m: MemberId) => sync.me === m;
         <span v-if="me.role === 'owner' && m.role !== 'owner'" class="acts">
           <template v-if="asked({ kind: 'remove', member: m.id })">
             <button class="danger" type="button" @click="() => remove(m.id)">
-              {{ i18n.t("people.removeConfirm", { name: m.name }) }}
+              {{ i18n.t("people.removeConfirm") }}
             </button>
             <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
           </template>
