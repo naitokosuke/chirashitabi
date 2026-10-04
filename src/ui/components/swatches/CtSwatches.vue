@@ -1,33 +1,32 @@
 <script setup lang="ts" vapor>
-import { computed, useTemplateRef } from "vue";
+import { useTemplateRef } from "vue";
 
-import { useIndicator } from "../../composables/useIndicator";
-import CtPill from "../pill/CtPill.vue";
+import CtIndicator from "../indicator/CtIndicator.vue";
+import { useIndicator } from "../indicator/useIndicator";
 
 /**
- * Colors to pick one of: a row of them, the chosen one ringed in ink (CtPill, hollow, 4px
+ * Colors to pick one of: a row of them, the chosen one ringed in ink (CtIndicator, hollow, 4px
  * out). Picking another, the ring stretches across to it and contracts around it.
  */
-const props = defineProps<{ colors: readonly string[]; selected: string; label: string }>();
-const emit = defineEmits<{ select: [color: string] }>();
+const props = defineProps<{ colors: readonly string[]; modelValue: string; label: string }>();
+const emit = defineEmits<{ "update:modelValue": [color: string] }>();
 
 const root = useTemplateRef<HTMLElement>("root");
-const { box, ready } = useIndicator(root, () => [props.selected, props.colors.length]);
-const chosen = computed(() => (box.value.width === 0 ? null : box.value));
+const { chosen, ready } = useIndicator(root, () => [props.modelValue, props.colors.length]);
 </script>
 
 <template>
   <div ref="root" class="swatches" role="radiogroup" :aria-label="label">
-    <CtPill :box="chosen" look="ring" :pad="4" :ready />
+    <CtIndicator :box="chosen" look="ring" :pad="4" :ready />
     <button
       v-for="(c, i) in colors"
       :key="c"
       role="radio"
       type="button"
-      :aria-checked="selected === c"
+      :aria-checked="c === modelValue"
       :aria-label="`${label} ${i + 1}`"
       :style="`--swatch: ${c}`"
-      @click="() => emit('select', c)"
+      @click="() => emit('update:modelValue', c)"
     ></button>
   </div>
 </template>

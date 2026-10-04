@@ -6,10 +6,5 @@ import { COLORS, state } from "./harness";
 </script>
 
 <template>
-  <CtSwatches
-    :colors="COLORS"
-    :selected="state.selected"
-    label="color"
-    @select="(c) => (state.selected = c)"
-  />
+  <CtSwatches v-model="state.selected" :colors="COLORS" label="color" />
 </template>

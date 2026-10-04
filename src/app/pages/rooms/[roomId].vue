@@ -1,5 +1,6 @@
 <script setup lang="ts" vapor>
 import { computed, onBeforeUnmount, watch } from "vue";
+
 import { useRoute, useRouter } from "vue-router";
 
 import Form, { type FormMode } from "../../features/notes/Form.vue";

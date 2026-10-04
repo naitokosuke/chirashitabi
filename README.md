@@ -10,6 +10,8 @@ Toolchain: pnpm + [Vite+](https://viteplus.dev/) (`vp`); SFC compilation, type c
 vp install
 vp dev
 vp run check   # format + lint + type check (Vize)
+vp run fmt     # format the SFCs (Vize) and the rest
+vp run musea   # the component gallery (Vize Musea) at /__musea__
 vp build
 vp run check:worker                 # wrangler types + tsc on worker/
 vp run deploy                       # VITE_MOCK=false build, then wrangler deploy
@@ -93,16 +95,25 @@ src/app/            The app
 src/ui/             The design system: props, slots and events only, no app imports
   styles/        Tokens (colors, type, z-index, motion), base, transitions (ct-morph / ct-fade / ct-slide),
                  named media queries (media.css)
-  components/
-    chip/        CtChip: a pill, optionally tinted, selected or a toggle
-    segmented/   CtSegmented: the pill morphs to the choice
-    swipe/       CtSwipeRow: a row a finger slides left to show its actions behind it (swipe.ts: the math)
-    tab/         CtTabList: the underline slides to the tab; CtTabPanel: content morphs in
+  components/    One directory per component (or family), named after it; each keeps its
+                 harness, tests and *.art.vue (its page in Musea) beside it
+    chip/        CtChip: a pill, selected or a toggle; CtChipRow: a row of them that scrolls;
+                 CtChipPick: chips to pick one of, the ink stretching to the pick
     dock/        CtDock: the floating menu, magnifying under a mouse, sinking away under a sheet;
                  CtDockItem (an icon, its name above), one dot sliding under the open one,
                  CtDockGroup (items that fold away together), CtDockDivider
-  composables/   useIndicator: measures the selected child so an indicator can slide to it
+    fab/         CtFab: the one filled tool on a view
+    hold-button/ CtHoldButton: held down to act, for what cannot be taken back
+    indicator/   CtIndicator and useIndicator (internal): the pill that stretches to the
+                 chosen child of CtChipPick, CtSegmented, CtSwatches and CtTabList
+    segmented/   CtSegmented: the pill morphs to the choice
+    swatches/    CtSwatches: colors to pick one of, ringed
+    swipe-row/   CtSwipeRow: a row a finger slides left to show its actions behind it (swipe.ts: the math)
+    tabs/        CtTabList: the underline slides to the tab; CtTabPanel: content morphs in
+    text-morph/  CtTextMorph: text whose shared characters slide instead of being replaced
+  composables/   usePageTurn, useViewTransition: motion the app runs on its own elements
   index.ts, types.ts   The public entry and the shared CtOption type
+  musea.preview.ts     Musea's preview app: the interop plugin, so it mounts the Vapor components
 
 public/             favicon.svg: three notes scattered on a red tile, served as they are
 scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop (see "Running against the Worker")

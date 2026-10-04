@@ -35,9 +35,11 @@ export function useIndicator(list: Readonly<Ref<HTMLElement | null>>, watchSourc
   });
   onBeforeUnmount(() => observer?.disconnect());
 
+  /** The box for CtIndicator: null until a child is chosen and measured */
+  const chosen = computed(() => (box.value.width === 0 ? null : box.value));
   const style = computed(
     () =>
       `width: ${box.value.width}px; height: ${box.value.height}px; transform: translate(${box.value.x}px, ${box.value.y}px)`,
   );
-  return { box, style, ready };
+  return { chosen, style, ready };
 }

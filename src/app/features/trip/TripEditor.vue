@@ -5,8 +5,8 @@ import { computed, reactive, useId } from "vue";
 
 import { useI18n } from "../../i18n/useI18n";
 
-import minusIcon from "../../icons/minus.svg";
 import Icon from "../../icons/Icon.vue";
+import minusIcon from "../../icons/minus.svg";
 import plusIcon from "../../icons/plus.svg";
 import { useNotes } from "../notes/useNotes";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";

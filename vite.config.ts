@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 
+import { musea } from "@vizejs/vite-plugin-musea";
 import { defineConfig } from "@vizejs/vite-plugin/vite-plus";
 import { msw } from "msw/vite";
 import { defineProject } from "vite-plus";
@@ -23,6 +24,16 @@ export default defineConfig({
     // serves the mock service worker in dev and emits it beside a bundle that imports
     // virtual:msw (src/app/mocks/), so no copy of it is committed
     msw(),
+    // the component gallery (Musea) at /__musea__, from the *.art.vue beside each component;
+    // only under `vp run musea`, so neither `vp dev` nor a deploy carries it
+    ...(process.env.MUSEA === "true"
+      ? musea({
+          include: ["src/ui/**/*.art.vue"],
+          previewCss: ["src/ui/styles/index.css"],
+          previewSetup: "src/ui/musea.preview.ts",
+          theme: "system",
+        })
+      : []),
   ],
   compiler: { vapor: true },
   typecheck: true,

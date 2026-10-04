@@ -1,5 +1,6 @@
 <script setup lang="ts" vapor>
 import { computed } from "vue";
+
 import { useRoute } from "vue-router";
 
 import Form from "../../../features/notes/Form.vue";
