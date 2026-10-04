@@ -1,7 +1,9 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, ref, useId } from "vue";
+import { computed, ref } from "vue";
+
+import { CtSwatches } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -22,7 +24,6 @@ const props = defineProps<{ room: RoomSummary }>();
 const emit = defineEmits<{ joined: [room: RoomId] }>();
 
 const i18n = useI18n();
-const id = useId();
 const today = Temporal.Now.plainDateISO();
 
 const taken = new Set(props.room.members.map((m) => m.color.toLowerCase()));
@@ -72,18 +73,15 @@ async function no() {
     <TripTag v-bind="tag" />
 
     <div class="field">
-      <span :id="`${id}-color`">{{ i18n.t("rooms.color") }}</span>
-      <div class="swatches" role="group" :aria-labelledby="`${id}-color`">
-        <button
-          v-for="(c, i) in MEMBER_COLORS"
-          :key="c"
-          type="button"
-          :aria-pressed="color === c"
-          :aria-label="`${i18n.t('rooms.color')} ${i + 1}`"
-          :style="`--swatch: ${c}`"
-          @click="() => (color = c)"
-        ></button>
-      </div>
+      <span>{{ i18n.t("rooms.color") }}</span>
+      <!-- the swatches lie on the card, not the page -->
+      <CtSwatches
+        style="--swatch-ground: var(--surface)"
+        :colors="MEMBER_COLORS"
+        :selected="color"
+        :label="i18n.t('rooms.color')"
+        @select="(c) => (color = c)"
+      />
     </div>
 
     <p v-if="failed !== null" role="alert">
@@ -153,33 +151,6 @@ async function no() {
     &:focus-visible {
       outline: 2px solid var(--ink);
       outline-offset: 2px;
-    }
-  }
-}
-
-.swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  > button {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    border-radius: 50%;
-    border: 0;
-    background: var(--swatch);
-    box-shadow:
-      0 0 0 3px var(--surface),
-      0 0 0 4px transparent;
-    transition: box-shadow var(--duration-swap) var(--ease-morph);
-    &[aria-pressed="true"] {
-      box-shadow:
-        0 0 0 3px var(--surface),
-        0 0 0 5px var(--ink);
-    }
-    &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: 6px;
     }
   }
 }
