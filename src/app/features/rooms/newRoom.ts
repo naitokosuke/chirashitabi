@@ -5,7 +5,7 @@ import { currencyCode } from "../../shared/money";
 
 import type { LatLng } from "../place/types";
 
-import type { NewRoom } from "./types";
+import type { NewRoom, Profile } from "./types";
 
 /** The Worker's limits on a new room (worker/wire.ts) */
 export const MAX_NAME = 60;
@@ -45,6 +45,13 @@ const date = (s: string) => {
     return null;
   }
 };
+
+/** A name and a color as the Worker takes them for a person, or null while they are not */
+export function profileOf(name: string, color: string): Profile | null {
+  const n = named(name);
+  const c = hexColor(color);
+  return n === null || c === null ? null : { name: n, color: c };
+}
 
 /** The form as a room the Worker will accept, or null while it is not one yet */
 export function newRoom(form: RoomForm, center: LatLng): NewRoom | null {

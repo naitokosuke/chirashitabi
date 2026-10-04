@@ -223,8 +223,16 @@ async function createRoom(email: string) {
   return (await res.json()) as { roomId: string; memberId: string };
 }
 
-const invite = (roomId: string, by: string, email: string, profile = KEN) =>
-  post(`/api/rooms/${roomId}/invite`, by, { email, ...profile });
+const invite = (roomId: string, by: string, email: string) =>
+  post(`/api/rooms/${roomId}/invite`, by, { email });
+const accept = (roomId: string, email: string, profile: unknown = KEN) =>
+  post(`/api/invitations/${roomId}/accept`, email, profile);
+
+/** `email` invited by `by` and in, as `profile`: the answer to the acceptance, with the member id */
+async function admit(roomId: string, by: string, email: string, profile = KEN) {
+  expect((await invite(roomId, by, email)).status).toBe(200);
+  return accept(roomId, email, profile);
+}
 
 const ME = "me@example.com";
 const PARTNER = "partner@example.com";
@@ -358,30 +366,6 @@ describe("rooms", () => {
     expect((await invite(roomId, "mixed.case@example.com", PARTNER)).status).toBe(200);
   });
 
-  test("invite is for members only, and a room holds two people", async () => {
-    const { roomId } = await createRoom(ME);
-
-    expect((await invite(roomId, STRANGER, PARTNER)).status).toBe(403);
-    expect((await invite(roomId, ME, "")).status).toBe(400);
-    expect((await post(`/api/rooms/${roomId}/invite`, ME, { email: PARTNER })).status).toBe(400); // no profile
-
-    const ok = await invite(roomId, ME, PARTNER);
-    expect(ok.status).toBe(200);
-    const { memberId: partner } = (await ok.json()) as { memberId: string };
-
-    expect((await invite(roomId, ME, PARTNER)).status).toBe(409);
-    expect((await invite(roomId, PARTNER, "third@example.com")).status).toBe(409); // the room is full
-
-    const room = await server.getWorker().getDurableObjectStorage("Room", { name: roomId });
-    const people = await room.exec(
-      "SELECT id, name FROM members WHERE kind = 'person' ORDER BY creator DESC",
-    );
-    expect(people).toEqual([
-      { id: expect.any(String), name: "Yuki" },
-      { id: partner, name: "Ken" },
-    ]);
-  });
-
   test("an unknown room is 404, a room one is not in is 403", async () => {
     const { roomId } = await createRoom(ME);
     expect((await invite("not-a-room-id", ME, PARTNER)).status).toBe(404);
@@ -393,7 +377,7 @@ describe("rooms", () => {
     const email = "glance@example.com";
     const partner = "glance-partner@example.com";
     const { roomId } = await createRoom(email);
-    expect((await invite(roomId, email, partner)).status).toBe(200);
+    expect((await admit(roomId, email, partner)).status).toBe(200);
     const a = await connect(roomId, email);
     const b = await connect(roomId, partner);
     a.send({ type: "note:add", note: memo("n1") });
@@ -416,6 +400,8 @@ describe("rooms", () => {
           memos: 1,
         },
       ],
+      invitations: [],
+      deleted: [],
     });
   });
 
@@ -423,6 +409,257 @@ describe("rooms", () => {
     const email = "collector@example.com";
     for (let i = 0; i < 10; i++) await createRoom(email);
     expect((await post("/api/rooms", email, { trip: TRIP, me: YUKI })).status).toBe(409);
+  });
+});
+
+/** Who is in a room as a member asks: its owner, whom the owner invited, how many seats */
+async function people(roomId: string, email: string) {
+  const res = await post(`/api/rooms/${roomId}/people`, email);
+  expect(res.status).toBe(200);
+  return (await res.json()) as { owner: string; invited: string[]; seats: number };
+}
+
+/** `/api/me` for `email` */
+const me = async (email: string) =>
+  (await (await post("/api/me", email)).json()) as {
+    rooms: { id: string }[];
+    invitations: { id: string; name: string; members: { name: string }[] }[];
+    deleted: { id: string; name: string; deletedAt: string }[];
+  };
+
+describe("invitations", () => {
+  test("the owner invites an e-mail; it waits in that person's list until they answer", async () => {
+    const owner = "inv-owner@example.com";
+    const guest = "Inv-Guest@Example.com";
+    const { roomId, memberId } = await createRoom(owner);
+
+    expect(await invite(roomId, owner, guest)).toHaveProperty("status", 200);
+    expect(await people(roomId, owner)).toEqual({
+      owner: memberId,
+      invited: ["inv-guest@example.com"],
+      seats: 2,
+    });
+    const { rooms, invitations } = await me("inv-guest@example.com");
+    expect(rooms).toEqual([]);
+    expect(invitations).toMatchObject([
+      { id: roomId, name: "Taiwan trip", members: [{ name: "Yuki" }, { name: "Claude" }] },
+    ]);
+    // invited is not in: nothing of the room opens yet
+    expect((await post(`/api/rooms/${roomId}/people`, guest)).status).toBe(403);
+  });
+
+  test("accepting makes them a member as they say, tells the sockets, and the seat is theirs", async () => {
+    const owner = "acc-owner@example.com";
+    const guest = "acc-guest@example.com";
+    const { roomId } = await createRoom(owner);
+    const a = await connect(roomId, owner);
+    expect((await invite(roomId, owner, guest)).status).toBe(200);
+
+    expect((await accept(roomId, guest, { name: " ", color: "#000000" })).status).toBe(400);
+    const res = await accept(roomId, guest, KEN);
+    expect(res.status).toBe(200);
+    const { memberId } = (await res.json()) as { memberId: string };
+
+    expect(await a.next()).toEqual({
+      type: "members",
+      members: [
+        { id: a.snapshot.type === "snapshot" ? a.snapshot.me : "", kind: "person", ...YUKI },
+        { id: "agent:claude", kind: "agent", name: "Claude", color: "#d97757" },
+        { id: memberId, kind: "person", ...KEN },
+      ],
+    });
+    const b = await connect(roomId, guest);
+    expect(b.snapshot).toMatchObject({ me: memberId });
+    expect((await me(guest)).invitations).toEqual([]);
+    expect((await people(roomId, owner)).invited).toEqual([]);
+    // the invitation was used up
+    expect((await accept(roomId, guest)).status).toBe(404);
+    a.ws.close(1000, "done");
+    b.ws.close(1000, "done");
+  });
+
+  test("only the owner invites; a room holds two people, an invitation holding a seat", async () => {
+    const owner = "seat-owner@example.com";
+    const { roomId } = await createRoom(owner);
+
+    expect((await invite(roomId, STRANGER, "x@example.com")).status).toBe(403);
+    expect((await invite(roomId, owner, "")).status).toBe(400);
+    expect((await invite(roomId, owner, "not an e-mail")).status).toBe(400);
+    expect((await invite(roomId, owner, owner)).status).toBe(409); // already in
+
+    expect((await invite(roomId, owner, "seat-a@example.com")).status).toBe(200);
+    expect((await invite(roomId, owner, "seat-a@example.com")).status).toBe(409); // already invited
+    expect((await invite(roomId, owner, "seat-b@example.com")).status).toBe(409); // the seat is held
+
+    expect((await accept(roomId, "seat-a@example.com")).status).toBe(200);
+    expect((await invite(roomId, "seat-a@example.com", "seat-b@example.com")).status).toBe(403);
+    expect((await invite(roomId, owner, "seat-b@example.com")).status).toBe(409); // full
+    // the partner does not see whom the owner invites
+    expect(await people(roomId, "seat-a@example.com")).toMatchObject({ invited: [] });
+  });
+
+  test("declining or withdrawing gives the seat back", async () => {
+    const owner = "back-owner@example.com";
+    const { roomId } = await createRoom(owner);
+
+    expect((await invite(roomId, owner, "back-a@example.com")).status).toBe(200);
+    expect((await post(`/api/invitations/${roomId}/decline`, "back-a@example.com")).status).toBe(
+      200,
+    );
+    expect((await me("back-a@example.com")).invitations).toEqual([]);
+    expect((await accept(roomId, "back-a@example.com")).status).toBe(404);
+
+    expect((await invite(roomId, owner, "back-b@example.com")).status).toBe(200);
+    const uninvite = (email: string, by = owner) =>
+      post(`/api/rooms/${roomId}/uninvite`, by, { email });
+    expect((await uninvite("nobody@example.com")).status).toBe(404);
+    expect((await uninvite("back-b@example.com")).status).toBe(200);
+    expect((await accept(roomId, "back-b@example.com")).status).toBe(404);
+
+    expect((await admit(roomId, owner, "back-c@example.com")).status).toBe(200);
+  });
+
+  test("an invitee at their room cap loses the seat instead of going over", async () => {
+    const owner = "cap-owner@example.com";
+    const busy = "cap-busy@example.com";
+    const { roomId } = await createRoom(owner);
+    for (let i = 0; i < 10; i++) await createRoom(busy);
+    expect((await invite(roomId, owner, busy)).status).toBe(200);
+    expect((await accept(roomId, busy)).status).toBe(409);
+    expect((await people(roomId, owner)).invited).toEqual([]);
+    expect((await admit(roomId, owner, "cap-other@example.com")).status).toBe(200);
+  });
+});
+
+describe("removing and leaving", () => {
+  test("the owner removes the partner: their socket is told and closed, the room goes from their list", async () => {
+    const owner = "rm-owner@example.com";
+    const guest = "rm-guest@example.com";
+    const { roomId, memberId: yuki } = await createRoom(owner);
+    const { memberId: ken } = (await (await admit(roomId, owner, guest)).json()) as {
+      memberId: string;
+    };
+    const a = await connect(roomId, owner);
+    const b = await connect(roomId, guest);
+    b.send({ type: "note:add", note: memo("kept") });
+    await a.next();
+
+    const remove = (by: string, member: string) =>
+      post(`/api/rooms/${roomId}/remove`, by, { member });
+    expect((await remove(guest, yuki)).status).toBe(403); // nobody removes the owner
+    expect((await remove(owner, yuki)).status).toBe(403);
+    expect((await remove(owner, "agent:claude")).status).toBe(403);
+    expect((await remove(owner, ken)).status).toBe(200);
+
+    expect(await b.next()).toEqual({ type: "gone", reason: "removed" });
+    expect(await a.next()).toMatchObject({
+      type: "members",
+      members: [{ id: yuki }, { id: "agent:claude" }],
+    });
+    expect((await post("/api/me", guest)).status).toBe(200);
+    expect((await me(guest)).rooms).toEqual([]);
+    expect((await post(`/api/rooms/${roomId}/people`, guest)).status).toBe(403);
+    // what they wrote stays, in their name
+    const c = await connect(roomId, owner);
+    expect(c.snapshot).toMatchObject({ notes: [{ id: "kept", by: ken }] });
+    // and the seat is free again
+    expect((await invite(roomId, owner, guest)).status).toBe(200);
+    a.ws.close(1000, "done");
+    c.ws.close(1000, "done");
+  });
+
+  test("the partner may leave; the owner may not", async () => {
+    const owner = "lv-owner@example.com";
+    const guest = "lv-guest@example.com";
+    const { roomId } = await createRoom(owner);
+    expect((await admit(roomId, owner, guest)).status).toBe(200);
+    const b = await connect(roomId, guest);
+    expect((await post(`/api/rooms/${roomId}/leave`, owner)).status).toBe(403);
+    expect((await post(`/api/rooms/${roomId}/leave`, guest)).status).toBe(200);
+    expect(await b.next()).toEqual({ type: "gone", reason: "left" });
+    expect((await me(guest)).rooms).toEqual([]);
+    expect((await post(`/api/rooms/${roomId}/leave`, guest)).status).toBe(403);
+  });
+});
+
+describe("deleting a room", () => {
+  test("only the owner deletes; every socket is told, nobody can open it, either person can restore it", async () => {
+    const owner = "del-owner@example.com";
+    const guest = "del-guest@example.com";
+    const { roomId } = await createRoom(owner);
+    expect((await admit(roomId, owner, guest)).status).toBe(200);
+    const a = await connect(roomId, owner);
+    const b = await connect(roomId, guest);
+
+    expect((await post(`/api/rooms/${roomId}/delete`, guest)).status).toBe(403);
+    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(200);
+    expect(await a.next()).toEqual({ type: "gone", reason: "deleted" });
+    expect(await b.next()).toEqual({ type: "gone", reason: "deleted" });
+
+    const listed = me;
+    for (const email of [owner, guest])
+      expect(await listed(email)).toMatchObject({
+        rooms: [],
+        deleted: [{ id: roomId, name: "Taiwan trip", deletedAt: expect.any(String) }],
+      });
+    expect((await listed(STRANGER)).deleted).toEqual([]);
+    expect((await post(`/api/rooms/${roomId}/people`, owner)).status).toBe(403);
+    const ws = await server.fetch(`${APP}/api/rooms/${roomId}/ws`, {
+      headers: { Upgrade: "websocket", Origin: APP, "Cf-Access-Jwt-Assertion": await token(owner) },
+    });
+    expect(ws.status).toBe(403);
+
+    expect((await post(`/api/rooms/${roomId}/restore`, STRANGER)).status).toBe(403);
+    expect((await post(`/api/rooms/${roomId}/restore`, guest)).status).toBe(200);
+    expect((await listed(owner)).rooms).toMatchObject([{ id: roomId }]);
+    expect((await post(`/api/rooms/${roomId}/restore`, owner)).status).toBe(403); // not deleted
+    const c = await connect(roomId, owner);
+    c.ws.close(1000, "done");
+  });
+
+  test("a deleted room takes its invitations with it", async () => {
+    const owner = "deli-owner@example.com";
+    const { roomId } = await createRoom(owner);
+    expect((await invite(roomId, owner, "deli-guest@example.com")).status).toBe(200);
+    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(200);
+    expect((await me("deli-guest@example.com")).invitations).toEqual([]);
+    expect((await accept(roomId, "deli-guest@example.com")).status).toBe(404);
+  });
+
+  test("on its day the room, its pictures and its memberships go for good", async () => {
+    const owner = "gone-owner@example.com";
+    const { roomId } = await createRoom(owner);
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const up = await server.fetch(`${APP}/api/rooms/${roomId}/images`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "image/png",
+        Origin: APP,
+        "Cf-Access-Jwt-Assertion": await token(owner),
+      },
+      body: png,
+    });
+    expect(up.status).toBe(200);
+    const { id: imageId } = (await up.json()) as { id: string };
+    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(200);
+
+    const worker = server.getWorker();
+    const room = await worker.getDurableObjectStorage("Room", { name: roomId });
+    const env = await worker.getEnv();
+    const stub = env.ROOM.getByName(roomId);
+    // before its day the alarm leaves everything
+    await stub.sweep();
+    expect(await env.IMAGES.head(`rooms/${roomId}/images/${imageId}`)).not.toBeNull();
+
+    // the day comes early
+    await room.exec("UPDATE deletion SET at = '2000-01-01T00:00:00.000Z'");
+    await stub.sweep();
+    expect(
+      await room.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'trip'"),
+    ).toEqual([]);
+    const index = await worker.getDurableObjectStorage("RoomsIndex", { name: "index" });
+    expect(await index.exec("SELECT * FROM memberships WHERE room_id = ?", roomId)).toEqual([]);
+    expect(await env.IMAGES.head(`rooms/${roomId}/images/${imageId}`)).toBeNull();
   });
 });
 
@@ -465,7 +702,7 @@ describe("the socket", () => {
 
   test("a note one member adds reaches the other, stamped by the room, and is in the next snapshot", async () => {
     const { roomId, memberId: yuki } = await createRoom(ME);
-    const { memberId: ken } = (await (await invite(roomId, ME, PARTNER)).json()) as {
+    const { memberId: ken } = (await (await admit(roomId, ME, PARTNER)).json()) as {
       memberId: string;
     };
     const a = await connect(roomId, ME);
@@ -491,7 +728,7 @@ describe("the socket", () => {
 
   test("updates, moves, recolors, adoption, deletion and the day intro all land", async () => {
     const { roomId, memberId: yuki } = await createRoom(ME);
-    await invite(roomId, ME, PARTNER);
+    await admit(roomId, ME, PARTNER);
     const a = await connect(roomId, ME);
     const b = await connect(roomId, PARTNER);
     const after = async (m: Record<string, unknown>) => {
@@ -555,7 +792,7 @@ describe("the socket", () => {
 
   test("a tick in the appendix reaches the other member and stays; an older client's note is unticked", async () => {
     const { roomId } = await createRoom(ME);
-    await invite(roomId, ME, PARTNER);
+    await admit(roomId, ME, PARTNER);
     const a = await connect(roomId, ME);
     const b = await connect(roomId, PARTNER);
     const { checked: _, ...older } = { ...memo("p1", "Passport"), tags: ["Packing"] };
@@ -578,7 +815,7 @@ describe("the socket", () => {
 
   test("what the room refuses, with the reason, and nobody else hears", async () => {
     const { roomId } = await createRoom(ME);
-    await invite(roomId, ME, PARTNER);
+    await admit(roomId, ME, PARTNER);
     const a = await connect(roomId, ME);
     const b = await connect(roomId, PARTNER);
     const refused = async (m: unknown) => {
@@ -614,7 +851,7 @@ describe("the socket", () => {
     const owner = "acks@example.com";
     const partner = "acks-partner@example.com";
     const { roomId } = await createRoom(owner);
-    await invite(roomId, owner, partner);
+    await admit(roomId, owner, partner);
     const a = await connect(roomId, owner);
     const b = await connect(roomId, partner);
 

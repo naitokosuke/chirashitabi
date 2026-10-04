@@ -49,6 +49,8 @@ function setup() {
   const snapshots: SocketStatus[] = []; // the status each snapshot found the socket in
   const mutations: ServerMessage[] = [];
   const answers: string[] = [];
+  const people: unknown[] = [];
+  const gone: string[] = [];
   const socket = createRoomSocket({
     open: () => {
       const s = new FakeSocket();
@@ -59,10 +61,12 @@ function setup() {
     onMutation: (msg) => mutations.push(msg),
     onAck: (cid, at) => answers.push(`ack ${cid} ${at}`),
     onRejected: (cid, reason) => answers.push(`rejected ${cid} ${reason}`),
+    onMembers: (members) => people.push(members),
+    onGone: (reason) => gone.push(reason),
     onStatus: (s) => statuses.push(s),
   });
   const last = () => sockets.at(-1)!;
-  return { socket, sockets, statuses, snapshots, mutations, answers, last };
+  return { socket, sockets, statuses, snapshots, mutations, answers, people, gone, last };
 }
 
 beforeEach(() => vi.useFakeTimers());
@@ -196,5 +200,27 @@ describe("createRoomSocket", () => {
     socket.reconnect();
     expect(socket.status).toBe("connecting");
     expect(sockets).toHaveLength(10);
+  });
+
+  test("passes on who is in the room now", () => {
+    const { socket, people, last } = setup();
+    socket.connect("room-1");
+    last().serve(snapshot);
+    const members = [{ id: "ken", kind: "person" as const, name: "Ken", color: "#d7263d" }];
+    last().serve({ type: "members", members });
+    expect(people).toEqual([members]);
+  });
+
+  test("out of the room it leaves, says why, and does not try again when the room closes it", () => {
+    const { socket, sockets, gone, last } = setup();
+    socket.connect("room-1");
+    last().serve(snapshot);
+    last().serve({ type: "gone", reason: "removed" });
+    expect(gone).toEqual(["removed"]);
+    expect(socket.status).toBe("idle");
+    expect(socket.roomId).toBeNull();
+    last().drop();
+    vi.advanceTimersByTime(60_000);
+    expect(sockets).toHaveLength(1);
   });
 });

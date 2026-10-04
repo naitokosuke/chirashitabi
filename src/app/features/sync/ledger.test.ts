@@ -107,4 +107,15 @@ describe("createLedger", () => {
     const s = room(memo("a", "A"));
     expect(l.snapshot(s)).toBe(s);
   });
+
+  test("who is in changes under ours: the notes and what is pending stay", () => {
+    const l = createLedger();
+    l.snapshot(room(memo("a", "A")));
+    l.commit(retitle("a", "B"), "c1", t(1), ME);
+    const ken = { id: KEN, kind: "person" as const, name: "Ken", color: "#d7263d" as never };
+    const v = l.members([ken]);
+    expect(v.members).toEqual([ken]);
+    expect(v.notes.map((n) => n.title)).toEqual(["B"]);
+    expect(l.confirmed.notes.map((n) => n.title)).toEqual(["A"]);
+  });
 });

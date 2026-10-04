@@ -50,9 +50,11 @@ src/app/            The app
     Rooms.vue    The trips (`/`): each a luggage tag, coming up then been; a blank tag makes one (`/new`)
 
   features/
-    members/ Everyone in the room, people and agents alike
-    rooms/   The person's trips: api (/api/me, /api/rooms); when (days to go, under way, over);
-             TripTag (a trip as a luggage tag); NewTrip (the sheet that makes one, with its tag drawn live)
+    members/ Everyone in the room, people and agents alike; api and usePeople (who owns the room,
+             whom they invited; inviting, removing, leaving, deleting); People (that, on the home tab)
+    rooms/   The person's trips: api (/api/me with invitations and deleted trips, /api/rooms, answering
+             an invitation, restoring); when (days to go, under way, over); TripTag (a trip as a luggage
+             tag); NewTrip (the sheet that makes one, with its tag drawn live); Invitation (one to answer)
     notes/   Notes: store, types; input (the form's text -> title, body, tags); image (a photo shrunk
              on the device, and where a room's picture is shown from)
     sync/    useSync (the session: which room, who this device is in it, where changes go); keys

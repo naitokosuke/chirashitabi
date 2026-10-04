@@ -3,7 +3,15 @@ import { Temporal } from "temporal-polyfill-lite";
 import { hexColor } from "../../shared/color";
 
 import { toWire } from "./newRoom";
-import { roomId, type NewRoom, type RoomId, type RoomSummary } from "./types";
+import {
+  roomId,
+  type DeletedRoom,
+  type Mine,
+  type NewRoom,
+  type Profile,
+  type RoomId,
+  type RoomSummary,
+} from "./types";
 
 const headers = { "Content-Type": "application/json" };
 
@@ -52,12 +60,53 @@ export function summaryOf(raw: unknown): RoomSummary | null {
   };
 }
 
-/** The rooms the signed-in person is a member of; an entry that is not a room is left out */
-export async function listRooms(): Promise<RoomSummary[]> {
-  const res = await fetch("/api/me", { method: "POST", headers, body: "{}" });
-  const { rooms } = await json<{ rooms: unknown[] }>(res);
-  return rooms.flatMap((r) => summaryOf(r) ?? []);
+/** How long the room keeps a deleted trip (worker/room.ts, DELETE_AFTER) */
+export const KEPT_DAYS = 30;
+
+/** One deleted trip of `/api/me`, or null without a room id, a name or when it was deleted */
+export function deletedOf(raw: unknown): DeletedRoom | null {
+  const r = record(raw);
+  const id = roomId(r.id);
+  if (id === null || typeof r.name !== "string" || typeof r.deletedAt !== "string") return null;
+  try {
+    const at = Temporal.Instant.from(r.deletedAt).toZonedDateTimeISO(Temporal.Now.timeZoneId());
+    return { id, name: r.name, until: at.toPlainDate().add({ days: KEPT_DAYS }) };
+  } catch {
+    return null;
+  }
 }
+
+const list = <T>(value: unknown, of: (raw: unknown) => T | null): T[] =>
+  (Array.isArray(value) ? value : []).flatMap((r: unknown) => of(r) ?? []);
+
+/**
+ * What the signed-in person has: their rooms, the invitations waiting for them and the trips
+ * they deleted; an entry that is not one is left out, and a Worker from before invitations
+ * answers with none of the other two.
+ */
+export async function listMine(): Promise<Mine> {
+  const res = await fetch("/api/me", { method: "POST", headers, body: "{}" });
+  const r = record(await json<unknown>(res));
+  return {
+    rooms: list(r.rooms, summaryOf),
+    invitations: list(r.invitations, summaryOf),
+    deleted: list(r.deleted, deletedOf),
+  };
+}
+
+/** A POST to the API whose answer is only whether it went */
+async function call(path: string, body: unknown = {}): Promise<void> {
+  const res = await fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
+}
+
+/** Into a trip one is invited to, as `me`; resolves once one is a member */
+export const acceptInvitation = ({ room, me }: { room: RoomId; me: Profile }) =>
+  call(`/api/invitations/${room}/accept`, me);
+/** Not going: the invitation is gone, and its seat is the owner's again */
+export const declineInvitation = (room: RoomId) => call(`/api/invitations/${room}/decline`);
+/** A deleted trip back, for everyone who was in it */
+export const restoreRoom = (room: RoomId) => call(`/api/rooms/${room}/restore`);
 
 /** Creates a room with its trip and its first member; resolves with the new room's id */
 export async function createRoom(room: NewRoom): Promise<RoomId> {

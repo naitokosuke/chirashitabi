@@ -1,4 +1,4 @@
-import type { ServerMessage } from "../../../../worker/wire";
+import type { GoneReason, ServerMessage } from "../../../../worker/wire";
 
 import type { Mutation } from "./types";
 
@@ -29,6 +29,13 @@ export interface RoomSocketOptions {
   onAck(cid: string, updatedAt: string): void;
   /** The room refused one of ours */
   onRejected(cid: string, reason: string): void;
+  /** Someone joined, was removed or left: who is in the room now */
+  onMembers(members: Extract<ServerMessage, { type: "members" }>["members"]): void;
+  /**
+   * This device's person is out of the room, or the room was deleted. The socket has left by
+   * then (status idle) and does not try again: nothing would let it back in.
+   */
+  onGone(reason: GoneReason): void;
   onStatus(status: SocketStatus): void;
 }
 
@@ -103,6 +110,13 @@ export function createRoomSocket(options: RoomSocketOptions) {
         // refused without saying which (it could not read ours): the next snapshot is the truth
         console.warn(`room: ${msg.reason}`);
         ws?.close(4000, "resync");
+        return;
+      case "members":
+        options.onMembers(msg.members);
+        return;
+      case "gone":
+        leave();
+        options.onGone(msg.reason);
         return;
     }
   }

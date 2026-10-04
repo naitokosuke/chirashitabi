@@ -75,6 +75,11 @@ export function createLedger() {
       confirmed = state;
       return view();
     },
+    /** Who is in the room now, as the room says after someone joined, was removed or left */
+    members(members: Member[]): RoomState {
+      confirmed = { ...confirmed, members };
+      return view();
+    },
     /** A member's change, relayed by the room */
     relayed(m: Mutation, by: MemberId, at: Temporal.Instant): RoomState {
       confirmed = applyToRoom(confirmed, m, by, at);

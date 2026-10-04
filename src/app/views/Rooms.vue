@@ -1,18 +1,20 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { useI18n } from "../i18n/useI18n";
 
 import plusIcon from "../icons/plus.svg";
 import Icon from "../icons/Icon.vue";
+import Invitation from "../features/rooms/Invitation.vue";
 import { datesLabel, whenLabel } from "../features/rooms/label";
 import NewTrip from "../features/rooms/NewTrip.vue";
 import TripTag from "../features/rooms/TripTag.vue";
 import type { RoomId, RoomSummary } from "../features/rooms/types";
-import { useRoomList } from "../features/rooms/useRooms";
+import { useRestoreRoom, useRoomList } from "../features/rooms/useRooms";
+import { shortDate } from "../features/trip/format";
 import { shelve, whenOf } from "../features/rooms/when";
 import { useRoom } from "../features/sync/useRoom";
 import { initialState, locationOf } from "../shell";
@@ -23,10 +25,37 @@ const router = useRouter();
 const route = useRoute();
 const today = Temporal.Now.plainDateISO();
 
-const { data: rooms, status: listStatus, refetch: refetchList } = useRoomList();
+const { data: mine, status: listStatus, refetch: refetchList } = useRoomList();
+const rooms = computed(() => mine.value?.rooms);
+const invitations = computed(() => mine.value?.invitations ?? []);
+const deleted = computed(() => mine.value?.deleted ?? []);
 /** Coming up and been, each in the order a person looks for them (when.ts) */
 const shelves = computed(() => shelve(rooms.value ?? [], today));
-const none = computed(() => listStatus.value === "success" && (rooms.value ?? []).length === 0);
+const none = computed(
+  () =>
+    listStatus.value === "success" &&
+    (rooms.value ?? []).length === 0 &&
+    invitations.value.length === 0,
+);
+
+/** A deleted trip back on the shelf; the one being restored, while it is */
+const restore = useRestoreRoom();
+const restoring = ref<RoomId | null>(null);
+const restoreFailed = ref(false);
+async function bringBack(id: RoomId) {
+  if (restoring.value !== null) return;
+  restoring.value = id;
+  restoreFailed.value = false;
+  try {
+    await restore.mutateAsync(id);
+  } catch {
+    restoreFailed.value = true;
+  } finally {
+    restoring.value = null;
+  }
+}
+const untilLabel = (until: Temporal.PlainDate) =>
+  i18n.t("rooms.restoreUntil", { date: shortDate(until, i18n.locale) });
 
 /** A trip's tag, its words worked out for the locale */
 const tagOf = (r: RoomSummary) => ({
@@ -107,6 +136,16 @@ function retry() {
         </div>
 
         <template v-else>
+          <!-- a tag handed over by someone: first, since it waits for an answer -->
+          <section v-if="invitations.length">
+            <h2>{{ i18n.t("rooms.invitations") }}</h2>
+            <ul class="tags">
+              <li v-for="r in invitations" :key="r.id">
+                <Invitation :room="r" @joined="(id) => router.push(placeOf(id))" />
+              </li>
+            </ul>
+          </section>
+
           <section>
             <p v-if="none" class="empty">{{ i18n.t("rooms.none") }}</p>
             <h2 v-else>{{ i18n.t("rooms.coming") }}</h2>
@@ -133,6 +172,23 @@ function retry() {
                 <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
                   <TripTag v-bind="tagOf(r)" past />
                 </a>
+              </li>
+            </ul>
+          </section>
+
+          <!-- trips their owner deleted, kept a while in case it was a slip; either person brings one back -->
+          <section v-if="deleted.length">
+            <h2>{{ i18n.t("rooms.deleted") }}</h2>
+            <p v-if="restoreFailed" class="notice" role="alert">{{ i18n.t("rooms.restoreFailed") }}</p>
+            <ul class="gone">
+              <li v-for="d in deleted" :key="d.id">
+                <span>
+                  <b>{{ d.name }}</b>
+                  <small>{{ untilLabel(d.until) }}</small>
+                </span>
+                <button type="button" :disabled="restoring !== null" @click="() => bringBack(d.id)">
+                  {{ i18n.t("rooms.restore") }}
+                </button>
               </li>
             </ul>
           </section>
@@ -297,6 +353,65 @@ h2 {
         color: var(--ink);
         border-color: color-mix(in oklch, var(--ink) 55%, transparent);
         background: var(--surface);
+      }
+    }
+  }
+}
+
+/* a deleted trip: its name in muted ink, and the way back */
+.gone {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--line);
+
+  > li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 60px;
+    padding: 10px 14px;
+
+    & + li {
+      border-block-start: 1px solid var(--line);
+    }
+
+    > span {
+      flex: 1;
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+
+      > b {
+        overflow-wrap: anywhere;
+        color: var(--muted);
+      }
+
+      > small {
+        font-size: var(--font-xs);
+        color: var(--muted);
+      }
+    }
+
+    > button {
+      min-height: var(--tap);
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 0;
+      background: var(--wash);
+      color: var(--ink);
+      font-size: var(--font-sm);
+      font-weight: 700;
+
+      &:disabled {
+        opacity: 0.35;
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--ink);
+        outline-offset: 2px;
       }
     }
   }
