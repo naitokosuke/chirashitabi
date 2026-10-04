@@ -171,7 +171,7 @@ A neutral desk, white tools, one ink, and tinted paper. Nothing in the chrome is
 
 ### Signal
 
-- **Danger** (`--danger`): the text of a delete. Nowhere else.
+- **Danger** (`--danger`): the text of a delete, or the fill of a row's way off the list slid out from under it. Nowhere else.
 - **Member colors**: a member's dot on their notes, suggestions and drafts. A dot, never a fill, a border or text.
 
 ### Named Rules
@@ -257,7 +257,7 @@ Under the members, the flights, each a strip of ticket on a white panel: which w
 
 ### Trips (the rooms screen)
 
-The person's trips, as luggage tags, hung one under another in the page column under the wordmark `chirashitabi`, set as the large title. Two groups under Heading: coming up (the trip under way first, then the soonest, the undated last) and been (the most recent first). A tag that is coming up is ink, with a ringed punched hole: the name at 22px, how soon at its far end ("あと 30 日", "明日から", "旅の途中 · 2 日目"), the dates and length, and a foot of member dots (round for a person, square for the agent) with the memo count. A tag that is over is white on a hairline in ink, so it recedes. The whole tag is a link into its trip; hovering lifts it with `--shadow-lift`. Beside each tag, a quiet "…" opens the way off the list under it, asked once more: the owner's "削除する（30 日間は元に戻せます）" in ink, anyone else's "この旅から抜ける", and Cancel; a deleted trip moves to the shelf of deleted trips at the foot, with its restore.
+The person's trips, as luggage tags, hung one under another in the page column under the wordmark `chirashitabi`, set as the large title. Two groups under Heading: coming up (the trip under way first, then the soonest, the undated last) and been (the most recent first). A tag that is coming up is ink, with a ringed punched hole: the name at 22px, how soon at its far end ("あと 30 日", "明日から", "旅の途中 · 2 日目"), the dates and length, and a foot of member dots (round for a person, square for the agent) with the memo count. A tag that is over is white on a hairline in ink, so it recedes. The whole tag is a link into its trip; hovering lifts it with `--shadow-lift`. A finger slides a tag left to show, behind its end, a red tile the tag's height: "削除" for the owner (restorable), "抜ける" for anyone else (`CtSwipeRow`, as iOS's swipe actions). Past half the tile or flicked, it settles open (`--duration-swap`, `--ease-morph`); pulled past it, it resists; a tap on the tag, a touch anywhere else or a scroll closes it; one tag is open at a time. Where a pointer can hover, beside each tag, a quiet "…" opens the way off the list under it (on a phone only a screen reader finds it), asked once more: the owner's "削除する（30 日間は元に戻せます）" in ink, anyone else's "この旅から抜ける", and Cancel; a deleted trip moves to the shelf of deleted trips at the foot, with its restore.
 
 After the trips coming up hangs a blank tag: the tag's outline dashed, its hole dashed, a plus and "new trip" in Muted. It opens the new trip sheet (`/new`), which slides in like the note form: its way back floating at the top, the title, then the tag the trip will get, drawn live from the fields (the name in the placeholder's place faded until one is typed), then the name, the first day beside a stepper for the days, the currency as chips, your name, and your color as swatches ringed in ink when chosen. The one primary button sits in a footer under the fields, always in reach.
 
