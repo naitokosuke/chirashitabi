@@ -7,18 +7,34 @@ import { lengthOf, pick, weeksOf } from "./calendar";
 const d = (s: string) => Temporal.PlainDate.from(s);
 
 describe("weeksOf", () => {
-  test("a month in weeks from Sunday, blank where it runs into the next or the last", () => {
+  test("the whole weeks from Sunday that hold the month", () => {
     // November 2026 starts on a Sunday and ends on a Monday
     const weeks = weeksOf(Temporal.PlainYearMonth.from("2026-11"));
     expect(weeks).toHaveLength(5);
     expect(weeks[0]![0]!.toString()).toBe("2026-11-01");
-    expect(weeks[4]!.map((x) => x?.day ?? null)).toEqual([29, 30, null, null, null, null, null]);
+    expect(weeks[4]!.map((x) => x.toString())).toEqual([
+      "2026-11-29",
+      "2026-11-30",
+      "2026-12-01",
+      "2026-12-02",
+      "2026-12-03",
+      "2026-12-04",
+      "2026-12-05",
+    ]);
   });
 
-  test("a month starting midweek leaves the days before it blank", () => {
+  test("a month starting midweek runs back into the one before", () => {
     // October 2026 starts on a Thursday
     const first = weeksOf(Temporal.PlainYearMonth.from("2026-10"))[0]!;
-    expect(first.map((x) => x?.day ?? null)).toEqual([null, null, null, null, 1, 2, 3]);
+    expect(first.map((x) => x.toString())).toEqual([
+      "2026-09-27",
+      "2026-09-28",
+      "2026-09-29",
+      "2026-09-30",
+      "2026-10-01",
+      "2026-10-02",
+      "2026-10-03",
+    ]);
   });
 });
 

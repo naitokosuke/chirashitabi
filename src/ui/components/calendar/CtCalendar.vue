@@ -1,9 +1,4 @@
-<script
-  setup
-  lang="ts"
-  generic="T extends Temporal.PlainDate | DateRange"
-  vapor
->
+<script setup lang="ts" generic="T extends Temporal.PlainDate | DateRange" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, nextTick, ref, useTemplateRef } from "vue";
@@ -38,8 +33,12 @@ const maxDays = computed(() => props.maxDays ?? Infinity);
 const today = Temporal.Now.plainDateISO();
 const month = ref(picked.value.start.toPlainYearMonth());
 const weeks = computed(() => weeksOf(month.value));
+/** A day of the month on the page; the days of the months either side are left blank */
+const shown = (day: Temporal.PlainDate) => day.month === month.value.month;
 const title = computed(() =>
-  month.value.toPlainDate({ day: 1 }).toLocaleString(props.locale, { year: "numeric", month: "long" }),
+  month.value
+    .toPlainDate({ day: 1 })
+    .toLocaleString(props.locale, { year: "numeric", month: "long" }),
 );
 /** "日 月 火 …", a week from a Sunday */
 const weekdays = computed(() =>
@@ -110,11 +109,11 @@ async function walk(e: KeyboardEvent, day: Temporal.PlainDate) {
   <div class="calendar">
     <header>
       <button type="button" :aria-label="prevLabel" @click="() => turn(-1)">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" /></svg>
       </button>
       <h3 aria-live="polite">{{ title }}</h3>
       <button type="button" :aria-label="nextLabel" @click="() => turn(1)">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
       </button>
     </header>
     <table ref="grid" role="grid" :aria-label="title" @pointerleave="() => (hovered = null)">
@@ -124,30 +123,28 @@ async function walk(e: KeyboardEvent, day: Temporal.PlainDate) {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(week, i) in weeks" :key="i">
+        <tr v-for="week in weeks" :key="week[0]!.toString()">
           <td
-            v-for="(day, j) in week"
-            :key="j"
-            :data-start="day !== null && stateOf(day).start ? '' : undefined"
-            :data-end="day !== null && stateOf(day).end ? '' : undefined"
-            :data-within="day !== null && stateOf(day).within ? '' : undefined"
-            :data-spans="day !== null && stateOf(day).spans ? '' : undefined"
+            v-for="day in week"
+            :key="day.toString()"
+            :data-start="shown(day) && stateOf(day).start ? '' : undefined"
+            :data-end="shown(day) && stateOf(day).end ? '' : undefined"
+            :data-within="shown(day) && stateOf(day).within ? '' : undefined"
+            :data-spans="shown(day) && stateOf(day).spans ? '' : undefined"
           >
             <button
-              v-if="day !== null"
+              v-if="shown(day)"
               type="button"
               :data-date="day.toString()"
               :tabindex="day.equals(focused) ? 0 : -1"
               :aria-pressed="stateOf(day).start || stateOf(day).end || stateOf(day).within"
               :aria-current="day.equals(today) ? 'date' : undefined"
-              :aria-label="
-                day.toLocaleString(locale, {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  weekday: 'short',
-                })
-              "
+              :aria-label="day.toLocaleString(locale, {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'short',
+              })"
               @click="() => choose(day)"
               @pointerenter="() => (hovered = day)"
               @focus="() => (hovered = day)"

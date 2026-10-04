@@ -12,14 +12,14 @@ import { state } from "./harness";
     range
     :max-days="60"
     locale="en"
-    prev-label="Previous month"
     next-label="Next month"
+    prev-label="Previous month"
   />
   <CtCalendar
     v-else
     v-model="state.day"
     locale="en"
-    prev-label="Previous month"
     next-label="Next month"
+    prev-label="Previous month"
   />
 </template>

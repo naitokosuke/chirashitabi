@@ -25,11 +25,11 @@ const dates = ref<DateRange>({ start, end: start.add({ days: 3 }) });
       range
       :max-days="60"
       locale="ja"
-      prev-label="前の月"
       next-label="次の月"
+      prev-label="前の月"
     />
   </variant>
   <variant name="One day">
-    <CtCalendar v-model="day" locale="ja" prev-label="前の月" next-label="次の月" />
+    <CtCalendar v-model="day" locale="ja" next-label="次の月" prev-label="前の月" />
   </variant>
 </art>

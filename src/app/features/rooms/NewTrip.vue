@@ -18,7 +18,6 @@ import { useI18n } from "../../i18n/useI18n";
 
 import backIcon from "../../icons/back.svg";
 import Icon from "../../icons/Icon.vue";
-
 import { longDate } from "../trip/format";
 
 import { datesLabel, whenLabel } from "./label";
