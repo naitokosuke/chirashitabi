@@ -77,8 +77,11 @@ function onSave(input: NoteInput, keepOpen: boolean) {
   <template v-if="inRoom">
     <!-- a covered tab is inert: the sheet is the one thing to use -->
     <main :inert="sheet !== null">
+      <!-- the tabs are layers in the same box: the one coming up fades in over the one going -->
       <RouterView v-slot="{ Component }">
-        <KeepAlive><component :is="Component" /></KeepAlive>
+        <Transition name="ct-fade">
+          <KeepAlive><component :is="Component" /></KeepAlive>
+        </Transition>
       </RouterView>
     </main>
     <Transition name="ct-slide">
