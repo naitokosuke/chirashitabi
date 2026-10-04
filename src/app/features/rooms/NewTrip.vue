@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, onMounted, ref, useId, useTemplateRef } from "vue";
 
-import { CtChip } from "../../../ui/index";
+import { CtChip, CtSwatches } from "../../../ui/index";
 
 import type { HexColor } from "../../shared/color";
 
@@ -163,18 +163,13 @@ onMounted(() => nameEl.value?.focus());
 
       <!-- no name for the person: told apart by color alone, for now -->
       <div class="field">
-        <span :id="`${id}-color`">{{ i18n.t("rooms.color") }}</span>
-        <div class="swatches" role="group" :aria-labelledby="`${id}-color`">
-          <button
-            v-for="(c, i) in MEMBER_COLORS"
-            :key="c"
-            type="button"
-            :aria-pressed="color === c"
-            :aria-label="`${i18n.t('rooms.color')} ${i + 1}`"
-            :style="`--swatch: ${c}`"
-            @click="() => (color = c)"
-          ></button>
-        </div>
+        <span>{{ i18n.t("rooms.color") }}</span>
+        <CtSwatches
+          :colors="MEMBER_COLORS"
+          :selected="color"
+          :label="i18n.t('rooms.color')"
+          @select="(c) => (color = c)"
+        />
       </div>
     </div>
 
@@ -339,37 +334,6 @@ onMounted(() => nameEl.value?.focus());
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-
-  /* the color itself, ringed in ink when it is the one */
-  > button {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    border-radius: 50%;
-    border: 0;
-    background: var(--swatch);
-    box-shadow:
-      0 0 0 3px var(--bg),
-      0 0 0 4px transparent;
-    transition: box-shadow var(--duration-swap) var(--ease-morph);
-
-    &[aria-pressed="true"] {
-      box-shadow:
-        0 0 0 3px var(--bg),
-        0 0 0 5px var(--ink);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: 6px;
-    }
-  }
 }
 
 /* the one action, always in reach under the fields */
