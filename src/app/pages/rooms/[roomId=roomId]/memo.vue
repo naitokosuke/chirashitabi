@@ -6,7 +6,7 @@ import { useRoute } from "vue-router";
 import { usePlace } from "../../../features/canvas/usePlace";
 import Form from "../../../features/notes/Form.vue";
 import type { NoteInput } from "../../../features/notes/types";
-import { queryStrings, sheetOf } from "../url";
+import { sheetOf } from "../url";
 
 /**
  * The memo tab is the canvas's form, always open: each save goes on the canvas and only there,
@@ -16,7 +16,7 @@ const route = useRoute();
 const place = usePlace();
 /** Live while it is the tab up with no sheet over it */
 const active = computed(
-  () => route.name === "/rooms/[roomId]/memo" && sheetOf(queryStrings(route.query)) === null,
+  () => route.name === "/rooms/[roomId=roomId]/memo" && sheetOf(route.params) === null,
 );
 const saved = (input: NoteInput) => void place(input, "away");
 </script>

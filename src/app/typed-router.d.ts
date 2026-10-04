@@ -18,9 +18,18 @@ import type {
   _ExtractParamParserType,
 } from 'vue-router/experimental'
 
+// Custom route params parsers
+type Param_number = _ExtractParamParserType<typeof import('./pages/__params/number.ts').parser>
+type Param_roomId = _ExtractParamParserType<typeof import('./pages/__params/roomId.ts').parser>
+type Param_sheet = _ExtractParamParserType<typeof import('./pages/__params/sheet.ts').parser>
+
 declare module 'vue-router' {
   interface TypesConfig {
-    _ParamParsers: {}
+    _ParamParsers: {
+      'number': { type: Param_number }
+      'roomId': { type: Param_roomId }
+      'sheet': { type: Param_sheet }
+    }
     RouteNamedMap: import('vue-router/auto-routes').RouteNamedMap
     _RouteFileInfoMap: import('vue-router/auto-routes')._RouteFileInfoMap
   }
@@ -45,50 +54,50 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/rooms/[roomId]': RouteRecordInfo<
-      '/rooms/[roomId]',
+    '/rooms/[roomId=roomId]': RouteRecordInfo<
+      '/rooms/[roomId=roomId]',
       '/rooms/:roomId',
-      { roomId: ParamValue<true> },
-      { roomId: ParamValue<false> },
-      | '/rooms/[roomId]/canvas'
-      | '/rooms/[roomId]/home'
-      | '/rooms/[roomId]/map'
-      | '/rooms/[roomId]/memo'
-      | '/rooms/[roomId]/shiori'
+      { lat?: Exclude<Param_number, unknown[] | null> | undefined, lng?: Exclude<Param_number, unknown[] | null> | undefined, note?: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet?: Exclude<Param_sheet, unknown[] | null> | undefined },
+      { lat: Exclude<Param_number, unknown[] | null> | undefined, lng: Exclude<Param_number, unknown[] | null> | undefined, note: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet: Exclude<Param_sheet, unknown[] | null> | undefined },
+      | '/rooms/[roomId=roomId]/canvas'
+      | '/rooms/[roomId=roomId]/home'
+      | '/rooms/[roomId=roomId]/map'
+      | '/rooms/[roomId=roomId]/memo'
+      | '/rooms/[roomId=roomId]/shiori'
     >,
-    '/rooms/[roomId]/canvas': RouteRecordInfo<
-      '/rooms/[roomId]/canvas',
+    '/rooms/[roomId=roomId]/canvas': RouteRecordInfo<
+      '/rooms/[roomId=roomId]/canvas',
       '/rooms/:roomId/canvas',
-      { roomId: ParamValue<true> },
-      { roomId: ParamValue<false> },
+      { lat?: Exclude<Param_number, unknown[] | null> | undefined, lng?: Exclude<Param_number, unknown[] | null> | undefined, note?: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet?: Exclude<Param_sheet, unknown[] | null> | undefined },
+      { lat: Exclude<Param_number, unknown[] | null> | undefined, lng: Exclude<Param_number, unknown[] | null> | undefined, note: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet: Exclude<Param_sheet, unknown[] | null> | undefined },
       | never
     >,
-    '/rooms/[roomId]/home': RouteRecordInfo<
-      '/rooms/[roomId]/home',
+    '/rooms/[roomId=roomId]/home': RouteRecordInfo<
+      '/rooms/[roomId=roomId]/home',
       '/rooms/:roomId/home',
-      { roomId: ParamValue<true> },
-      { roomId: ParamValue<false> },
+      { lat?: Exclude<Param_number, unknown[] | null> | undefined, lng?: Exclude<Param_number, unknown[] | null> | undefined, note?: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet?: Exclude<Param_sheet, unknown[] | null> | undefined },
+      { lat: Exclude<Param_number, unknown[] | null> | undefined, lng: Exclude<Param_number, unknown[] | null> | undefined, note: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet: Exclude<Param_sheet, unknown[] | null> | undefined },
       | never
     >,
-    '/rooms/[roomId]/map': RouteRecordInfo<
-      '/rooms/[roomId]/map',
+    '/rooms/[roomId=roomId]/map': RouteRecordInfo<
+      '/rooms/[roomId=roomId]/map',
       '/rooms/:roomId/map',
-      { roomId: ParamValue<true> },
-      { roomId: ParamValue<false> },
+      { lat?: Exclude<Param_number, unknown[] | null> | undefined, lng?: Exclude<Param_number, unknown[] | null> | undefined, note?: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet?: Exclude<Param_sheet, unknown[] | null> | undefined },
+      { lat: Exclude<Param_number, unknown[] | null> | undefined, lng: Exclude<Param_number, unknown[] | null> | undefined, note: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet: Exclude<Param_sheet, unknown[] | null> | undefined },
       | never
     >,
-    '/rooms/[roomId]/memo': RouteRecordInfo<
-      '/rooms/[roomId]/memo',
+    '/rooms/[roomId=roomId]/memo': RouteRecordInfo<
+      '/rooms/[roomId=roomId]/memo',
       '/rooms/:roomId/memo',
-      { roomId: ParamValue<true> },
-      { roomId: ParamValue<false> },
+      { lat?: Exclude<Param_number, unknown[] | null> | undefined, lng?: Exclude<Param_number, unknown[] | null> | undefined, note?: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet?: Exclude<Param_sheet, unknown[] | null> | undefined },
+      { lat: Exclude<Param_number, unknown[] | null> | undefined, lng: Exclude<Param_number, unknown[] | null> | undefined, note: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet: Exclude<Param_sheet, unknown[] | null> | undefined },
       | never
     >,
-    '/rooms/[roomId]/shiori': RouteRecordInfo<
-      '/rooms/[roomId]/shiori',
+    '/rooms/[roomId=roomId]/shiori': RouteRecordInfo<
+      '/rooms/[roomId=roomId]/shiori',
       '/rooms/:roomId/shiori',
-      { roomId: ParamValue<true> },
-      { roomId: ParamValue<false> },
+      { lat?: Exclude<Param_number, unknown[] | null> | undefined, lng?: Exclude<Param_number, unknown[] | null> | undefined, note?: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet?: Exclude<Param_sheet, unknown[] | null> | undefined },
+      { lat: Exclude<Param_number, unknown[] | null> | undefined, lng: Exclude<Param_number, unknown[] | null> | undefined, note: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet: Exclude<Param_sheet, unknown[] | null> | undefined },
       | never
     >,
   }
@@ -120,54 +129,54 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
-    'src/app/pages/rooms/[roomId].vue': {
+    'src/app/pages/rooms/[roomId=roomId].vue': {
       routes:
-        | '/rooms/[roomId]'
-        | '/rooms/[roomId]/canvas'
-        | '/rooms/[roomId]/home'
-        | '/rooms/[roomId]/map'
-        | '/rooms/[roomId]/memo'
-        | '/rooms/[roomId]/shiori'
+        | '/rooms/[roomId=roomId]'
+        | '/rooms/[roomId=roomId]/canvas'
+        | '/rooms/[roomId=roomId]/home'
+        | '/rooms/[roomId=roomId]/map'
+        | '/rooms/[roomId=roomId]/memo'
+        | '/rooms/[roomId=roomId]/shiori'
       views:
         | 'default'
       pathParamNames:
         | 'roomId'
     }
-    'src/app/pages/rooms/[roomId]/canvas.vue': {
+    'src/app/pages/rooms/[roomId=roomId]/canvas.vue': {
       routes:
-        | '/rooms/[roomId]/canvas'
+        | '/rooms/[roomId=roomId]/canvas'
       views:
         | never
       pathParamNames:
         | never
     }
-    'src/app/pages/rooms/[roomId]/home.vue': {
+    'src/app/pages/rooms/[roomId=roomId]/home.vue': {
       routes:
-        | '/rooms/[roomId]/home'
+        | '/rooms/[roomId=roomId]/home'
       views:
         | never
       pathParamNames:
         | never
     }
-    'src/app/pages/rooms/[roomId]/map.vue': {
+    'src/app/pages/rooms/[roomId=roomId]/map.vue': {
       routes:
-        | '/rooms/[roomId]/map'
+        | '/rooms/[roomId=roomId]/map'
       views:
         | never
       pathParamNames:
         | never
     }
-    'src/app/pages/rooms/[roomId]/memo.vue': {
+    'src/app/pages/rooms/[roomId=roomId]/memo.vue': {
       routes:
-        | '/rooms/[roomId]/memo'
+        | '/rooms/[roomId=roomId]/memo'
       views:
         | never
       pathParamNames:
         | never
     }
-    'src/app/pages/rooms/[roomId]/shiori.vue': {
+    'src/app/pages/rooms/[roomId=roomId]/shiori.vue': {
       routes:
-        | '/rooms/[roomId]/shiori'
+        | '/rooms/[roomId=roomId]/shiori'
       views:
         | never
       pathParamNames:

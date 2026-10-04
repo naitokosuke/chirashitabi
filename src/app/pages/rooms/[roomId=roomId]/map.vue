@@ -23,7 +23,7 @@ import {
 
 import * as maplibregl from "maplibre-gl";
 import { Map as MLMap, Marker } from "maplibre-gl";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { CtChip, CtChipRow, CtFab } from "../../../../ui/index";
@@ -49,8 +49,13 @@ import plusIcon from "../../../icons/plus.svg";
 import { queryOf } from "../url";
 
 /** A sheet over the map: a memo written at a place (or, from the stamp, at none yet), or one to edit */
+const route = useRoute("/rooms/[roomId=roomId]/map");
 const router = useRouter();
-const openSheet = (form: FormTarget) => router.push({ query: queryOf(form) });
+const openSheet = (form: FormTarget) =>
+  router.push({
+    name: "/rooms/[roomId=roomId]/map",
+    params: { roomId: route.params.roomId, ...queryOf(form) },
+  });
 const write = (pin: LatLng | null) => void openSheet({ kind: "new", pin });
 const { notes } = useNotes();
 const tags = useTags();

@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { computed } from "vue";
 
-import { useRoute, useRouter } from "vue-router";
+import { RouterView, useRoute, useRouter } from "vue-router";
 
 import { CtDock, CtDockDivider, CtDockGroup, CtDockItem, type CtOption } from "../ui/index";
 
@@ -18,7 +18,7 @@ import mapIcon from "./icons/map.svg";
 import memoIcon from "./icons/memo.svg";
 import shioriIcon from "./icons/shiori.svg";
 import tripsIcon from "./icons/trips.svg";
-import { queryStrings, sheetOf, viewOf, type View } from "./pages/rooms/url";
+import { sheetOf, viewOf, type View } from "./pages/rooms/url";
 
 /**
  * Every page (pages/, router.ts) under the one menu, which floats over every screen in the same
@@ -38,7 +38,7 @@ const tab = computed(() => {
 });
 const inRoom = computed(() => tab.value !== null);
 /** A sheet is over the room's tab */
-const sheetOpen = computed(() => inRoom.value && sheetOf(queryStrings(route.query)) !== null);
+const sheetOpen = computed(() => inRoom.value && sheetOf(route.params) !== null);
 
 const views = computed((): CtOption<View>[] => [
   { value: "home", label: i18n.t("nav.home") },
@@ -63,7 +63,7 @@ const icons: Record<View, string> = {
 function selectTab(view: View) {
   if (!("roomId" in route.params) || (view === tab.value && !sheetOpen.value)) return;
   void router.replace({
-    name: `/rooms/[roomId]/${view}` as const,
+    name: `/rooms/[roomId=roomId]/${view}` as const,
     params: { roomId: route.params.roomId },
   });
 }
