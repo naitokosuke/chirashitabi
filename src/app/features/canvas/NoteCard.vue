@@ -52,15 +52,15 @@ const i18n = useI18n();
     <template v-else>
       <!-- the card's picture, across its top; the card is still what a finger holds -->
       <img
-        v-if="note.image"
+        v-if="note.image !== null"
         alt=""
         draggable="false"
         loading="lazy"
         :src="imageSrc(sync.room.id, note.image)"
       />
       <p>{{ note.title }}</p>
-      <p v-if="note.body">{{ note.body }}</p>
-      <ul v-if="note.tags.length"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
+      <p v-if="note.body !== ''">{{ note.body }}</p>
+      <ul v-if="note.tags.length > 0"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
       <span></span>
     </template>
     <!-- picked: a handle above to turn it, one at the corner to resize it (the canvas drives both) -->

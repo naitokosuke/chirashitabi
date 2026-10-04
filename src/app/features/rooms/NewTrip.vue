@@ -63,15 +63,19 @@ const preview = computed(() => {
     { kind: "person", name: "", color: color.value as HexColor },
     { kind: "agent", name: "Claude", color: "#d97757" as HexColor },
   ];
+  const typed = name.value.trim();
   return {
-    name: name.value.trim() || i18n.t("rooms.namePlaceholder"),
-    unnamed: name.value.trim() === "",
+    name: typed === "" ? i18n.t("rooms.namePlaceholder") : typed,
+    unnamed: typed === "",
     // while the last day is to be picked, the first one, open-ended
     dates:
       count.value === 0
         ? `${longDate(dates.value.start, i18n.locale)} –`
         : datesLabel(dates.value.start, count.value, i18n.locale, i18n.t),
-    when: whenLabel(whenOf({ first: dates.value.start, days: count.value || 1 }, today), i18n.t),
+    when: whenLabel(
+      whenOf({ first: dates.value.start, days: count.value === 0 ? 1 : count.value }, today),
+      i18n.t,
+    ),
     members,
   };
 });

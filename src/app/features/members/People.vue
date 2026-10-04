@@ -84,7 +84,7 @@ const isMe = (m: MemberId) => sync.me === m;
 <template>
   <!-- a div: the home's own scoped styles are on every section it holds -->
   <!-- once the room has said who this device is in it -->
-  <div v-if="me" class="people" role="group" :aria-labelledby="`${id}-title`">
+  <div v-if="me !== undefined" class="people" role="group" :aria-labelledby="`${id}-title`">
     <h2 :id="`${id}-title`">{{ i18n.t("people.title") }}</h2>
     <p v-if="invited.status.value === 'error'" class="note" role="alert">
       {{ i18n.t("people.loadFailed") }}

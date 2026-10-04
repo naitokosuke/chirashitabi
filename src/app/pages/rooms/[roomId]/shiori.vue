@@ -76,7 +76,7 @@ const flightsOn = computed(() => {
 /** The day the tabs and the heading show, ahead of the page by the time it takes to turn */
 const pickedDay = computed(() => dayOfTab(picked.value));
 const price = (amount: number) =>
-  trip.value ? formatMoney(amount, trip.value.currency, i18n.locale) : "";
+  trip.value === undefined ? "" : formatMoney(amount, trip.value.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 
 // tabs are keyed by the date's ISO string
@@ -149,14 +149,14 @@ const range = computed(() => {
 function assign(n: Memo, date: Temporal.PlainDate | null) {
   store.update(n.id, assignTo(n, date));
   pickingId.value = null;
-  if (date) showTab(date.toString());
+  if (date !== null) showTab(date.toString());
 }
 function togglePick(n: Memo) {
   pickingId.value = pickingId.value === n.id ? null : n.id;
 }
 /** The tray's pick row: the picked memo goes on this day */
 function putPickedOn(date: Temporal.PlainDate) {
-  if (picking.value) assign(picking.value, date);
+  if (picking.value !== null) assign(picking.value, date);
 }
 function nextStatus(n: Scheduled) {
   store.update(n.id, { schedule: cycleStatus(n.schedule) });
@@ -170,7 +170,7 @@ function setTime(n: Scheduled, e: Event) {
   store.update(n.id, { schedule: { ...n.schedule, time } });
 }
 function onIntroChange(e: Event) {
-  if (!day.value) return;
+  if (day.value === null) return;
   setIntro(day.value, (e.target as HTMLTextAreaElement).value);
 }
 
@@ -203,10 +203,11 @@ const draftFailure = computed(() => {
 const { mutate: exportBooklet, isLoading: exporting, error: exportError } = calls.exportBooklet;
 
 function adoptDraft() {
-  if (!draft.value) return;
+  if (draft.value === null) return;
   for (const { id, patch } of draftUpdates(draft.value)) store.update(id, patch);
   // keep an intro someone already wrote
-  setIntro(draft.value.date, dayOf(draft.value.date)?.intro || draft.value.intro);
+  const written = dayOf(draft.value.date)?.intro ?? "";
+  setIntro(draft.value.date, written === "" ? draft.value.intro : written);
   draft.value = null;
 }
 </script>
@@ -232,7 +233,7 @@ function adoptDraft() {
 
     <!-- what holds for the whole trip stays put above the page; only the day's page morphs -->
     <div class="lead">
-      <p><template v-if="range">{{ range }} · </template>{{
+      <p><template v-if="range !== ''">{{ range }} · </template>{{
           totalAll > 0
             ? i18n.t("shiori.summary", { fixed: fixedCount, total: price(totalFixed) })
             : i18n.t("shiori.summaryCount", { fixed: fixedCount })
@@ -255,7 +256,7 @@ function adoptDraft() {
             </button>
           </li>
         </ul>
-        <div v-if="picking">
+        <div v-if="picking !== null">
           <span>{{ i18n.t("shiori.putOn", { title: picking.title }) }}</span>
           <button
             v-for="d in trip?.days"
@@ -275,9 +276,9 @@ function adoptDraft() {
       <!-- the page (this scrolling body) morphs when the day or the mode changes: see showTab -->
       <CtTabPanel>
         <!-- ---------- a day ---------- -->
-        <template v-if="day">
+        <template v-if="day !== null">
           <!-- a flight that day heads the page, before anything planned around it -->
-          <div v-if="flightsOn.length" class="flights" data-turn>
+          <div v-if="flightsOn.length > 0" class="flights" data-turn>
             <FlightLine v-for="f in flightsOn" :key="f.leg" :flight="f.flight" :leg="f.leg" />
           </div>
           <template v-if="editing">
@@ -290,7 +291,7 @@ function adoptDraft() {
               @change="onIntroChange"
             ></textarea>
           </template>
-          <p v-else-if="dayOf(day)?.intro" class="intro" data-turn>{{ dayOf(day)?.intro }}</p>
+          <p v-else-if="(dayOf(day)?.intro ?? '') !== ''" class="intro" data-turn>{{ dayOf(day)?.intro }}</p>
 
           <p v-if="forDay(day).length === 0" class="empty" data-turn>{{ i18n.t("shiori.dayEmpty") }}</p>
 
@@ -316,14 +317,14 @@ function adoptDraft() {
               </div>
               <div>
                 <p>{{ n.title }}</p>
-                <p v-if="n.body">{{ n.body }}</p>
+                <p v-if="n.body !== ''">{{ n.body }}</p>
                 <div v-if="editing">
                   <button type="button" :data-status="n.schedule.status" @click="() => nextStatus(n)">{{ i18n.t(`status.${n.schedule.status}`) }}</button>
-                  <span v-if="n.budget">{{ price(n.budget) }}</span>
+                  <span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span>
                   <button type="button" @click="() => assign(n, null)">{{ i18n.t("shiori.removeDay") }}</button>
                 </div>
-                <p v-else class="meta"><span v-if="n.budget">{{ price(n.budget) }}</span><a
-                    v-if="safeUrl(n.mapsUrl)"
+                <p v-else class="meta"><span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span><a
+                    v-if="safeUrl(n.mapsUrl) !== undefined"
                     :href="safeUrl(n.mapsUrl)"
                     rel="noopener noreferrer"
                     target="_blank"
@@ -333,7 +334,7 @@ function adoptDraft() {
           </ol>
 
           <!-- read mode: the maybes, faded, at the end of the strip -->
-          <template v-if="!editing && forDay(day, 'idea').length">
+          <template v-if="!editing && forDay(day, 'idea').length > 0">
             <h3 data-turn>{{ i18n.t("shiori.ifTime") }}</h3>
             <ol class="maybes">
               <li
@@ -345,16 +346,16 @@ function adoptDraft() {
                 <div><span>{{ n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime") }}</span></div>
                 <div>
                   <p>{{ n.title }}</p>
-                  <p v-if="n.budget" class="meta"><span>{{ price(n.budget) }}</span></p>
+                  <p v-if="n.budget !== null && n.budget > 0" class="meta"><span>{{ price(n.budget) }}</span></p>
                 </div>
               </li>
             </ol>
           </template>
 
           <!-- a member's draft of the day (edit mode) -->
-          <template v-if="editing && worker.api && forDay(day).length">
+          <template v-if="editing && worker.api !== null && forDay(day).length > 0">
             <div
-              v-if="draft && draft.date.equals(day)"
+              v-if="draft !== null && draft.date.equals(day)"
               data-turn
               :style="`--who: ${drafter?.color ?? 'var(--muted)'}`"
             >
@@ -375,7 +376,7 @@ function adoptDraft() {
             </template>
           </template>
 
-          <p v-if="budgetOf(day)" class="total" data-turn>{{ i18n.t("shiori.dayTotal", { total: price(budgetOf(day)) }) }}<small v-if="budgetOf(day, false) > budgetOf(day)">{{ i18n.t("shiori.withMaybes", { total: price(budgetOf(day, false)) }) }}</small></p>
+          <p v-if="budgetOf(day) > 0" class="total" data-turn>{{ i18n.t("shiori.dayTotal", { total: price(budgetOf(day)) }) }}<small v-if="budgetOf(day, false) > budgetOf(day)">{{ i18n.t("shiori.withMaybes", { total: price(budgetOf(day, false)) }) }}</small></p>
         </template>
 
         <!-- ---------- appendix ---------- -->
@@ -388,14 +389,14 @@ function adoptDraft() {
                 data-turn
                 :data-checked="n.checked || undefined"
                 :style="`--card:${PAPERS[n.color]}`"
-              ><label><input type="checkbox" :checked="n.checked" @change="(e) => setChecked(n, e)" /><span>{{ n.title }}</span><small v-if="n.body"> — {{ n.body }}</small></label></li></ul>
+              ><label><input type="checkbox" :checked="n.checked" @change="(e) => setChecked(n, e)" /><span>{{ n.title }}</span><small v-if="n.body !== ''"> —{{ n.body }}</small></label></li></ul>
             <p v-if="byTag(t).length === 0" data-turn>{{ i18n.t("shiori.tagEmpty") }}</p>
           </section>
         </template>
       </CtTabPanel>
     </div>
 
-    <footer v-if="!editing && worker.api?.exportBooklet">
+    <footer v-if="!editing && worker.api !== null && worker.api.exportBooklet !== null">
       <p v-if="exportError !== null && !exporting" aria-live="polite">{{ i18n.t("shiori.exportFailed") }}</p>
       <button
         type="button"

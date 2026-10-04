@@ -44,7 +44,7 @@ let frame = 0;
 function magnify() {
   frame = 0;
   const n = nav.value;
-  if (!n) return;
+  if (n === null) return;
   const { els, rest } = measure(n);
   els.forEach((el, i) => {
     if (pointer === null) el.style.removeProperty("--m");
@@ -64,7 +64,7 @@ const dot = ref<number | null>(null);
 const dotReady = ref(false);
 function placeDot() {
   const n = nav.value;
-  if (!n) return;
+  if (n === null) return;
   const { els, rest } = measure(n);
   const current = els.findIndex((el) => el.getAttribute("aria-current") === "page");
   const r = n.getBoundingClientRect();
@@ -75,7 +75,7 @@ function placeDot() {
 let watchers: { disconnect(): void }[] = [];
 onMounted(() => {
   const n = nav.value;
-  if (!n) return;
+  if (n === null) return;
   const changed = new MutationObserver(placeDot);
   changed.observe(n, { subtree: true, attributeFilter: ["aria-current", "data-closed"] });
   const resized = new ResizeObserver(placeDot);

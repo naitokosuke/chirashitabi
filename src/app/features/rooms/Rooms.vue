@@ -184,7 +184,7 @@ function retry() {
 
         <template v-else>
           <!-- a tag handed over by someone: first, since it waits for an answer -->
-          <section v-if="mine?.invitations.length">
+          <section v-if="mine !== undefined && mine.invitations.length > 0">
             <h2>{{ i18n.t("rooms.invitations") }}</h2>
             <ul class="tags">
               <li v-for="r in mine?.invitations" :key="r.id">
@@ -222,7 +222,7 @@ function retry() {
             </ul>
           </section>
 
-          <section v-if="shelves.been.length">
+          <section v-if="shelves.been.length > 0">
             <h2>{{ i18n.t("rooms.been") }}</h2>
             <ul class="tags">
               <li v-for="r in shelves.been" :key="r.id">
@@ -244,7 +244,7 @@ function retry() {
           </section>
 
           <!-- trips their owner deleted, kept a while in case it was a slip; either person brings one back -->
-          <section v-if="mine?.deleted.length">
+          <section v-if="mine !== undefined && mine.deleted.length > 0">
             <h2>{{ i18n.t("rooms.deleted") }}</h2>
             <p v-if="restoreFailed" class="notice" role="alert">{{ i18n.t("rooms.restoreFailed") }}</p>
             <p v-if="purgeFailed" class="notice" role="alert">{{ i18n.t("rooms.purgeFailed") }}</p>

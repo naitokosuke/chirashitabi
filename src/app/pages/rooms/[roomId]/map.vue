@@ -59,7 +59,7 @@ const i18n = useI18n();
 /** Whether a memo's place can be found from its words (the form's "Find the place") */
 const worker = useWorker();
 const price = (amount: number) =>
-  trip.value ? formatMoney(amount, trip.value.currency, i18n.locale) : "";
+  trip.value === undefined ? "" : formatMoney(amount, trip.value.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 const el = useTemplateRef<HTMLElement>("el");
 /** How long a press is held to write a memo there; where it is held, while it is */
@@ -77,9 +77,9 @@ const noPin = computed(() => (notes.value ?? []).filter(needsPin).length);
 const showAllDays = () => (day.value = null);
 const closeCard = () => (selectedId.value = null);
 const editSelected = () => {
-  if (selected.value) void openSheet({ kind: "edit", id: selected.value.id });
+  if (selected.value !== null) void openSheet({ kind: "edit", id: selected.value.id });
 };
-const selectedLink = computed(() => (selected.value ? placeLink(selected.value) : null));
+const selectedLink = computed(() => (selected.value === null ? null : placeLink(selected.value)));
 
 // free vector tiles, no key. Swap the style URL for your own if you self-host.
 const STYLE = "https://tiles.openfreemap.org/styles/liberty";
@@ -91,8 +91,8 @@ onMounted(() => {
   map = new MLMap({
     container: el.value!,
     // the trip's area; the whole world until the room says where we are going
-    center: trip.value?.center ? [trip.value.center.lng, trip.value.center.lat] : [0, 0],
-    zoom: trip.value?.center ? 11.5 : 1,
+    center: trip.value === undefined ? [0, 0] : [trip.value.center.lng, trip.value.center.lat],
+    zoom: trip.value === undefined ? 1 : 11.5,
     attributionControl: { compact: true },
   });
   // A wheel or a trackpad zooms about twice as fast as MapLibre's default (1/450 a notch's
@@ -145,7 +145,7 @@ onMounted(() => {
     }, HOLD_MS);
   }
   function moved(point: { x: number; y: number }) {
-    if (start && Math.hypot(point.x - start.x, point.y - start.y) > 8) cancelHold();
+    if (start !== null && Math.hypot(point.x - start.x, point.y - start.y) > 8) cancelHold();
   }
   function cancelHold() {
     clearTimeout(t);
@@ -190,12 +190,12 @@ function pinEl(n: Pinned) {
 }
 
 function syncMarkers() {
-  if (!map) return;
+  if (map === null) return;
   const seen = new Set<string>();
   for (const n of pinnedOf(notes.value ?? [])) {
     seen.add(n.id);
     let m = markers.get(n.id);
-    if (!m) {
+    if (m === undefined) {
       m = new Marker({ element: pinEl(n), anchor: "bottom" }).setLngLat(lngLat(n.pin)).addTo(map);
       markers.set(n.id, m);
     } else m.setLngLat(lngLat(n.pin));
@@ -215,12 +215,12 @@ function syncMarkers() {
     }
 }
 function syncRoute() {
-  if (!map?.getSource("route")) return;
+  if (map === null || map.getSource("route") === undefined) return;
   const src = map.getSource("route") as maplibregl.GeoJSONSource;
-  const stops = day.value ? routeStops(forDay(day.value)) : [];
+  const stops = day.value === null ? [] : routeStops(forDay(day.value));
   src.setData(routeLine(stops));
   const b = boundsOf(stops);
-  if (b) {
+  if (b !== null) {
     map.fitBounds(b, {
       padding: { top: 60, bottom: 240, left: 40, right: 40 },
       duration: 500,
@@ -243,14 +243,14 @@ watchEffect(() => {
   syncMarkers();
 });
 const scheduleKey = (n: Note) =>
-  n.kind === "memo" && n.schedule
+  n.kind === "memo" && n.schedule !== null
     ? `${n.schedule.date} ${n.schedule.time} ${n.schedule.status}`
     : "";
 watch([day, () => (notes.value ?? []).map(scheduleKey)], syncRoute);
 
 function fitAll() {
   const b = boundsOf(pinnedOf(notes.value ?? []).map((n) => lngLat(n.pin)));
-  if (b) map?.fitBounds(b, { padding: 80, duration: 500 });
+  if (b !== null) map?.fitBounds(b, { padding: 80, duration: 500 });
 }
 </script>
 
@@ -273,7 +273,7 @@ function fitAll() {
           </CtChipRow>
         </div>
         <!-- the desk's filter follows the pins here, and can be cleared here -->
-        <div v-if="tags.selected.size">
+        <div v-if="tags.selected.size > 0">
           <CtChip class="clear" @click="() => tags.selected.clear()">{{ i18n.t("filter.clear") }}</CtChip>
           <CtChip
             v-for="t in tags.tagList.filter((x) => tags.selected.has(x.name))"
@@ -283,12 +283,12 @@ function fitAll() {
             @click="() => tags.toggleTag(t.name)"
           >#{{ t.name }}</CtChip>
         </div>
-        <p v-if="noPin">{{ i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin }) }}</p>
+        <p v-if="noPin > 0">{{ i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin }) }}</p>
       </div>
 
       <!-- the press being held: a ring that fills, and the memo is written when it closes -->
       <span
-        v-if="holding"
+        v-if="holding !== null"
         aria-hidden="true"
         class="hold"
         :style="`--x: ${holding.x}px; --y: ${holding.y}px; --hold: ${HOLD_MS}ms`"
@@ -299,13 +299,13 @@ function fitAll() {
       <!-- the same write button as the canvas: writing is never more than a tap away -->
       <CtFab :label="i18n.t('canvas.write')" @click="() => write(null)"><Icon :size="24" :src="plusIcon" /></CtFab>
 
-      <article v-if="selected" :style="`--card:${PAPERS[selected.color]}`">
+      <article v-if="selected !== null" :style="`--card:${PAPERS[selected.color]}`">
         <h2>{{ selected.title }}</h2>
-        <p v-if="selected.body">{{ selected.body }}</p>
+        <p v-if="selected.body !== ''">{{ selected.body }}</p>
         <footer>
           <span v-for="t in selected.tags" :key="t">#{{ t }} </span>
-          <span v-if="selected.budget">{{ price(selected.budget) }} </span>
-          <span v-if="selected.schedule">{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
+          <span v-if="selected.budget !== null && selected.budget > 0">{{ price(selected.budget) }} </span>
+          <span v-if="selected.schedule !== null">{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
         </footer>
         <div>
           <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{ i18n.t("map.openInGoogleMaps") }}</a>

@@ -21,7 +21,7 @@ const { notes } = useNotes();
 const { members } = useMembers();
 const i18n = useI18n();
 const price = (amount: number) =>
-  trip.value ? formatMoney(amount, trip.value.currency, i18n.locale) : "";
+  trip.value === undefined ? "" : formatMoney(amount, trip.value.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 /** The trip's settings are open under its title */
 const editing = ref(false);
@@ -53,7 +53,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
     <div>
       <header>
         <h1>{{ trip?.name }}</h1>
-        <p v-if="range">{{ range }} · {{ i18n.t("home.days", { count: trip?.days.length ?? 0 }) }}</p>
+        <p v-if="range !== ''">{{ range }} · {{ i18n.t("home.days", { count: trip?.days.length ?? 0 }) }}</p>
         <!-- who is in: a face each, initial on their color -->
         <ul>
           <li v-for="m in members" :key="m.id" :style="`--who: ${m.color}`" :title="m.name">
@@ -64,15 +64,23 @@ const allTotal = computed(() => budgetOf(undefined, false));
       </header>
 
       <!-- how the trip goes: its flights, and the way to change its name, dates and flights -->
-      <TripEditor v-if="editing && trip" :trip @close="() => (editing = false)" />
+      <TripEditor v-if="editing && trip !== undefined" :trip @close="() => (editing = false)" />
       <div v-else class="plan">
-        <FlightLine v-if="trip?.flights.out" leg="out" :flight="trip?.flights.out" />
-        <FlightLine v-if="trip?.flights.back" leg="back" :flight="trip?.flights.back" />
+        <FlightLine
+          v-if="trip !== undefined && trip.flights.out !== null"
+          leg="out"
+          :flight="trip.flights.out"
+        />
+        <FlightLine
+          v-if="trip !== undefined && trip.flights.back !== null"
+          leg="back"
+          :flight="trip.flights.back"
+        />
         <button type="button" @click="() => (editing = true)">{{ i18n.t("trip.edit") }}</button>
       </div>
 
       <!-- the days side by side, each a stack of its notes in their own paper; maybes faded -->
-      <ol v-if="trip?.days.length">
+      <ol v-if="trip !== undefined && trip.days.length > 0">
         <li
           v-for="d in trip?.days"
           :key="d.date.toString()"

@@ -8,9 +8,9 @@ const i18n = useI18n();
 </script>
 
 <template>
-  <div v-if="toast.current" role="status">
+  <div v-if="toast.current !== null" role="status">
     <span>{{ toast.current.text }}</span>
-    <button v-if="toast.current.undo" type="button" @click="() => toast.undo()">{{ i18n.t("canvas.undo") }}</button>
+    <button v-if="toast.current.undo !== undefined" type="button" @click="() => toast.undo()">{{ i18n.t("canvas.undo") }}</button>
   </div>
 </template>
 

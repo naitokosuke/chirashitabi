@@ -86,7 +86,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
       </RouterView>
     </main>
     <Transition name="ct-slide">
-      <Form v-if="sheet" :mode="sheet" @close="closeSheet" @save="onSave" />
+      <Form v-if="sheet !== null" :mode="sheet" @close="closeSheet" @save="onSave" />
     </Transition>
     <Connection />
   </template>
