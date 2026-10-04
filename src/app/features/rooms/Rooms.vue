@@ -8,10 +8,8 @@ import { CtSwipeRow } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
-import moreIcon from "../../icons/more.svg";
 import plusIcon from "../../icons/plus.svg";
 import Icon from "../../icons/Icon.vue";
-import { KEPT_DAYS } from "./api";
 import Invitation from "./Invitation.vue";
 import { datesLabel, whenLabel } from "./label";
 import NewTrip from "./NewTrip.vue";
@@ -41,10 +39,7 @@ const none = computed(
     mine.value.invitations.length === 0,
 );
 
-/** The trip whose way off the list is open under its tag */
-const asking = ref<RoomId | null>(null);
-const toggleAsk = (id: RoomId) => (asking.value = asking.value === id ? null : id);
-/** The trip a finger slid aside, its way off the list showing at its end; one at a time */
+/** The trip slid aside, its way off the list showing at its end; one at a time */
 const slid = ref<RoomId | null>(null);
 function slide(id: RoomId, open: boolean) {
   if (open) slid.value = id;
@@ -57,7 +52,6 @@ async function takeOff(r: RoomSummary) {
   removeFailed.value = false;
   try {
     await remove({ room: r.id, owner: r.owner });
-    asking.value = null;
     slid.value = null;
     // the device's own memory of it too, so the root does not reopen it
     if (room.remembered() === r.id) room.leave();
@@ -184,23 +178,12 @@ function retry() {
             <h2 v-else>{{ i18n.t("rooms.coming") }}</h2>
             <ul class="tags">
               <li v-for="r in shelves.coming" :key="r.id">
-                <!-- under a finger the tag slides aside to show the way off the list; elsewhere "…" asks -->
+                <!-- the tag slides aside (a finger, a mouse, ←) to show the way off the list -->
                 <CtSwipeRow :open="slid === r.id" @toggle="(open) => slide(r.id, open)">
                   <template #default>
-                    <div class="held">
-                      <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
-                        <TripTag v-bind="tagOf(r)" />
-                      </a>
-                      <button
-                        class="more"
-                        type="button"
-                        :aria-expanded="asking === r.id"
-                        :aria-label="i18n.t('rooms.actions', { name: r.name })"
-                        @click="() => toggleAsk(r.id)"
-                      >
-                        <Icon :size="20" :src="moreIcon" />
-                      </button>
-                    </div>
+                    <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
+                      <TripTag v-bind="tagOf(r)" />
+                    </a>
                   </template>
                   <template #actions>
                     <button class="off" type="button" :disabled="removing" @click="() => takeOff(r)">
@@ -208,13 +191,6 @@ function retry() {
                     </button>
                   </template>
                 </CtSwipeRow>
-                <!-- the way off the list, asked twice: the owner deletes it, anyone else leaves -->
-                <div v-if="asking === r.id" class="ask">
-                  <button class="danger" type="button" :disabled="removing" @click="() => takeOff(r)">
-                    {{ r.owner ? i18n.t("people.deleteConfirm", { count: KEPT_DAYS }) : i18n.t("people.leave") }}
-                  </button>
-                  <button type="button" @click="() => (asking = null)">{{ i18n.t("people.cancel") }}</button>
-                </div>
               </li>
               <!-- a blank tag: the next trip starts by writing one -->
               <li>
@@ -230,23 +206,12 @@ function retry() {
             <h2>{{ i18n.t("rooms.been") }}</h2>
             <ul class="tags">
               <li v-for="r in shelves.been" :key="r.id">
-                <!-- under a finger the tag slides aside to show the way off the list; elsewhere "…" asks -->
+                <!-- the tag slides aside (a finger, a mouse, ←) to show the way off the list -->
                 <CtSwipeRow :open="slid === r.id" @toggle="(open) => slide(r.id, open)">
                   <template #default>
-                    <div class="held">
-                      <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
-                        <TripTag v-bind="tagOf(r)" past />
-                      </a>
-                      <button
-                        class="more"
-                        type="button"
-                        :aria-expanded="asking === r.id"
-                        :aria-label="i18n.t('rooms.actions', { name: r.name })"
-                        @click="() => toggleAsk(r.id)"
-                      >
-                        <Icon :size="20" :src="moreIcon" />
-                      </button>
-                    </div>
+                    <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
+                      <TripTag v-bind="tagOf(r)" past />
+                    </a>
                   </template>
                   <template #actions>
                     <button class="off" type="button" :disabled="removing" @click="() => takeOff(r)">
@@ -254,13 +219,6 @@ function retry() {
                     </button>
                   </template>
                 </CtSwipeRow>
-                <!-- the way off the list, asked twice: the owner deletes it, anyone else leaves -->
-                <div v-if="asking === r.id" class="ask">
-                  <button class="danger" type="button" :disabled="removing" @click="() => takeOff(r)">
-                    {{ r.owner ? i18n.t("people.deleteConfirm", { count: KEPT_DAYS }) : i18n.t("people.leave") }}
-                  </button>
-                  <button type="button" @click="() => (asking = null)">{{ i18n.t("people.cancel") }}</button>
-                </div>
               </li>
             </ul>
           </section>
@@ -408,55 +366,6 @@ h2 {
   }
 }
 
-/* a tag and, beside it, the way to its actions */
-.held {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-
-  > a {
-    flex: 1;
-    min-width: 0;
-  }
-
-  > .more {
-    flex-shrink: 0;
-    display: grid;
-    place-items: center;
-    width: var(--tap);
-    height: var(--tap);
-    border-radius: 50%;
-    border: 0;
-    background: transparent;
-    color: var(--muted);
-
-    &[aria-expanded="true"] {
-      background: var(--wash);
-      color: var(--ink);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: 2px;
-    }
-
-    @media (--can-hover) {
-      &:hover {
-        color: var(--ink);
-      }
-    }
-
-    /* a finger slides the tag aside instead; a screen reader still finds the button */
-    @media (--no-hover) {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-    }
-  }
-}
-
 /* slid aside, the way off the list at the tag's end: red, since the trip goes */
 .off {
   flex: 1;
@@ -471,39 +380,6 @@ h2 {
 
   &:disabled {
     opacity: 0.35;
-  }
-}
-
-/* asked once more, under the tag */
-.ask {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-block-start: 8px;
-
-  > button {
-    min-height: var(--tap);
-    padding: 0 14px;
-    border-radius: 999px;
-    border: 0;
-    background: var(--wash);
-    color: var(--ink);
-    font-size: var(--font-sm);
-    font-weight: 700;
-
-    &.danger {
-      background: var(--ink);
-      color: var(--on-ink);
-    }
-
-    &:disabled {
-      opacity: 0.35;
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: 2px;
-    }
   }
 }
 

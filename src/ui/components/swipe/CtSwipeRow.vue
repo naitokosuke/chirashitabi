@@ -1,12 +1,13 @@
 <script setup lang="ts" vapor>
 /**
- * A row a finger slides left to show its actions behind it, as a phone's list does (iOS's
- * trailing swipe actions, Ionic's `ion-item-sliding`). Only a finger slides it: a mouse, a
- * keyboard and a screen reader get the row's actions some other way, which the row's owner
- * provides. `open` is kept by the owner, so one row is open at a time; `toggle` asks for it.
- * While open, a tap on the row, a touch anywhere else or a scroll closes it.
+ * A row slid left to show its actions behind it, as a phone's list does (iOS's trailing swipe
+ * actions, Ionic's `ion-item-sliding`, React Bits' Swipe Row). A finger or a mouse slides it;
+ * from the keyboard, with the row's content focused, ← opens it (and puts the focus on the
+ * first action) and → or Escape shuts it. `open` is kept by the owner, so one row is open at a
+ * time; `toggle` asks for it. While open, a tap on the row, a press anywhere else or a scroll
+ * closes it.
  */
-import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from "vue";
 
 import { axisOf, resist, settlesOpen } from "./swipe";
 
@@ -17,9 +18,9 @@ const root = useTemplateRef<HTMLElement>("root");
 const set = useTemplateRef<HTMLElement>("set");
 const content = useTemplateRef<HTMLElement>("content");
 
-/** The actions' own width: how far the row goes to show them, measured when a finger lands */
+/** The actions' own width: how far the row goes to show them, measured when a pointer lands */
 const width = ref(0);
-/** Where a finger holds the row; null when it is not */
+/** Where a pointer holds the row; null when it is not */
 const drag = ref<number | null>(null);
 const offset = computed(() => drag.value ?? (props.open ? -width.value : 0));
 const style = computed(() => ({ "--offset": `${offset.value}px` }));
@@ -29,14 +30,14 @@ let axis: "x" | "y" | null = null;
 let last = { x: 0, t: 0 };
 let velocity = 0;
 /**
- * A slide may end in a click on whatever was under the finger, which is not a tap: one coming
+ * A slide may end in a click on whatever was under the pointer, which is not a tap: one coming
  * this soon (ms, on the events' clock) after a slide is dropped. Any later click is meant.
  */
 const AFTER_SLIDE = 400;
 let slidUntil = -Infinity;
 
 function down(e: PointerEvent) {
-  if (e.pointerType !== "touch" || !e.isPrimary || set.value === null) return;
+  if (!e.isPrimary || e.button !== 0 || set.value === null) return;
   width.value = set.value.offsetWidth;
   start = { id: e.pointerId, x: e.clientX, y: e.clientY, from: props.open ? -width.value : 0 };
   axis = null;
@@ -78,6 +79,19 @@ function cancel() {
   drag.value = null;
 }
 
+/** From the keyboard: ← slides the row open and hands the focus to its first action; → or Escape shuts it */
+let byKey = false;
+function key(e: KeyboardEvent) {
+  if (e.key === "ArrowLeft" && !props.open) {
+    byKey = true;
+    emit("toggle", true);
+  } else if ((e.key === "ArrowRight" || e.key === "Escape") && props.open) {
+    emit("toggle", false);
+    content.value?.querySelector<HTMLElement>("a, button, [tabindex]")?.focus();
+  } else return;
+  e.preventDefault();
+}
+
 /** Native and capturing, so the row's own links and buttons never see a click it takes */
 function click(e: MouseEvent) {
   const slid = e.timeStamp < slidUntil;
@@ -89,16 +103,23 @@ function click(e: MouseEvent) {
   else emit("toggle", false);
 }
 
-/** A touch outside the row while it is open */
+/** A press outside the row while it is open */
 function outside(e: PointerEvent) {
   if (!(root.value?.contains(e.target as Node) ?? false)) emit("toggle", false);
 }
 
 watch(
   () => props.open,
-  (open) => {
+  async (open) => {
+    // opened some other way than a slide (a key, the owner): the actions' width is measured here
+    if (open && set.value !== null) width.value = set.value.offsetWidth;
     if (open) document.addEventListener("pointerdown", outside, true);
     else document.removeEventListener("pointerdown", outside, true);
+    if (open && byKey) {
+      byKey = false;
+      await nextTick();
+      set.value?.querySelector<HTMLElement>("a, button, [tabindex]")?.focus();
+    }
   },
 );
 onMounted(() => root.value?.addEventListener("click", click, true));
@@ -118,6 +139,8 @@ onBeforeUnmount(() => {
     @pointermove="move"
     @pointerup="up"
     @pointercancel="cancel"
+    @keydown="key"
+    @dragstart.prevent
   >
     <!-- behind the row, at its right end; out of reach until it is shown -->
     <div class="actions" :inert="offset === 0">
@@ -136,6 +159,9 @@ onBeforeUnmount(() => {
   position: relative;
   /* the list still scrolls under a finger; sideways is the row's */
   touch-action: pan-y;
+  /* a mouse slides it too: nothing to select on the way */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .content {
@@ -163,7 +189,7 @@ onBeforeUnmount(() => {
   padding-inline-start: 10px;
 }
 
-/* let go, it settles; under a finger it follows at once */
+/* let go, it settles; under a pointer it follows at once */
 .row:not([data-sliding]) {
   > .content {
     transition: translate var(--duration-swap) var(--ease-morph);
