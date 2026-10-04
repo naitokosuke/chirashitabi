@@ -34,12 +34,15 @@ const link = () => page.getByRole("link", { name: "Taiwan trip" });
 const action = () => page.getByRole("button", { name: "Delete" });
 const shift = () => content().getBoundingClientRect().left - row().getBoundingClientRect().left;
 
-/** A mouse pressed on the row, moved by `dx` in a few steps, and let go */
-function slide(dx: number) {
+/**
+ * A mouse pressed on the row, moved by `dx` in a few steps a beat apart (the events' clock is
+ * real time: moves too close together read as a flick), and let go
+ */
+async function slide(dx: number) {
   const r = row().getBoundingClientRect();
   const x0 = r.left + r.width / 2;
   const y = r.top + r.height / 2;
-  const at = (type: string, x: number, t: number) =>
+  const at = (type: string, x: number) =>
     row().dispatchEvent(
       new PointerEvent(type, {
         bubbles: true,
@@ -53,14 +56,18 @@ function slide(dx: number) {
         clientY: y,
       }),
     );
-  at("pointerdown", x0, 0);
-  for (let i = 1; i <= 4; i++) at("pointermove", x0 + (dx * i) / 4, i * 40);
-  at("pointerup", x0 + dx, 200);
+  at("pointerdown", x0);
+  for (let i = 1; i <= 4; i++) {
+    await new Promise((r) => setTimeout(r, 40));
+    at("pointermove", x0 + (dx * i) / 4);
+  }
+  await new Promise((r) => setTimeout(r, 40));
+  at("pointerup", x0 + dx);
 }
 
 describe("sliding", () => {
   test("a mouse slides the row aside and, past halfway, it settles open on its action", async () => {
-    slide(-80);
+    await slide(-80);
     await nextTick();
     expect(state.open).toBe(true);
     await expect.poll(shift).toBeLessThan(-80);
@@ -68,7 +75,7 @@ describe("sliding", () => {
   });
 
   test("let go short of halfway, it settles back", async () => {
-    slide(-20);
+    await slide(-20);
     await nextTick();
     expect(state.open).toBe(false);
     await expect.poll(shift).toBe(0);
