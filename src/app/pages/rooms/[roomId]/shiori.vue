@@ -11,13 +11,13 @@ import {
   usePageTurn,
   type CtMorphPart,
   type CtOption,
-} from "../../ui/index";
+} from "../../../../ui/index";
 
-import { formatMoney } from "../shared/money";
+import { formatMoney } from "../../../shared/money";
 
-import { useI18n } from "../i18n/useI18n";
+import { useI18n } from "../../../i18n/useI18n";
 
-import { useMembers } from "../features/members/useMembers";
+import { useMembers } from "../../../features/members/useMembers";
 import {
   ARRIVAL_TAG,
   PACKING_TAG,
@@ -25,17 +25,17 @@ import {
   type Memo,
   type NoteId,
   type Scheduled,
-} from "../features/notes/types";
-import { useNotes } from "../features/notes/useNotes";
-import { safeUrl } from "../features/place/google-maps";
-import FlightLine from "../features/trip/FlightLine.vue";
-import { fromHhmm, hhmm, longDate, shortDate } from "../features/trip/format";
-import { assignTo, cycleStatus, draftUpdates } from "../features/trip/itinerary";
-import { useTrip } from "../features/trip/useTrip";
-import type { DayDraft } from "../features/worker/types";
-import { useWorker } from "../features/worker/useWorker";
-import { OverBudget } from "../features/worker/api";
-import { useWorkerCalls } from "../features/worker/useWorkerCalls";
+} from "../../../features/notes/types";
+import { useNotes } from "../../../features/notes/useNotes";
+import { safeUrl } from "../../../features/place/google-maps";
+import FlightLine from "../../../features/trip/FlightLine.vue";
+import { fromHhmm, hhmm, longDate, shortDate } from "../../../features/trip/format";
+import { assignTo, cycleStatus, draftUpdates } from "../../../features/trip/itinerary";
+import { useTrip } from "../../../features/trip/useTrip";
+import type { DayDraft } from "../../../features/worker/types";
+import { useWorker } from "../../../features/worker/useWorker";
+import { OverBudget } from "../../../features/worker/api";
+import { useWorkerCalls } from "../../../features/worker/useWorkerCalls";
 
 type Draft = DayDraft & { date: Temporal.PlainDate };
 
@@ -408,7 +408,7 @@ function adoptDraft() {
 </template>
 
 <style scoped>
-@import "../../ui/styles/media.css";
+@import "../../../../ui/styles/media.css";
 
 article {
   position: absolute;

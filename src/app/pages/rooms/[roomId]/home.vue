@@ -3,18 +3,18 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
-import { formatMoney } from "../shared/money";
+import { formatMoney } from "../../../shared/money";
 
-import { useI18n } from "../i18n/useI18n";
+import { useI18n } from "../../../i18n/useI18n";
 
-import People from "../features/members/People.vue";
-import { useMembers } from "../features/members/useMembers";
-import { PAPERS } from "../features/notes/types";
-import { useNotes } from "../features/notes/useNotes";
-import FlightLine from "../features/trip/FlightLine.vue";
-import { shortDate, weekday } from "../features/trip/format";
-import TripEditor from "../features/trip/TripEditor.vue";
-import { useTrip } from "../features/trip/useTrip";
+import People from "../../../features/members/People.vue";
+import { useMembers } from "../../../features/members/useMembers";
+import { PAPERS } from "../../../features/notes/types";
+import { useNotes } from "../../../features/notes/useNotes";
+import FlightLine from "../../../features/trip/FlightLine.vue";
+import { shortDate, weekday } from "../../../features/trip/format";
+import TripEditor from "../../../features/trip/TripEditor.vue";
+import { useTrip } from "../../../features/trip/useTrip";
 
 const { trip, forDay, budgetOf } = useTrip();
 const { notes } = useNotes();
@@ -112,7 +112,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
 </template>
 
 <style scoped>
-@import "../../ui/styles/media.css";
+@import "../../../../ui/styles/media.css";
 
 section {
   position: absolute;

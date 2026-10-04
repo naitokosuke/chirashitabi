@@ -1,24 +1,25 @@
 import { createRouter, createWebHistory, type Router } from "vue-router";
+import { routes } from "vue-router/auto-routes";
 
+import { roomId } from "./features/rooms/types";
 import type { useRoom } from "./features/sync/useRoom";
-import { locationOf } from "./shell";
 
 /**
- * The URL is where the app is (shell.ts): `/` the person's trips, `/new` a trip being made,
- * `/rooms/<roomId>/<tab>` a room's tab, a sheet over it in the query. The router only keeps the
- * URL and the history; nothing is rendered by it. The shell draws every view itself and keeps
- * them mounted, which a RouterView would not, so moving between tabs rebuilds nothing.
+ * The pages are the files in `pages/` (vue-router's file-based routes): `/` the person's trips,
+ * `/new` a trip being made, `/rooms/<roomId>/<tab>` a room's tab, a sheet over it in the query.
  */
-const nothing = { render: () => null };
-
 export const router = createRouter({
   history: createWebHistory(),
-  routes: [
-    { path: "/", component: nothing },
-    { path: "/new", component: nothing },
-    { path: "/rooms/:roomId/:tab?", component: nothing },
-    { path: "/:rest(.*)*", redirect: "/" },
-  ],
+  routes: [...routes, { path: "/:rest(.*)*", redirect: "/" }],
+});
+
+// Only a room id gets into a room's pages; a room's own URL opens on its canvas
+router.beforeEach((to) => {
+  if (!("roomId" in to.params)) return;
+  const id = roomId(to.params.roomId);
+  if (id === null) return "/";
+  if (to.name === "/rooms/[roomId]")
+    return { name: "/rooms/[roomId]/canvas", params: { roomId: id }, query: to.query };
 });
 
 /**
@@ -30,5 +31,5 @@ export async function openWhereLeft(r: Router, room: ReturnType<typeof useRoom>)
   if (r.currentRoute.value.path !== "/") return;
   const last = room.remembered();
   if (last === null) return;
-  await r.replace(locationOf({ kind: "room", room: last, state: { tab: "canvas", form: null } }));
+  await r.replace({ name: "/rooms/[roomId]/canvas", params: { roomId: last } });
 }

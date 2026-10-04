@@ -100,8 +100,13 @@ const roomSocket = socket.addEventListener("connection", ({ client, params }) =>
 
   client.addEventListener("message", (e) => {
     if (typeof e.data !== "string") return;
-    const { cid, ...mutation } = JSON.parse(e.data) as ClientMessage;
+    const { cid, ...sent } = JSON.parse(e.data) as ClientMessage;
     const at = now();
+    // the room stamps a new note with whose it is and when, as the Worker's does
+    const mutation: WireMutation =
+      sent.type === "note:add"
+        ? { ...sent, note: { ...sent.note, by: YUKI, updatedAt: at.toString() } }
+        : sent;
     // one without a cid is a card on its way under a finger: relayed, not kept
     if (cid !== undefined)
       room.state = applyToRoom(room.state, reviveMutation(mutation), YUKI, at) as MockRoom["state"];

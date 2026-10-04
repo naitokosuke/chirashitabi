@@ -1,20 +1,49 @@
 <script lang="ts">
-import type { PinchStart } from "../features/canvas/transform";
-import type { Memo, NewMemo, Note, NoteInput, TextBox } from "../features/notes/types";
+import { useI18n } from "../../../i18n/useI18n";
 
-// Module scope is shared with every importer. The canvas is mounted once and
-// never unmounted, so one slot is enough.
+import { fitView, type PinchStart, type View } from "../../../features/canvas/transform";
+import type { Memo, NewMemo, Note, NoteInput, TextBox } from "../../../features/notes/types";
+import { useNotes } from "../../../features/notes/useNotes";
+import { useToast } from "../../../features/toast/useToast";
+
+// Module scope is shared with every importer. The canvas is kept once it is first opened
+// (the room keeps its tabs), so one slot is enough; until then it is empty.
 let placeOnMounted: ((input: NoteInput, how: PlaceHow) => NewMemo) | undefined;
 
 /** `pop`: the canvas is in view; `quiet`: the form stays open; `away`: written from another tab */
 export type PlaceHow = "pop" | "quiet" | "away";
 
+/** The first look never shrinks a card past readable; the fit button still shows everything */
+const FIRST_LOOK_MIN_SCALE = 0.8;
+/**
+ * How the canvas first shows `notes` on a desk `width` by `height`: every card, whatever the
+ * screen; an empty desk with room to write in the middle
+ */
+const firstLook = (notes: Note[], width: number, height: number): View =>
+  fitView(notes, width, height, FIRST_LOOK_MIN_SCALE) ?? {
+    tx: (width - 164) / 2,
+    ty: height / 2 - 60,
+    s: 1,
+  };
+
 /**
  * Put a note at the centre of the canvas; the shell's toast confirms it wherever the user is.
- * `import Canvas, { place } from "./Canvas.vue"`
+ * Call in a component's setup. A canvas not opened yet has no view of its own: the note goes
+ * to the middle of the first look it will open on, and the toast says it is there.
  */
-export function place(input: NoteInput, how: PlaceHow = "pop"): NewMemo | undefined {
-  return placeOnMounted?.(input, how);
+export function usePlace() {
+  const { notes, add, remove } = useNotes();
+  const toast = useToast();
+  const i18n = useI18n();
+  return (input: NoteInput, how: PlaceHow = "pop"): NewMemo => {
+    if (placeOnMounted !== undefined) return placeOnMounted(input, how);
+    const [w, h] = [window.innerWidth, window.innerHeight];
+    const v = firstLook(notes.value ?? [], w, h);
+    const n = add(input, { x: (w / 2 - v.tx) / v.s - 82, y: (h / 2 - v.ty) / v.s - 40 });
+    const message = how === "quiet" ? "canvas.added" : "canvas.addedAway";
+    toast.show(i18n.t(message, { title: n.title }), { undo: () => remove(n.id) });
+    return n;
+  };
 }
 
 /** A card held by a finger; (ox, oy) is where on the card it was grabbed */
@@ -57,27 +86,34 @@ import {
   useTemplateRef,
   watch,
 } from "vue";
+import { useRouter } from "vue-router";
 
-import { CtFab } from "../../ui/index";
+import { CtFab } from "../../../../ui/index";
 
-import { useI18n } from "../i18n/useI18n";
+import NoteCard from "../../../features/canvas/NoteCard.vue";
+import TextField from "../../../features/canvas/TextField.vue";
+import { distance, pinchTo, startPinch, type Pt } from "../../../features/canvas/transform";
+import { useViewport } from "../../../features/canvas/useViewport";
+import {
+  COLOR_NAMES,
+  COLORS,
+  PAPERS,
+  type NoteColor,
+  type NoteId,
+} from "../../../features/notes/types";
+import type { Shape } from "../../../features/notes/useNotes";
+import FilterBar from "../../../features/tags/FilterBar.vue";
+import { useTags } from "../../../features/tags/useTags";
+import { OverBudget } from "../../../features/worker/api";
+import { useWorker } from "../../../features/worker/useWorker";
+import { useWorkerCalls } from "../../../features/worker/useWorkerCalls";
+import Icon from "../../../icons/Icon.vue";
+import plusIcon from "../../../icons/plus.svg";
+import { queryOf, type FormTarget } from "../../../shell";
 
-import NoteCard from "../features/canvas/NoteCard.vue";
-import TextField from "../features/canvas/TextField.vue";
-import { distance, fitView, pinchTo, startPinch, type Pt } from "../features/canvas/transform";
-import { useViewport } from "../features/canvas/useViewport";
-import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteId } from "../features/notes/types";
-import { useNotes, type Shape } from "../features/notes/useNotes";
-import { useToast } from "../features/toast/useToast";
-import FilterBar from "../features/tags/FilterBar.vue";
-import { useTags } from "../features/tags/useTags";
-import { OverBudget } from "../features/worker/api";
-import { useWorker } from "../features/worker/useWorker";
-import { useWorkerCalls } from "../features/worker/useWorkerCalls";
-import Icon from "../icons/Icon.vue";
-import plusIcon from "../icons/plus.svg";
-
-const emit = defineEmits<{ write: []; edit: [note: Memo] }>();
+const router = useRouter();
+/** A sheet over the canvas: a step of its own, so back closes it */
+const openSheet = (form: FormTarget) => router.push({ query: queryOf(form) });
 const store = useNotes();
 const { notes } = store;
 const toast = useToast();
@@ -297,7 +333,7 @@ function tapCard(note: Note) {
     lastTap = null;
     // a memo opens in the form, a text box is rewritten where it is; suggestions are adopted
     // with their own buttons, not opened
-    if (note.kind === "memo") emit("edit", note);
+    if (note.kind === "memo") void openSheet({ kind: "edit", id: note.id });
     else if (note.kind === "text") rewrite(note);
     return;
   }
@@ -325,7 +361,7 @@ function onKey(e: KeyboardEvent) {
   if (note.kind === "suggestion") return;
   if (e.key === "Enter") {
     e.preventDefault();
-    if (note.kind === "memo") emit("edit", note);
+    if (note.kind === "memo") void openSheet({ kind: "edit", id: note.id });
     else rewrite(note);
   } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
     e.preventDefault();
@@ -470,9 +506,6 @@ function doneWriting(text: string | null) {
   else store.editText(w.id, text);
 }
 
-/** The first look never shrinks a card past readable; the fit button still shows everything */
-const FIRST_LOOK_MIN_SCALE = 0.8;
-
 // ---- adding from the form: place at viewport center, pop ----
 /** The card that just landed, and where the ring around it goes */
 const pop = ref<{ id: NoteId; x: number; y: number } | null>(null);
@@ -533,7 +566,7 @@ async function askForIdeas() {
   }
 }
 function write() {
-  emit("write");
+  void openSheet({ kind: "new", pin: null });
 }
 function placeAtCenter(input: NoteInput, how: PlaceHow) {
   const r = vp.value!.getBoundingClientRect();
@@ -560,15 +593,11 @@ onBeforeUnmount(() => (placeOnMounted = undefined));
 onMounted(() => vp.value!.addEventListener("wheel", onWheel, { passive: false }));
 onBeforeUnmount(() => vp.value?.removeEventListener("wheel", onWheel));
 
-// The first look shows every card, whatever the screen; an empty desk opens with room to write
+// The first look (firstLook), the one a note is placed in before the canvas is opened
 onMounted(() =>
   nextTick(() => {
     const r = vp.value!.getBoundingClientRect();
-    if (notes.value?.length) {
-      view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value;
-      return;
-    }
-    view.value = { tx: (r.width - 164) / 2, ty: r.height / 2 - 60, s: 1 };
+    view.value = firstLook(notes.value ?? [], r.width, r.height);
   }),
 );
 // Notes that arrive later (the room's first snapshot) get the same first look, once
@@ -668,7 +697,7 @@ watch(
 </template>
 
 <style scoped>
-@import "../../ui/styles/media.css";
+@import "../../../../ui/styles/media.css";
 
 section {
   position: absolute;

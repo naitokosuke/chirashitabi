@@ -10,35 +10,48 @@ setWorkerUrl(workerUrl);
 <script setup lang="ts" vapor>
 import type { Temporal } from "temporal-polyfill-lite";
 
-import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect, useTemplateRef } from "vue";
+import {
+  computed,
+  onActivated,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+  watchEffect,
+  useTemplateRef,
+} from "vue";
+import { useRouter } from "vue-router";
 
 import * as maplibregl from "maplibre-gl";
 import { Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { CtChip, CtChipRow, CtFab } from "../../ui/index";
+import { CtChip, CtChipRow, CtFab } from "../../../../ui/index";
 
-import { formatMoney } from "../shared/money";
+import { formatMoney } from "../../../shared/money";
 
-import { useI18n } from "../i18n/useI18n";
+import { useI18n } from "../../../i18n/useI18n";
 
-import { PAPERS, type Memo, type Note } from "../features/notes/types";
-import { useNotes } from "../features/notes/useNotes";
-import { placeLink, safeUrl } from "../features/place/google-maps";
-import { lngLat, needsPin, pinnedOf, type Pinned } from "../features/place/pin";
-import { boundsOf, routeLine, routeStops } from "../features/place/route";
-import { guardMissingProperties } from "../features/place/style";
-import type { LatLng } from "../features/place/types";
-import { useTags } from "../features/tags/useTags";
-import { hhmm, shortDate } from "../features/trip/format";
-import { useTrip } from "../features/trip/useTrip";
-import { useWorker } from "../features/worker/useWorker";
-import closeIcon from "../icons/close.svg";
-import Icon from "../icons/Icon.vue";
-import plusIcon from "../icons/plus.svg";
+import { PAPERS, type Memo, type Note } from "../../../features/notes/types";
+import { useNotes } from "../../../features/notes/useNotes";
+import { placeLink, safeUrl } from "../../../features/place/google-maps";
+import { lngLat, needsPin, pinnedOf, type Pinned } from "../../../features/place/pin";
+import { boundsOf, routeLine, routeStops } from "../../../features/place/route";
+import { guardMissingProperties } from "../../../features/place/style";
+import type { LatLng } from "../../../features/place/types";
+import { useTags } from "../../../features/tags/useTags";
+import { hhmm, shortDate } from "../../../features/trip/format";
+import { useTrip } from "../../../features/trip/useTrip";
+import { useWorker } from "../../../features/worker/useWorker";
+import closeIcon from "../../../icons/close.svg";
+import Icon from "../../../icons/Icon.vue";
+import plusIcon from "../../../icons/plus.svg";
+import { queryOf, type FormTarget } from "../../../shell";
 
-/** `write` carries the long-pressed place, or null from the stamp: a note with no place yet */
-const emit = defineEmits<{ write: [pin: LatLng | null]; edit: [note: Memo] }>();
+/** A sheet over the map: a memo written at a place (or, from the stamp, at none yet), or one to edit */
+const router = useRouter();
+const openSheet = (form: FormTarget) => router.push({ query: queryOf(form) });
+const write = (pin: LatLng | null) => void openSheet({ kind: "new", pin });
 const { notes } = useNotes();
 const tags = useTags();
 const { trip, forDay } = useTrip();
@@ -64,7 +77,7 @@ const noPin = computed(() => (notes.value ?? []).filter(needsPin).length);
 const showAllDays = () => (day.value = null);
 const closeCard = () => (selectedId.value = null);
 const editSelected = () => {
-  if (selected.value) emit("edit", selected.value);
+  if (selected.value) void openSheet({ kind: "edit", id: selected.value.id });
 };
 const selectedLink = computed(() => (selected.value ? placeLink(selected.value) : null));
 
@@ -128,7 +141,7 @@ onMounted(() => {
       held = true;
       holding.value = null;
       navigator.vibrate?.(10);
-      emit("write", at);
+      write(at);
     }, HOLD_MS);
   }
   function moved(point: { x: number; y: number }) {
@@ -147,8 +160,10 @@ onMounted(() => {
   map.on("touchend", cancelHold);
   map.on("touchcancel", cancelHold);
   map.on("dragstart", cancelHold);
-  map.on("contextmenu", (e) => emit("write", { lat: e.lngLat.lat, lng: e.lngLat.lng }));
+  map.on("contextmenu", (e) => write({ lat: e.lngLat.lat, lng: e.lngLat.lng }));
 });
+// Kept while another tab is up, out of the page: back in it, the map measures its box again
+onActivated(() => map?.resize());
 onBeforeUnmount(() => {
   markers.forEach((m) => m.remove());
   map?.remove();
@@ -282,7 +297,7 @@ function fitAll() {
       <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
 
       <!-- the same write button as the canvas: writing is never more than a tap away -->
-      <CtFab :label="i18n.t('canvas.write')" @click="() => emit('write', null)"><Icon :size="24" :src="plusIcon" /></CtFab>
+      <CtFab :label="i18n.t('canvas.write')" @click="() => write(null)"><Icon :size="24" :src="plusIcon" /></CtFab>
 
       <article v-if="selected" :style="`--card:${PAPERS[selected.color]}`">
         <h2>{{ selected.title }}</h2>
@@ -303,7 +318,7 @@ function fitAll() {
 </template>
 
 <style scoped>
-@import "../../ui/styles/media.css";
+@import "../../../../ui/styles/media.css";
 
 section {
   position: absolute;

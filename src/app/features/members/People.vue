@@ -71,8 +71,8 @@ async function run(change: () => Promise<unknown>, then?: () => void) {
 }
 const uninvite = (address: string) => run(() => membership.uninvite.mutateAsync(address));
 const remove = (member: MemberId) => run(() => membership.remove.mutateAsync(member));
-// the room says so on the socket and the shell goes back to the trips (App.vue); this is in case
-// the socket was down when it did
+// the room says so on the socket and the room's page goes back to the trips
+// (pages/rooms/[roomId].vue); this is in case the socket was down when it did
 const toTrips = () => void router.replace("/");
 const leave = () => run(() => membership.leave.mutateAsync(), toTrips);
 const deleteTrip = () => run(() => membership.deleteRoom.mutateAsync(), toTrips);
