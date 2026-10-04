@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 
 import { defineConfig } from "@vizejs/vite-plugin/vite-plus";
+import { defineProject } from "vite-plus";
+import { playwright } from "vite-plus/test/browser-playwright";
 import VueRouter from "vue-router/vite";
 
 // scripts/dev-access.mjs stands in for Access on a laptop and leaves a signed token here
@@ -20,6 +22,36 @@ export default defineConfig({
   ],
   compiler: { vapor: true },
   typecheck: true,
+  // the tests run in Node, but a `*.browser.test.ts` in a real Chromium: what a pointer does
+  test: {
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "node",
+          include: ["{src,worker}/**/*.test.ts"],
+          exclude: ["**/*.browser.test.ts"],
+        },
+      },
+      // vite-plus's defineProject, which lets the browser resolve vitest (a dependency of
+      // vite-plus, not of this project); Vize's defineConfig above does not
+      {
+        extends: true,
+        ...defineProject({
+          test: {
+            name: "browser",
+            include: ["src/**/*.browser.test.ts"],
+            browser: {
+              enabled: true,
+              headless: true,
+              provider: playwright(),
+              instances: [{ browser: "chromium" }],
+            },
+          },
+        }),
+      },
+    ],
+  },
   lint: {
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
