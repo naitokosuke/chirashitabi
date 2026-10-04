@@ -3,23 +3,25 @@ import { computed, useTemplateRef } from "vue";
 
 import { useIndicator } from "../../composables/useIndicator";
 import type { CtOption } from "../../types";
-import CtTarget from "../target/CtTarget.vue";
+import CtPill from "../pill/CtPill.vue";
 
 /**
- * Chips to pick one of (a currency, say): a row of them, the chosen one in ink and framed by
- * a target's four corners (CtTarget). Picking another, the corners fly there and lock on.
+ * Chips to pick one of (a currency, say): a row of them, the chosen one filled with ink. The
+ * ink is a pill behind the chips (CtPill), so picking another it stretches across to it and
+ * contracts onto it; the chips are open (a hairline, no fill) so the ink shows through on
+ * the way, and the chosen one's words turn to the ink's own color.
  */
 const props = defineProps<{ options: readonly CtOption<V>[]; modelValue: V; label: string }>();
 const emit = defineEmits<{ "update:modelValue": [value: V] }>();
 
 const root = useTemplateRef<HTMLElement>("root");
 const { box, ready } = useIndicator(root, () => [props.modelValue, props.options.length]);
-const target = computed(() => (box.value.width === 0 ? null : box.value));
+const chosen = computed(() => (box.value.width === 0 ? null : box.value));
 </script>
 
 <template>
   <div ref="root" class="pick" role="radiogroup" :aria-label="label">
-    <CtTarget :box="target" :pad="3" :ready />
+    <CtPill :box="chosen" :ready />
     <button
       v-for="o in options"
       :key="o.value"
@@ -38,10 +40,11 @@ const target = computed(() => (box.value.width === 0 ? null : box.value));
   position: relative;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px;
 
-  /* a chip (CtChip), the chosen one in ink; the corners around it are the target's */
+  /* a chip (CtChip) with no fill of its own: the ink behind it is the fill; over the ink */
   > button {
+    position: relative;
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
@@ -49,7 +52,7 @@ const target = computed(() => (box.value.width === 0 ? null : box.value));
     padding: 0 12px;
     border-radius: 999px;
     border: 1px solid var(--line);
-    background: var(--surface);
+    background: transparent;
     font-size: var(--font-sm);
     font-weight: 700;
     color: var(--muted);
@@ -65,13 +68,13 @@ const target = computed(() => (box.value.width === 0 ? null : box.value));
     }
 
     &[aria-checked="true"] {
-      color: var(--ink);
-      border-color: var(--ink);
+      color: var(--on-ink);
+      border-color: transparent;
     }
 
     &:focus-visible {
       outline: 2px solid var(--ink);
-      outline-offset: 6px;
+      outline-offset: 2px;
     }
   }
 }

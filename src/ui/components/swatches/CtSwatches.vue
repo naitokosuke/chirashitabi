@@ -2,23 +2,23 @@
 import { computed, useTemplateRef } from "vue";
 
 import { useIndicator } from "../../composables/useIndicator";
-import CtTarget from "../target/CtTarget.vue";
+import CtPill from "../pill/CtPill.vue";
 
 /**
- * Colors to pick one of: a row of them, the chosen one framed by a target's four corners
- * (CtTarget). Picking another, the corners fly there and lock on.
+ * Colors to pick one of: a row of them, the chosen one ringed in ink (CtPill, hollow, 4px
+ * out). Picking another, the ring stretches across to it and contracts around it.
  */
 const props = defineProps<{ colors: readonly string[]; selected: string; label: string }>();
 const emit = defineEmits<{ select: [color: string] }>();
 
 const root = useTemplateRef<HTMLElement>("root");
 const { box, ready } = useIndicator(root, () => [props.selected, props.colors.length]);
-const target = computed(() => (box.value.width === 0 ? null : box.value));
+const chosen = computed(() => (box.value.width === 0 ? null : box.value));
 </script>
 
 <template>
   <div ref="root" class="swatches" role="radiogroup" :aria-label="label">
-    <CtTarget :box="target" :ready />
+    <CtPill :box="chosen" look="ring" :pad="4" :ready />
     <button
       v-for="(c, i) in colors"
       :key="c"
