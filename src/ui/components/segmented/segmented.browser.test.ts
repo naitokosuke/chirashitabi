@@ -35,7 +35,7 @@ const frames = (n: number) =>
   });
 const option = (name: string) => page.getByRole("radio", { name });
 const root = () => document.querySelector<HTMLElement>("[role=radiogroup]")!;
-const pill = () => root().querySelector<HTMLElement>("span")!;
+const pill = () => root().querySelector<HTMLElement>(".pill")!;
 /** `el`'s edges, from the track's corner */
 const edgesOf = (el: Element) => {
   const a = root().getBoundingClientRect();

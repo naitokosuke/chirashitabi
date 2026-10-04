@@ -9,8 +9,8 @@ import ChipPickHarness from "./ChipPickHarness.vue";
 import { state } from "./harness";
 
 /**
- * The chips in Chromium: the target's corners frame the chosen chip, and fly to the next one
- * picked (a different width) to lock on there.
+ * The chips in Chromium: the ink fills the chosen chip, and picking another it stretches
+ * across to it, leading edge first, then contracts onto it at its own width.
  */
 let app: ReturnType<typeof createVaporApp> | null = null;
 beforeEach(async () => {
@@ -35,42 +35,39 @@ const frames = (n: number) =>
   });
 const chip = (name: string) => page.getByRole("radio", { name });
 const root = () => document.querySelector<HTMLElement>(".pick")!;
-const target = () => root().querySelector<HTMLElement>(".target")!;
-const corner = (c: "tl" | "tr" | "br" | "bl") => target().querySelector<HTMLElement>(`.${c}`)!;
-/** `el`'s box, from the row's corner */
-const boxOf = (el: Element) => {
+const pill = () => root().querySelector<HTMLElement>(".pill")!;
+/** `el`'s edges, from the row's corner */
+const edgesOf = (el: Element) => {
   const a = root().getBoundingClientRect();
   const b = el.getBoundingClientRect();
-  return {
-    left: b.left - a.left,
-    top: b.top - a.top,
-    right: b.right - a.left,
-    bottom: b.bottom - a.top,
-  };
+  return { left: b.left - a.left, right: b.right - a.left };
 };
-const PAD = 3;
 
-describe("the target", () => {
-  test("frames the chosen chip from the start, its corners 3px out", async () => {
-    expect(target().hasAttribute("data-shown")).toBe(true);
-    const c = () => boxOf(chip("TWD").element());
-    await expect.poll(() => boxOf(corner("tr")).right).toBeCloseTo(c().right + PAD, 0);
-    await expect.poll(() => boxOf(corner("tl")).left).toBeCloseTo(c().left - PAD, 0);
-    await expect.poll(() => boxOf(corner("bl")).bottom).toBeCloseTo(c().bottom + PAD, 0);
+describe("the ink", () => {
+  test("fills the chosen chip from the start", async () => {
+    expect(pill().hasAttribute("data-shown")).toBe(true);
+    const c = () => edgesOf(chip("TWD").element());
+    await expect.poll(() => edgesOf(pill()).left).toBeCloseTo(c().left, 0);
+    await expect.poll(() => edgesOf(pill()).right).toBeCloseTo(c().right, 0);
     expect(chip("TWD").element().getAttribute("aria-checked")).toBe("true");
   });
 
-  test("flies to the chip picked and locks on, at its width", async () => {
-    const from = boxOf(chip("TWD").element());
-    await expect.poll(() => boxOf(corner("tr")).right).toBeCloseTo(from.right + PAD, 0);
+  test("stretches across to the chip picked, leading edge first, and contracts onto it", async () => {
+    const from = edgesOf(chip("TWD").element());
+    await expect.poll(() => edgesOf(pill()).left).toBeCloseTo(from.left, 0);
     await userEvent.click(chip("EUR"));
     expect(state.picked).toBe("EUR");
-    const to = boxOf(chip("EUR").element());
+    const to = edgesOf(chip("EUR").element());
     await frames(2);
-    expect(boxOf(corner("tl")).left).toBeGreaterThan(from.left - PAD);
-    expect(boxOf(corner("tl")).left).toBeLessThan(to.left - PAD);
-    await expect.poll(() => boxOf(corner("tl")).left).toBeCloseTo(to.left - PAD, 0);
-    await expect.poll(() => boxOf(corner("tr")).right).toBeCloseTo(to.right + PAD, 0);
+    const mid = edgesOf(pill());
+    expect(mid.right - from.right).toBeGreaterThan(mid.left - from.left);
+    expect(mid.right - mid.left).toBeGreaterThan(from.right - from.left);
+    await expect.poll(() => edgesOf(pill()).left).toBeCloseTo(to.left, 0);
+    await expect.poll(() => edgesOf(pill()).right).toBeCloseTo(to.right, 0);
     expect(chip("EUR").element().getAttribute("aria-checked")).toBe("true");
+  });
+
+  test("the chips are open, so the ink shows through on the way", () => {
+    expect(getComputedStyle(chip("JPY").element()).backgroundColor).toBe("rgba(0, 0, 0, 0)");
   });
 });
