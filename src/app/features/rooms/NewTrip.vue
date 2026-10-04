@@ -157,12 +157,7 @@ onMounted(() => nameEl.value?.focus());
       <!-- no name for the person: told apart by color alone, for now -->
       <div class="field">
         <span>{{ i18n.t("rooms.color") }}</span>
-        <CtSwatches
-          :colors="MEMBER_COLORS"
-          :selected="color"
-          :label="i18n.t('rooms.color')"
-          @select="(c) => (color = c)"
-        />
+        <CtSwatches v-model="color" :colors="MEMBER_COLORS" :label="i18n.t('rooms.color')" />
       </div>
     </div>
 

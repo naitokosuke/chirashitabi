@@ -2,7 +2,7 @@
 import CtChipPick from "./CtChipPick.vue";
 import { OPTIONS, state } from "./harness";
 
-/** The chips as a form has them (NewTrip.vue's currency), for pick.browser.test.ts */
+/** The chips as a form has them (NewTrip.vue's currency), for chip-pick.browser.test.ts */
 </script>
 
 <template>

@@ -1,13 +1,13 @@
 <script setup lang="ts" generic="V extends string" vapor>
-import { computed, useTemplateRef } from "vue";
+import { useTemplateRef } from "vue";
 
-import { useIndicator } from "../../composables/useIndicator";
+import { useIndicator } from "../indicator/useIndicator";
 import type { CtOption } from "../../types";
-import CtPill from "../pill/CtPill.vue";
+import CtIndicator from "../indicator/CtIndicator.vue";
 
 /**
  * Chips to pick one of (a currency, say): a row of them, the chosen one filled with ink. The
- * ink is a pill behind the chips (CtPill), so picking another it stretches across to it and
+ * ink is a pill behind the chips (CtIndicator), so picking another it stretches across to it and
  * contracts onto it; the chips are open (a hairline, no fill) so the ink shows through on
  * the way, and the chosen one's words turn to the ink's own color.
  */
@@ -15,13 +15,12 @@ const props = defineProps<{ options: readonly CtOption<V>[]; modelValue: V; labe
 const emit = defineEmits<{ "update:modelValue": [value: V] }>();
 
 const root = useTemplateRef<HTMLElement>("root");
-const { box, ready } = useIndicator(root, () => [props.modelValue, props.options.length]);
-const chosen = computed(() => (box.value.width === 0 ? null : box.value));
+const { chosen, ready } = useIndicator(root, () => [props.modelValue, props.options.length]);
 </script>
 
 <template>
   <div ref="root" class="pick" role="radiogroup" :aria-label="label">
-    <CtPill :box="chosen" :ready />
+    <CtIndicator :box="chosen" :ready />
     <button
       v-for="o in options"
       :key="o.value"

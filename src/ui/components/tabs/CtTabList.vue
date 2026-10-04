@@ -1,7 +1,7 @@
 <script setup lang="ts" generic="V extends string" vapor>
 import { nextTick, onMounted, useTemplateRef, watch } from "vue";
 
-import { useIndicator } from "../../composables/useIndicator";
+import { useIndicator } from "../indicator/useIndicator";
 import type { CtOption } from "../../types";
 
 const props = defineProps<{ tabs: readonly CtOption<V>[]; modelValue: V; label: string }>();
