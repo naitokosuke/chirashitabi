@@ -19,9 +19,11 @@
   "devDependencies": {
     "@types/geojson": "^7946.0.16",
     "@types/node": "^26.6.3",
+    "@vitest/browser-playwright": "catalog:",
     "@vizejs/vite-plugin": "^0.429.2",
     "@vue/devtools-api": "^8.2.1",
     "msw": "^2.15.0",
+    "playwright": "catalog:",
     "typescript": "^5.9.2",
     "vite": "catalog:",
     "vite-plus": "catalog:",
