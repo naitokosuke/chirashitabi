@@ -1,9 +1,9 @@
 <script setup lang="ts" generic="V extends string" vapor>
 import { useTemplateRef } from "vue";
 
-import { useIndicator } from "../indicator/useIndicator";
 import type { CtOption } from "../../types";
 import CtIndicator from "../indicator/CtIndicator.vue";
+import { useIndicator } from "../indicator/useIndicator";
 
 /**
  * A few options in a track, one chosen, a pale pill under it (CtIndicator), which stretches to

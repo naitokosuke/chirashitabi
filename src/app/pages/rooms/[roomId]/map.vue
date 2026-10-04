@@ -20,10 +20,10 @@ import {
   watchEffect,
   useTemplateRef,
 } from "vue";
-import { useRouter } from "vue-router";
 
 import * as maplibregl from "maplibre-gl";
 import { Map as MLMap, Marker } from "maplibre-gl";
+import { useRouter } from "vue-router";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { CtChip, CtChipRow, CtFab } from "../../../../ui/index";

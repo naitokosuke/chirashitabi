@@ -1,8 +1,8 @@
 <script setup lang="ts" vapor>
 import { useTemplateRef } from "vue";
 
-import { useIndicator } from "../indicator/useIndicator";
 import CtIndicator from "../indicator/CtIndicator.vue";
+import { useIndicator } from "../indicator/useIndicator";
 
 /**
  * Colors to pick one of: a row of them, the chosen one ringed in ink (CtIndicator, hollow, 4px
