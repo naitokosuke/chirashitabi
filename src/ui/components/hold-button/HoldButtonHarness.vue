@@ -2,7 +2,7 @@
 import CtHoldButton from "./CtHoldButton.vue";
 import { HOLD_TIME, state } from "./harness";
 
-/** The button as the deleted shelf has it (Rooms.vue), for hold.browser.test.ts */
+/** The button as the deleted shelf has it (Rooms.vue), for hold-button.browser.test.ts */
 </script>
 
 <template>

@@ -32,9 +32,9 @@ import FlightLine from "../../../features/trip/FlightLine.vue";
 import { fromHhmm, hhmm, longDate, shortDate } from "../../../features/trip/format";
 import { assignTo, cycleStatus, draftUpdates } from "../../../features/trip/itinerary";
 import { useTrip } from "../../../features/trip/useTrip";
+import { OverBudget } from "../../../features/worker/api";
 import type { DayDraft } from "../../../features/worker/types";
 import { useWorker } from "../../../features/worker/useWorker";
-import { OverBudget } from "../../../features/worker/api";
 import { useWorkerCalls } from "../../../features/worker/useWorkerCalls";
 
 type Draft = DayDraft & { date: Temporal.PlainDate };

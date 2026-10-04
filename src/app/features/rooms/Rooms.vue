@@ -2,24 +2,26 @@
 import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
+
 import { useRoute, useRouter } from "vue-router";
 
 import { CtHoldButton, CtSwipeRow } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
-import plusIcon from "../../icons/plus.svg";
 import Icon from "../../icons/Icon.vue";
+import plusIcon from "../../icons/plus.svg";
+import { useRoom } from "../sync/useRoom";
+import { useSync } from "../sync/useSync";
+import { shortDate } from "../trip/format";
+
 import Invitation from "./Invitation.vue";
 import { datesLabel, whenLabel } from "./label";
 import NewTrip from "./NewTrip.vue";
 import TripTag from "./TripTag.vue";
 import type { RoomId, RoomSummary } from "./types";
 import { useRooms } from "./useRooms";
-import { shortDate } from "../trip/format";
 import { shelve, whenOf } from "./when";
-import { useRoom } from "../sync/useRoom";
-import { useSync } from "../sync/useSync";
 
 const i18n = useI18n();
 const room = useRoom();

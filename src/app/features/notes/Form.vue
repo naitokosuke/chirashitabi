@@ -27,19 +27,20 @@ import { CtChip } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
-import { imageSrc, shrinkImage } from "./image";
-import { blankInput, inputFromNote, normalizeTag, noteText, parseNoteText } from "./input";
-import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteInput } from "./types";
-import { useNotes } from "./useNotes";
+import backIcon from "../../icons/back.svg";
+import closeIcon from "../../icons/close.svg";
+import Icon from "../../icons/Icon.vue";
 import { googleMapsLink, placeFromUrl, placeSearchLink } from "../place/google-maps";
 import type { FoundPlace } from "../place/types";
 import { useSync } from "../sync/useSync";
 import { useTags } from "../tags/useTags";
 import { OverBudget, RoomFull } from "../worker/api";
 import { useWorker } from "../worker/useWorker";
-import backIcon from "../../icons/back.svg";
-import closeIcon from "../../icons/close.svg";
-import Icon from "../../icons/Icon.vue";
+
+import { imageSrc, shrinkImage } from "./image";
+import { blankInput, inputFromNote, normalizeTag, noteText, parseNoteText } from "./input";
+import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteInput } from "./types";
+import { useNotes } from "./useNotes";
 
 const props = defineProps<{ mode: FormMode }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();

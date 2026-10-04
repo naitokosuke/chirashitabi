@@ -6,7 +6,7 @@ import { page, userEvent } from "vite-plus/test/browser";
 import "../../styles/index.css";
 
 import { HOLD_TIME, state } from "./harness";
-import HoldHarness from "./HoldHarness.vue";
+import HoldButtonHarness from "./HoldButtonHarness.vue";
 
 /**
  * The button in Chromium: held for its time it acts once and says so; let go early it fills
@@ -17,7 +17,7 @@ beforeEach(async () => {
   state.held = 0;
   const root = document.createElement("div");
   document.body.append(root);
-  app = createVaporApp(HoldHarness as VaporComponent);
+  app = createVaporApp(HoldButtonHarness as VaporComponent);
   app.mount(root);
   await nextTick();
 });

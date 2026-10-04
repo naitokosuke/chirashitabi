@@ -1,25 +1,24 @@
 <script setup lang="ts" generic="V extends string" vapor>
-import { computed, useTemplateRef } from "vue";
+import { useTemplateRef } from "vue";
 
-import { useIndicator } from "../../composables/useIndicator";
 import type { CtOption } from "../../types";
-import CtPill from "../pill/CtPill.vue";
+import CtIndicator from "../indicator/CtIndicator.vue";
+import { useIndicator } from "../indicator/useIndicator";
 
 /**
- * A few options in a track, one chosen, a pale pill under it (CtPill), which stretches to
+ * A few options in a track, one chosen, a pale pill under it (CtIndicator), which stretches to
  * the next one picked like rubber.
  */
 const props = defineProps<{ options: readonly CtOption<V>[]; modelValue: V; label: string }>();
 const emit = defineEmits<{ "update:modelValue": [value: V] }>();
 
 const list = useTemplateRef<HTMLElement>("list");
-const { box, ready } = useIndicator(list, () => [props.modelValue, props.options.length]);
-const chosen = computed(() => (box.value.width === 0 ? null : box.value));
+const { chosen, ready } = useIndicator(list, () => [props.modelValue, props.options.length]);
 </script>
 
 <template>
   <div ref="list" role="radiogroup" :aria-label="label">
-    <CtPill :box="chosen" look="surface" :ready />
+    <CtIndicator :box="chosen" look="surface" :ready />
     <button
       v-for="o in options"
       :key="o.value"

@@ -1,11 +1,16 @@
 <script setup lang="ts" vapor>
 import { computed } from "vue";
+
 import { useRoute, useRouter } from "vue-router";
 
 import { CtDock, CtDockDivider, CtDockGroup, CtDockItem, type CtOption } from "../ui/index";
 
 import { useI18n } from "./i18n/useI18n";
 
+import { useSync } from "./features/sync/useSync";
+import ThemeSwitch from "./features/theme/ThemeSwitch.vue";
+import Toast from "./features/toast/Toast.vue";
+import { useToast } from "./features/toast/useToast";
 import canvasIcon from "./icons/canvas.svg";
 import homeIcon from "./icons/home.svg";
 import Icon from "./icons/Icon.vue";
@@ -13,10 +18,6 @@ import mapIcon from "./icons/map.svg";
 import memoIcon from "./icons/memo.svg";
 import shioriIcon from "./icons/shiori.svg";
 import tripsIcon from "./icons/trips.svg";
-import { useSync } from "./features/sync/useSync";
-import ThemeSwitch from "./features/theme/ThemeSwitch.vue";
-import Toast from "./features/toast/Toast.vue";
-import { useToast } from "./features/toast/useToast";
 import { queryStrings, sheetOf, viewOf, type View } from "./shell";
 
 /**
