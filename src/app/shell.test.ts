@@ -33,17 +33,17 @@ describe("placeOf and locationOf", () => {
   });
 
   test("a room without a tab opens on the canvas; one with a tab it does not know, too", () => {
-    expect(at(`/r/${ROOM}`)).toMatchObject({ state: { tab: "canvas" } });
-    expect(at(`/r/${ROOM}/nope`)).toMatchObject({ state: { tab: "canvas" } });
+    expect(at(`/rooms/${ROOM}`)).toMatchObject({ state: { tab: "canvas" } });
+    expect(at(`/rooms/${ROOM}/nope`)).toMatchObject({ state: { tab: "canvas" } });
   });
 
   test("what is not a place is the trips", () => {
-    expect(at("/r/not-a-room/map")).toEqual({ kind: "rooms" });
+    expect(at("/rooms/not-a-room/map")).toEqual({ kind: "rooms" });
     expect(at("/somewhere")).toEqual({ kind: "rooms" });
   });
 
   test("a write sheet with half a place has no place", () => {
-    expect(at(`/r/${ROOM}/map`, { sheet: "write", lat: "25" })).toMatchObject({
+    expect(at(`/rooms/${ROOM}/map`, { sheet: "write", lat: "25" })).toMatchObject({
       state: { form: { kind: "new", pin: null } },
     });
   });

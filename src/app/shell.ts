@@ -56,7 +56,7 @@ export interface Location {
   query: Record<string, string>;
 }
 
-const ROOM_PATH = /^\/r\/([0-9a-f-]{36})(?:\/([a-z]+))?\/?$/;
+const ROOM_PATH = /^\/rooms\/([0-9a-f-]{36})(?:\/([a-z]+))?\/?$/;
 
 /** The place a URL names; anything it cannot read is the person's trips */
 export function placeOf({ path, query }: Location): Place {
@@ -73,7 +73,7 @@ export function locationOf(place: Place): Location {
   if (place.kind === "rooms") return { path: "/", query: {} };
   if (place.kind === "new") return { path: "/new", query: {} };
   const { tab, form } = place.state;
-  return { path: `/r/${place.room}/${tab}`, query: form === null ? {} : queryOf(form) };
+  return { path: `/rooms/${place.room}/${tab}`, query: form === null ? {} : queryOf(form) };
 }
 
 function sheetOf(query: Record<string, string>): FormTarget | null {

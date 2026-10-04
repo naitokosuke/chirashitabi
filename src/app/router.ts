@@ -5,7 +5,7 @@ import { locationOf } from "./shell";
 
 /**
  * The URL is where the app is (shell.ts): `/` the person's trips, `/new` a trip being made,
- * `/r/<room>/<tab>` a room's tab, a sheet over it in the query. The router only keeps the
+ * `/rooms/<roomId>/<tab>` a room's tab, a sheet over it in the query. The router only keeps the
  * URL and the history; nothing is rendered by it. The shell draws every view itself and keeps
  * them mounted, which a RouterView would not, so moving between tabs rebuilds nothing.
  */
@@ -16,7 +16,7 @@ export const router = createRouter({
   routes: [
     { path: "/", component: nothing },
     { path: "/new", component: nothing },
-    { path: "/r/:room/:tab?", component: nothing },
+    { path: "/rooms/:roomId/:tab?", component: nothing },
     { path: "/:rest(.*)*", redirect: "/" },
   ],
 });

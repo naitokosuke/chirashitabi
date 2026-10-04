@@ -71,7 +71,7 @@ const summary = (id: RoomId, { state }: MockRoom) => ({
 // ---- the room's socket ----
 
 const scheme = location.protocol === "https:" ? "wss" : "ws";
-const socket = ws.link(`${scheme}://${location.host}/api/rooms/:room/ws`);
+const socket = ws.link(`${scheme}://${location.host}/api/rooms/:roomId/ws`);
 /** Who is connected to which room */
 const sockets = new Map<RoomId, Set<WebSocketHandlerConnection["client"]>>();
 
@@ -82,8 +82,8 @@ const tell = (id: RoomId, msg: ServerMessage, except?: WebSocketHandlerConnectio
 };
 
 const roomSocket = socket.addEventListener("connection", ({ client, params }) => {
-  const id = roomId(params.room);
-  const room = open(params.room);
+  const id = roomId(params.roomId);
+  const room = open(params.roomId);
   if (id === null || room === undefined) {
     client.close(4001, "deleted");
     return;
@@ -118,8 +118,8 @@ const THINKING_MS = 1200;
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const agent = [
-  http.post("/api/rooms/:room/draft", async ({ params, request }) => {
-    const room = open(params.room);
+  http.post("/api/rooms/:roomId/draft", async ({ params, request }) => {
+    const room = open(params.roomId);
     if (room === undefined) return forbidden();
     const { date } = (await request.json()) as { date: string };
     await wait(THINKING_MS);
@@ -134,9 +134,9 @@ const agent = [
       items: items.map((id, i) => ({ id, time: SLOTS[i] ?? null })),
     });
   }),
-  http.post("/api/rooms/:room/suggest", async ({ params, request }) => {
-    const id = roomId(params.room);
-    const room = open(params.room);
+  http.post("/api/rooms/:roomId/suggest", async ({ params, request }) => {
+    const id = roomId(params.roomId);
+    const room = open(params.roomId);
     if (id === null || room === undefined) return forbidden();
     const { at } = (await request.json()) as { at: { x: number; y: number } };
     await wait(THINKING_MS);
@@ -161,29 +161,29 @@ const agent = [
     });
     return HttpResponse.json({ added: titles.length });
   }),
-  http.post("/api/rooms/:room/tags", async ({ params, request }) => {
-    const room = open(params.room);
+  http.post("/api/rooms/:roomId/tags", async ({ params, request }) => {
+    const room = open(params.roomId);
     if (room === undefined) return forbidden();
     const { chosen } = (await request.json()) as { chosen: string[] };
     const inUse = new Set(room.state.notes.flatMap((n) => (n.kind === "memo" ? n.tags : [])));
     const tags = [...inUse].filter((t) => !chosen.includes(t)).slice(0, 3);
     return HttpResponse.json({ tags: tags.map((tag) => ({ tag, isNew: false })) });
   }),
-  http.post("/api/rooms/:room/places", ({ params }) =>
-    open(params.room) === undefined ? forbidden() : HttpResponse.json({ places: [] }),
+  http.post("/api/rooms/:roomId/places", ({ params }) =>
+    open(params.roomId) === undefined ? forbidden() : HttpResponse.json({ places: [] }),
   ),
-  http.post("/api/rooms/:room/where", ({ params }) =>
-    open(params.room) === undefined ? forbidden() : HttpResponse.json({ place: null }),
+  http.post("/api/rooms/:roomId/where", ({ params }) =>
+    open(params.roomId) === undefined ? forbidden() : HttpResponse.json({ place: null }),
   ),
-  http.post("/api/rooms/:room/images", async ({ params, request }) => {
-    const room = open(params.room);
+  http.post("/api/rooms/:roomId/images", async ({ params, request }) => {
+    const room = open(params.roomId);
     if (room === undefined) return forbidden();
     const id = crypto.randomUUID();
     room.images.set(id, await request.blob());
     return HttpResponse.json({ id });
   }),
-  http.get("/api/rooms/:room/images/:id", ({ params }) => {
-    const image = open(params.room)?.images.get(String(params.id));
+  http.get("/api/rooms/:roomId/images/:id", ({ params }) => {
+    const image = open(params.roomId)?.images.get(String(params.id));
     return image === undefined ? notFound() : new HttpResponse(image);
   }),
 ];
@@ -191,12 +191,12 @@ const agent = [
 // ---- who is in ----
 
 const members = [
-  http.post("/api/rooms/:room/invited", ({ params }) => {
-    const room = open(params.room);
+  http.post("/api/rooms/:roomId/invited", ({ params }) => {
+    const room = open(params.roomId);
     return room === undefined ? forbidden() : HttpResponse.json({ invited: room.invited });
   }),
-  http.post("/api/rooms/:room/invite", async ({ params, request }) => {
-    const room = open(params.room);
+  http.post("/api/rooms/:roomId/invite", async ({ params, request }) => {
+    const room = open(params.roomId);
     if (room === undefined) return forbidden();
     const { email } = (await request.json()) as { email: string };
     const people = room.state.members.filter((m) => m.kind === "person").length;
@@ -205,17 +205,17 @@ const members = [
     room.invited = [...room.invited, email];
     return HttpResponse.json({ invited: email });
   }),
-  http.post("/api/rooms/:room/uninvite", async ({ params, request }) => {
-    const room = open(params.room);
+  http.post("/api/rooms/:roomId/uninvite", async ({ params, request }) => {
+    const room = open(params.roomId);
     if (room === undefined) return forbidden();
     const { email } = (await request.json()) as { email: string };
     if (!room.invited.includes(email)) return notFound();
     room.invited = room.invited.filter((e) => e !== email);
     return HttpResponse.json({});
   }),
-  http.post("/api/rooms/:room/remove", async ({ params, request }) => {
-    const id = roomId(params.room);
-    const room = open(params.room);
+  http.post("/api/rooms/:roomId/remove", async ({ params, request }) => {
+    const id = roomId(params.roomId);
+    const room = open(params.roomId);
     if (id === null || room === undefined) return forbidden();
     const { member } = (await request.json()) as { member: string };
     const gone = room.state.members.find((m) => m.id === member);
@@ -226,24 +226,24 @@ const members = [
     return HttpResponse.json({});
   }),
   // Yuki owns every room here, and the owner never leaves their own
-  http.post("/api/rooms/:room/leave", () => forbidden()),
-  http.post("/api/rooms/:room/delete", ({ params }) => {
-    const id = roomId(params.room);
-    const room = open(params.room);
+  http.post("/api/rooms/:roomId/leave", () => forbidden()),
+  http.post("/api/rooms/:roomId/delete", ({ params }) => {
+    const id = roomId(params.roomId);
+    const room = open(params.roomId);
     if (id === null || room === undefined) return forbidden();
     room.deletedAt = now().toString();
     tell(id, { type: "gone", reason: "deleted" });
     for (const c of sockets.get(id) ?? []) c.close(4001, "deleted");
     return HttpResponse.json({});
   }),
-  http.post("/api/rooms/:room/restore", ({ params }) => {
-    const room = rooms.get(roomId(params.room) ?? ("" as RoomId));
+  http.post("/api/rooms/:roomId/restore", ({ params }) => {
+    const room = rooms.get(roomId(params.roomId) ?? ("" as RoomId));
     if (room?.deletedAt == null) return notFound();
     room.deletedAt = null;
     return HttpResponse.json({});
   }),
   // nobody has invited Yuki anywhere
-  http.post("/api/invitations/:room/:answer", () => notFound()),
+  http.post("/api/invitations/:roomId/:answer", () => notFound()),
 ];
 
 // ---- the person's trips ----
