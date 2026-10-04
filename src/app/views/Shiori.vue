@@ -35,13 +35,15 @@ import { useTrip } from "../features/trip/useTrip";
 import type { DayDraft } from "../features/worker/types";
 import { useWorker } from "../features/worker/useWorker";
 import { OverBudget } from "../features/worker/api";
-import { useDraftDay, useExportBooklet } from "../features/worker/useWorkerCalls";
+import { useWorkerCalls } from "../features/worker/useWorkerCalls";
 
 type Draft = DayDraft & { date: Temporal.PlainDate };
 
 const store = useNotes();
-const trip = useTrip();
+const { trip, unassigned, forDay, byTag, budgetOf, fixedCount, dayNumber, dayOf, setIntro } =
+  useTrip();
 const worker = useWorker();
+const calls = useWorkerCalls();
 const { members } = useMembers();
 const i18n = useI18n();
 type Tab = Temporal.PlainDate | "appendix" | null;
@@ -54,7 +56,8 @@ const picked = ref<Tab>(null);
 const tab = ref<Tab>(null);
 const today = Temporal.Now.plainDateISO();
 const openingDay = computed(
-  () => trip.days.find((d) => d.date.equals(today))?.date ?? trip.days[0]?.date ?? null,
+  () =>
+    trip.value?.days.find((d) => d.date.equals(today))?.date ?? trip.value?.days[0]?.date ?? null,
 );
 const dayOfTab = (t: Tab) => (t === "appendix" ? null : (t ?? openingDay.value));
 /** The day on the page, or null on the appendix tab (or while the trip has no days) */
@@ -64,7 +67,7 @@ const flightsOn = computed(() => {
   const d = day.value;
   if (d === null) return [];
   return (["out", "back"] as const).flatMap((leg) => {
-    const f = trip.flights[leg];
+    const f = trip.value?.flights[leg] ?? null;
     const on =
       f !== null && (f.departs.toPlainDate().equals(d) || f.arrives.toPlainDate().equals(d));
     return on ? [{ leg, flight: f }] : [];
@@ -72,15 +75,16 @@ const flightsOn = computed(() => {
 });
 /** The day the tabs and the heading show, ahead of the page by the time it takes to turn */
 const pickedDay = computed(() => dayOfTab(picked.value));
-const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
+const price = (amount: number) =>
+  trip.value ? formatMoney(amount, trip.value.currency, i18n.locale) : "";
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 
 // tabs are keyed by the date's ISO string
 const APPENDIX = "appendix";
 const dayTabs = computed<CtOption[]>(() => [
-  ...trip.days.map((d) => ({
+  ...(trip.value?.days ?? []).map((d) => ({
     value: d.date.toString(),
-    label: i18n.t("shiori.dayTab", { n: trip.dayNumber(d.date), date: short(d.date) }),
+    label: i18n.t("shiori.dayTab", { n: dayNumber(d.date), date: short(d.date) }),
   })),
   { value: APPENDIX, label: i18n.t("shiori.appendix") },
 ]);
@@ -90,7 +94,7 @@ const heading = computed((): CtMorphPart[] => {
   const date = pickedDay.value;
   if (date === null) return [{ text: i18n.t("shiori.appendix") }];
   return i18n
-    .parts("shiori.dayHeading", { n: trip.dayNumber(date), date: longDate(date, i18n.locale) })
+    .parts("shiori.dayHeading", { n: dayNumber(date), date: longDate(date, i18n.locale) })
     .map((s) => (s.kind === "text" ? { text: s.text } : { text: s.text, tone: "date" }));
 });
 const page = useTemplateRef<HTMLElement>("page");
@@ -124,7 +128,7 @@ const pickingId = ref<NoteId | null>(null);
  * it one, or it goes, there is nothing left to put anywhere
  */
 const picking = computed(() =>
-  editing.value ? (trip.unassigned.find((n) => n.id === pickingId.value) ?? null) : null,
+  editing.value ? (unassigned.value.find((n) => n.id === pickingId.value) ?? null) : null,
 );
 const draft = ref<Draft | null>(null); // a member's draft of the open day
 /** Who drafted it; nobody once they have left the room */
@@ -132,12 +136,12 @@ const drafter = computed(() => members.value?.find((m) => m.id === draft.value?.
 
 const APPENDIX_TAGS = [PACKING_TAG, ARRIVAL_TAG];
 
-const totalFixed = computed(() => trip.budgetOf(undefined, true));
-const totalAll = computed(() => trip.budgetOf(undefined, false));
+const totalFixed = computed(() => budgetOf(undefined, true));
+const totalAll = computed(() => budgetOf(undefined, false));
 /** "11/3 – 11/5", one date for a day trip, nothing while the trip has no days */
 const range = computed(() => {
-  const first = trip.days[0]?.date;
-  const last = trip.days.at(-1)?.date;
+  const first = trip.value?.days[0]?.date;
+  const last = trip.value?.days.at(-1)?.date;
   if (first === undefined || last === undefined) return "";
   return first.equals(last) ? short(first) : `${short(first)} – ${short(last)}`;
 });
@@ -165,9 +169,9 @@ function setTime(n: Scheduled, e: Event) {
   const time = fromHhmm((e.target as HTMLInputElement).value);
   store.update(n.id, { schedule: { ...n.schedule, time } });
 }
-function setIntro(e: Event) {
+function onIntroChange(e: Event) {
   if (!day.value) return;
-  trip.setIntro(day.value, (e.target as HTMLTextAreaElement).value);
+  setIntro(day.value, (e.target as HTMLTextAreaElement).value);
 }
 
 const {
@@ -175,7 +179,7 @@ const {
   isLoading: drafting,
   error: draftError,
   variables: draftAsked,
-} = useDraftDay();
+} = calls.draftDay;
 /** Whether the last ask for a draft was for the day on the page: its pending and error belong there */
 const askedHere = computed(() => {
   const asked = draftAsked.value?.date;
@@ -185,7 +189,7 @@ async function askForDraft() {
   const date = day.value;
   if (date === null || drafting.value) return;
   try {
-    draft.value = { date, ...(await draftDay({ date, notes: trip.forDay(date) })) };
+    draft.value = { date, ...(await draftDay({ date, notes: forDay(date) })) };
   } catch {
     // the error state says so by the button; asking again is the person's tap, never a retry
   }
@@ -196,13 +200,13 @@ const draftFailure = computed(() => {
   if (!(e instanceof OverBudget)) return "shiori.draftFailed";
   return e.ceiling === "trip" ? "shiori.draftTripLimit" : "shiori.draftLimit";
 });
-const { mutate: exportBooklet, isLoading: exporting, error: exportError } = useExportBooklet();
+const { mutate: exportBooklet, isLoading: exporting, error: exportError } = calls.exportBooklet;
 
 function adoptDraft() {
   if (!draft.value) return;
   for (const { id, patch } of draftUpdates(draft.value)) store.update(id, patch);
   // keep an intro someone already wrote
-  trip.setIntro(draft.value.date, trip.dayOf(draft.value.date)?.intro || draft.value.intro);
+  setIntro(draft.value.date, dayOf(draft.value.date)?.intro || draft.value.intro);
   draft.value = null;
 }
 </script>
@@ -230,16 +234,16 @@ function adoptDraft() {
     <div class="lead">
       <p><template v-if="range">{{ range }} · </template>{{
           totalAll > 0
-            ? i18n.t("shiori.summary", { fixed: trip.fixedCount, total: price(totalFixed) })
-            : i18n.t("shiori.summaryCount", { fixed: trip.fixedCount })
+            ? i18n.t("shiori.summary", { fixed: fixedCount, total: price(totalFixed) })
+            : i18n.t("shiori.summaryCount", { fixed: fixedCount })
         }}<small v-if="totalAll > totalFixed">{{ i18n.t("shiori.withMaybes", { total: price(totalAll) }) }}</small></p>
 
       <!-- tray: memos without a day (edit mode only) -->
       <section v-if="editing">
-        <div><span>{{ i18n.t("shiori.trayTitle", { count: trip.unassigned.length }) }}</span><small>{{ i18n.t("shiori.trayHint") }}</small></div>
-        <p v-if="trip.unassigned.length === 0">{{ i18n.t("shiori.trayEmpty") }}</p>
+        <div><span>{{ i18n.t("shiori.trayTitle", { count: unassigned.length }) }}</span><small>{{ i18n.t("shiori.trayHint") }}</small></div>
+        <p v-if="unassigned.length === 0">{{ i18n.t("shiori.trayEmpty") }}</p>
         <ul v-else>
-          <li v-for="n in trip.unassigned" :key="n.id">
+          <li v-for="n in unassigned" :key="n.id">
             <button
               type="button"
               :aria-pressed="picking?.id === n.id"
@@ -254,7 +258,7 @@ function adoptDraft() {
         <div v-if="picking">
           <span>{{ i18n.t("shiori.putOn", { title: picking.title }) }}</span>
           <button
-            v-for="d in trip.days"
+            v-for="d in trip?.days"
             :key="d.date.toString()"
             type="button"
             @click="() => putPickedOn(d.date)"
@@ -282,18 +286,18 @@ function adoptDraft() {
               rows="2"
               :aria-label="i18n.t('shiori.intro')"
               :placeholder="i18n.t('shiori.introPlaceholder')"
-              :value="trip.dayOf(day)?.intro"
-              @change="setIntro"
+              :value="dayOf(day)?.intro"
+              @change="onIntroChange"
             ></textarea>
           </template>
-          <p v-else-if="trip.dayOf(day)?.intro" class="intro" data-turn>{{ trip.dayOf(day)?.intro }}</p>
+          <p v-else-if="dayOf(day)?.intro" class="intro" data-turn>{{ dayOf(day)?.intro }}</p>
 
-          <p v-if="trip.forDay(day).length === 0" class="empty" data-turn>{{ i18n.t("shiori.dayEmpty") }}</p>
+          <p v-if="forDay(day).length === 0" class="empty" data-turn>{{ i18n.t("shiori.dayEmpty") }}</p>
 
           <!-- the day is a strip of the same stickies as the canvas, pinned in time order -->
           <ol>
             <li
-              v-for="n in editing ? trip.forDay(day) : trip.forDay(day).filter((m) => m.schedule.status !== 'idea')"
+              v-for="n in editing ? forDay(day) : forDay(day).filter((m) => m.schedule.status !== 'idea')"
               :key="n.id"
               data-turn
               :data-status="n.schedule.status"
@@ -329,11 +333,11 @@ function adoptDraft() {
           </ol>
 
           <!-- read mode: the maybes, faded, at the end of the strip -->
-          <template v-if="!editing && trip.forDay(day, 'idea').length">
+          <template v-if="!editing && forDay(day, 'idea').length">
             <h3 data-turn>{{ i18n.t("shiori.ifTime") }}</h3>
             <ol class="maybes">
               <li
-                v-for="n in trip.forDay(day, 'idea')"
+                v-for="n in forDay(day, 'idea')"
                 :key="n.id"
                 data-turn
                 :style="`--card:${PAPERS[n.color]}`"
@@ -348,7 +352,7 @@ function adoptDraft() {
           </template>
 
           <!-- a member's draft of the day (edit mode) -->
-          <template v-if="editing && worker.api && trip.forDay(day).length">
+          <template v-if="editing && worker.api && forDay(day).length">
             <div
               v-if="draft && draft.date.equals(day)"
               data-turn
@@ -371,7 +375,7 @@ function adoptDraft() {
             </template>
           </template>
 
-          <p v-if="trip.budgetOf(day)" class="total" data-turn>{{ i18n.t("shiori.dayTotal", { total: price(trip.budgetOf(day)) }) }}<small v-if="trip.budgetOf(day, false) > trip.budgetOf(day)">{{ i18n.t("shiori.withMaybes", { total: price(trip.budgetOf(day, false)) }) }}</small></p>
+          <p v-if="budgetOf(day)" class="total" data-turn>{{ i18n.t("shiori.dayTotal", { total: price(budgetOf(day)) }) }}<small v-if="budgetOf(day, false) > budgetOf(day)">{{ i18n.t("shiori.withMaybes", { total: price(budgetOf(day, false)) }) }}</small></p>
         </template>
 
         <!-- ---------- appendix ---------- -->
@@ -379,13 +383,13 @@ function adoptDraft() {
           <section v-for="t in APPENDIX_TAGS" :key="t">
             <h2 data-turn>#{{ t }}</h2>
             <ul><li
-                v-for="n in trip.byTag(t)"
+                v-for="n in byTag(t)"
                 :key="n.id"
                 data-turn
                 :data-checked="n.checked || undefined"
                 :style="`--card:${PAPERS[n.color]}`"
               ><label><input type="checkbox" :checked="n.checked" @change="(e) => setChecked(n, e)" /><span>{{ n.title }}</span><small v-if="n.body"> — {{ n.body }}</small></label></li></ul>
-            <p v-if="trip.byTag(t).length === 0" data-turn>{{ i18n.t("shiori.tagEmpty") }}</p>
+            <p v-if="byTag(t).length === 0" data-turn>{{ i18n.t("shiori.tagEmpty") }}</p>
           </section>
         </template>
       </CtTabPanel>

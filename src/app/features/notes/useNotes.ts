@@ -1,6 +1,4 @@
-import { defineStore } from "pinia";
-
-import { useQueryState } from "@pinia/colada";
+import { defineQuery, useQueryState } from "@pinia/colada";
 
 import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
@@ -20,12 +18,13 @@ export interface Shape {
  * The room's notes, as the query cache holds them (keys.ts), and the
  * changes one can make to them. A change is committed to the room, which shows it at once
  * and keeps it until the room answers (ledger.ts, docs/data-fetching.md). Hold a note by its
- * id, not by the object: the object is replaced whenever the note changes.
+ * id, not by the object: the object is replaced whenever the note changes. The notes are
+ * undefined until the room's first snapshot. Defined once for the app (defineQuery).
  */
-export const useNotes = defineStore("notes", () => {
+export const useNotes = defineQuery(() => {
   const sync = useSync();
-  /** Undefined until the room's first snapshot */
   const { data: notes } = useQueryState(() => roomKeys.notes(sync.room.id));
+  const byId = (id: NoteId) => notes.value?.find((n) => n.id === id);
 
   /** A new memo near `at`; whose it is and when is stamped as it is applied */
   function add(input: NoteInput, at: { x: number; y: number }): NewMemo {
@@ -101,7 +100,6 @@ export const useNotes = defineStore("notes", () => {
     if (byId(id)?.kind !== "suggestion") return;
     sync.commit({ type: "note:adopt", id });
   }
-  const byId = (id: NoteId) => notes.value?.find((n) => n.id === id);
 
   return {
     notes,
@@ -115,6 +113,5 @@ export const useNotes = defineStore("notes", () => {
     remove,
     duplicate,
     adopt,
-    byId,
   };
 });

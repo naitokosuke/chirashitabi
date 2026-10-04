@@ -297,5 +297,6 @@ Each unanswered change in the ledger carries who made it, so the ledger no longe
   The design picks three and the third step can revisit it.
 - Whether the stores stay as a facade over the cache for good, or components call the queries directly once the move is done.
   They stay: a store is a slice read with `useQueryState` plus what is derived from it (`nameOf`, `forDay`, the tag counts) and the commits a view makes; a component calling the cache would have to know the room's keys.
+  Since then they are not Pinia stores: `useNotes`, `useTrip` and `useMembers` hold no state of their own, so each is one composable defined with Pinia Colada's `defineQuery`, handing out the slice's `data` as the cache holds it (undefined until the first snapshot) for its readers to read where they use it.
 - How long a held-back incoming change may wait for its ack before the client gives up on it and takes the room's version.
   Answered by the ledger: until the next ack, rejection or snapshot, with no timer.

@@ -21,26 +21,25 @@ import { useRooms } from "../features/rooms/useRooms";
 import { shortDate } from "../features/trip/format";
 import { shelve, whenOf } from "../features/rooms/when";
 import { useRoom } from "../features/sync/useRoom";
+import { useSync } from "../features/sync/useSync";
 import { initialState, locationOf } from "../shell";
 
 const i18n = useI18n();
 const room = useRoom();
+const sync = useSync();
 const router = useRouter();
 const route = useRoute();
 const today = Temporal.Now.plainDateISO();
 
 const trips = useRooms();
 const { data: mine, status: listStatus, refetch: refetchList } = trips.list;
-const rooms = computed(() => mine.value?.rooms);
-const invitations = computed(() => mine.value?.invitations ?? []);
-const deleted = computed(() => mine.value?.deleted ?? []);
 /** Coming up and been, each in the order a person looks for them (when.ts) */
-const shelves = computed(() => shelve(rooms.value ?? [], today));
+const shelves = computed(() => shelve(mine.value?.rooms ?? [], today));
 const none = computed(
   () =>
     listStatus.value === "success" &&
-    (rooms.value ?? []).length === 0 &&
-    invitations.value.length === 0,
+    mine.value?.rooms.length === 0 &&
+    mine.value.invitations.length === 0,
 );
 
 /** The trip whose way off the list is open under its tag */
@@ -127,9 +126,9 @@ const created = (id: RoomId) => router.replace(placeOf(id));
 
 /** Opening a trip this device has nothing of: still trying, or given up; null otherwise */
 const joining = computed(() => {
-  const s = room.session;
+  const s = sync.session;
   if (s.kind !== "joining") return null;
-  const name = rooms.value?.find((r) => r.id === s.room)?.name ?? null;
+  const name = mine.value?.rooms.find((r) => r.id === s.room)?.name ?? null;
   return { failed: s.link === "failed", name };
 });
 function retry() {
@@ -169,10 +168,10 @@ function retry() {
 
         <template v-else>
           <!-- a tag handed over by someone: first, since it waits for an answer -->
-          <section v-if="invitations.length">
+          <section v-if="mine?.invitations.length">
             <h2>{{ i18n.t("rooms.invitations") }}</h2>
             <ul class="tags">
-              <li v-for="r in invitations" :key="r.id">
+              <li v-for="r in mine?.invitations" :key="r.id">
                 <Invitation :room="r" @joined="(id) => router.push(placeOf(id))" />
               </li>
             </ul>
@@ -265,11 +264,11 @@ function retry() {
           </section>
 
           <!-- trips their owner deleted, kept a while in case it was a slip; either person brings one back -->
-          <section v-if="deleted.length">
+          <section v-if="mine?.deleted.length">
             <h2>{{ i18n.t("rooms.deleted") }}</h2>
             <p v-if="restoreFailed" class="notice" role="alert">{{ i18n.t("rooms.restoreFailed") }}</p>
             <ul class="gone">
-              <li v-for="d in deleted" :key="d.id">
+              <li v-for="d in mine?.deleted" :key="d.id">
                 <span>
                   <b>{{ d.name }}</b>
                   <small>{{ untilLabel(d.until) }}</small>

@@ -56,6 +56,7 @@ import Icon from "../icons/Icon.vue";
 const props = defineProps<{ mode: FormMode }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
 const store = useNotes();
+const { notes } = store;
 const tags = useTags();
 const i18n = useI18n();
 const id = useId();
@@ -70,7 +71,7 @@ const target = computed(
 const editingNote = computed(() => {
   const t = target.value;
   if (t.kind !== "edit") return undefined;
-  const n = store.byId(t.id);
+  const n = notes.value?.find((n) => n.id === t.id);
   return n?.kind === "memo" ? n : undefined;
 });
 const editing = computed(() => target.value.kind === "edit");

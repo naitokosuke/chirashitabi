@@ -73,12 +73,13 @@ import FilterBar from "../features/tags/FilterBar.vue";
 import { useTags } from "../features/tags/useTags";
 import { OverBudget } from "../features/worker/api";
 import { useWorker } from "../features/worker/useWorker";
-import { useSuggest } from "../features/worker/useWorkerCalls";
+import { useWorkerCalls } from "../features/worker/useWorkerCalls";
 import Icon from "../icons/Icon.vue";
 import plusIcon from "../icons/plus.svg";
 
 const emit = defineEmits<{ write: []; edit: [note: Memo] }>();
 const store = useNotes();
+const { notes } = store;
 const toast = useToast();
 const worker = useWorker();
 const tags = useTags();
@@ -109,21 +110,22 @@ const draggingId = computed(() =>
 const panning = computed(() => gesture.value.kind === "pan");
 const menu = ref<{ note: Note; x: number; y: number } | null>(null);
 /** The menu's card as it is now (its color changes while the menu is open) */
-const menuNote = computed(() =>
-  menu.value === null ? null : (store.byId(menu.value.note.id) ?? menu.value.note),
-);
+const menuNote = computed(() => {
+  const m = menu.value;
+  return m === null ? null : (notes.value?.find((n) => n.id === m.note.id) ?? m.note);
+});
 
 function noteAt(el: EventTarget | null): Note | undefined {
   const card = (el as HTMLElement).closest?.("[data-id]") as HTMLElement | null;
   // data-id comes back from the DOM as a plain string, so match it rather than trust it
-  return card ? store.notes?.find((n) => n.id === card.dataset.id) : undefined;
+  return card ? notes.value?.find((n) => n.id === card.dataset.id) : undefined;
 }
 
 // ---- picking: a tap picks a card (framed, with handles and its toolbar); two taps open it ----
 const selectedId = ref<NoteId | null>(null);
 /** The picked card as it is now; a card that went (deleted here or by the partner) is let go */
 const selected = computed(() =>
-  selectedId.value === null ? null : (store.byId(selectedId.value) ?? null),
+  selectedId.value === null ? null : (notes.value?.find((n) => n.id === selectedId.value) ?? null),
 );
 function select(note: Note | null) {
   selectedId.value = note?.id ?? null;
@@ -416,7 +418,7 @@ function fitAll() {
 }
 function fitted(minScale = 0) {
   const r = vp.value!.getBoundingClientRect();
-  return fitView(store.notes ?? [], r.width, r.height, minScale);
+  return fitView(notes.value ?? [], r.width, r.height, minScale);
 }
 
 // ---- writing on the desk: a double click on it, or on a text box, writes there ----
@@ -458,10 +460,10 @@ function doneWriting(text: string | null) {
   if (w === null || text === null) return;
   if (w.id === null) {
     const n = store.addText(text, { x: w.x, y: w.y });
-    if (n !== undefined) select(store.byId(n.id) ?? null);
+    if (n !== undefined) select(notes.value?.find((m) => m.id === n.id) ?? null);
     return;
   }
-  const note = store.byId(w.id);
+  const note = notes.value?.find((n) => n.id === w.id);
   if (note === undefined) return;
   // emptied: it goes like any card, with the toast's undo
   if (text.trim() === "") remove(note);
@@ -480,7 +482,7 @@ const undoAdd = (id: NoteId) => ({ undo: () => store.remove(id) });
 // ---- deleting: the card leaves at once; the room hears about it once the toast is gone ----
 const pendingDelete = ref(new Set<NoteId>());
 const shownNotes = computed(() =>
-  (store.notes ?? [])
+  (notes.value ?? [])
     // a text box being rewritten is shown by its field instead
     .filter((n) => !pendingDelete.value.has(n.id) && n.id !== writing.value?.id)
     .map((n) => {
@@ -509,7 +511,7 @@ function remove(note: Note) {
   if (hadFocus)
     nextTick(() => document.querySelector<HTMLElement>('[role="status"] button')?.focus());
 }
-const { mutateAsync: suggestAt, isLoading: thinking } = useSuggest();
+const { mutateAsync: suggestAt, isLoading: thinking } = useWorkerCalls().suggest;
 /**
  * The room's agent leaves a few ideas where the person is looking. They arrive as the room's
  * changes, like the partner's cards; the toast says how many, or why none came.
@@ -562,7 +564,7 @@ onBeforeUnmount(() => vp.value?.removeEventListener("wheel", onWheel));
 onMounted(() =>
   nextTick(() => {
     const r = vp.value!.getBoundingClientRect();
-    if (store.notes?.length) {
+    if (notes.value?.length) {
       view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value;
       return;
     }
@@ -571,7 +573,7 @@ onMounted(() =>
 );
 // Notes that arrive later (the room's first snapshot) get the same first look, once
 watch(
-  () => (store.notes?.length ?? 0) > 0,
+  () => (notes.value?.length ?? 0) > 0,
   (has, had) => {
     if (!has || had) return;
     nextTick(() => {
@@ -585,7 +587,7 @@ watch(
   <section>
     <!-- no bar: the desk runs to the top, and what would sit in a bar floats on it -->
     <div>
-      <p v-if="store.notes?.length === 0">{{ i18n.t("canvas.empty") }}</p>
+      <p v-if="notes?.length === 0">{{ i18n.t("canvas.empty") }}</p>
 
       <div class="top">
         <FilterBar />

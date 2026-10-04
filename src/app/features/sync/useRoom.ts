@@ -1,6 +1,6 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, shallowRef } from "vue";
+import { shallowRef } from "vue";
 
 import { defineStore } from "pinia";
 
@@ -219,12 +219,10 @@ export const useRoom = defineStore("room", () => {
   }
 
   return {
-    /** Where this device is; read it here, the session moves only through this store */
-    session: computed(() => sync.session),
     remembered,
     connect,
     leave,
     reconnect: socket.reconnect,
-    gone: computed(() => gone.value),
+    gone,
   };
 });

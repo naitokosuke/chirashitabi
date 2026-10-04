@@ -21,7 +21,7 @@ import {
   settingsOf,
   type TripForm,
 } from "./settings";
-import type { Leg } from "./types";
+import type { Leg, TripSnapshot } from "./types";
 import { useTrip } from "./useTrip";
 
 /**
@@ -30,22 +30,15 @@ import { useTrip } from "./useTrip";
  * changed. Moving the dates moves what is planned with them; what would fall past the new last
  * day is said before saving, since it goes back to having no day.
  */
+const props = defineProps<{ trip: TripSnapshot }>();
 const emit = defineEmits<{ close: [] }>();
 const i18n = useI18n();
 const id = useId();
-const trip = useTrip();
-const store = useNotes();
+const { rename, setDates, setFlight } = useTrip();
+const { notes } = useNotes();
 
 const LEGS: readonly Leg[] = ["out", "back"];
-const form = reactive<TripForm>(
-  formOf({
-    name: trip.name,
-    days: trip.days,
-    currency: trip.currency,
-    center: trip.center ?? { lat: 0, lng: 0 },
-    flights: trip.flights,
-  }),
-);
+const form = reactive<TripForm>(formOf(props.trip));
 const settings = computed(() => settingsOf(form));
 const step = (by: number) => (form.days = Math.min(MAX_DAYS, Math.max(1, form.days + by)));
 
@@ -54,8 +47,8 @@ const dropped = computed(() => {
   const s = settings.value;
   if (s === null) return 0;
   const m = { type: "trip:dates", first: s.first, days: s.days } as const;
-  const before = store.notes ?? [];
-  const next = moveSchedules(before, trip.days[0]?.date, m, Temporal.Now.instant());
+  const before = notes.value ?? [];
+  const next = moveSchedules(before, props.trip.days[0]?.date, m, Temporal.Now.instant());
   // only a planned note changes, so one that changed and has no day now lost it
   return next.filter((n, i) => n !== before[i] && n.kind === "memo" && n.schedule === null).length;
 });
@@ -76,10 +69,10 @@ const removeFlight = (leg: Leg) => (form.flights[leg] = { ...form.flights[leg], 
 function save() {
   const s = settings.value;
   if (s === null) return;
-  trip.rename(s.name);
-  trip.setDates(s.first, s.days);
+  rename(s.name);
+  setDates(s.first, s.days);
   for (const leg of LEGS)
-    if (!sameFlight(s.flights[leg], trip.flights[leg])) trip.setFlight(leg, s.flights[leg]);
+    if (!sameFlight(s.flights[leg], props.trip.flights[leg])) setFlight(leg, s.flights[leg]);
   emit("close");
 }
 </script>
