@@ -74,7 +74,6 @@ one {{{$count} note}}
   "rooms.deleted": "Deleted trips",
   "rooms.restoreUntil": "Can be restored until {$date}",
   "rooms.restore": "Restore",
-  "rooms.actions": "More for {$name}",
   "rooms.delete": "Delete",
   "rooms.leave": "Leave",
   "rooms.restoreFailed": "Could not restore the trip. Try again.",

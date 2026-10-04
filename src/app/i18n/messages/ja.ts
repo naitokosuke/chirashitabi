@@ -61,7 +61,6 @@ export const ja: Messages = {
   "rooms.deleted": "削除された旅",
   "rooms.restoreUntil": "{$date} まで元に戻せます",
   "rooms.restore": "元に戻す",
-  "rooms.actions": "{$name} の操作",
   "rooms.delete": "削除",
   "rooms.leave": "抜ける",
   "rooms.restoreFailed": "元に戻せませんでした。もう一度お試しください。",
