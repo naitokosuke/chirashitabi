@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { computed, nextTick } from "vue";
+import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { CtDock, CtDockDivider, CtDockGroup, CtDockItem, type CtOption } from "../ui/index";
@@ -56,15 +56,15 @@ const icons: Record<View, string> = {
 
 /**
  * A tab replaces the step it is on, so back leaves the room rather than walking through every
- * tab seen; picking one puts a sheet away. The tabs cross-fade (a View Transition, where the
- * browser has it).
+ * tab seen; picking one puts a sheet away. The tabs cross-fade on their own (the room's page):
+ * no View Transition, which would picture the whole screen, dock and all, and move it on the way.
  */
 function selectTab(view: View) {
   if (!("roomId" in route.params) || (view === tab.value && !sheetOpen.value)) return;
-  const to = { name: `/rooms/[roomId]/${view}` as const, params: { roomId: route.params.roomId } };
-  const go = () => router.replace(to).then(() => nextTick());
-  if (view === tab.value || document.startViewTransition === undefined) void go();
-  else document.startViewTransition(go);
+  void router.replace({
+    name: `/rooms/[roomId]/${view}` as const,
+    params: { roomId: route.params.roomId },
+  });
 }
 /** Out to the trips (`/`), which leaves the room; a modified click is left to the browser */
 function toTrips(e: MouseEvent) {
