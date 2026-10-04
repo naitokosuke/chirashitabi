@@ -17,3 +17,5 @@ export { default as CtDock } from "./components/dock/CtDock.vue";
 export { default as CtDockDivider } from "./components/dock/CtDockDivider.vue";
 export { default as CtDockGroup } from "./components/dock/CtDockGroup.vue";
 export { default as CtDockItem } from "./components/dock/CtDockItem.vue";
+export { type DateRange as CtDateRange, lengthOf } from "./components/calendar/calendar";
+export { default as CtCalendar } from "./components/calendar/CtCalendar.vue";
