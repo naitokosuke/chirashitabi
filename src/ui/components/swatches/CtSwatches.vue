@@ -65,10 +65,10 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="root" class="swatches" role="group" :aria-label="label">
-    <svg aria-hidden="true" class="filter" width="0" height="0" focusable="false">
+    <svg aria-hidden="true" class="filter" focusable="false" height="0" width="0">
       <defs>
-        <filter :id="`${id}-goo`" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
+        <filter :id="`${id}-goo`" height="200%" width="200%" x="-50%" y="-50%">
+          <feGaussianBlur in="SourceGraphic" result="blur" stdDeviation="6" />
           <feColorMatrix
             in="blur"
             mode="matrix"
