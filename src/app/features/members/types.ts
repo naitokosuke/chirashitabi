@@ -3,24 +3,27 @@ import type { HexColor } from "../../shared/color";
 
 export type MemberId = Brand<string, "MemberId">;
 
-/**
- * Who may do what in a room, as the Worker answers it: the owner (who made the room) invites,
- * removes and deletes. `invited` is the e-mails waiting to answer, shown to the owner only;
- * `seats` is how many people the room holds. `owner` is null when the answer did not say.
- */
-export interface People {
-  owner: MemberId | null;
-  invited: string[];
-  seats: number;
-}
+/** How many people a room holds; an invitation holds a seat until it is answered */
+export const SEATS = 2;
 
-/**
- * Anyone in the room: a person or an agent, on equal terms on the desk. Only a person can be
- * invited, removed or leave.
- */
-export interface Member {
+export type Role = "owner" | "guest";
+
+/** A person in the room; only a person can be invited, removed or leave */
+export interface Person {
   id: MemberId;
-  kind: "person" | "agent";
+  kind: "person";
+  role: Role;
   name: string;
   color: HexColor;
 }
+
+/** An agent in the room (Claude): on the desk on equal terms, with no say in who is in it */
+export interface Agent {
+  id: MemberId;
+  kind: "agent";
+  name: string;
+  color: HexColor;
+}
+
+/** Anyone in the room */
+export type Member = Person | Agent;

@@ -1,6 +1,6 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, shallowRef } from "vue";
+import { shallowRef } from "vue";
 
 import { defineStore } from "pinia";
 
@@ -19,7 +19,7 @@ import { useWorker } from "../worker/useWorker";
 import { roomKeys } from "./keys";
 import { createLedger, EMPTY_ROOM, type RoomState } from "./ledger";
 import { forget, keep, kept } from "./persist";
-import { linked, LOCAL, opened, OUT, synced } from "./session";
+import { linked, opened, OUT, synced } from "./session";
 import { createRoomSocket } from "./socket";
 import type { Mutation } from "./types";
 import { NOWHERE, useSync } from "./useSync";
@@ -49,7 +49,7 @@ export const useRoom = defineStore("room", () => {
   }
   /** The ledger's view into the cache */
   function show(state: RoomState) {
-    const id = sync.roomId;
+    const id = sync.room.id;
     put(roomKeys.notes(id), state.notes);
     put(roomKeys.members(id), state.members);
     if (state.trip !== null) put(roomKeys.trip(id), state.trip);
@@ -62,8 +62,8 @@ export const useRoom = defineStore("room", () => {
     if (keepTimer !== null) clearTimeout(keepTimer);
     keepTimer = null;
     const s = sync.session;
-    // only a room with a server, and only once this device is in it
-    if (s.kind !== "in" || s.room === LOCAL) return;
+    // only once this device is in it
+    if (s.kind !== "in") return;
     keep(localStorage, s.room, {
       me: s.me,
       confirmed: ledger.confirmed,
@@ -86,7 +86,7 @@ export const useRoom = defineStore("room", () => {
    */
   function remember() {
     const s = sync.session;
-    if (s.kind !== "in" || s.room === LOCAL) return;
+    if (s.kind !== "in") return;
     try {
       localStorage.setItem(STORAGE_KEY, s.room);
     } catch {
@@ -125,7 +125,7 @@ export const useRoom = defineStore("room", () => {
     },
     onMembers(members) {
       show(ledger.members(members.map(reviveMember)));
-      // who may do what, and the trip's tag in the list, changed with them
+      // whom the owner still waits on, and the trip's tag in the list, changed with them
       const s = sync.session;
       if (s.kind !== "out") refresh(s.room);
     },
@@ -135,7 +135,7 @@ export const useRoom = defineStore("room", () => {
       // nothing of the room stays on this device: it would open a room that refuses it
       leave();
       forget(localStorage, s.room);
-      // only the list: who may do what in a room this device is out of is not its to ask
+      // only the list: whom a room this device is out of invited is not its to ask
       queryCache.invalidateQueries({ key: ROOMS_KEY }).catch(() => {
         // the list's own error state reports it
       });
@@ -155,7 +155,7 @@ export const useRoom = defineStore("room", () => {
     const quiet = () => {
       // each query's own error state reports it
     };
-    queryCache.invalidateQueries({ key: roomKeys.people(room) }).catch(quiet);
+    queryCache.invalidateQueries({ key: roomKeys.invited(room) }).catch(quiet);
     queryCache.invalidateQueries({ key: ROOMS_KEY }).catch(quiet);
   }
 
@@ -218,33 +218,11 @@ export const useRoom = defineStore("room", () => {
     worker.api = null;
   }
 
-  /**
-   * A room with no server (the mocks): `state` is the room, `me` who this device is in it, and
-   * ours are applied as the room would confirm them, at once.
-   */
-  function offline(state: RoomState, me: MemberId) {
-    sync.session = {
-      kind: "in",
-      room: LOCAL,
-      me,
-      syncedAt: Temporal.Now.instant(),
-      link: "connected",
-    };
-    show(ledger.snapshot(state));
-    sync.transport = {
-      commit: (m) => show(ledger.relayed(m, me, Temporal.Now.instant())),
-      send: () => {},
-    };
-  }
-
   return {
-    /** Where this device is; read it here, the session moves only through this store */
-    session: computed(() => sync.session),
     remembered,
     connect,
     leave,
     reconnect: socket.reconnect,
-    offline,
-    gone: computed(() => gone.value),
+    gone,
   };
 });

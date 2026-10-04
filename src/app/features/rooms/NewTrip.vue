@@ -18,7 +18,7 @@ import { datesLabel, whenLabel } from "./label";
 import { CURRENCIES, DEFAULT_CENTER, MAX_DAYS, MAX_NAME, MEMBER_COLORS, newRoom } from "./newRoom";
 import TripTag from "./TripTag.vue";
 import type { RoomId, RoomSummary } from "./types";
-import { useCreateRoom } from "./useRooms";
+import { useRooms } from "./useRooms";
 import { whenOf } from "./when";
 
 const emit = defineEmits<{ close: []; created: [room: RoomId] }>();
@@ -73,7 +73,7 @@ const preview = computed(() => {
   };
 });
 
-const { mutateAsync, isLoading: busy, error } = useCreateRoom();
+const { mutateAsync, isLoading: busy, error } = useRooms().create;
 async function create() {
   const room = filled.value;
   if (busy.value || room === null) return;

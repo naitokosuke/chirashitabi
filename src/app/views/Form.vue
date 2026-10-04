@@ -56,6 +56,7 @@ import Icon from "../icons/Icon.vue";
 const props = defineProps<{ mode: FormMode }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
 const store = useNotes();
+const { notes } = store;
 const tags = useTags();
 const i18n = useI18n();
 const id = useId();
@@ -70,7 +71,7 @@ const target = computed(
 const editingNote = computed(() => {
   const t = target.value;
   if (t.kind !== "edit") return undefined;
-  const n = store.byId(t.id);
+  const n = notes.value?.find((n) => n.id === t.id);
   return n?.kind === "memo" ? n : undefined;
 });
 const editing = computed(() => target.value.kind === "edit");
@@ -106,17 +107,17 @@ const PHOTO_STATE = {
   full: "form.photoFull",
 } as const satisfies Record<Exclude<PhotoState, "idle">, string>;
 const photoSrc = computed(() =>
-  form.value.image === null ? null : imageSrc(sync.roomId, form.value.image),
+  form.value.image === null ? null : imageSrc(sync.room.id, form.value.image),
 );
 async function onPhoto(e: Event) {
   const input = e.target as HTMLInputElement;
   const file = input.files?.[0];
   input.value = ""; // the same photo can be picked again after a failure
-  const upload = worker.api?.uploadImage;
-  if (file === undefined || upload === null || upload === undefined) return;
+  const api = worker.api;
+  if (file === undefined || api === null) return;
   photo.value = "sending";
   try {
-    form.value.image = await upload(await shrinkImage(file));
+    form.value.image = await api.uploadImage(await shrinkImage(file));
     photo.value = "idle";
   } catch (err) {
     photo.value = err instanceof RoomFull ? "full" : "failed";
@@ -140,12 +141,12 @@ const offered = ref<{ tag: string; isNew: boolean }[]>([]);
 /** The offers not on the memo yet: one added from them, or typed, goes */
 const offers = computed(() => offered.value.filter((o) => !form.value.tags.includes(o.tag)));
 async function askForTags() {
-  const ask = worker.api?.suggestTags;
-  if (ask === null || ask === undefined || tagState.value === "asking") return;
+  const api = worker.api;
+  if (api === null || tagState.value === "asking") return;
   const { title, body, tags: inline } = parseNoteText(text.value);
   tagState.value = "asking";
   try {
-    offered.value = await ask({
+    offered.value = await api.suggestTags({
       title,
       body,
       image: form.value.image,
@@ -168,13 +169,13 @@ const PLACE_STATE = {
 } as const satisfies Record<Exclude<PlaceState, "idle">, string>;
 const found = ref<FoundPlace[]>([]);
 async function findPlaces() {
-  const ask = worker.api?.findPlaces;
-  if (ask === null || ask === undefined || placeState.value === "asking") return;
+  const api = worker.api;
+  if (api === null || placeState.value === "asking") return;
   const { title, body, tags: inline } = parseNoteText(text.value);
   placeState.value = "asking";
   found.value = [];
   try {
-    found.value = await ask({
+    found.value = await api.findPlaces({
       title,
       body,
       tags: [...form.value.tags, ...inline],
@@ -206,10 +207,11 @@ function nameThePin() {
   mapsUrl.value = googleMapsLink(at);
   onMapsUrl();
   const auto = mapsUrl.value;
-  const ask = worker.api?.whereIs;
-  if (ask === null || ask === undefined) return;
+  const api = worker.api;
+  if (api === null) return;
   naming.value = true;
-  ask(at, i18n.locale === "en" ? "en" : "ja")
+  api
+    .whereIs(at, i18n.locale === "en" ? "en" : "ja")
     .then((place) => {
       if (place === null) return;
       if (mapsUrl.value === auto) {
@@ -370,7 +372,7 @@ function submit() {
           </template>
         </div>
         <!-- what Clef finds fitting, from the words and the photo; a new tag is marked as such -->
-        <div v-if="worker.api?.suggestTags" class="suggested">
+        <div v-if="worker.api" class="suggested">
           <button
             type="button"
             :disabled="tagState === 'asking' || !text.trim()"
@@ -398,16 +400,16 @@ function submit() {
                 : hasPin()
                   ? "form.pinned"
                   : mapsUrl.trim()
-                    ? worker.api?.findPlaces
+                    ? worker.api
                       ? "form.urlNoPinFind"
                       : "form.urlNoPin"
-                    : worker.api?.findPlaces
+                    : worker.api
                       ? "form.unpinnedFind"
                       : "form.unpinned",
             )
           }}</p>
         <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
-        <div v-if="worker.api?.findPlaces" class="places">
+        <div v-if="worker.api" class="places">
           <button
             type="button"
             :disabled="placeState === 'asking' || !text.trim()"
@@ -426,7 +428,7 @@ function submit() {
           <p v-if="placeState !== 'idle'" aria-live="polite">{{ i18n.t(PLACE_STATE[placeState]) }}</p>
         </div>
       </div>
-      <div v-if="worker.api?.uploadImage">
+      <div v-if="worker.api">
         <label :for="`${id}-photo`">{{ i18n.t("form.photo") }}</label>
         <figure v-if="photoSrc">
           <img alt="" :src="photoSrc" />

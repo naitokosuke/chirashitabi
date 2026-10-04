@@ -1,13 +1,11 @@
-import { useRoom } from "../features/sync/useRoom";
-import { useWorker } from "../features/worker/useWorker";
+import { setupWorker } from "msw/browser";
 
-import { mockMe, mockMembers } from "./members";
-import { mockNotes } from "./notes";
-import { mockTrip } from "./trip";
-import { mockWorker } from "./worker";
+import { handlers } from "./handlers";
 
-/** Fill the stores the way a room would. Call after Pinia is installed. */
-export function installMocks() {
-  useWorker().api = mockWorker();
-  useRoom().offline({ notes: mockNotes(), trip: mockTrip(), members: mockMembers() }, mockMe);
+/**
+ * Answer `/api` and the room's socket in the page (handlers.ts), so the app runs the code it
+ * runs against the Worker. Call before anything asks: the service worker has to be in place.
+ */
+export async function startMocks() {
+  await setupWorker(...handlers).start({ onUnhandledRequest: "bypass", quiet: true });
 }

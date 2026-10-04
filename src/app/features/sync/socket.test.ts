@@ -206,7 +206,9 @@ describe("createRoomSocket", () => {
     const { socket, people, last } = setup();
     socket.connect("room-1");
     last().serve(snapshot);
-    const members = [{ id: "ken", kind: "person" as const, name: "Ken", color: "#d7263d" }];
+    const members = [
+      { id: "ken", kind: "person" as const, role: "guest" as const, name: "Ken", color: "#d7263d" },
+    ];
     last().serve({ type: "members", members });
     expect(people).toEqual([members]);
   });

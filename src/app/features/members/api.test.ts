@@ -1,22 +1,15 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { peopleOf } from "./api";
+import { invitedOf } from "./api";
 
-describe("peopleOf", () => {
-  test("reads who owns the room, whom they invited, and how many it holds", () => {
-    expect(peopleOf({ owner: "m1", invited: ["a@example.com"], seats: 2 })).toEqual({
-      owner: "m1",
-      invited: ["a@example.com"],
-      seats: 2,
-    });
+describe("invitedOf", () => {
+  test("reads the e-mails the owner invited", () => {
+    expect(invitedOf({ invited: ["a@example.com"] })).toEqual(["a@example.com"]);
   });
 
-  test("what is not sound is left empty, never guessed", () => {
-    expect(peopleOf(null)).toEqual({ owner: null, invited: [], seats: 0 });
-    expect(peopleOf({ owner: "", invited: [1, "b@example.com"], seats: 1.5 })).toEqual({
-      owner: null,
-      invited: ["b@example.com"],
-      seats: 0,
-    });
+  test("what is not sound is left out, never guessed", () => {
+    expect(invitedOf(null)).toEqual([]);
+    expect(invitedOf({ invited: "a@example.com" })).toEqual([]);
+    expect(invitedOf({ invited: [1, "b@example.com"] })).toEqual(["b@example.com"]);
   });
 });

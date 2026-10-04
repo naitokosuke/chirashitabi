@@ -69,7 +69,15 @@ const room: RoomState = {
       back: null,
     },
   },
-  members: [{ id: "yuki" as MemberId, kind: "person", name: "Yuki", color: hexColor("#3c6ee0")! }],
+  members: [
+    {
+      id: "yuki" as MemberId,
+      kind: "person",
+      role: "owner",
+      name: "Yuki",
+      color: hexColor("#3c6ee0")!,
+    },
+  ],
 };
 
 describe("keep and kept", () => {

@@ -32,7 +32,6 @@ A change to the mechanisms is fine as long as every line here still holds; a rev
 - The public hostname serves only published booklet files; viewing one costs nothing and triggers no outbound call.
 - The client cannot assert who it is: `by` is stamped by the room, an agent is written as only by the Worker, and a room acts only for member ids the Worker resolved from the index.
 - A page on another origin cannot make a member's browser call the API or open the socket.
-- The single-file build has no way to reach the Worker.
 - One member cannot destroy the room's data beyond recovery.
 
 ## One hostname
@@ -224,8 +223,8 @@ A secret URL is fine there as long as the page costs nothing to view.
 - The export escapes note titles, bodies, member names and tags the way the Vue templates do (rendered from the same components, or escaped explicitly), validates member colors with `hexColor` before they reach a `style`, and ships a CSP that forbids inline script.
 - The room records who published, and whether a room publishes at all is a room setting that the creator or both members control.
 
-The single-file build (`vite.single.config.ts`) is a demo that runs on mock data from disk.
-Its config defines `import.meta.env.VITE_MOCK` as `"true"`, so the bundle always installs the mocks and an API origin, once one exists, is never read into it.
+The deployed build is made with `VITE_MOCK=false`, so the mocks (`src/app/mocks/`, which answer `/api` and the socket in the page) are not in its bundle.
+MSW's service worker, `public/mockServiceWorker.js`, is still copied into it as a static file; nothing in that bundle registers it, so it never runs.
 
 ## Crawlers and metered features
 

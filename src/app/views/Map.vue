@@ -39,13 +39,14 @@ import plusIcon from "../icons/plus.svg";
 
 /** `write` carries the long-pressed place, or null from the stamp: a note with no place yet */
 const emit = defineEmits<{ write: [pin: LatLng | null]; edit: [note: Memo] }>();
-const store = useNotes();
+const { notes } = useNotes();
 const tags = useTags();
-const trip = useTrip();
+const { trip, forDay } = useTrip();
 const i18n = useI18n();
 /** Whether a memo's place can be found from its words (the form's "Find the place") */
 const worker = useWorker();
-const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
+const price = (amount: number) =>
+  trip.value ? formatMoney(amount, trip.value.currency, i18n.locale) : "";
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 const el = useTemplateRef<HTMLElement>("el");
 /** How long a press is held to write a memo there; where it is held, while it is */
@@ -54,12 +55,12 @@ const holding = ref<{ x: number; y: number } | null>(null);
 /** The pin whose card is open, by id: the note object is replaced whenever it changes */
 const selectedId = ref<string | null>(null);
 const selected = computed(
-  (): Pinned | null => pinnedOf(store.notes).find((n) => n.id === selectedId.value) ?? null,
+  (): Pinned | null => pinnedOf(notes.value ?? []).find((n) => n.id === selectedId.value) ?? null,
 );
 const day = ref<Temporal.PlainDate | null>(null); // show a day's route
 const isDay = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
 const toggleDay = (date: Temporal.PlainDate) => (day.value = isDay(date) ? null : date);
-const noPin = computed(() => store.notes.filter(needsPin).length);
+const noPin = computed(() => (notes.value ?? []).filter(needsPin).length);
 const showAllDays = () => (day.value = null);
 const closeCard = () => (selectedId.value = null);
 const editSelected = () => {
@@ -77,8 +78,8 @@ onMounted(() => {
   map = new MLMap({
     container: el.value!,
     // the trip's area; the whole world until the room says where we are going
-    center: trip.center ? [trip.center.lng, trip.center.lat] : [0, 0],
-    zoom: trip.center ? 11.5 : 1,
+    center: trip.value?.center ? [trip.value.center.lng, trip.value.center.lat] : [0, 0],
+    zoom: trip.value?.center ? 11.5 : 1,
     attributionControl: { compact: true },
   });
   // A wheel or a trackpad zooms about twice as fast as MapLibre's default (1/450 a notch's
@@ -176,7 +177,7 @@ function pinEl(n: Pinned) {
 function syncMarkers() {
   if (!map) return;
   const seen = new Set<string>();
-  for (const n of pinnedOf(store.notes)) {
+  for (const n of pinnedOf(notes.value ?? [])) {
     seen.add(n.id);
     let m = markers.get(n.id);
     if (!m) {
@@ -201,7 +202,7 @@ function syncMarkers() {
 function syncRoute() {
   if (!map?.getSource("route")) return;
   const src = map.getSource("route") as maplibregl.GeoJSONSource;
-  const stops = day.value ? routeStops(trip.forDay(day.value)) : [];
+  const stops = day.value ? routeStops(forDay(day.value)) : [];
   src.setData(routeLine(stops));
   const b = boundsOf(stops);
   if (b) {
@@ -214,7 +215,13 @@ function syncRoute() {
 }
 // re-sync whenever notes, filter or selection change (cheap: a dozen DOM toggles)
 watchEffect(() => {
-  void pinnedOf(store.notes).map((n) => [n.pin.lat, n.pin.lng, n.title, n.color, n.tags.length]);
+  void pinnedOf(notes.value ?? []).map((n) => [
+    n.pin.lat,
+    n.pin.lng,
+    n.title,
+    n.color,
+    n.tags.length,
+  ]);
   void tags.mode;
   void [...tags.selected];
   void selected.value;
@@ -224,10 +231,10 @@ const scheduleKey = (n: Note) =>
   n.kind === "memo" && n.schedule
     ? `${n.schedule.date} ${n.schedule.time} ${n.schedule.status}`
     : "";
-watch([day, () => store.notes.map(scheduleKey)], syncRoute);
+watch([day, () => (notes.value ?? []).map(scheduleKey)], syncRoute);
 
 function fitAll() {
-  const b = boundsOf(pinnedOf(store.notes).map((n) => lngLat(n.pin)));
+  const b = boundsOf(pinnedOf(notes.value ?? []).map((n) => lngLat(n.pin)));
   if (b) map?.fitBounds(b, { padding: 80, duration: 500 });
 }
 </script>
@@ -243,7 +250,7 @@ function fitAll() {
           <CtChipRow>
             <CtChip :selected="day === null" @click="showAllDays">{{ i18n.t("map.all") }}</CtChip>
             <CtChip
-              v-for="d in trip.days"
+              v-for="d in trip?.days"
               :key="d.date.toString()"
               :selected="isDay(d.date)"
               @click="() => toggleDay(d.date)"
@@ -261,7 +268,7 @@ function fitAll() {
             @click="() => tags.toggleTag(t.name)"
           >#{{ t.name }}</CtChip>
         </div>
-        <p v-if="noPin">{{ i18n.t(worker.api?.findPlaces ? "map.noPinFind" : "map.noPin", { count: noPin }) }}</p>
+        <p v-if="noPin">{{ i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin }) }}</p>
       </div>
 
       <!-- the press being held: a ring that fills, and the memo is written when it closes -->

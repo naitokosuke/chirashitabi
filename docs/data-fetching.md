@@ -197,6 +197,7 @@ The retry plugin is not installed.
 
 The mocks keep seeding data without a server, now with `setQueryData` on the three room keys.
 The single-file build has no Worker and so has no socket; its room queries never leave `pending` unless the mocks seed them, so the mocks must seed all three.
+(Since replaced: the mocks answer `/api` and the room's socket in the page with MSW, `src/app/mocks/handlers.ts`, so the app seeds nothing itself and runs the code it runs against the Worker; the single-file build is gone, since a page opened from disk cannot register MSW's service worker.)
 
 ## Steps
 
@@ -264,7 +265,7 @@ On the wire, a client mutation may carry `cid` beside its fields; the room answe
 A rejection without a `cid` (a message it could not read) still makes the client resync.
 The socket no longer queues: the ledger is what is sent again.
 Stores commit through `useSync().commit`; only the room writes the cache.
-The mocks hand their state to `useRoom().offline`, where a commit is confirmed at once.
+The mocks hand their state to `useRoom().offline`, where a commit is confirmed at once (since replaced by MSW, under "Mock build" above).
 
 ### Later
 
@@ -296,5 +297,6 @@ Each unanswered change in the ledger carries who made it, so the ledger no longe
   The design picks three and the third step can revisit it.
 - Whether the stores stay as a facade over the cache for good, or components call the queries directly once the move is done.
   They stay: a store is a slice read with `useQueryState` plus what is derived from it (`nameOf`, `forDay`, the tag counts) and the commits a view makes; a component calling the cache would have to know the room's keys.
+  Since then they are not Pinia stores: `useNotes`, `useTrip` and `useMembers` hold no state of their own, so each is one composable defined with Pinia Colada's `defineQuery`, handing out the slice's `data` as the cache holds it (undefined until the first snapshot) for its readers to read where they use it.
 - How long a held-back incoming change may wait for its ack before the client gives up on it and takes the room's version.
   Answered by the ledger: until the next ack, rejection or snapshot, with no timer.

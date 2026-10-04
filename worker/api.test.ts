@@ -418,11 +418,11 @@ describe("rooms", () => {
   });
 });
 
-/** Who is in a room as a member asks: its owner, whom the owner invited, how many seats */
-async function people(roomId: string, email: string) {
-  const res = await post(`/api/rooms/${roomId}/people`, email);
+/** Whom the owner of a room has invited, as the owner asks */
+async function invited(roomId: string, owner: string) {
+  const res = await post(`/api/rooms/${roomId}/invited`, owner);
   expect(res.status).toBe(200);
-  return (await res.json()) as { owner: string; invited: string[]; seats: number };
+  return ((await res.json()) as { invited: string[] }).invited;
 }
 
 /** `/api/me` for `email` */
@@ -437,21 +437,17 @@ describe("invitations", () => {
   test("the owner invites an e-mail; it waits in that person's list until they answer", async () => {
     const owner = "inv-owner@example.com";
     const guest = "Inv-Guest@Example.com";
-    const { roomId, memberId } = await createRoom(owner);
+    const { roomId } = await createRoom(owner);
 
     expect(await invite(roomId, owner, guest)).toHaveProperty("status", 200);
-    expect(await people(roomId, owner)).toEqual({
-      owner: memberId,
-      invited: ["inv-guest@example.com"],
-      seats: 2,
-    });
+    expect(await invited(roomId, owner)).toEqual(["inv-guest@example.com"]);
     const { rooms, invitations } = await me("inv-guest@example.com");
     expect(rooms).toEqual([]);
     expect(invitations).toMatchObject([
       { id: roomId, name: "Taiwan trip", members: [{ name: "Yuki" }, { name: "Claude" }] },
     ]);
     // invited is not in: nothing of the room opens yet
-    expect((await post(`/api/rooms/${roomId}/people`, guest)).status).toBe(403);
+    expect((await post(`/api/rooms/${roomId}/invited`, guest)).status).toBe(403);
   });
 
   test("accepting makes them a member as they say, tells the sockets, and the seat is theirs", async () => {
@@ -469,15 +465,20 @@ describe("invitations", () => {
     expect(await a.next()).toEqual({
       type: "members",
       members: [
-        { id: a.snapshot.type === "snapshot" ? a.snapshot.me : "", kind: "person", ...YUKI },
+        {
+          id: a.snapshot.type === "snapshot" ? a.snapshot.me : "",
+          kind: "person",
+          role: "owner",
+          ...YUKI,
+        },
         { id: "agent:claude", kind: "agent", name: "Claude", color: "#d97757" },
-        { id: memberId, kind: "person", ...KEN },
+        { id: memberId, kind: "person", role: "guest", ...KEN },
       ],
     });
     const b = await connect(roomId, guest);
     expect(b.snapshot).toMatchObject({ me: memberId });
     expect((await me(guest)).invitations).toEqual([]);
-    expect((await people(roomId, owner)).invited).toEqual([]);
+    expect(await invited(roomId, owner)).toEqual([]);
     // the invitation was used up
     expect((await accept(roomId, guest)).status).toBe(404);
     a.ws.close(1000, "done");
@@ -501,7 +502,7 @@ describe("invitations", () => {
     expect((await invite(roomId, "seat-a@example.com", "seat-b@example.com")).status).toBe(403);
     expect((await invite(roomId, owner, "seat-b@example.com")).status).toBe(409); // full
     // the partner does not see whom the owner invites
-    expect(await people(roomId, "seat-a@example.com")).toMatchObject({ invited: [] });
+    expect((await post(`/api/rooms/${roomId}/invited`, "seat-a@example.com")).status).toBe(403);
   });
 
   test("declining or withdrawing gives the seat back", async () => {
@@ -532,7 +533,7 @@ describe("invitations", () => {
     for (let i = 0; i < 10; i++) await createRoom(busy);
     expect((await invite(roomId, owner, busy)).status).toBe(200);
     expect((await accept(roomId, busy)).status).toBe(409);
-    expect((await people(roomId, owner)).invited).toEqual([]);
+    expect(await invited(roomId, owner)).toEqual([]);
     expect((await admit(roomId, owner, "cap-other@example.com")).status).toBe(200);
   });
 });
@@ -564,7 +565,7 @@ describe("removing and leaving", () => {
     });
     expect((await post("/api/me", guest)).status).toBe(200);
     expect((await me(guest)).rooms).toEqual([]);
-    expect((await post(`/api/rooms/${roomId}/people`, guest)).status).toBe(403);
+    expect((await post(`/api/rooms/${roomId}/invited`, guest)).status).toBe(403);
     // what they wrote stays, in their name
     const c = await connect(roomId, owner);
     expect(c.snapshot).toMatchObject({ notes: [{ id: "kept", by: ken }] });
@@ -609,7 +610,7 @@ describe("deleting a room", () => {
         deleted: [{ id: roomId, name: "Taiwan trip", deletedAt: expect.any(String) }],
       });
     expect((await listed(STRANGER)).deleted).toEqual([]);
-    expect((await post(`/api/rooms/${roomId}/people`, owner)).status).toBe(403);
+    expect((await post(`/api/rooms/${roomId}/invited`, owner)).status).toBe(403);
     const ws = await server.fetch(`${APP}/api/rooms/${roomId}/ws`, {
       headers: { Upgrade: "websocket", Origin: APP, "Cf-Access-Jwt-Assertion": await token(owner) },
     });
@@ -677,7 +678,7 @@ describe("the socket", () => {
       type: "snapshot",
       me: memberId,
       members: [
-        { id: memberId, kind: "person", name: "Yuki", color: "#3c6ee0" },
+        { id: memberId, kind: "person", role: "owner", name: "Yuki", color: "#3c6ee0" },
         { id: "agent:claude", kind: "agent", name: "Claude", color: "#d97757" },
       ],
       trip: {
@@ -884,6 +885,7 @@ describe("the socket", () => {
     expect(c.snapshot.members[0]).toEqual({
       id: yuki,
       kind: "person",
+      role: "owner",
       name: "Yuki K",
       color: "#112233",
     });

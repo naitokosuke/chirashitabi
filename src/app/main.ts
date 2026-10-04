@@ -19,11 +19,11 @@ const app = createVaporApp(App as VaporComponent)
   .use(PiniaColada)
   .use(router);
 
-// No room backend yet, so boot with mock data. VITE_MOCK=false starts empty,
-// and the mocks are not bundled then.
+// Unless VITE_MOCK=false, `/api` and the room's socket are answered in the page (mocks/), and
+// the app talks to them as it would to the Worker; the mocks are not bundled otherwise.
 if (import.meta.env.VITE_MOCK !== "false") {
-  const { installMocks } = await import("./mocks");
-  installMocks();
+  const { startMocks } = await import("./mocks");
+  await startMocks();
 }
 
 await openWhereLeft(router, useRoom());

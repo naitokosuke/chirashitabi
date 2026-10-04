@@ -112,7 +112,13 @@ describe("createLedger", () => {
     const l = createLedger();
     l.snapshot(room(memo("a", "A")));
     l.commit(retitle("a", "B"), "c1", t(1), ME);
-    const ken = { id: KEN, kind: "person" as const, name: "Ken", color: "#d7263d" as never };
+    const ken = {
+      id: KEN,
+      kind: "person" as const,
+      role: "guest" as const,
+      name: "Ken",
+      color: "#d7263d" as never,
+    };
     const v = l.members([ken]);
     expect(v.members).toEqual([ken]);
     expect(v.notes.map((n) => n.title)).toEqual(["B"]);

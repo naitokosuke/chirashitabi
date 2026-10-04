@@ -14,8 +14,8 @@ import mapIcon from "./icons/map.svg";
 import memoIcon from "./icons/memo.svg";
 import shioriIcon from "./icons/shiori.svg";
 import tripsIcon from "./icons/trips.svg";
-import { LOCAL } from "./features/sync/session";
 import { useRoom } from "./features/sync/useRoom";
+import { useSync } from "./features/sync/useSync";
 import Connection from "./features/sync/Connection.vue";
 import ThemeSwitch from "./features/theme/ThemeSwitch.vue";
 import Toast from "./features/toast/Toast.vue";
@@ -31,6 +31,7 @@ import { initialState, locationOf, next, placeOf, type AppEvent, type View } fro
 
 const i18n = useI18n();
 const room = useRoom();
+const sync = useSync();
 const toast = useToast();
 const router = useRouter();
 const route = useRoute();
@@ -48,10 +49,10 @@ const where = computed(() =>
 watch(
   where,
   (w) => {
-    const s = room.session;
+    const s = sync.session;
     if (w.kind === "room") {
-      if (w.room !== LOCAL && (s.kind === "out" || s.room !== w.room)) room.connect(w.room);
-    } else if (s.kind !== "out" && s.room !== LOCAL) room.leave();
+      if (s.kind === "out" || s.room !== w.room) room.connect(w.room);
+    } else if (s.kind !== "out") room.leave();
   },
   { immediate: true },
 );
@@ -70,7 +71,7 @@ watch(
  * has answered, or at once with what this device kept of it, which stays open if the room
  * cannot be reached. Until then, the rooms screen.
  */
-const inRoom = computed(() => room.session.kind === "in" && where.value.kind === "room");
+const inRoom = computed(() => sync.session.kind === "in" && where.value.kind === "room");
 const views = computed((): CtOption<View>[] => [
   { value: "home", label: i18n.t("nav.home") },
   { value: "canvas", label: i18n.t("nav.canvas") },

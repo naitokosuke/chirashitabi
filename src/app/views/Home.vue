@@ -16,26 +16,27 @@ import { shortDate, weekday } from "../features/trip/format";
 import TripEditor from "../features/trip/TripEditor.vue";
 import { useTrip } from "../features/trip/useTrip";
 
-const trip = useTrip();
-const store = useNotes();
-const members = useMembers();
+const { trip, forDay, budgetOf } = useTrip();
+const { notes } = useNotes();
+const { members } = useMembers();
 const i18n = useI18n();
-const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
+const price = (amount: number) =>
+  trip.value ? formatMoney(amount, trip.value.currency, i18n.locale) : "";
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 /** The trip's settings are open under its title */
 const editing = ref(false);
 
 /** "11/3 – 11/6", one date for a day trip, or nothing while the room has no days */
 const range = computed(() => {
-  const first = trip.days[0]?.date;
-  const last = trip.days.at(-1)?.date;
+  const first = trip.value?.days[0]?.date;
+  const last = trip.value?.days.at(-1)?.date;
   if (first === undefined || last === undefined) return "";
   return first.equals(last) ? short(first) : `${short(first)} – ${short(last)}`;
 });
 
 /** Every memo in one of three piles: confirmed (or done), on a day as a maybe, or not on a day yet */
 const piles = computed(() => {
-  const memos = store.notes.filter((n) => n.kind === "memo");
+  const memos = (notes.value ?? []).filter((n) => n.kind === "memo");
   const fixed = memos.filter((n) => n.schedule !== null && n.schedule.status !== "idea").length;
   const loose = memos.filter((n) => n.schedule === null).length;
   return { fixed, maybe: memos.length - fixed - loose, loose, total: memos.length };
@@ -43,19 +44,19 @@ const piles = computed(() => {
 /** A pile's share of the bar, as a flex-grow; an empty desk shows one empty bar */
 const share = (count: number) => (piles.value.total === 0 ? 0 : count);
 
-const fixedTotal = computed(() => trip.budgetOf(undefined, true));
-const allTotal = computed(() => trip.budgetOf(undefined, false));
+const fixedTotal = computed(() => budgetOf(undefined, true));
+const allTotal = computed(() => budgetOf(undefined, false));
 </script>
 
 <template>
   <section>
     <div>
       <header>
-        <h1>{{ trip.name }}</h1>
-        <p v-if="range">{{ range }} · {{ i18n.t("home.days", { count: trip.days.length }) }}</p>
+        <h1>{{ trip?.name }}</h1>
+        <p v-if="range">{{ range }} · {{ i18n.t("home.days", { count: trip?.days.length ?? 0 }) }}</p>
         <!-- who is in: a face each, initial on their color -->
         <ul>
-          <li v-for="m in members.members" :key="m.id" :style="`--who: ${m.color}`" :title="m.name">
+          <li v-for="m in members" :key="m.id" :style="`--who: ${m.color}`" :title="m.name">
             <span aria-hidden="true">{{ m.name.slice(0, 1) }}</span>
             <span>{{ m.name }}</span>
           </li>
@@ -63,23 +64,23 @@ const allTotal = computed(() => trip.budgetOf(undefined, false));
       </header>
 
       <!-- how the trip goes: its flights, and the way to change its name, dates and flights -->
-      <TripEditor v-if="editing" @close="() => (editing = false)" />
+      <TripEditor v-if="editing && trip" :trip @close="() => (editing = false)" />
       <div v-else class="plan">
-        <FlightLine v-if="trip.flights.out" leg="out" :flight="trip.flights.out" />
-        <FlightLine v-if="trip.flights.back" leg="back" :flight="trip.flights.back" />
+        <FlightLine v-if="trip?.flights.out" leg="out" :flight="trip?.flights.out" />
+        <FlightLine v-if="trip?.flights.back" leg="back" :flight="trip?.flights.back" />
         <button type="button" @click="() => (editing = true)">{{ i18n.t("trip.edit") }}</button>
       </div>
 
       <!-- the days side by side, each a stack of its notes in their own paper; maybes faded -->
-      <ol v-if="trip.days.length">
+      <ol v-if="trip?.days.length">
         <li
-          v-for="d in trip.days"
+          v-for="d in trip?.days"
           :key="d.date.toString()"
-          :aria-label="i18n.t('home.day', { date: short(d.date), count: trip.forDay(d.date).length })"
+          :aria-label="i18n.t('home.day', { date: short(d.date), count: forDay(d.date).length })"
         >
           <div aria-hidden="true">
             <span
-              v-for="n in trip.forDay(d.date)"
+              v-for="n in forDay(d.date)"
               :key="n.id"
               :data-maybe="n.schedule.status === 'idea' || undefined"
               :style="`background: ${PAPERS[n.color]}`"

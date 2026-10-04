@@ -8,16 +8,18 @@ import { useI18n } from "../../i18n/useI18n";
 import { hhmm, shortDate } from "../trip/format";
 
 import { useRoom } from "./useRoom";
+import { useSync } from "./useSync";
 
 const room = useRoom();
+const sync = useSync();
 const i18n = useI18n();
 
 /** The socket, while in a room; this chip is shown only there */
-const link = computed(() => (room.session.kind === "in" ? room.session.link : null));
+const link = computed(() => (sync.session.kind === "in" ? sync.session.link : null));
 /** "12:30", or "11/2 12:30" from another day: when what is on screen was last the room's */
 const since = computed(() => {
-  if (room.session.kind !== "in") return "";
-  const local = room.session.syncedAt.toZonedDateTimeISO(Temporal.Now.timeZoneId());
+  if (sync.session.kind !== "in") return "";
+  const local = sync.session.syncedAt.toZonedDateTimeISO(Temporal.Now.timeZoneId());
   const time = hhmm(local.toPlainTime());
   return local.toPlainDate().equals(Temporal.Now.plainDateISO())
     ? time

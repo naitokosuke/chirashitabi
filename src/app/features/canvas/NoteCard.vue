@@ -1,4 +1,6 @@
 <script setup lang="ts" vapor>
+import { computed } from "vue";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import { useMembers } from "../members/useMembers";
@@ -7,7 +9,7 @@ import { PAPERS, type Note } from "../notes/types";
 import { useSync } from "../sync/useSync";
 import type { Visibility } from "../tags/types";
 
-defineProps<{
+const props = defineProps<{
   note: Note;
   dragging: boolean;
   pop: boolean;
@@ -16,7 +18,9 @@ defineProps<{
   selected: boolean;
 }>();
 defineEmits<{ adopt: []; remove: [] }>();
-const members = useMembers();
+const { members } = useMembers();
+/** Whose card it is; nobody once they have left the room */
+const author = computed(() => members.value?.find((m) => m.id === props.note.by));
 const sync = useSync();
 const i18n = useI18n();
 </script>
@@ -29,7 +33,7 @@ const i18n = useI18n();
     :data-pop="pop || undefined"
     :data-selected="selected || undefined"
     :data-visibility="visibility"
-    :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}; --card: ${PAPERS[note.color]}; --who: ${members.colorOf(note.by)}`"
+    :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}; --card: ${PAPERS[note.color]}; --who: ${author?.color ?? 'var(--muted)'}`"
     :data-id="note.id"
     :tabindex="note.kind !== 'suggestion' && visibility !== 'dimmed' ? 0 : undefined"
     :role="note.kind !== 'suggestion' ? 'button' : undefined"
@@ -38,7 +42,7 @@ const i18n = useI18n();
     <template v-if="note.kind === 'suggestion'">
       <header>
         <span aria-hidden="true"></span>
-        {{ members.nameOf(note.by) }}<small>{{ i18n.t("note.suggestion") }}</small>
+        {{ author?.name ?? i18n.t("member.someone") }}<small>{{ i18n.t("note.suggestion") }}</small>
       </header>
       <p>{{ note.title }}</p>
       <footer><button type="button" @click.stop="() => $emit('adopt')">{{ i18n.t("note.adopt") }}</button><button type="button" @click.stop="() => $emit('remove')">{{ i18n.t("common.dismiss") }}</button></footer>
@@ -52,7 +56,7 @@ const i18n = useI18n();
         alt=""
         draggable="false"
         loading="lazy"
-        :src="imageSrc(sync.roomId, note.image)"
+        :src="imageSrc(sync.room.id, note.image)"
       />
       <p>{{ note.title }}</p>
       <p v-if="note.body">{{ note.body }}</p>

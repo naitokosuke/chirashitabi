@@ -9,7 +9,7 @@ import { datesLabel, whenLabel } from "./label";
 import { MAX_NAME, MEMBER_COLORS, profileOf } from "./newRoom";
 import TripTag from "./TripTag.vue";
 import type { RoomId, RoomSummary } from "./types";
-import { useAcceptInvitation, useDeclineInvitation } from "./useRooms";
+import { useRooms } from "./useRooms";
 import { whenOf } from "./when";
 
 /**
@@ -38,8 +38,7 @@ const tag = computed(() => ({
   members: props.room.members,
 }));
 
-const accept = useAcceptInvitation();
-const decline = useDeclineInvitation();
+const { accept, decline } = useRooms();
 const busy = computed(() => accept.isLoading.value || decline.isLoading.value);
 const failed = ref<"join" | "decline" | null>(null);
 

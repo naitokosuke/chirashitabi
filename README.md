@@ -11,14 +11,13 @@ vp install
 vp dev
 vp run check   # format + lint + type check (Vize)
 vp build
-vp build -c vite.single.config.ts   # single-file build (dist-single/)
 vp run check:worker                 # wrangler types + tsc on worker/
 vp run deploy                       # VITE_MOCK=false build, then wrangler deploy
 ```
 
 CI (`.github/workflows/ci.yml`) runs the checks on every pull request and push, and deploys `main` with `vp run deploy` once they pass, using the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; "Run workflow" in the Actions tab does the same by hand.
 
-`vp dev` on its own boots with the mock data in `src/mocks/` (a Taiwan trip) and talks to no Worker.
+`vp dev` on its own talks to no Worker: `src/app/mocks/` answers `/api` and the room's socket in the page with MSW, from a seeded Taiwan trip, and the app runs the same code it runs against the Worker. Nothing the mocks hold survives a reload.
 
 ## Running against the Worker
 
@@ -50,8 +49,9 @@ src/app/            The app
     Rooms.vue    The trips (`/`): each a luggage tag, coming up then been; a blank tag makes one (`/new`)
 
   features/
-    members/ Everyone in the room, people and agents alike; api and usePeople (who owns the room,
-             whom they invited; inviting, removing, leaving, deleting); People (that, on the home tab)
+    members/ Everyone in the room, people (owner or guest) and agents alike; api and useMembers
+             (who is in, whom the owner invited; inviting, removing, leaving, deleting); People (that,
+             on the home tab)
     rooms/   The person's trips: api (/api/me with invitations and deleted trips, /api/rooms, answering
              an invitation, restoring); when (days to go, under way, over); TripTag (a trip as a luggage
              tag); NewTrip (the sheet that makes one, with its tag drawn live); Invitation (one to answer)
@@ -82,7 +82,8 @@ src/app/            The app
 
   icons/   The icons as .svg files (tabs, write, back); Icon.vue paints one in the text color
 
-  mocks/   Mock room data (members, trip, notes) and a mock WorkerApi, installed at boot
+  mocks/   The Worker and its rooms in the page, for `vp dev` (MSW): seed data (members, trip,
+           notes) and handlers for `/api` and the room's socket, started at boot
 
 src/ui/             The design system: props, slots and events only, no app imports
   styles/        Tokens (colors, type, z-index, motion), base, transitions (ct-morph / ct-fade / ct-slide),
@@ -136,9 +137,7 @@ docs/               Design notes: auth-and-security.md (one hostname behind Acce
 `useNotes`, `useTrip` and `useMembers` read those entries with `useQueryState`; only the room writes them.
 A snapshot also sets `useSync().me`, the member this device is.
 Changes the room has not answered stay in the ledger and are sent again after the next snapshot (see `docs/data-fetching.md`).
-`useWorker().api` (drafting, export) is still the mock.
-
-`src/app/mocks/index.ts` hands the same state to `useRoom().offline`.
+`useWorker().api` is the room's agent and pictures over HTTP (`features/worker/api.ts`), set while in a room.
 
 `note:move` is throttled to every 80ms while dragging.
 
