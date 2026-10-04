@@ -1,6 +1,8 @@
 export type { CtOption } from "./types";
 export { usePageTurn } from "./composables/usePageTurn";
 export { useViewTransition } from "./composables/useViewTransition";
+export { type DateRange as CtDateRange, lengthOf } from "./components/calendar/calendar";
+export { default as CtCalendar } from "./components/calendar/CtCalendar.vue";
 export { default as CtChip } from "./components/chip/CtChip.vue";
 export { default as CtChipPick } from "./components/chip/CtChipPick.vue";
 export { default as CtChipRow } from "./components/chip/CtChipRow.vue";
