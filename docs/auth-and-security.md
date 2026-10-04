@@ -123,7 +123,7 @@ Creating and joining are explicit operations, not side effects of a first visit.
 - `room:remove(member)` is called by the owner, for anyone but themselves; `room:leave` by anyone else, for themselves.
   The room tells that person's sockets they are out (`gone`) and closes them, tells the rest who is in now (`members`), and the index forgets the membership; what they wrote stays, signed with their old id.
 - `room:delete` is called by the owner and is a soft delete: the room is marked deleted, every socket is told and closed, the index stops resolving anyone in it and drops its open invitations, and either person who was in it can restore it for 30 days (`room:restore`).
-  After 30 days an alarm deletes its pictures from R2, removes it from the index and calls `deleteAll` on the object; the booklet's files will go the same way once publishing exists.
+  After 30 days an alarm deletes its pictures from R2, removes it from the index and calls `deleteAll` on the object; the booklet's files will go the same way once publishing exists. The owner can have that happen at once (`room:purge`), since only they deleted it; the other person, who could have restored it, cannot.
 - Everything else from a member id that is not in the table, or in a deleted room, is rejected inside the object.
 
 `MemberId` is a random id assigned by the room at creation or invitation.

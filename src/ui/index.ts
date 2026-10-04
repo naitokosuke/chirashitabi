@@ -5,6 +5,7 @@ export { default as CtChip } from "./components/chip/CtChip.vue";
 export { default as CtChipPick } from "./components/chip/CtChipPick.vue";
 export { default as CtChipRow } from "./components/chip/CtChipRow.vue";
 export { default as CtFab } from "./components/fab/CtFab.vue";
+export { default as CtHoldButton } from "./components/hold/CtHoldButton.vue";
 export { default as CtSegmented } from "./components/segmented/CtSegmented.vue";
 export { default as CtSwatches } from "./components/swatches/CtSwatches.vue";
 export { default as CtSwipeRow } from "./components/swipe/CtSwipeRow.vue";

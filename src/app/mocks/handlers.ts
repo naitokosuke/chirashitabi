@@ -247,6 +247,13 @@ const members = [
     room.deletedAt = null;
     return HttpResponse.json({});
   }),
+  // Yuki owns every room here, so she may have a deleted one gone for good
+  http.post("/api/rooms/:roomId/purge", ({ params }) => {
+    const id = roomId(params.roomId) ?? ("" as RoomId);
+    if (rooms.get(id)?.deletedAt == null) return forbidden();
+    rooms.delete(id);
+    return HttpResponse.json({});
+  }),
   // nobody has invited Yuki anywhere
   http.post("/api/invitations/:roomId/:answer", () => notFound()),
 ];

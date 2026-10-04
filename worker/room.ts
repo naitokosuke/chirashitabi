@@ -368,6 +368,23 @@ export class Room extends DurableObject<Env> {
       await this.ctx.storage.setAlarm(due);
       return;
     }
+    await this.erase(deletion);
+  }
+
+  /**
+   * The owner `by` wants the deleted room gone now rather than on its day: it goes as the
+   * alarm would take it. False unless the room is deleted and `by` owns it; the other person
+   * could still have restored it, so only the one who deleted it may end that.
+   */
+  async purge(by: string): Promise<boolean> {
+    const deletion = this.deletion();
+    if (deletion === null || by !== this.ownerId()) return false;
+    await this.erase(deletion);
+    return true;
+  }
+
+  /** The room goes for good: its pictures, its place in the index, its storage */
+  private async erase(deletion: { room_id: string; at: string }): Promise<void> {
     const keys = this.ctx.storage.sql
       .exec<{ id: string }>("SELECT id FROM pictures")
       .toArray()

@@ -4,7 +4,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { CtSwipeRow } from "../../../ui/index";
+import { CtHoldButton, CtSwipeRow } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -77,6 +77,24 @@ async function bringBack(id: RoomId) {
     restoring.value = null;
   }
 }
+/** A deleted trip gone for good now, by its owner; the one going, while it is */
+const purge = trips.purge;
+const purging = ref<RoomId | null>(null);
+const purgeFailed = ref(false);
+async function purgeForGood(id: RoomId) {
+  if (purging.value !== null) return;
+  purging.value = id;
+  purgeFailed.value = false;
+  try {
+    await purge.mutateAsync(id);
+  } catch {
+    purgeFailed.value = true;
+  } finally {
+    purging.value = null;
+  }
+}
+/** One thing at a time on the deleted shelf */
+const busyWithDeleted = computed(() => restoring.value !== null || purging.value !== null);
 const untilLabel = (until: Temporal.PlainDate) =>
   i18n.t("rooms.restoreUntil", { date: shortDate(until, i18n.locale) });
 
@@ -227,15 +245,31 @@ function retry() {
           <section v-if="mine?.deleted.length">
             <h2>{{ i18n.t("rooms.deleted") }}</h2>
             <p v-if="restoreFailed" class="notice" role="alert">{{ i18n.t("rooms.restoreFailed") }}</p>
+            <p v-if="purgeFailed" class="notice" role="alert">{{ i18n.t("rooms.purgeFailed") }}</p>
             <ul class="gone">
               <li v-for="d in mine?.deleted" :key="d.id">
                 <span>
                   <b>{{ d.name }}</b>
                   <small>{{ untilLabel(d.until) }}</small>
                 </span>
-                <button type="button" :disabled="restoring !== null" @click="() => bringBack(d.id)">
-                  {{ i18n.t("rooms.restore") }}
-                </button>
+                <!-- both held down, not tapped: one brings it back, the other ends that for good -->
+                <CtHoldButton
+                  :label="i18n.t('rooms.restore')"
+                  :done="i18n.t('rooms.restored')"
+                  :disabled="busyWithDeleted"
+                  @hold="() => bringBack(d.id)"
+                >
+                  <template #hint>{{ i18n.t("rooms.hold") }}</template>
+                </CtHoldButton>
+                <CtHoldButton
+                  danger
+                  :label="i18n.t('rooms.purge')"
+                  :done="i18n.t('rooms.purged')"
+                  :disabled="busyWithDeleted"
+                  @hold="() => purgeForGood(d.id)"
+                >
+                  <template #hint>{{ i18n.t("rooms.hold") }}</template>
+                </CtHoldButton>
               </li>
             </ul>
           </section>
@@ -460,23 +494,7 @@ h2 {
     }
 
     > button {
-      min-height: var(--tap);
-      padding: 0 14px;
-      border-radius: 999px;
-      border: 0;
-      background: var(--wash);
-      color: var(--ink);
-      font-size: var(--font-sm);
-      font-weight: 700;
-
-      &:disabled {
-        opacity: 0.35;
-      }
-
-      &:focus-visible {
-        outline: 2px solid var(--ink);
-        outline-offset: 2px;
-      }
+      flex-shrink: 0;
     }
   }
 }
