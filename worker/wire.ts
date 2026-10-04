@@ -22,6 +22,8 @@ export interface WireRoomSummary {
   days: number;
   members: Omit<WireMember, "id">[];
   memos: number;
+  /** Whether the person asking made the trip, and so may delete it (false on an invitation) */
+  owner: boolean;
 }
 
 export interface WireDay {

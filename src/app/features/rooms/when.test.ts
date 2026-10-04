@@ -13,6 +13,7 @@ const trip = (name: string, first: string | null, days = 3): RoomSummary => ({
   days,
   members: [],
   memos: 0,
+  owner: true,
 });
 
 describe("whenOf", () => {

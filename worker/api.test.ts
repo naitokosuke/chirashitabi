@@ -398,11 +398,17 @@ describe("rooms", () => {
             { kind: "agent", name: "Claude", color: expect.any(String) },
           ],
           memos: 1,
+          owner: true,
         },
       ],
       invitations: [],
       deleted: [],
     });
+    // the partner is in it but did not make it; an invitation is nobody's to delete
+    expect((await me(partner)).rooms).toMatchObject([{ id: roomId, owner: false }]);
+    const other = await createRoom(partner);
+    expect((await invite(other.roomId, partner, email)).status).toBe(200);
+    expect((await me(email)).invitations).toMatchObject([{ id: other.roomId, owner: false }]);
   });
 
   test("an e-mail may hold ten rooms", async () => {

@@ -38,6 +38,7 @@ describe("summaryOf", () => {
       days: 0,
       members: [],
       memos: 0,
+      owner: false,
     });
     const s = summaryOf({
       id: ID,
