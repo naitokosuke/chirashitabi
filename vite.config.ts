@@ -86,7 +86,7 @@ export default defineConfig({
       rules: {
         // I don't like this rule🫠
         "vue/multi-word-component-names": "off",
-        // :items rather than :items="items"; it only looks at component props, not native attrs
+        // :items rather than :items="items", on components and native elements alike; the preset only warns
         "vue/prefer-props-shorthand": "error",
       },
     },
