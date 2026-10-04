@@ -1,5 +1,6 @@
 export type { CtOption } from "./types";
 export { usePageTurn } from "./composables/usePageTurn";
+export { useFlip } from "./composables/useFlip";
 export { useViewTransition } from "./composables/useViewTransition";
 export { type DateRange as CtDateRange, lengthOf } from "./components/calendar/calendar";
 export { default as CtCalendar } from "./components/calendar/CtCalendar.vue";

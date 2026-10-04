@@ -172,7 +172,9 @@ const agent = [
     const { chosen } = (await request.json()) as { chosen: string[] };
     const inUse = new Set(room.state.notes.flatMap((n) => (n.kind === "memo" ? n.tags : [])));
     const tags = [...inUse].filter((t) => !chosen.includes(t)).slice(0, 3);
-    return HttpResponse.json({ tags: tags.map((tag) => ({ tag, isNew: false })) });
+    return HttpResponse.json({
+      tags: tags.map((tag, i) => ({ tag, p: 0.9 - i * 0.1, isNew: false })),
+    });
   }),
   http.post("/api/rooms/:roomId/places", ({ params }) =>
     open(params.roomId) === undefined ? forbidden() : HttpResponse.json({ places: [] }),

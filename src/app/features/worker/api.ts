@@ -58,7 +58,7 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
   },
   async suggestTags(memo) {
     const res = await call(room, "tags", memo);
-    return ((await res.json()) as { tags: { tag: string; isNew: boolean }[] }).tags;
+    return ((await res.json()) as { tags: { tag: string; p: number; isNew: boolean }[] }).tags;
   },
   async findPlaces(memo) {
     const res = await call(room, "places", memo);
