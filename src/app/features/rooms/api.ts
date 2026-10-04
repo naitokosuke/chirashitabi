@@ -57,6 +57,8 @@ export function summaryOf(raw: unknown): RoomSummary | null {
     days: count(r.days),
     members,
     memos: count(r.memos),
+    // a Worker from before says nothing: not the owner, so the list offers leaving at most
+    owner: r.owner === true,
   };
 }
 

@@ -102,6 +102,18 @@ export class RoomsIndex extends DurableObject<Env> {
       .map((r) => r.room_id);
   }
 
+  /** The rooms `email` is in and who it is in each, oldest first; deleted ones left out */
+  memberships(email: string): { roomId: string; memberId: string }[] {
+    return this.ctx.storage.sql
+      .exec<{ room_id: string; member_id: string }>(
+        `SELECT room_id, member_id FROM memberships
+           WHERE email = ? AND deleted_at IS NULL ORDER BY rowid`,
+        email.toLowerCase(),
+      )
+      .toArray()
+      .map((r) => ({ roomId: r.room_id, memberId: r.member_id }));
+  }
+
   /**
    * Records a membership the room has already minted; false when `email` is at its room cap.
    * A deleted room still counts until it is gone for good.

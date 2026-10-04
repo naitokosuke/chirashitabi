@@ -48,7 +48,7 @@ Working today:
 - Suggestions: a card anyone (including the agent) can leave, adopted into an ordinary note or dismissed.
 - Pictures: a note can carry one photo, shrunk on the phone and kept privately for the room.
 - Rooms: create, remember on the device, reconnect; both members see each other's changes live.
-- People: the owner (who made the trip) invites the other person by e-mail, takes an invitation back, removes them, and deletes the trip; the invited person joins with their own name and color or declines; anyone but the owner may leave; either person can restore a deleted trip for 30 days.
+- People: the owner (who made the trip) invites the other person by e-mail, takes an invitation back, removes them, and deletes the trip; the invited person joins with their own name and color or declines; anyone but the owner may leave; either person can restore a deleted trip for 30 days. Deleting and leaving are offered on the trip's home and on the list of trips.
 
 The agent (Claude) drafts a day's order, times and intro, and leaves a few ideas as suggestion cards on the canvas, when a member asks, within a daily and per-trip budget.
 While writing a note, Clef (Workers AI) suggests tags that fit its words and photo, from the tags in use and candidates Claude proposed once for the trip.

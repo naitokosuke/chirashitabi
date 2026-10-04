@@ -410,7 +410,7 @@ export class Room extends DurableObject<Env> {
   }
 
   /** The trip at a glance, for a member's list of rooms: its name, days, members and memo count */
-  summary(): WireRoomSummary {
+  summary(by: string | null = null): WireRoomSummary {
     const sql = this.ctx.storage.sql;
     const { name } = sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one();
     const days = sql
@@ -424,7 +424,8 @@ export class Room extends DurableObject<Env> {
     const { memos } = sql
       .exec<{ memos: number }>("SELECT COUNT(*) AS memos FROM notes WHERE kind = 'memo'")
       .one();
-    return { name, first: days[0] ?? null, days: days.length, members, memos };
+    const owner = by !== null && by === this.ownerId();
+    return { name, first: days[0] ?? null, days: days.length, members, memos, owner };
   }
 
   // ---- the agent (RPC from the Worker, inside a member's request) ----

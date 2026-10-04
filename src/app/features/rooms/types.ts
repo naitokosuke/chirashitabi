@@ -26,6 +26,8 @@ export interface RoomSummary {
   days: number;
   members: { kind: "person" | "agent"; name: string; color: HexColor }[];
   memos: number;
+  /** This person made the trip, and so may delete it; anyone else may leave it */
+  owner: boolean;
 }
 
 /** A trip its owner deleted, which either person in it can restore until `until` (the room's own count of days) */

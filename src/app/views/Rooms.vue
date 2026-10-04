@@ -6,14 +6,16 @@ import { useRoute, useRouter } from "vue-router";
 
 import { useI18n } from "../i18n/useI18n";
 
+import moreIcon from "../icons/more.svg";
 import plusIcon from "../icons/plus.svg";
 import Icon from "../icons/Icon.vue";
+import { KEPT_DAYS } from "../features/rooms/api";
 import Invitation from "../features/rooms/Invitation.vue";
 import { datesLabel, whenLabel } from "../features/rooms/label";
 import NewTrip from "../features/rooms/NewTrip.vue";
 import TripTag from "../features/rooms/TripTag.vue";
 import type { RoomId, RoomSummary } from "../features/rooms/types";
-import { useRestoreRoom, useRoomList } from "../features/rooms/useRooms";
+import { useRemoveRoom, useRestoreRoom, useRoomList } from "../features/rooms/useRooms";
 import { shortDate } from "../features/trip/format";
 import { shelve, whenOf } from "../features/rooms/when";
 import { useRoom } from "../features/sync/useRoom";
@@ -37,6 +39,24 @@ const none = computed(
     (rooms.value ?? []).length === 0 &&
     invitations.value.length === 0,
 );
+
+/** The trip whose way off the list is open under its tag */
+const asking = ref<RoomId | null>(null);
+const toggleAsk = (id: RoomId) => (asking.value = asking.value === id ? null : id);
+const { mutateAsync: remove, isLoading: removing } = useRemoveRoom();
+const removeFailed = ref(false);
+/** Off the list: deleted by its owner (then on the deleted shelf), left by anyone else */
+async function takeOff(r: RoomSummary) {
+  removeFailed.value = false;
+  try {
+    await remove({ room: r.id, owner: r.owner });
+    asking.value = null;
+    // the device's own memory of it too, so the root does not reopen it
+    if (room.remembered() === r.id) room.leave();
+  } catch {
+    removeFailed.value = true;
+  }
+}
 
 /** A deleted trip back on the shelf; the one being restored, while it is */
 const restore = useRestoreRoom();
@@ -123,6 +143,7 @@ function retry() {
           {{ i18n.t("rooms.failed") }}
           <button type="button" @click="retry">{{ i18n.t("rooms.retry") }}</button>
         </p>
+        <p v-if="removeFailed" class="notice" role="alert">{{ i18n.t("people.failed") }}</p>
         <p v-if="listStatus === 'error'" class="notice" role="alert">
           {{ i18n.t("rooms.listFailed") }}
           <button type="button" @click="retry">{{ i18n.t("rooms.retry") }}</button>
@@ -151,9 +172,27 @@ function retry() {
             <h2 v-else>{{ i18n.t("rooms.coming") }}</h2>
             <ul class="tags">
               <li v-for="r in shelves.coming" :key="r.id">
-                <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
-                  <TripTag v-bind="tagOf(r)" />
-                </a>
+                <div class="held">
+                  <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
+                    <TripTag v-bind="tagOf(r)" />
+                  </a>
+                  <button
+                    class="more"
+                    type="button"
+                    :aria-expanded="asking === r.id"
+                    :aria-label="i18n.t('rooms.actions', { name: r.name })"
+                    @click="() => toggleAsk(r.id)"
+                  >
+                    <Icon :size="20" :src="moreIcon" />
+                  </button>
+                </div>
+                <!-- the way off the list, asked twice: the owner deletes it, anyone else leaves -->
+                <div v-if="asking === r.id" class="ask">
+                  <button class="danger" type="button" :disabled="removing" @click="() => takeOff(r)">
+                    {{ r.owner ? i18n.t("people.deleteConfirm", { count: KEPT_DAYS }) : i18n.t("people.leave") }}
+                  </button>
+                  <button type="button" @click="() => (asking = null)">{{ i18n.t("people.cancel") }}</button>
+                </div>
               </li>
               <!-- a blank tag: the next trip starts by writing one -->
               <li>
@@ -169,9 +208,27 @@ function retry() {
             <h2>{{ i18n.t("rooms.been") }}</h2>
             <ul class="tags">
               <li v-for="r in shelves.been" :key="r.id">
-                <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
-                  <TripTag v-bind="tagOf(r)" past />
-                </a>
+                <div class="held">
+                  <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
+                    <TripTag v-bind="tagOf(r)" past />
+                  </a>
+                  <button
+                    class="more"
+                    type="button"
+                    :aria-expanded="asking === r.id"
+                    :aria-label="i18n.t('rooms.actions', { name: r.name })"
+                    @click="() => toggleAsk(r.id)"
+                  >
+                    <Icon :size="20" :src="moreIcon" />
+                  </button>
+                </div>
+                <!-- the way off the list, asked twice: the owner deletes it, anyone else leaves -->
+                <div v-if="asking === r.id" class="ask">
+                  <button class="danger" type="button" :disabled="removing" @click="() => takeOff(r)">
+                    {{ r.owner ? i18n.t("people.deleteConfirm", { count: KEPT_DAYS }) : i18n.t("people.leave") }}
+                  </button>
+                  <button type="button" @click="() => (asking = null)">{{ i18n.t("people.cancel") }}</button>
+                </div>
               </li>
             </ul>
           </section>
@@ -315,6 +372,79 @@ h2 {
     &:active > :deep(.tag) {
       translate: 0 1px;
       box-shadow: var(--shadow-tool);
+    }
+  }
+}
+
+/* a tag and, beside it, the way to its actions */
+.held {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  > a {
+    flex: 1;
+    min-width: 0;
+  }
+
+  > .more {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: var(--tap);
+    height: var(--tap);
+    border-radius: 50%;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+
+    &[aria-expanded="true"] {
+      background: var(--wash);
+      color: var(--ink);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 2px;
+    }
+
+    @media (--can-hover) {
+      &:hover {
+        color: var(--ink);
+      }
+    }
+  }
+}
+
+/* asked once more, under the tag */
+.ask {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-block-start: 8px;
+
+  > button {
+    min-height: var(--tap);
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 0;
+    background: var(--wash);
+    color: var(--ink);
+    font-size: var(--font-sm);
+    font-weight: 700;
+
+    &.danger {
+      background: var(--ink);
+      color: var(--on-ink);
+    }
+
+    &:disabled {
+      opacity: 0.35;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 2px;
     }
   }
 }

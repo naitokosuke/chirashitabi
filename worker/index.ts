@@ -162,15 +162,19 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
 
   if (url.pathname === "/api/me") {
     if (upgrade) return status(403, "Forbidden");
-    const [ids, invitedTo, deletedIds] = await Promise.all([
-      index.rooms(email),
+    const [mine, invitedTo, deletedIds] = await Promise.all([
+      index.memberships(email),
       index.invitations(email),
       index.rooms(email, true),
     ]);
-    const glance = async (id: string) => ({ id, ...(await env.ROOM.getByName(id).summary()) });
-    const rooms = await Promise.all(ids.map(glance));
+    // each at a glance, and whether the asker made it (and so may delete it from the list)
+    const glance = async (id: string, by: string | null = null) => ({
+      id,
+      ...(await env.ROOM.getByName(id).summary(by)),
+    });
+    const rooms = await Promise.all(mine.map((m) => glance(m.roomId, m.memberId)));
     // an invitation shows the trip it is to, its owner leading the members
-    const invitations = await Promise.all(invitedTo.map(glance));
+    const invitations = await Promise.all(invitedTo.map((id) => glance(id)));
     // a deleted trip, to the people who were in it, who may restore it
     const deleted = (
       await Promise.all(

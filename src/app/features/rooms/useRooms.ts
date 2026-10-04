@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryCache } from "@pinia/colada";
 
+import { deleteRoom, leaveRoom } from "../members/api";
+import { forget } from "../sync/persist";
+
 import { acceptInvitation, createRoom, declineInvitation, listMine, restoreRoom } from "./api";
+import type { RoomId } from "./types";
 
 /** The person's rooms, invitations and deleted trips, as `/api/me` lists them (docs/data-fetching.md) */
 export const ROOMS_KEY = ["me", "rooms"];
@@ -32,6 +36,15 @@ export const useCreateRoom = () => useListChange(createRoom);
 /** Takes up an invitation as who one will be in the room */
 export const useAcceptInvitation = () => useListChange(acceptInvitation);
 export const useDeclineInvitation = () => useListChange(declineInvitation);
+/**
+ * Takes a trip off the list: the owner deletes it (restorable for a while), anyone else leaves
+ * it. What this device kept of it goes too, or opening it would show a room that refuses it.
+ */
+export const useRemoveRoom = () =>
+  useListChange(async ({ room, owner }: { room: RoomId; owner: boolean }) => {
+    await (owner ? deleteRoom(room) : leaveRoom(room));
+    forget(localStorage, room);
+  });
 /** Brings a deleted trip back */
 export const useRestoreRoom = () => useListChange(restoreRoom);
 
