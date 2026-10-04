@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { FormTarget, View } from "../shell";
+import type { FormTarget, View } from "../../shell";
 
 /**
  * Where the form is. The memo tab itself: always a new, unplaced memo, never closed, each save
@@ -23,35 +23,23 @@ import {
   watch,
 } from "vue";
 
-import { CtChip } from "../../ui/index";
+import { CtChip } from "../../../ui/index";
 
-import { useI18n } from "../i18n/useI18n";
+import { useI18n } from "../../i18n/useI18n";
 
-import { imageSrc, shrinkImage } from "../features/notes/image";
-import {
-  blankInput,
-  inputFromNote,
-  normalizeTag,
-  noteText,
-  parseNoteText,
-} from "../features/notes/input";
-import {
-  COLOR_NAMES,
-  COLORS,
-  PAPERS,
-  type NoteColor,
-  type NoteInput,
-} from "../features/notes/types";
-import { useNotes } from "../features/notes/useNotes";
-import { googleMapsLink, placeFromUrl, placeSearchLink } from "../features/place/google-maps";
-import type { FoundPlace } from "../features/place/types";
-import { useSync } from "../features/sync/useSync";
-import { useTags } from "../features/tags/useTags";
-import { OverBudget, RoomFull } from "../features/worker/api";
-import { useWorker } from "../features/worker/useWorker";
-import backIcon from "../icons/back.svg";
-import closeIcon from "../icons/close.svg";
-import Icon from "../icons/Icon.vue";
+import { imageSrc, shrinkImage } from "./image";
+import { blankInput, inputFromNote, normalizeTag, noteText, parseNoteText } from "./input";
+import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteInput } from "./types";
+import { useNotes } from "./useNotes";
+import { googleMapsLink, placeFromUrl, placeSearchLink } from "../place/google-maps";
+import type { FoundPlace } from "../place/types";
+import { useSync } from "../sync/useSync";
+import { useTags } from "../tags/useTags";
+import { OverBudget, RoomFull } from "../worker/api";
+import { useWorker } from "../worker/useWorker";
+import backIcon from "../../icons/back.svg";
+import closeIcon from "../../icons/close.svg";
+import Icon from "../../icons/Icon.vue";
 
 const props = defineProps<{ mode: FormMode }>();
 const emit = defineEmits<{ close: []; save: [input: NoteInput, keepOpen: boolean] }>();
@@ -467,7 +455,7 @@ function submit() {
 </template>
 
 <style scoped>
-@import "../../ui/styles/media.css";
+@import "../../../ui/styles/media.css";
 
 form {
   position: absolute;

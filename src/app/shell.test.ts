@@ -1,57 +1,37 @@
 import { describe, expect, test } from "vite-plus/test";
 
 import type { NoteId } from "./features/notes/types";
-import type { RoomId } from "./features/rooms/types";
-import { initialState, locationOf, next, placeOf, type Place } from "./shell";
+import { queryOf, queryStrings, sheetOf, viewOf, type FormTarget } from "./shell";
 
-const ROOM = "0d5f3c1e-6a4b-4c2d-9e8f-1a2b3c4d5e6f" as RoomId;
-const at = (path: string, query: Record<string, string> = {}) => placeOf({ path, query });
-
-describe("placeOf and locationOf", () => {
-  test.each<[string, Place]>([
-    ["the trips", { kind: "rooms" }],
-    ["a new trip", { kind: "new" }],
-    ["a room's tab", { kind: "room", room: ROOM, state: { tab: "map", form: null } }],
-    [
-      "a sheet editing a note",
-      {
-        kind: "room",
-        room: ROOM,
-        state: { tab: "canvas", form: { kind: "edit", id: "n1" as NoteId } },
-      },
-    ],
-    [
-      "a sheet writing at a place",
-      {
-        kind: "room",
-        room: ROOM,
-        state: { tab: "map", form: { kind: "new", pin: { lat: 25.03, lng: 121.56 } } },
-      },
-    ],
-  ])("%s goes to a URL and comes back the same", (_, place) => {
-    expect(placeOf(locationOf(place))).toEqual(place);
+describe("sheetOf and queryOf", () => {
+  test.each<[string, FormTarget]>([
+    ["a sheet editing a note", { kind: "edit", id: "n1" as NoteId }],
+    ["a sheet writing anywhere", { kind: "new", pin: null }],
+    ["a sheet writing at a place", { kind: "new", pin: { lat: 25.03, lng: 121.56 } }],
+  ])("%s goes to a query and comes back the same", (_, form) => {
+    expect(sheetOf(queryOf(form))).toEqual(form);
   });
 
-  test("a room without a tab opens on the canvas; one with a tab it does not know, too", () => {
-    expect(at(`/rooms/${ROOM}`)).toMatchObject({ state: { tab: "canvas" } });
-    expect(at(`/rooms/${ROOM}/nope`)).toMatchObject({ state: { tab: "canvas" } });
-  });
-
-  test("what is not a place is the trips", () => {
-    expect(at("/rooms/not-a-room/map")).toEqual({ kind: "rooms" });
-    expect(at("/somewhere")).toEqual({ kind: "rooms" });
+  test("no sheet, or one it does not know, is none", () => {
+    expect(sheetOf({})).toBeNull();
+    expect(sheetOf({ sheet: "nope" })).toBeNull();
+    expect(sheetOf({ sheet: "edit" })).toBeNull();
   });
 
   test("a write sheet with half a place has no place", () => {
-    expect(at(`/rooms/${ROOM}/map`, { sheet: "write", lat: "25" })).toMatchObject({
-      state: { form: { kind: "new", pin: null } },
-    });
+    expect(sheetOf({ sheet: "write", lat: "25" })).toEqual({ kind: "new", pin: null });
+  });
+
+  test("a key given twice is not read", () => {
+    expect(queryStrings({ sheet: ["write", "edit"], note: "n1" })).toEqual({ note: "n1" });
   });
 });
 
-describe("next", () => {
-  test("picking a tab puts the sheet away", () => {
-    const open = next(initialState, { type: "writeRequested" });
-    expect(next(open, { type: "tabSelected", tab: "home" })).toEqual({ tab: "home", form: null });
+describe("viewOf", () => {
+  test("a room's tab by its route's name; anything else is none", () => {
+    expect(viewOf("/rooms/[roomId]/map")).toBe("map");
+    expect(viewOf("/rooms/[roomId]/nope")).toBeNull();
+    expect(viewOf("/")).toBeNull();
+    expect(viewOf(undefined)).toBeNull();
   });
 });

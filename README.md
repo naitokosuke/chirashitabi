@@ -36,17 +36,20 @@ In production Access sets the token header itself; the stub only exists because 
 
 ```
 src/app/            The app
-  main.ts, App.vue, style.css   Boot and view switching (the canvas stays mounted underneath)
-  shell.ts     Where the app is: the trips, a new trip, or a room's tab and sheet, to and from the URL
-  router.ts    vue-router for the URL and the history only (nothing rendered by it); opens the last trip
+  main.ts, App.vue, style.css   Boot; every page under the one menu (the dock) and the toast
+  router.ts    vue-router over the pages' files (typed in typed-router.d.ts); opens the last trip
+  shell.ts     A room's tabs, and the memo sheet's place in the URL's query
 
-  views/
-    Canvas.vue   Pan / pinch; pick a card (tap), move, resize and turn it (handles), open it (double tap),
-                 its toolbar; adding notes; writing on the desk (double click on it: a text box)
-    Map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add
-    Shiori.vue   The booklet (edit / read, appendix, a member's draft of a day)
-    Form.vue     Full-screen note form (new / edit, Google Maps link -> coordinates)
-    Rooms.vue    The trips (`/`): each a luggage tag, coming up then been; a blank tag makes one (`/new`)
+  pages/       One file per URL (vue-router's file-based routes)
+    index.vue, new.vue   The trips (`/`), with the sheet making a new one (`/new`)
+    rooms/[roomId].vue   A room: enters it, keeps each tab once opened (KeepAlive), the memo sheet
+    rooms/[roomId]/
+      canvas.vue   Pan / pinch; pick a card (tap), move, resize and turn it (handles), open it (double tap),
+                   its toolbar; adding notes (placed even before the canvas is opened); writing on the desk
+      home.vue     The trip at a glance: dates, flights, the piles, the budget, who is in
+      memo.vue     The memo form as a tab: each save goes on the canvas
+      map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add
+      shiori.vue   The booklet (edit / read, appendix, a member's draft of a day)
 
   features/
     members/ Everyone in the room, people (owner or guest) and agents alike; api and useMembers
@@ -54,9 +57,11 @@ src/app/            The app
              on the home tab)
     rooms/   The person's trips: api (/api/me with invitations and deleted trips, /api/rooms, answering
              an invitation, restoring); when (days to go, under way, over); TripTag (a trip as a luggage
-             tag); NewTrip (the sheet that makes one, with its tag drawn live); Invitation (one to answer)
+             tag); NewTrip (the sheet that makes one, with its tag drawn live); Invitation (one to answer);
+             Rooms (the list itself, each trip a luggage tag, coming up then been)
     notes/   Notes: store, types; input (the form's text -> title, body, tags); image (a photo shrunk
-             on the device, and where a room's picture is shown from)
+             on the device, and where a room's picture is shown from); Form (the note form, new or
+             edit, Google Maps link -> coordinates: the memo tab, and the sheet over any tab)
     sync/    useSync (the session: which room, who this device is in it, where changes go); keys
              (the room's cache keys); useRoom (the socket to a room, written into the cache); ledger
              (confirmed state and our unanswered changes); persist (the room kept on the device);

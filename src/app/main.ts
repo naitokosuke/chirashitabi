@@ -1,4 +1,4 @@
-import { createVaporApp, type VaporComponent } from "vue";
+import { createVaporApp, vaporInteropPlugin, type VaporComponent } from "vue";
 
 import { createPinia } from "pinia";
 
@@ -13,10 +13,12 @@ import "./style.css";
 
 // Pinia Colada after Pinia, which it stores its cache in (docs/data-fetching.md).
 // No plugins: in particular no retry, since some mutations are paid calls.
-// The router keeps the URL and the history only (router.ts).
+// The router draws the pages (pages/, router.ts), its views being components of the classic
+// runtime, which the interop plugin lets a Vapor app mount.
 const app = createVaporApp(App as VaporComponent)
   .use(createPinia())
   .use(PiniaColada)
+  .use(vaporInteropPlugin)
   .use(router);
 
 // Unless VITE_MOCK=false, `/api` and the room's socket are answered in the page (mocks/), and

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 
 import { defineConfig } from "@vizejs/vite-plugin/vite-plus";
+import VueRouter from "vue-router/vite";
 
 // scripts/dev-access.mjs stands in for Access on a laptop and leaves a signed token here
 const devToken = existsSync(".dev-token.local")
@@ -8,6 +9,15 @@ const devToken = existsSync(".dev-token.local")
   : null;
 
 export default defineConfig({
+  plugins: [
+    // the routes are the files in src/app/pages, typed in src/app/typed-router.d.ts; every page
+    // is in the bundle, so moving between them never waits on a chunk
+    VueRouter({
+      routesFolder: "src/app/pages",
+      dts: "src/app/typed-router.d.ts",
+      importMode: "sync",
+    }),
+  ],
   compiler: { vapor: true },
   typecheck: true,
   lint: {
@@ -36,6 +46,8 @@ export default defineConfig({
   },
   fmt: {
     vize: true,
+    // written by vue-router's plugin on every build, as it writes it
+    ignorePatterns: ["src/app/typed-router.d.ts"],
     // Farthest first: the further an import is from this module, the higher it sits
     sortImports: {
       customGroups: [

@@ -4,25 +4,24 @@ import { Temporal } from "temporal-polyfill-lite";
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { CtSwipeRow } from "../../ui/index";
+import { CtSwipeRow } from "../../../ui/index";
 
-import { useI18n } from "../i18n/useI18n";
+import { useI18n } from "../../i18n/useI18n";
 
-import moreIcon from "../icons/more.svg";
-import plusIcon from "../icons/plus.svg";
-import Icon from "../icons/Icon.vue";
-import { KEPT_DAYS } from "../features/rooms/api";
-import Invitation from "../features/rooms/Invitation.vue";
-import { datesLabel, whenLabel } from "../features/rooms/label";
-import NewTrip from "../features/rooms/NewTrip.vue";
-import TripTag from "../features/rooms/TripTag.vue";
-import type { RoomId, RoomSummary } from "../features/rooms/types";
-import { useRooms } from "../features/rooms/useRooms";
-import { shortDate } from "../features/trip/format";
-import { shelve, whenOf } from "../features/rooms/when";
-import { useRoom } from "../features/sync/useRoom";
-import { useSync } from "../features/sync/useSync";
-import { initialState, locationOf } from "../shell";
+import moreIcon from "../../icons/more.svg";
+import plusIcon from "../../icons/plus.svg";
+import Icon from "../../icons/Icon.vue";
+import { KEPT_DAYS } from "./api";
+import Invitation from "./Invitation.vue";
+import { datesLabel, whenLabel } from "./label";
+import NewTrip from "./NewTrip.vue";
+import TripTag from "./TripTag.vue";
+import type { RoomId, RoomSummary } from "./types";
+import { useRooms } from "./useRooms";
+import { shortDate } from "../trip/format";
+import { shelve, whenOf } from "./when";
+import { useRoom } from "../sync/useRoom";
+import { useSync } from "../sync/useSync";
 
 const i18n = useI18n();
 const room = useRoom();
@@ -96,8 +95,11 @@ const tagOf = (r: RoomSummary) => ({
   memos: i18n.t("rooms.memos", { count: r.memos }),
 });
 
-/** Into a trip: the URL names it, and the shell enters it (App.vue) */
-const placeOf = (id: RoomId) => locationOf({ kind: "room", room: id, state: initialState });
+/** Into a trip, on its canvas: the URL names it, and its page enters it (pages/rooms/[roomId].vue) */
+const placeOf = (id: RoomId) => ({
+  name: "/rooms/[roomId]/canvas" as const,
+  params: { roomId: id },
+});
 /** A trip's own path: built from a checked room id (a UUID), so nothing else gets into the href */
 const hrefOf = (id: RoomId) => router.resolve(placeOf(id)).href;
 /** What a screen reader says for a tag: its name, then where it stands and when */
@@ -114,7 +116,7 @@ function follow(e: MouseEvent, to: () => unknown) {
 const enter = (e: MouseEvent, id: RoomId) => follow(e, () => router.push(placeOf(id)));
 
 /** Making a trip is a step of its own (`/new`), so back puts the sheet away */
-const creating = computed(() => route.path === "/new");
+const creating = computed(() => route.name === "/new");
 const startCreating = (e: MouseEvent) => follow(e, () => router.push("/new"));
 function stopCreating() {
   const back = (window.history.state as { back?: unknown } | null)?.back;
@@ -290,7 +292,7 @@ function retry() {
 </template>
 
 <style scoped>
-@import "../../ui/styles/media.css";
+@import "../../../ui/styles/media.css";
 
 .rooms {
   position: absolute;

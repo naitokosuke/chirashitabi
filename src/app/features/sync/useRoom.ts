@@ -148,7 +148,10 @@ export const useRoom = defineStore("room", () => {
     },
   });
 
-  /** The last room this device was put out of, and why; the shell goes back to the trips (App.vue) */
+  /**
+   * The last room this device was put out of, and why; the room's page goes back to the trips
+   * (pages/rooms/[roomId].vue)
+   */
   const gone = shallowRef<{ room: RoomId; reason: GoneReason } | null>(null);
 
   function refresh(room: RoomId) {
