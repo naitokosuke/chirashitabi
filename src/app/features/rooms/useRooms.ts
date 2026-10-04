@@ -3,7 +3,14 @@ import { defineQuery, useMutation, useQuery, useQueryCache } from "@pinia/colada
 import { deleteRoom, leaveRoom } from "../members/api";
 import { forget } from "../sync/persist";
 
-import { acceptInvitation, createRoom, declineInvitation, listMine, restoreRoom } from "./api";
+import {
+  acceptInvitation,
+  createRoom,
+  declineInvitation,
+  listMine,
+  purgeRoom,
+  restoreRoom,
+} from "./api";
 import type { RoomId } from "./types";
 
 /** The person's rooms, invitations and deleted trips, as `/api/me` lists them (docs/data-fetching.md) */
@@ -51,5 +58,7 @@ export const useRooms = defineQuery(() => {
     }),
     /** Brings a deleted trip back */
     restore: change(restoreRoom),
+    /** Has a deleted trip gone for good now (its owner only) */
+    purge: change(purgeRoom),
   };
 });

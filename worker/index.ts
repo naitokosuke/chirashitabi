@@ -66,9 +66,10 @@ type RoomAction =
   | "remove"
   | "leave"
   | "delete"
-  | "restore";
+  | "restore"
+  | "purge";
 const ROOM =
-  /^\/api\/rooms\/([0-9a-f-]{36})\/(ws|draft|suggest|tags|places|where|invited|invite|uninvite|remove|leave|delete|restore)$/;
+  /^\/api\/rooms\/([0-9a-f-]{36})\/(ws|draft|suggest|tags|places|where|invited|invite|uninvite|remove|leave|delete|restore|purge)$/;
 /** An invitation to a room, answered by the person invited */
 const INVITATION = /^\/api\/invitations\/([0-9a-f-]{36})\/(accept|decline)$/;
 /** A room's pictures: POST to upload one, GET `/images/<id>` to show it */
@@ -232,13 +233,19 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
   if (m === null) return status(404, "Not Found");
   const [, roomId, action] = m as unknown as [string, string, RoomAction];
 
-  if (action === "restore") {
+  if (action === "restore" || action === "purge") {
     if (upgrade) return status(403, "Forbidden");
-    // a deleted room resolves nobody, but the people who were in it may take the deletion back
+    // a deleted room resolves nobody, but the people who were in it may take the deletion
+    // back, and its owner may have it gone for good at once (the room drops itself from here)
     const member = await index.resolve(email, roomId, true);
     if (member === null) return status(403, "Forbidden");
     log.set({ room: roomId, member, action });
-    if (!(await env.ROOM.getByName(roomId).restore(member))) return status(403, "Forbidden");
+    const room = env.ROOM.getByName(roomId);
+    if (action === "purge") {
+      if (!(await room.purge(member))) return status(403, "Forbidden");
+      return Response.json({});
+    }
+    if (!(await room.restore(member))) return status(403, "Forbidden");
     await index.mark(roomId, null);
     return Response.json({});
   }
@@ -457,7 +464,10 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
  * keeps the e-mails.
  */
 async function people(
-  action: Exclude<RoomAction, "ws" | "draft" | "suggest" | "tags" | "places" | "where" | "restore">,
+  action: Exclude<
+    RoomAction,
+    "ws" | "draft" | "suggest" | "tags" | "places" | "where" | "restore" | "purge"
+  >,
   {
     index,
     room,

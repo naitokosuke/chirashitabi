@@ -109,6 +109,8 @@ export const acceptInvitation = ({ room, me }: { room: RoomId; me: Profile }) =>
 export const declineInvitation = (room: RoomId) => call(`/api/invitations/${room}/decline`);
 /** A deleted trip back, for everyone who was in it */
 export const restoreRoom = (room: RoomId) => call(`/api/rooms/${room}/restore`);
+/** A deleted trip gone for good now, by its owner; nobody can restore it after */
+export const purgeRoom = (room: RoomId) => call(`/api/rooms/${room}/purge`);
 
 /** Creates a room with its trip and its first member; resolves with the new room's id */
 export async function createRoom(room: NewRoom): Promise<RoomId> {

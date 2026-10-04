@@ -634,6 +634,30 @@ describe("deleting a room", () => {
     c.ws.close(1000, "done");
   });
 
+  test("the owner, and only the owner, has a deleted room gone for good at once", async () => {
+    const owner = "purge-owner@example.com";
+    const guest = "purge-guest@example.com";
+    const { roomId } = await createRoom(owner);
+    expect((await admit(roomId, owner, guest)).status).toBe(200);
+    expect((await post(`/api/rooms/${roomId}/purge`, owner)).status).toBe(403); // not deleted
+    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(200);
+
+    expect((await post(`/api/rooms/${roomId}/purge`, STRANGER)).status).toBe(403);
+    expect((await post(`/api/rooms/${roomId}/purge`, guest)).status).toBe(403);
+    expect((await post(`/api/rooms/${roomId}/purge`, owner)).status).toBe(200);
+
+    for (const email of [owner, guest])
+      expect(await me(email)).toMatchObject({ rooms: [], deleted: [] });
+    expect((await post(`/api/rooms/${roomId}/restore`, guest)).status).toBe(403);
+    const worker = server.getWorker();
+    const room = await worker.getDurableObjectStorage("Room", { name: roomId });
+    expect(
+      await room.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'trip'"),
+    ).toEqual([]);
+    const index = await worker.getDurableObjectStorage("RoomsIndex", { name: "index" });
+    expect(await index.exec("SELECT * FROM memberships WHERE room_id = ?", roomId)).toEqual([]);
+  });
+
   test("a deleted room takes its invitations with it", async () => {
     const owner = "deli-owner@example.com";
     const { roomId } = await createRoom(owner);
