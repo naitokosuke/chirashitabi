@@ -197,6 +197,7 @@ The retry plugin is not installed.
 
 The mocks keep seeding data without a server, now with `setQueryData` on the three room keys.
 The single-file build has no Worker and so has no socket; its room queries never leave `pending` unless the mocks seed them, so the mocks must seed all three.
+(Since replaced: the mocks answer `/api` and the room's socket in the page with MSW, `src/app/mocks/handlers.ts`, so the app seeds nothing itself and runs the code it runs against the Worker; the single-file build is gone, since a page opened from disk cannot register MSW's service worker.)
 
 ## Steps
 
@@ -264,7 +265,7 @@ On the wire, a client mutation may carry `cid` beside its fields; the room answe
 A rejection without a `cid` (a message it could not read) still makes the client resync.
 The socket no longer queues: the ledger is what is sent again.
 Stores commit through `useSync().commit`; only the room writes the cache.
-The mocks hand their state to `useRoom().offline`, where a commit is confirmed at once.
+The mocks hand their state to `useRoom().offline`, where a commit is confirmed at once (since replaced by MSW, under "Mock build" above).
 
 ### Later
 

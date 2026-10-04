@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory, type Router } from "vue-router";
 
-import { LOCAL } from "./features/sync/session";
 import type { useRoom } from "./features/sync/useRoom";
 import { locationOf } from "./shell";
 
@@ -23,14 +22,13 @@ export const router = createRouter({
 });
 
 /**
- * Opening the app at its root goes where the person was: the mocks' room, or the room this
- * device was in last. Done before the app is drawn, so the list never flashes on the way.
+ * Opening the app at its root goes where the person was: the room this device was in last.
+ * Done before the app is drawn, so the list never flashes on the way.
  */
 export async function openWhereLeft(r: Router, room: ReturnType<typeof useRoom>) {
   await r.isReady();
   if (r.currentRoute.value.path !== "/") return;
-  const s = room.session;
-  const last = s.kind === "in" && s.room === LOCAL ? LOCAL : room.remembered();
+  const last = room.remembered();
   if (last === null) return;
   await r.replace(locationOf({ kind: "room", room: last, state: { tab: "canvas", form: null } }));
 }

@@ -2,7 +2,6 @@ import { describe, expect, test } from "vite-plus/test";
 
 import type { NoteId } from "./features/notes/types";
 import type { RoomId } from "./features/rooms/types";
-import { LOCAL } from "./features/sync/session";
 import { initialState, locationOf, next, placeOf, type Place } from "./shell";
 
 const ROOM = "0d5f3c1e-6a4b-4c2d-9e8f-1a2b3c4d5e6f" as RoomId;
@@ -29,7 +28,6 @@ describe("placeOf and locationOf", () => {
         state: { tab: "map", form: { kind: "new", pin: { lat: 25.03, lng: 121.56 } } },
       },
     ],
-    ["the mocks' room", { kind: "room", room: LOCAL, state: { tab: "shiori", form: null } }],
   ])("%s goes to a URL and comes back the same", (_, place) => {
     expect(placeOf(locationOf(place))).toEqual(place);
   });

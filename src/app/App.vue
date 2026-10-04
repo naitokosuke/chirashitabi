@@ -14,7 +14,6 @@ import mapIcon from "./icons/map.svg";
 import memoIcon from "./icons/memo.svg";
 import shioriIcon from "./icons/shiori.svg";
 import tripsIcon from "./icons/trips.svg";
-import { LOCAL } from "./features/sync/session";
 import { useRoom } from "./features/sync/useRoom";
 import Connection from "./features/sync/Connection.vue";
 import ThemeSwitch from "./features/theme/ThemeSwitch.vue";
@@ -50,8 +49,8 @@ watch(
   (w) => {
     const s = room.session;
     if (w.kind === "room") {
-      if (w.room !== LOCAL && (s.kind === "out" || s.room !== w.room)) room.connect(w.room);
-    } else if (s.kind !== "out" && s.room !== LOCAL) room.leave();
+      if (s.kind === "out" || s.room !== w.room) room.connect(w.room);
+    } else if (s.kind !== "out") room.leave();
   },
   { immediate: true },
 );

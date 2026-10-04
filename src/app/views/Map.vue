@@ -267,7 +267,7 @@ function fitAll() {
             @click="() => tags.toggleTag(t.name)"
           >#{{ t.name }}</CtChip>
         </div>
-        <p v-if="noPin">{{ i18n.t(worker.api?.findPlaces ? "map.noPinFind" : "map.noPin", { count: noPin }) }}</p>
+        <p v-if="noPin">{{ i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin }) }}</p>
       </div>
 
       <!-- the press being held: a ring that fills, and the memo is written when it closes -->

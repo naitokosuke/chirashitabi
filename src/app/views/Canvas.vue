@@ -590,7 +590,7 @@ watch(
       <div class="top">
         <FilterBar />
         <button
-          v-if="worker.api?.suggest"
+          v-if="worker.api"
           type="button"
           :disabled="thinking"
           :aria-busy="thinking"

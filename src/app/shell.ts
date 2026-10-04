@@ -1,7 +1,6 @@
 import type { NoteId } from "./features/notes/types";
 import type { LatLng } from "./features/place/types";
 import { roomId, type RoomId } from "./features/rooms/types";
-import { LOCAL } from "./features/sync/session";
 export type View = "home" | "canvas" | "memo" | "map" | "shiori";
 export const VIEWS: readonly View[] = ["home", "canvas", "memo", "map", "shiori"];
 
@@ -57,13 +56,13 @@ export interface Location {
   query: Record<string, string>;
 }
 
-const ROOM_PATH = /^\/r\/([0-9a-f-]{36}|local)(?:\/([a-z]+))?\/?$/;
+const ROOM_PATH = /^\/r\/([0-9a-f-]{36})(?:\/([a-z]+))?\/?$/;
 
 /** The place a URL names; anything it cannot read is the person's trips */
 export function placeOf({ path, query }: Location): Place {
   if (path === "/new") return { kind: "new" };
   const m = ROOM_PATH.exec(path);
-  const room = m?.[1] === "local" ? LOCAL : roomId(m?.[1]);
+  const room = roomId(m?.[1]);
   if (m === null || room === null) return { kind: "rooms" };
   const tab = (VIEWS as readonly string[]).includes(m[2] ?? "") ? (m[2] as View) : "canvas";
   return { kind: "room", room, state: { tab, form: sheetOf(query) } };

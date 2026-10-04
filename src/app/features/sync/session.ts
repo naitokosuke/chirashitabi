@@ -20,8 +20,8 @@ export type InRoom = Extract<Session, { kind: "in" }>;
 
 export const OUT: Session = { kind: "out" };
 
-/** The room of a session with no server (the mocks, the single-file build) */
-export const LOCAL = "local" as RoomId;
+/** No room: what the stores read out of one, whose cache entries are never written */
+export const NO_ROOM = "none" as RoomId;
 
 /** Opening a room: in at once with what this device kept of it, joining otherwise */
 export const opened = (
@@ -40,5 +40,5 @@ export const synced = (s: Session, me: MemberId, at: Temporal.Instant): Session 
 export const linked = (s: Session, link: Link): Session =>
   s.kind === "out" || s.link === link ? s : { ...s, link };
 
-/** The room whose cache entries the stores read: out of a room, the local one, which is empty */
-export const roomOf = (s: Session): RoomId => (s.kind === "out" ? LOCAL : s.room);
+/** The room whose cache entries the stores read: out of a room, none, which is empty */
+export const roomOf = (s: Session): RoomId => (s.kind === "out" ? NO_ROOM : s.room);

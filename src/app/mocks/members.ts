@@ -11,6 +11,3 @@ export const mockMembers = (): Member[] => [
   { id: KEN, kind: "person", role: "guest", name: "Ken", color: hexColor("#d7263d")! },
   { id: CLAUDE, kind: "agent", name: "Claude", color: hexColor("#D97757")! },
 ];
-
-/** Whose device this mock runs on */
-export const mockMe = YUKI;

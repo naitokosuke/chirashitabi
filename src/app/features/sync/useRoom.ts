@@ -19,7 +19,7 @@ import { useWorker } from "../worker/useWorker";
 import { roomKeys } from "./keys";
 import { createLedger, EMPTY_ROOM, type RoomState } from "./ledger";
 import { forget, keep, kept } from "./persist";
-import { linked, LOCAL, opened, OUT, synced } from "./session";
+import { linked, opened, OUT, synced } from "./session";
 import { createRoomSocket } from "./socket";
 import type { Mutation } from "./types";
 import { NOWHERE, useSync } from "./useSync";
@@ -62,8 +62,8 @@ export const useRoom = defineStore("room", () => {
     if (keepTimer !== null) clearTimeout(keepTimer);
     keepTimer = null;
     const s = sync.session;
-    // only a room with a server, and only once this device is in it
-    if (s.kind !== "in" || s.room === LOCAL) return;
+    // only once this device is in it
+    if (s.kind !== "in") return;
     keep(localStorage, s.room, {
       me: s.me,
       confirmed: ledger.confirmed,
@@ -86,7 +86,7 @@ export const useRoom = defineStore("room", () => {
    */
   function remember() {
     const s = sync.session;
-    if (s.kind !== "in" || s.room === LOCAL) return;
+    if (s.kind !== "in") return;
     try {
       localStorage.setItem(STORAGE_KEY, s.room);
     } catch {
@@ -218,25 +218,6 @@ export const useRoom = defineStore("room", () => {
     worker.api = null;
   }
 
-  /**
-   * A room with no server (the mocks): `state` is the room, `me` who this device is in it, and
-   * ours are applied as the room would confirm them, at once.
-   */
-  function offline(state: RoomState, me: MemberId) {
-    sync.session = {
-      kind: "in",
-      room: LOCAL,
-      me,
-      syncedAt: Temporal.Now.instant(),
-      link: "connected",
-    };
-    show(ledger.snapshot(state));
-    sync.transport = {
-      commit: (m) => show(ledger.relayed(m, me, Temporal.Now.instant())),
-      send: () => {},
-    };
-  }
-
   return {
     /** Where this device is; read it here, the session moves only through this store */
     session: computed(() => sync.session),
@@ -244,7 +225,6 @@ export const useRoom = defineStore("room", () => {
     connect,
     leave,
     reconnect: socket.reconnect,
-    offline,
     gone: computed(() => gone.value),
   };
 });
