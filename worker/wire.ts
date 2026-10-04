@@ -8,12 +8,10 @@ import { currencyCode } from "../src/app/shared/money";
 
 import { COLORS, type NoteColor, type NoteStatus } from "../src/app/features/notes/types";
 
-export interface WireMember {
-  id: string;
-  kind: "person" | "agent";
-  name: string;
-  color: string;
-}
+/** A person says whether they made the room; an agent has no say in who is in it */
+export type WireMember =
+  | { id: string; kind: "person"; role: "owner" | "guest"; name: string; color: string }
+  | { id: string; kind: "agent"; name: string; color: string };
 
 /** A room as `/api/me` lists it: the trip at a glance, without its notes */
 export interface WireRoomSummary {

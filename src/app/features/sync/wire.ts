@@ -80,13 +80,13 @@ export const reviveTrip = (t: WireTrip): TripSnapshot => ({
   flights: { out: reviveFlight(t.flights?.out), back: reviveFlight(t.flights?.back) },
 });
 
-export const reviveMember = (m: WireMember): Member => ({
-  id: m.id as MemberId,
-  // a member kept on a device before kinds were kept is a person until the room says otherwise
-  kind: m.kind === "agent" ? "agent" : "person",
-  name: m.name,
-  color: hexColor(m.color)!,
-});
+export const reviveMember = (m: WireMember): Member => {
+  const common = { id: m.id as MemberId, name: m.name, color: hexColor(m.color)! };
+  // a person kept on a device before roles were sent is a guest until the room's snapshot says
+  return m.kind === "agent"
+    ? { ...common, kind: "agent" }
+    : { ...common, kind: "person", role: m.role === "owner" ? "owner" : "guest" };
+};
 
 const revivePatch = (p: WireMemoPatch): MemoPatch => {
   const { schedule: s, ...rest } = p;

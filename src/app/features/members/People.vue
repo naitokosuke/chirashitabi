@@ -7,27 +7,25 @@ import { useI18n } from "../../i18n/useI18n";
 import { KEPT_DAYS } from "../rooms/api";
 import { useSync } from "../sync/useSync";
 
-import type { MemberId } from "./types";
-import { useMembers } from "./useMembers";
-import { usePeople } from "./usePeople";
+import { SEATS, type MemberId, type Person } from "./types";
+import { useMembership } from "./useMembers";
 
 /**
  * Who is on the trip, and the way in and out of it, at the foot of the trip's home. The owner
  * (who made the trip) invites by e-mail, takes an invitation back, removes the other person and
- * deletes the trip; anyone else may leave. Anything that takes someone out asks twice.
+ * deletes the trip; a guest may leave. Anything that takes someone out asks twice.
  */
 const i18n = useI18n();
 const id = useId();
 const router = useRouter();
 const sync = useSync();
-const { members } = useMembers();
-const people = usePeople();
+const membership = useMembership();
+const { members, me, invited } = membership;
 
-const persons = computed(() => (members.value ?? []).filter((m) => m.kind === "person"));
-const owner = computed(() => people.data.value?.owner ?? null);
-const invited = computed(() => people.data.value?.invited ?? []);
-const seats = computed(() => people.data.value?.seats ?? 0);
-const open = computed(() => persons.value.length + invited.value.length < seats.value);
+const persons = computed(() =>
+  (members.value ?? []).filter((m): m is Person => m.kind === "person"),
+);
+const open = computed(() => persons.value.length + (invited.data.value?.length ?? 0) < SEATS);
 
 /** What is waiting for a second tap: taking someone out, leaving, or deleting */
 type Asking = { kind: "remove"; member: MemberId } | { kind: "leave" } | { kind: "delete" };
@@ -47,7 +45,7 @@ const email = ref("");
 /** What did not go through, said once under the list */
 const failed = ref<"invite" | "other" | null>(null);
 
-const invite = people.invite;
+const invite = membership.invite;
 async function sendInvite() {
   const address = email.value.trim();
   if (address === "" || invite.isLoading.value) return;
@@ -60,7 +58,7 @@ async function sendInvite() {
   }
 }
 
-/** One change of who is in; a failure is said, the list is refreshed either way (usePeople) */
+/** One change of who is in; a failure is said, the list is refreshed either way (useMembership) */
 async function run(change: () => Promise<unknown>, then?: () => void) {
   failed.value = null;
   try {
@@ -71,24 +69,25 @@ async function run(change: () => Promise<unknown>, then?: () => void) {
     failed.value = "other";
   }
 }
-const uninvite = (address: string) => run(() => people.uninvite.mutateAsync(address));
-const remove = (member: MemberId) => run(() => people.remove.mutateAsync(member));
+const uninvite = (address: string) => run(() => membership.uninvite.mutateAsync(address));
+const remove = (member: MemberId) => run(() => membership.remove.mutateAsync(member));
 // the room says so on the socket and the shell goes back to the trips (App.vue); this is in case
 // the socket was down when it did
 const toTrips = () => void router.replace("/");
-const leave = () => run(() => people.leave.mutateAsync(), toTrips);
-const deleteTrip = () => run(() => people.deleteRoom.mutateAsync(), toTrips);
+const leave = () => run(() => membership.leave.mutateAsync(), toTrips);
+const deleteTrip = () => run(() => membership.deleteRoom.mutateAsync(), toTrips);
 
 const isMe = (m: MemberId) => sync.me === m;
 </script>
 
 <template>
   <!-- a div: the home's own scoped styles are on every section it holds -->
-  <div v-if="people.served.value" class="people" role="group" :aria-labelledby="`${id}-title`">
+  <!-- once the room has said who this device is in it -->
+  <div v-if="me" class="people" role="group" :aria-labelledby="`${id}-title`">
     <h2 :id="`${id}-title`">{{ i18n.t("people.title") }}</h2>
-    <p v-if="people.status.value === 'error'" class="note" role="alert">
+    <p v-if="invited.status.value === 'error'" class="note" role="alert">
       {{ i18n.t("people.loadFailed") }}
-      <button type="button" @click="() => people.refetch()">{{ i18n.t("rooms.retry") }}</button>
+      <button type="button" @click="() => invited.refetch()">{{ i18n.t("rooms.retry") }}</button>
     </p>
 
     <ul>
@@ -96,11 +95,11 @@ const isMe = (m: MemberId) => sync.me === m;
         <span aria-hidden="true" class="face">{{ m.name.slice(0, 1) }}</span>
         <span class="who">
           <b>{{ m.name }}</b>
-          <small v-if="m.id === owner">{{ i18n.t("people.owner") }}</small>
+          <small v-if="m.role === 'owner'">{{ i18n.t("people.owner") }}</small>
           <small v-if="isMe(m.id)">{{ i18n.t("people.you") }}</small>
         </span>
         <!-- the owner may take the other person out; twice, the second time naming them -->
-        <span v-if="people.isOwner.value && m.id !== owner" class="acts">
+        <span v-if="me.role === 'owner' && m.role !== 'owner'" class="acts">
           <template v-if="asked({ kind: 'remove', member: m.id })">
             <button class="danger" type="button" @click="() => remove(m.id)">
               {{ i18n.t("people.removeConfirm", { name: m.name }) }}
@@ -112,8 +111,8 @@ const isMe = (m: MemberId) => sync.me === m;
           </button>
         </span>
       </li>
-      <!-- a seat held for someone invited: a blank face until they answer -->
-      <li v-for="address in invited" :key="address" class="pending">
+      <!-- a seat held for someone invited: a blank face until they answer (the owner's only) -->
+      <li v-for="address in invited.data.value" :key="address" class="pending">
         <span aria-hidden="true" class="face"></span>
         <span class="who">
           <b>{{ address }}</b>
@@ -125,7 +124,7 @@ const isMe = (m: MemberId) => sync.me === m;
       </li>
     </ul>
 
-    <form v-if="people.isOwner.value && open" class="invite" @submit.prevent="sendInvite">
+    <form v-if="me.role === 'owner' && open" class="invite" @submit.prevent="sendInvite">
       <label :for="`${id}-email`">{{ i18n.t("people.email") }}</label>
       <div>
         <input
@@ -150,17 +149,17 @@ const isMe = (m: MemberId) => sync.me === m;
       </div>
       <p class="hint">{{ i18n.t("people.inviteHint") }}</p>
     </form>
-    <p v-else-if="people.isOwner.value && seats > 0" class="hint">
-      {{ i18n.t("people.full", { count: seats }) }}
+    <p v-else-if="me.role === 'owner'" class="hint">
+      {{ i18n.t("people.full", { count: SEATS }) }}
     </p>
 
     <p v-if="failed !== null" class="note" role="alert">
       {{ i18n.t(failed === "invite" ? "people.inviteFailed" : "people.failed") }}
     </p>
 
-    <!-- the way out: the owner deletes the trip, anyone else leaves it -->
-    <div v-if="owner !== null" class="out">
-      <template v-if="people.isOwner.value">
+    <!-- the way out: the owner deletes the trip, a guest leaves it -->
+    <div class="out">
+      <template v-if="me.role === 'owner'">
         <template v-if="asked({ kind: 'delete' })">
           <button class="danger" type="button" @click="deleteTrip">
             {{ i18n.t("people.deleteConfirm", { count: KEPT_DAYS }) }}

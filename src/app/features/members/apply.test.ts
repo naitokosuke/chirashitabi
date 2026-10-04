@@ -10,8 +10,8 @@ const KEN = "ken" as MemberId;
 
 describe("applyToMembers", () => {
   const members: Member[] = [
-    { id: YUKI, kind: "person", name: "Yuki", color: hexColor("#3c6ee0")! },
-    { id: KEN, kind: "person", name: "Ken", color: hexColor("#d7263d")! },
+    { id: YUKI, kind: "person", role: "owner", name: "Yuki", color: hexColor("#3c6ee0")! },
+    { id: KEN, kind: "person", role: "guest", name: "Ken", color: hexColor("#d7263d")! },
   ];
 
   test("a profile changes its sender only, as a new object", () => {
@@ -21,7 +21,13 @@ describe("applyToMembers", () => {
       KEN,
     );
     expect(next[0]).toBe(members[0]);
-    expect(next[1]).toEqual({ id: KEN, kind: "person", name: "Kenji", color: "#1b998b" });
+    expect(next[1]).toEqual({
+      id: KEN,
+      kind: "person",
+      role: "guest",
+      name: "Kenji",
+      color: "#1b998b",
+    });
     expect(members[1]?.name).toBe("Ken");
   });
 

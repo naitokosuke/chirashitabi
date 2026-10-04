@@ -60,7 +60,7 @@ type RoomAction =
   | "tags"
   | "places"
   | "where"
-  | "people"
+  | "invited"
   | "invite"
   | "uninvite"
   | "remove"
@@ -68,7 +68,7 @@ type RoomAction =
   | "delete"
   | "restore";
 const ROOM =
-  /^\/api\/rooms\/([0-9a-f-]{36})\/(ws|draft|suggest|tags|places|where|people|invite|uninvite|remove|leave|delete|restore)$/;
+  /^\/api\/rooms\/([0-9a-f-]{36})\/(ws|draft|suggest|tags|places|where|invited|invite|uninvite|remove|leave|delete|restore)$/;
 /** An invitation to a room, answered by the person invited */
 const INVITATION = /^\/api\/invitations\/([0-9a-f-]{36})\/(accept|decline)$/;
 /** A room's pictures: POST to upload one, GET `/images/<id>` to show it */
@@ -473,11 +473,11 @@ async function people(
   },
 ): Promise<Response> {
   switch (action) {
-    case "people": {
-      const owner = await room.owner(memberId);
-      // the e-mails invited are the owner's to see: they typed them
-      const invited = owner === memberId ? await index.invited(roomId) : [];
-      return Response.json({ owner, invited, seats: Room.MAX_PEOPLE });
+    case "invited": {
+      // the e-mails invited are the owner's to see: they typed them. Who owns the room and how
+      // many it holds every member knows already, from the socket and the app.
+      if ((await room.owner(memberId)) !== memberId) return status(403, "Forbidden");
+      return Response.json({ invited: await index.invited(roomId) });
     }
     case "invite": {
       const invitee = parseEmail(body?.email);

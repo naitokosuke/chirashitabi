@@ -1,6 +1,6 @@
 import type { RoomId } from "../rooms/types";
 
-import type { MemberId, People } from "./types";
+import type { MemberId } from "./types";
 
 const headers = { "Content-Type": "application/json" };
 
@@ -15,24 +15,16 @@ async function post(room: RoomId, action: string, body: unknown = {}): Promise<R
   return res;
 }
 
-const record = (value: unknown): Record<string, unknown> =>
-  typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
-
-/** `/people` as the app holds it; what is not sound is left empty, never guessed */
-export function peopleOf(raw: unknown): People {
-  const r = record(raw);
-  return {
-    owner: typeof r.owner === "string" && r.owner !== "" ? (r.owner as MemberId) : null,
-    invited: Array.isArray(r.invited)
-      ? r.invited.filter((e): e is string => typeof e === "string")
-      : [],
-    seats: typeof r.seats === "number" && Number.isInteger(r.seats) && r.seats > 0 ? r.seats : 0,
-  };
+/** `/invited` as the app holds it: the e-mails, and nothing that is not one */
+export function invitedOf(raw: unknown): string[] {
+  const list =
+    typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>).invited : null;
+  return Array.isArray(list) ? list.filter((e): e is string => typeof e === "string") : [];
 }
 
-/** Who owns the room, whom the owner has invited, and how many people it holds */
-export const fetchPeople = async (room: RoomId): Promise<People> =>
-  peopleOf(await (await post(room, "people")).json());
+/** Whom the owner has invited and is waiting on; the room answers its owner only */
+export const fetchInvited = async (room: RoomId): Promise<string[]> =>
+  invitedOf(await (await post(room, "invited")).json());
 
 export const invite = (room: RoomId, email: string) => post(room, "invite", { email });
 export const uninvite = (room: RoomId, email: string) => post(room, "uninvite", { email });

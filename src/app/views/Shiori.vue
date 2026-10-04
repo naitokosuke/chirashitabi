@@ -42,7 +42,7 @@ type Draft = DayDraft & { date: Temporal.PlainDate };
 const store = useNotes();
 const trip = useTrip();
 const worker = useWorker();
-const { nameOf, colorOf } = useMembers();
+const members = useMembers();
 const i18n = useI18n();
 type Tab = Temporal.PlainDate | "appendix" | null;
 /**
@@ -127,6 +127,8 @@ const picking = computed(() =>
   editing.value ? (trip.unassigned.find((n) => n.id === pickingId.value) ?? null) : null,
 );
 const draft = ref<Draft | null>(null); // a member's draft of the open day
+/** Who drafted it; nobody once they have left the room */
+const drafter = computed(() => members.value?.find((m) => m.id === draft.value?.by));
 
 const APPENDIX_TAGS = [PACKING_TAG, ARRIVAL_TAG];
 
@@ -350,9 +352,9 @@ function adoptDraft() {
             <div
               v-if="draft && draft.date.equals(day)"
               data-turn
-              :style="`--who: ${colorOf(draft.by)}`"
+              :style="`--who: ${drafter?.color ?? 'var(--muted)'}`"
             >
-              <div><span aria-hidden="true"></span>{{ nameOf(draft.by) }}<small>{{ i18n.t("shiori.draft") }}</small></div>
+              <div><span aria-hidden="true"></span>{{ drafter?.name ?? i18n.t("member.someone") }}<small>{{ i18n.t("shiori.draft") }}</small></div>
               <p>{{ draft.reason }}</p>
               <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}</li></ol>
               <div><button type="button" @click="adoptDraft">{{ i18n.t("shiori.adoptDraft") }}</button><button type="button" @click="() => (draft = null)">{{ i18n.t("common.dismiss") }}</button></div>

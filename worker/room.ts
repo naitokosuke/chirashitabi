@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
+import { SEATS } from "../src/app/features/members/types";
 import type { NoteStatus } from "../src/app/features/notes/types";
 
 import type { PlaceContext, SuggestContext, TagContext } from "./claude";
@@ -64,7 +65,7 @@ type NoteRow = {
  * it, stamps `by` and `updatedAt` itself, writes it, and tells the other sockets.
  */
 export class Room extends DurableObject<Env> {
-  static readonly MAX_PEOPLE = 2;
+  static readonly MAX_PEOPLE = SEATS;
   static readonly AGENT_ID = "agent:claude";
   static readonly MEMBER_HEADER = "X-Chirashitabi-Member";
 
@@ -651,10 +652,15 @@ export class Room extends DurableObject<Env> {
 
   private members(): WireMember[] {
     return this.ctx.storage.sql
-      .exec<{ id: string; kind: MemberKind; name: string; color: string }>(
-        "SELECT id, kind, name, color FROM members ORDER BY creator DESC, rowid",
+      .exec<{ id: string; kind: MemberKind; creator: number; name: string; color: string }>(
+        "SELECT id, kind, creator, name, color FROM members ORDER BY creator DESC, rowid",
       )
-      .toArray();
+      .toArray()
+      .map(({ id, kind, creator, name, color }) =>
+        kind === "agent"
+          ? { id, kind, name, color }
+          : { id, kind, role: creator === 1 ? "owner" : "guest", name, color },
+      );
   }
 
   private trip(): WireTrip {

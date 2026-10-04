@@ -125,7 +125,7 @@ export const useRoom = defineStore("room", () => {
     },
     onMembers(members) {
       show(ledger.members(members.map(reviveMember)));
-      // who may do what, and the trip's tag in the list, changed with them
+      // whom the owner still waits on, and the trip's tag in the list, changed with them
       const s = sync.session;
       if (s.kind !== "out") refresh(s.room);
     },
@@ -135,7 +135,7 @@ export const useRoom = defineStore("room", () => {
       // nothing of the room stays on this device: it would open a room that refuses it
       leave();
       forget(localStorage, s.room);
-      // only the list: who may do what in a room this device is out of is not its to ask
+      // only the list: whom a room this device is out of invited is not its to ask
       queryCache.invalidateQueries({ key: ROOMS_KEY }).catch(() => {
         // the list's own error state reports it
       });
@@ -155,7 +155,7 @@ export const useRoom = defineStore("room", () => {
     const quiet = () => {
       // each query's own error state reports it
     };
-    queryCache.invalidateQueries({ key: roomKeys.people(room) }).catch(quiet);
+    queryCache.invalidateQueries({ key: roomKeys.invited(room) }).catch(quiet);
     queryCache.invalidateQueries({ key: ROOMS_KEY }).catch(quiet);
   }
 
