@@ -30,8 +30,8 @@ describe("sheetOf and queryOf", () => {
 
 describe("viewOf", () => {
   test("a room's tab by its route's name; anything else is none", () => {
-    expect(viewOf("/rooms/[roomId]/map")).toBe("map");
-    expect(viewOf("/rooms/[roomId]/nope")).toBeNull();
+    expect(viewOf("/rooms/[roomId=roomId]/map")).toBe("map");
+    expect(viewOf("/rooms/[roomId=roomId]/nope")).toBeNull();
     expect(viewOf("/")).toBeNull();
     expect(viewOf(undefined)).toBeNull();
   });

@@ -16,7 +16,7 @@ const route = useRoute();
 const place = usePlace();
 /** Live while it is the tab up with no sheet over it */
 const active = computed(
-  () => route.name === "/rooms/[roomId]/memo" && sheetOf(queryStrings(route.query)) === null,
+  () => route.name === "/rooms/[roomId=roomId]/memo" && sheetOf(queryStrings(route.query)) === null,
 );
 const saved = (input: NoteInput) => void place(input, "away");
 </script>

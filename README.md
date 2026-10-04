@@ -39,14 +39,16 @@ In production Access sets the token header itself; the stub only exists because 
 ```
 src/app/            The app
   main.ts, App.vue, style.css   Boot; every page under the one menu (the dock) and the toast
-  router.ts    vue-router over the pages' files (typed in typed-router.d.ts); opens the last trip
+  router.ts    vue-router (its experimental router) over the pages' files (typed in
+               typed-router.d.ts); opens the last trip
 
-  pages/       One .vue file per URL (vue-router's file-based routes)
+  pages/       One .vue file per URL (vue-router's file-based routes); a folder named `__*` is not one
+    __params/roomId.ts   The `roomId` param: a room id, or the URL matches no page
     index.vue, new.vue   The trips (`/`), with the sheet making a new one (`/new`)
     useTrips.ts          Where the trips lead: into a trip, and the new trip's sheet
-    rooms/[roomId].vue   A room: enters it, keeps each tab once opened (KeepAlive), the memo sheet
+    rooms/[roomId=roomId].vue   A room: enters it, keeps each tab once opened (KeepAlive), the memo sheet
     rooms/url.ts         A room's tabs by their route, and the memo sheet's place in the URL's query
-    rooms/[roomId]/
+    rooms/[roomId=roomId]/
       canvas.vue   Pan / pinch; pick a card (tap), move, resize and turn it (handles), open it (double tap),
                    its toolbar; writing on the desk
       home.vue     The trip at a glance: dates, flights, the piles, the budget, who is in

@@ -15,11 +15,14 @@ const devToken = existsSync(".dev-token.local")
 export default defineConfig({
   plugins: [
     // the routes are the files in src/app/pages, typed in src/app/typed-router.d.ts; every page
-    // is in the bundle, so moving between them never waits on a chunk
+    // is in the bundle, so moving between them never waits on a chunk. A folder named `__*` is
+    // not a route; `__params` holds the param parsers (`[roomId=roomId]`), beside the pages
     VueRouter({
       routesFolder: "src/app/pages",
       dts: "src/app/typed-router.d.ts",
       importMode: "sync",
+      exclude: ["**/__*/**"],
+      experimental: { paramParsers: { dir: "src/app/pages/__params" } },
     }),
     // serves the mock service worker in dev and emits it beside a bundle that imports
     // virtual:msw (src/app/mocks/), so no copy of it is committed

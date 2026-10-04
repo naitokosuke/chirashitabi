@@ -1,35 +1,38 @@
-import { createRouter, createWebHistory, type Router } from "vue-router";
-import { routes } from "vue-router/auto-routes";
+import { createWebHistory } from "vue-router";
+import { resolver } from "vue-router/auto-resolver";
+import { experimental_createRouter, type EXPERIMENTAL_Router } from "vue-router/experimental";
 
-import { roomId } from "./features/rooms/types";
 import type { useRoom } from "./features/sync/useRoom";
 
 /**
  * The pages are the files in `pages/` (vue-router's file-based routes): `/` the person's trips,
  * `/new` a trip being made, `/rooms/<roomId>/<tab>` a room's tab, a sheet over it in the query.
+ * A room's id is parsed by `pages/__params/roomId.ts`: a URL naming anything else matches no page.
  */
-export const router = createRouter({
+export const router = experimental_createRouter({
   history: createWebHistory(),
-  routes: [...routes, { path: "/:rest(.*)*", redirect: "/" }],
+  resolver,
 });
 
-// Only a room id gets into a room's pages; a room's own URL opens on its canvas
+// A URL that matches no page goes to the trips; a room's own URL opens on its canvas
 router.beforeEach((to) => {
-  if (!("roomId" in to.params)) return;
-  const id = roomId(to.params.roomId);
-  if (id === null) return "/";
-  if (to.name === "/rooms/[roomId]")
-    return { name: "/rooms/[roomId]/canvas", params: { roomId: id }, query: to.query };
+  if (to.matched.length === 0) return "/";
+  if (to.name === "/rooms/[roomId=roomId]")
+    return {
+      name: "/rooms/[roomId=roomId]/canvas",
+      params: { roomId: to.params.roomId },
+      query: to.query,
+    };
 });
 
 /**
  * Opening the app at its root goes where the person was: the room this device was in last.
  * Done before the app is drawn, so the list never flashes on the way.
  */
-export async function openWhereLeft(r: Router, room: ReturnType<typeof useRoom>) {
+export async function openWhereLeft(r: EXPERIMENTAL_Router, room: ReturnType<typeof useRoom>) {
   await r.isReady();
   if (r.currentRoute.value.path !== "/") return;
   const last = room.remembered();
   if (last === null) return;
-  await r.replace({ name: "/rooms/[roomId]/canvas", params: { roomId: last } });
+  await r.replace({ name: "/rooms/[roomId=roomId]/canvas", params: { roomId: last } });
 }

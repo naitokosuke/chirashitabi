@@ -11,9 +11,9 @@ import type { RoomId } from "../features/rooms/types";
 export function useTrips() {
   const router = useRouter();
   const route = useRoute();
-  /** The URL names the trip, and its page enters it (pages/rooms/[roomId].vue) */
+  /** The URL names the trip, and its page enters it (pages/rooms/[roomId=roomId].vue) */
   const placeOf = (id: RoomId) => ({
-    name: "/rooms/[roomId]/canvas" as const,
+    name: "/rooms/[roomId=roomId]/canvas" as const,
     params: { roomId: id },
   });
   return {

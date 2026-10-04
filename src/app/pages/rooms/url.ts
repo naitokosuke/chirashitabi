@@ -1,13 +1,13 @@
 import type { FormTarget, NoteId } from "../../features/notes/types";
 
-/** A room's tabs, each a page under `pages/rooms/[roomId]/` */
+/** A room's tabs, each a page under `pages/rooms/[roomId=roomId]/` */
 export type View = "home" | "canvas" | "memo" | "map" | "shiori";
 export const VIEWS: readonly View[] = ["home", "canvas", "memo", "map", "shiori"];
 
-/** The tab a room's route is on, by its name (`/rooms/[roomId]/map`); null outside a room */
+/** The tab a room's route is on, by its name (`/rooms/[roomId=roomId]/map`); null outside a room */
 export function viewOf(name: unknown): View | null {
   if (typeof name !== "string") return null;
-  return VIEWS.find((v) => name === `/rooms/[roomId]/${v}`) ?? null;
+  return VIEWS.find((v) => name === `/rooms/[roomId=roomId]/${v}`) ?? null;
 }
 
 /** A route's query as strings only: a key given twice, or without a value, is not one */

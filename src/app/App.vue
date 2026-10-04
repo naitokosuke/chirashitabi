@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { computed } from "vue";
 
-import { useRoute, useRouter } from "vue-router";
+import { RouterView, useRoute, useRouter } from "vue-router";
 
 import { CtDock, CtDockDivider, CtDockGroup, CtDockItem, type CtOption } from "../ui/index";
 
@@ -63,7 +63,7 @@ const icons: Record<View, string> = {
 function selectTab(view: View) {
   if (!("roomId" in route.params) || (view === tab.value && !sheetOpen.value)) return;
   void router.replace({
-    name: `/rooms/[roomId]/${view}` as const,
+    name: `/rooms/[roomId=roomId]/${view}` as const,
     params: { roomId: route.params.roomId },
   });
 }
