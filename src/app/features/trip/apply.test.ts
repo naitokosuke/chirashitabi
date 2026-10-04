@@ -4,7 +4,9 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { currencyCode } from "../../shared/money";
 
-import { applyToDays, applyToTrip } from "./apply";
+import type { Memo, Note, NoteId } from "../notes/types";
+
+import { applyToDays, applyToTrip, moveSchedules } from "./apply";
 import type { Day, TripSnapshot } from "./types";
 
 const d1 = Temporal.PlainDate.from("2026-11-03");
@@ -36,7 +38,42 @@ describe("applyToTrip", () => {
     days: [{ date: d1, intro: "" }],
     currency: currencyCode("TWD")!,
     center: { lat: 25, lng: 121 },
+    flights: { out: null, back: null },
   };
+
+  test("new dates: the run of days from the first, each day keeping its place's intro", () => {
+    const two = {
+      ...trip,
+      days: [
+        { date: d1, intro: "Arrive" },
+        { date: d2, intro: "Jiufen" },
+      ],
+    };
+    const d0 = d1.subtract({ days: 7 });
+    const next = applyToTrip(two, { type: "trip:dates", first: d0, days: 3 });
+    expect(next.days.map((d) => [d.date.toString(), d.intro])).toEqual([
+      ["2026-10-27", "Arrive"],
+      ["2026-10-28", "Jiufen"],
+      ["2026-10-29", ""],
+    ]);
+    expect(applyToTrip(two, { type: "trip:dates", first: d1, days: 2 })).toBe(two);
+  });
+
+  test("a flight is set and taken away, the other kept", () => {
+    const out = {
+      number: "BR 191",
+      from: "HND",
+      to: "TSA",
+      departs: Temporal.PlainDateTime.from("2026-11-03T08:50"),
+      arrives: Temporal.PlainDateTime.from("2026-11-03T11:30"),
+    };
+    const set = applyToTrip(trip, { type: "trip:flight", leg: "out", flight: out });
+    expect(set.flights).toEqual({ out, back: null });
+    expect(applyToTrip(set, { type: "trip:flight", leg: "out", flight: null }).flights).toEqual({
+      out: null,
+      back: null,
+    });
+  });
 
   test("a new name changes the name only, as a new object", () => {
     const next = applyToTrip(trip, { type: "trip:rename", name: "台湾の秋" });
@@ -49,5 +86,35 @@ describe("applyToTrip", () => {
     expect(applyToTrip(trip, { type: "day:intro", date: d1, intro: "x" }).days[0]?.intro).toBe("x");
     expect(applyToTrip(trip, { type: "trip:rename", name: "Taiwan trip" })).toBe(trip);
     expect(applyToTrip(trip, { type: "note:delete", id: "x" as never })).toBe(trip);
+  });
+});
+
+describe("moveSchedules", () => {
+  const at = Temporal.Instant.from("2026-10-04T00:00:00Z");
+  const planned = (id: string, date: Temporal.PlainDate): Memo =>
+    ({
+      id: id as NoteId,
+      kind: "memo",
+      title: id,
+      schedule: { date, time: null, status: "idea" },
+    }) as Memo;
+
+  test("planned notes move with the first day; one past the new last day loses its day", () => {
+    const notes: Note[] = [planned("a", d1), planned("b", d2)];
+    // from 11/3 for two days to 11/10 for one day: a moves to 11/10, b (11/11) falls off
+    const next = moveSchedules(
+      notes,
+      d1,
+      { type: "trip:dates", first: d1.add({ days: 7 }), days: 1 },
+      at,
+    );
+    expect(
+      next.map((n) => (n.kind === "memo" ? (n.schedule?.date.toString() ?? null) : null)),
+    ).toEqual(["2026-11-10", null]);
+  });
+
+  test("same first day and room for every plan: the notes are kept as they were", () => {
+    const notes: Note[] = [planned("a", d1)];
+    expect(moveSchedules(notes, d1, { type: "trip:dates", first: d1, days: 3 }, at)).toBe(notes);
   });
 });

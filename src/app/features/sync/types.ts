@@ -3,6 +3,7 @@ import type { Temporal } from "temporal-polyfill-lite";
 import type { HexColor } from "../../shared/color";
 
 import type { MemoPatch, NewMemo, NewText, NoteColor, NoteId } from "../notes/types";
+import type { Flight, Leg } from "../trip/types";
 
 /**
  * How the stores reach the room (useRoom installs it). `commit` is a change of ours: it shows
@@ -26,4 +27,7 @@ export type Mutation =
   | { type: "note:delete"; id: NoteId }
   | { type: "day:intro"; date: Temporal.PlainDate; intro: string }
   | { type: "member:profile"; name: string; color: HexColor } // how the sender wants to be shown
-  | { type: "trip:rename"; name: string }; // the trip's name, trimmed, never empty
+  | { type: "trip:rename"; name: string } // the trip's name, trimmed, never empty
+  // when the trip is: its first day and how many days; what is planned moves with it
+  | { type: "trip:dates"; first: Temporal.PlainDate; days: number }
+  | { type: "trip:flight"; leg: Leg; flight: Flight | null };

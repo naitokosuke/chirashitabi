@@ -63,8 +63,9 @@ src/app/            The app
              wire (the room's JSON back into the app's types)
     theme/   Light or dark: the device's until picked (useTheme, remembered); ThemeSwitch, the dock's
              sun and moon, whose new colors spread from it like ink
-    trip/    The room's trip (name, days, currency, map center); itinerary (notes on a day,
-             status, budgets, assigning a day, adopting a draft); formatting
+    trip/    The room's trip (name, days, currency, map center, flights); itinerary (notes on a day,
+             status, budgets, assigning a day, adopting a draft); formatting; settings and
+             TripEditor (name, dates and flights, edited on the home tab); FlightLine (a flight)
     tags/    Tag colors and the tag filter (store, filter bar)
     place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON
     canvas/  Sticky note card (a text box too); TextField (words being written on the desk); transform
