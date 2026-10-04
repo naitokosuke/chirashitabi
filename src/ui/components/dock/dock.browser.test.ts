@@ -31,10 +31,12 @@ afterEach(async () => {
 
 const frames = (n: number) =>
   new Promise<void>((done) => {
-    const step = (left: number) => (left === 0 ? done() : requestAnimationFrame(() => step(left - 1)));
+    const step = (left: number) =>
+      left === 0 ? done() : requestAnimationFrame(() => step(left - 1));
     step(n);
   });
-const item = (label: string) => page.getByRole(label === "trips" ? "link" : "button", { name: label });
+const item = (label: string) =>
+  page.getByRole(label === "trips" ? "link" : "button", { name: label });
 const rect = (label: string) => item(label).element().getBoundingClientRect();
 const width = (label: string) => rect(label).width;
 const middle = (r: DOMRect) => r.left + r.width / 2;
