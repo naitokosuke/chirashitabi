@@ -1,5 +1,4 @@
-import type { NoteId } from "./features/notes/types";
-import type { LatLng } from "./features/place/types";
+import type { FormTarget, NoteId } from "../../features/notes/types";
 
 /** A room's tabs, each a page under `pages/rooms/[roomId]/` */
 export type View = "home" | "canvas" | "memo" | "map" | "shiori";
@@ -10,12 +9,6 @@ export function viewOf(name: unknown): View | null {
   if (typeof name !== "string") return null;
   return VIEWS.find((v) => name === `/rooms/[roomId]/${v}`) ?? null;
 }
-
-/**
- * What a sheet is open on: a new memo (pinned when written from the map), or an existing one,
- * by id, so the form always edits the memo as it is now
- */
-export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; id: NoteId };
 
 /** A route's query as strings only: a key given twice, or without a value, is not one */
 export type Query = Record<string, string>;

@@ -3,6 +3,9 @@ import { computed, onBeforeUnmount, watch } from "vue";
 
 import { useRoute, useRouter } from "vue-router";
 
+import { useI18n } from "../../i18n/useI18n";
+
+import { usePlace } from "../../features/canvas/usePlace";
 import Form, { type FormMode } from "../../features/notes/Form.vue";
 import type { NoteInput } from "../../features/notes/types";
 import Rooms from "../../features/rooms/Rooms.vue";
@@ -10,9 +13,9 @@ import { roomId } from "../../features/rooms/types";
 import Connection from "../../features/sync/Connection.vue";
 import { useRoom } from "../../features/sync/useRoom";
 import { useSync } from "../../features/sync/useSync";
-import { queryStrings, sheetOf, viewOf } from "../../shell";
+import { useTrips } from "../useTrips";
 
-import { usePlace } from "./[roomId]/canvas.vue";
+import { queryStrings, sheetOf, viewOf } from "./url";
 
 /**
  * A room: its tabs, each a page kept once it is opened (KeepAlive), so coming back to one shows
@@ -26,6 +29,8 @@ const router = useRouter();
 const room = useRoom();
 const sync = useSync();
 const place = usePlace();
+const i18n = useI18n();
+const { creating, hrefOf, newHref, open, create, close, created } = useTrips();
 
 /** The room the URL names; the router lets in only a room id (router.ts) */
 const id = computed(() => roomId(route.params.roomId));
@@ -49,9 +54,23 @@ watch(
 const inRoom = computed(() => sync.session.kind === "in" && sync.session.room === id.value);
 const tab = computed(() => viewOf(route.name) ?? "canvas");
 const form = computed(() => sheetOf(queryStrings(route.query)));
-/** The one sheet, over the tab it was opened from, while it is open */
+const BACK = {
+  home: "nav.home",
+  canvas: "nav.canvas",
+  memo: "nav.memo",
+  map: "nav.map",
+  shiori: "nav.booklet",
+} as const;
+/** The one sheet, over the tab it was opened from (its way back names it), while it is open */
 const sheet = computed((): FormMode | null =>
-  form.value === null ? null : { kind: "sheet", target: form.value, from: tab.value },
+  form.value === null
+    ? null
+    : {
+        kind: "sheet",
+        target: form.value,
+        back: i18n.t(BACK[tab.value]),
+        onMap: tab.value === "map",
+      },
 );
 
 /** The sheet's own step: going back is closing it, and leaves nothing to go forward to */
@@ -90,7 +109,16 @@ function onSave(input: NoteInput, keepOpen: boolean) {
     </Transition>
     <Connection />
   </template>
-  <Rooms v-else />
+  <Rooms
+    v-else
+    :creating
+    :href-of
+    :new-href
+    @open="open"
+    @create="create"
+    @close="close"
+    @created="created"
+  />
 </template>
 
 <style scoped>

@@ -3,6 +3,8 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
+import { useRouter } from "vue-router";
+
 import { formatMoney } from "../../../shared/money";
 
 import { useI18n } from "../../../i18n/useI18n";
@@ -20,6 +22,9 @@ const { trip, forDay, budgetOf } = useTrip();
 const { notes } = useNotes();
 const { members } = useMembers();
 const i18n = useI18n();
+const router = useRouter();
+/** Out of the trip (left, or deleted): back to the trips */
+const toTrips = () => void router.replace("/");
 const price = (amount: number) =>
   trip.value === undefined ? "" : formatMoney(amount, trip.value.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
@@ -114,7 +119,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
 
       <p><small>{{ i18n.t("home.budget") }}</small>{{ price(fixedTotal) }}<small v-if="allTotal > fixedTotal">{{ i18n.t("shiori.withMaybes", { total: price(allTotal) }) }}</small></p>
 
-      <People />
+      <People @out="toTrips" />
     </div>
   </section>
 </template>

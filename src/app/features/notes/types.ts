@@ -108,6 +108,12 @@ export type NoteInput = Pick<
   "title" | "body" | "tags" | "color" | "mapsUrl" | "pin" | "image"
 >;
 
+/**
+ * What the form is open on: a new memo (pinned when written from the map), or an existing one,
+ * by id, so the form always edits the memo as it is now
+ */
+export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; id: NoteId };
+
 /** What can change on a memo after it is written */
 export type MemoPatch = Partial<Omit<Memo, "id" | "kind" | "by" | "updatedAt">>;
 

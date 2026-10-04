@@ -32,7 +32,7 @@ import { formatMoney } from "../../../shared/money";
 
 import { useI18n } from "../../../i18n/useI18n";
 
-import { PAPERS, type Memo, type Note } from "../../../features/notes/types";
+import { PAPERS, type FormTarget, type Memo, type Note } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
 import { placeLink, safeUrl } from "../../../features/place/google-maps";
 import { lngLat, needsPin, pinnedOf, type Pinned } from "../../../features/place/pin";
@@ -46,7 +46,7 @@ import { useWorker } from "../../../features/worker/useWorker";
 import closeIcon from "../../../icons/close.svg";
 import Icon from "../../../icons/Icon.vue";
 import plusIcon from "../../../icons/plus.svg";
-import { queryOf, type FormTarget } from "../../../shell";
+import { queryOf } from "../url";
 
 /** A sheet over the map: a memo written at a place (or, from the stamp, at none yet), or one to edit */
 const router = useRouter();

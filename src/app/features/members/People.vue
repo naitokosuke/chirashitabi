@@ -1,8 +1,6 @@
 <script setup lang="ts" vapor>
 import { computed, ref, shallowRef, useId } from "vue";
 
-import { useRouter } from "vue-router";
-
 import { useI18n } from "../../i18n/useI18n";
 
 import { KEPT_DAYS } from "../rooms/api";
@@ -14,11 +12,12 @@ import { useMembers } from "./useMembers";
 /**
  * Who is on the trip, and the way in and out of it, at the foot of the trip's home. The owner
  * (who made the trip) invites by e-mail, takes an invitation back, removes the other person and
- * deletes the trip; a guest may leave. Anything that takes someone out asks twice.
+ * deletes the trip; a guest may leave. Anything that takes someone out asks twice. Once this
+ * person is out of it (left, or the trip deleted), `out` says so.
  */
+const emit = defineEmits<{ out: [] }>();
 const i18n = useI18n();
 const id = useId();
-const router = useRouter();
 const sync = useSync();
 const membership = useMembers();
 const { members, me, invited } = membership;
@@ -72,11 +71,10 @@ async function run(change: () => Promise<unknown>, then?: () => void) {
 }
 const uninvite = (address: string) => run(() => membership.uninvite.mutateAsync(address));
 const remove = (member: MemberId) => run(() => membership.remove.mutateAsync(member));
-// the room says so on the socket and the room's page goes back to the trips
-// (pages/rooms/[roomId].vue); this is in case the socket was down when it did
-const toTrips = () => void router.replace("/");
-const leave = () => run(() => membership.leave.mutateAsync(), toTrips);
-const deleteTrip = () => run(() => membership.deleteRoom.mutateAsync(), toTrips);
+// the room says so on the socket too; this is in case the socket was down when it did
+const out = () => emit("out");
+const leave = () => run(() => membership.leave.mutateAsync(), out);
+const deleteTrip = () => run(() => membership.deleteRoom.mutateAsync(), out);
 
 const isMe = (m: MemberId) => sync.me === m;
 </script>

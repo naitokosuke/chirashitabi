@@ -18,7 +18,7 @@ import mapIcon from "./icons/map.svg";
 import memoIcon from "./icons/memo.svg";
 import shioriIcon from "./icons/shiori.svg";
 import tripsIcon from "./icons/trips.svg";
-import { queryStrings, sheetOf, viewOf, type View } from "./shell";
+import { queryStrings, sheetOf, viewOf, type View } from "./pages/rooms/url";
 
 /**
  * Every page (pages/, router.ts) under the one menu, which floats over every screen in the same

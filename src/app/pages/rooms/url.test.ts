@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import type { NoteId } from "./features/notes/types";
-import { queryOf, queryStrings, sheetOf, viewOf, type FormTarget } from "./shell";
+import type { FormTarget, NoteId } from "../../features/notes/types";
+
+import { queryOf, queryStrings, sheetOf, viewOf } from "./url";
 
 describe("sheetOf and queryOf", () => {
   test.each<[string, FormTarget]>([
