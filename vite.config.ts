@@ -46,6 +46,8 @@ export default defineConfig({
   },
   fmt: {
     vize: true,
+    // written by vue-router's plugin on every build, as it writes it
+    ignorePatterns: ["src/app/typed-router.d.ts"],
     // Farthest first: the further an import is from this module, the higher it sits
     sortImports: {
       customGroups: [
