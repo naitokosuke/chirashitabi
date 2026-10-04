@@ -239,9 +239,9 @@ const isSchedule = (v: unknown): v is WireSchedule =>
 const isBudget = (v: unknown): v is number | null =>
   v === null || (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1e9);
 
-/** The profile a person sets for themselves */
+/** The profile a person sets for themselves; the name may be blank, people are told apart by color for now */
 export const parseProfile = (v: unknown): { name: string; color: string } | null =>
-  isRecord(v) && isText(v.name, NAME) && v.name.trim() !== "" && hexColor(String(v.color)) !== null
+  isRecord(v) && isText(v.name, NAME) && hexColor(String(v.color)) !== null
     ? { name: v.name.trim(), color: String(v.color).toLowerCase() }
     : null;
 

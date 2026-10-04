@@ -118,7 +118,7 @@ Creating and joining are explicit operations, not side effects of a first visit.
   An e-mail may have at most ten rooms, counted in the index; a deleted room counts until it is gone for good.
 - `room:invite(email)` is called by the owner, and a room holds at most `Room.MAX_PEOPLE` people (two).
   The room holds a seat for the invitation and the index records the e-mail against it; a held seat counts as taken, so the people plus the open invitations never exceed the limit.
-  The invitee sees it in `/api/me` and answers it: accepting (`/api/invitations/<room>/accept`) brings their own name and color, and the room mints their member id only then; declining gives the seat back, and so does the owner withdrawing it (`room:uninvite`).
+  The invitee sees it in `/api/me` and answers it: accepting (`/api/invitations/<room>/accept`) brings their own color (and a name, blank for now), and the room mints their member id only then; declining gives the seat back, and so does the owner withdrawing it (`room:uninvite`).
   The invitee must also be allowed by Access, or the invitation sits unused.
 - `room:remove(member)` is called by the owner, for anyone but themselves; `room:leave` by anyone else, for themselves.
   The room tells that person's sockets they are out (`gone`) and closes them, tells the rest who is in now (`members`), and the index forgets the membership; what they wrote stays, signed with their old id.

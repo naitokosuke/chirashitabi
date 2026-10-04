@@ -8,21 +8,19 @@ const FORM: RoomForm = {
   firstDay: "2026-11-03",
   days: 3,
   currency: "TWD",
-  me: "Yuki",
   color: "#3c6ee0",
 };
 
 describe("newRoom", () => {
-  test("a filled form is a room, names trimmed, days in a row from the first", () => {
+  test("a filled form is a room, its name trimmed, days in a row from the first, its person nameless in their color", () => {
     const room = newRoom(FORM, CENTER)!;
     expect(room.trip.name).toBe("Taiwan trip");
     expect(toWire(room).trip.days).toEqual(["2026-11-03", "2026-11-04", "2026-11-05"]);
-    expect(toWire(room).me).toEqual({ name: "Yuki", color: "#3c6ee0" });
+    expect(toWire(room).me).toEqual({ name: "", color: "#3c6ee0" });
   });
 
   test.each<[string, Partial<RoomForm>]>([
     ["a blank trip name", { name: "  " }],
-    ["a blank member name", { me: "" }],
     ["no first day", { firstDay: "" }],
     ["no days", { days: 0 }],
     ["more days than a room holds", { days: 61 }],

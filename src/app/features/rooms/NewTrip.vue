@@ -31,7 +31,6 @@ const name = ref("");
 const firstDay = ref(today.add({ days: 30 }).toString());
 const count = ref(4);
 const currency = ref<string>(CURRENCIES[0]);
-const me = ref("");
 const color = ref<string>(MEMBER_COLORS[0]);
 const step = (by: number) => (count.value = Math.min(MAX_DAYS, Math.max(1, count.value + by)));
 
@@ -43,7 +42,6 @@ const filled = computed(() =>
       firstDay: firstDay.value,
       days: count.value,
       currency: currency.value,
-      me: me.value,
       color: color.value,
     },
     DEFAULT_CENTER,
@@ -59,11 +57,11 @@ const first = computed(() => {
   }
 });
 const preview = computed(() => {
-  const members: RoomSummary["members"] = [];
-  if (me.value.trim() !== "")
-    members.push({ kind: "person", name: me.value.trim(), color: color.value as HexColor });
-  // every trip has the agent in it from the start (worker/room.ts)
-  members.push({ kind: "agent", name: "Claude", color: "#d97757" as HexColor });
+  // the person, nameless, in their color; and the agent, in every trip from the start (worker/room.ts)
+  const members: RoomSummary["members"] = [
+    { kind: "person", name: "", color: color.value as HexColor },
+    { kind: "agent", name: "Claude", color: "#d97757" as HexColor },
+  ];
   return {
     name: name.value.trim() || i18n.t("rooms.namePlaceholder"),
     unnamed: name.value.trim() === "",
@@ -115,7 +113,7 @@ onMounted(() => nameEl.value?.focus());
           ref="nameEl"
           v-model="name"
           :maxlength="MAX_NAME"
-          enterkeyhint="next"
+          enterkeyhint="done"
           required
           :placeholder="i18n.t('rooms.namePlaceholder')"
         />
@@ -163,11 +161,7 @@ onMounted(() => nameEl.value?.focus());
         </div>
       </div>
 
-      <div class="field">
-        <label :for="`${id}-me`">{{ i18n.t("rooms.you") }}</label>
-        <input :id="`${id}-me`" v-model="me" :maxlength="MAX_NAME" enterkeyhint="done" required />
-      </div>
-
+      <!-- no name for the person: told apart by color alone, for now -->
       <div class="field">
         <span :id="`${id}-color`">{{ i18n.t("rooms.color") }}</span>
         <div class="swatches" role="group" :aria-labelledby="`${id}-color`">

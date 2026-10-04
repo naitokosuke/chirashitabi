@@ -6,7 +6,7 @@ import { computed, ref, useId } from "vue";
 import { useI18n } from "../../i18n/useI18n";
 
 import { datesLabel, whenLabel } from "./label";
-import { MAX_NAME, MEMBER_COLORS, profileOf } from "./newRoom";
+import { MEMBER_COLORS, profileOf } from "./newRoom";
 import TripTag from "./TripTag.vue";
 import type { RoomId, RoomSummary } from "./types";
 import { useRooms } from "./useRooms";
@@ -14,8 +14,9 @@ import { whenOf } from "./when";
 
 /**
  * A trip someone invited this person to, on the list of trips: its tag, who it is from, and
- * the answer. Joining asks who they will be in the room, as making a trip does; the color
- * offered first is one the trip's people do not wear yet.
+ * the answer. Joining asks what color they will wear in the room, as making a trip does (no
+ * name: people are told apart by color alone, for now); the color offered first is one the
+ * trip's people do not wear yet.
  */
 const props = defineProps<{ room: RoomSummary }>();
 const emit = defineEmits<{ joined: [room: RoomId] }>();
@@ -25,12 +26,11 @@ const id = useId();
 const today = Temporal.Now.plainDateISO();
 
 const taken = new Set(props.room.members.map((m) => m.color.toLowerCase()));
-const me = ref("");
 const color = ref<string>(MEMBER_COLORS.find((c) => !taken.has(c)) ?? MEMBER_COLORS[0]);
-const profile = computed(() => profileOf(me.value, color.value));
+const profile = computed(() => profileOf(color.value));
 
-/** The owner leads the trip's people (worker/room.ts) */
-const from = computed(() => props.room.members.find((m) => m.kind === "person")?.name ?? "");
+/** The owner leads the trip's people (worker/room.ts): the invitation is from their color */
+const from = computed(() => props.room.members.find((m) => m.kind === "person")?.color);
 const tag = computed(() => ({
   name: props.room.name,
   dates: datesLabel(props.room.first, props.room.days, i18n.locale, i18n.t),
@@ -66,13 +66,11 @@ async function no() {
 
 <template>
   <form class="invitation" @submit.prevent="join">
-    <p class="from">{{ i18n.t("rooms.invitedBy", { name: from }) }}</p>
+    <p class="from">
+      <span v-if="from" aria-hidden="true" :style="`--who: ${from}`"></span>{{ i18n.t("rooms.invited") }}
+    </p>
     <TripTag v-bind="tag" />
 
-    <div class="field">
-      <label :for="`${id}-me`">{{ i18n.t("rooms.you") }}</label>
-      <input :id="`${id}-me`" v-model="me" :maxlength="MAX_NAME" enterkeyhint="done" required />
-    </div>
     <div class="field">
       <span :id="`${id}-color`">{{ i18n.t("rooms.color") }}</span>
       <div class="swatches" role="group" :aria-labelledby="`${id}-color`">
@@ -116,9 +114,20 @@ async function no() {
     font-size: var(--font-sm);
     color: var(--ink);
   }
+  /* who it is from: their dot, as on the tag */
   > .from {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-weight: 700;
     color: var(--muted);
+
+    > span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--who);
+    }
   }
 }
 
