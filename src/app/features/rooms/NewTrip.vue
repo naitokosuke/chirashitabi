@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, onMounted, ref, useId, useTemplateRef } from "vue";
 
-import { CtChip, CtSwatches } from "../../../ui/index";
+import { CtChipPick, CtSwatches, type CtOption } from "../../../ui/index";
 
 import type { HexColor } from "../../shared/color";
 
@@ -31,6 +31,7 @@ const name = ref("");
 const firstDay = ref(today.add({ days: 30 }).toString());
 const count = ref(4);
 const currency = ref<string>(CURRENCIES[0]);
+const currencies: CtOption[] = CURRENCIES.map((c) => ({ value: c, label: c }));
 const color = ref<string>(MEMBER_COLORS[0]);
 const step = (by: number) => (count.value = Math.min(MAX_DAYS, Math.max(1, count.value + by)));
 
@@ -149,16 +150,8 @@ onMounted(() => nameEl.value?.focus());
       </div>
 
       <div class="field">
-        <span :id="`${id}-currency`">{{ i18n.t("rooms.currency") }}</span>
-        <div class="chips" role="group" :aria-labelledby="`${id}-currency`">
-          <CtChip
-            v-for="c in CURRENCIES"
-            :key="c"
-            toggle
-            :selected="currency === c"
-            @click="() => (currency = c)"
-          >{{ c }}</CtChip>
-        </div>
+        <span>{{ i18n.t("rooms.currency") }}</span>
+        <CtChipPick v-model="currency" :options="currencies" :label="i18n.t('rooms.currency')" />
       </div>
 
       <!-- no name for the person: told apart by color alone, for now -->
@@ -328,12 +321,6 @@ onMounted(() => nameEl.value?.focus());
     font-weight: 700;
     font-variant-numeric: tabular-nums;
   }
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
 }
 
 /* the one action, always in reach under the fields */

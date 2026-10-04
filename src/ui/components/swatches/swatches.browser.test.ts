@@ -9,8 +9,8 @@ import { COLORS, state } from "./harness";
 import SwatchesHarness from "./SwatchesHarness.vue";
 
 /**
- * The swatches in Chromium: the ring of ink sits behind the chosen color, flows to the next
- * one picked, and the drop that bridges the way is out only while it travels.
+ * The swatches in Chromium: the target's corners frame the chosen color, and fly to the next
+ * one picked, each on its own, to lock on there.
  */
 let app: ReturnType<typeof createVaporApp> | null = null;
 beforeEach(async () => {
@@ -33,53 +33,50 @@ const frames = (n: number) =>
       left === 0 ? done() : requestAnimationFrame(() => step(left - 1));
     step(n);
   });
-const swatch = (i: number) => page.getByRole("button", { name: `color ${i + 1}` });
+const swatch = (i: number) => page.getByRole("radio", { name: `color ${i + 1}` });
 const root = () => document.querySelector<HTMLElement>(".swatches")!;
-const goo = () => root().querySelector<HTMLElement>(".goo")!;
-const ring = () => goo().querySelector<HTMLElement>(".ring")!;
-const drop = () => goo().querySelector<HTMLElement>(".drop")!;
-/** Where the ring is told to be, from the row's corner */
-const told = () => ({
-  x: parseFloat(goo().style.getPropertyValue("--x")),
-  y: parseFloat(goo().style.getPropertyValue("--y")),
-});
-/** Where the ring is drawn: its middle, from the row's corner */
-const drawn = (el: HTMLElement) => {
+const target = () => root().querySelector<HTMLElement>(".target")!;
+const corner = (c: "tl" | "tr" | "br" | "bl") => target().querySelector<HTMLElement>(`.${c}`)!;
+/** `el`'s box, from the row's corner */
+const boxOf = (el: Element) => {
   const a = root().getBoundingClientRect();
   const b = el.getBoundingClientRect();
-  return { x: b.left - a.left + b.width / 2, y: b.top - a.top + b.height / 2 };
+  return {
+    left: b.left - a.left,
+    top: b.top - a.top,
+    right: b.right - a.left,
+    bottom: b.bottom - a.top,
+  };
 };
-/** The middle of swatch `i`, from the row's corner */
-const under = (i: number) => drawn(swatch(i).element() as HTMLElement);
+const PAD = 4;
 
-describe("the ring", () => {
-  test("sits behind the chosen color from the start", async () => {
-    expect(goo().hasAttribute("data-shown")).toBe(true);
-    // the styles arrive after the first paint here; the row's resize places the ring again
-    await expect.poll(() => told().x).toBeCloseTo(under(0).x, 0);
-    await expect.poll(() => drawn(ring()).x).toBeCloseTo(under(0).x, 0);
-    expect(swatch(0).element().getAttribute("aria-pressed")).toBe("true");
+describe("the target", () => {
+  test("frames the chosen color from the start, its corners 4px out", async () => {
+    expect(target().hasAttribute("data-shown")).toBe(true);
+    // the styles arrive after the first paint here; the row's resize places the corners again
+    const s = () => boxOf(swatch(0).element());
+    await expect.poll(() => boxOf(corner("tl")).left).toBeCloseTo(s().left - PAD, 0);
+    await expect.poll(() => boxOf(corner("tl")).top).toBeCloseTo(s().top - PAD, 0);
+    await expect.poll(() => boxOf(corner("tr")).right).toBeCloseTo(s().right + PAD, 0);
+    await expect.poll(() => boxOf(corner("br")).bottom).toBeCloseTo(s().bottom + PAD, 0);
+    await expect.poll(() => boxOf(corner("bl")).left).toBeCloseTo(s().left - PAD, 0);
+    expect(swatch(0).element().getAttribute("aria-checked")).toBe("true");
   });
 
-  test("flows to the color picked, and the drop comes out on the way and pulls back after", async () => {
+  test("flies to the color picked, corner by corner, and locks on", async () => {
+    const from = boxOf(swatch(0).element());
+    await expect.poll(() => boxOf(corner("tl")).left).toBeCloseTo(from.left - PAD, 0);
     await userEvent.click(swatch(3));
     expect(state.selected).toBe(COLORS[3]);
-    await nextTick();
-    expect(told().x).toBeCloseTo(under(3).x, 0);
-    // on the way: the ring is between the two, and the drop is out
-    await frames(3);
-    expect(drawn(ring()).x).toBeGreaterThan(under(0).x);
-    expect(drawn(ring()).x).toBeLessThan(under(3).x);
-    expect(drop().hasAttribute("data-out")).toBe(true);
-    // arrived: the ring under the pick, the drop back in
-    await expect.poll(() => drawn(ring()).x).toBeCloseTo(under(3).x, 0);
-    await expect.poll(() => drop().hasAttribute("data-out")).toBe(false);
-    expect(swatch(3).element().getAttribute("aria-pressed")).toBe("true");
-    expect(swatch(0).element().getAttribute("aria-pressed")).toBe("false");
-  });
-
-  test("the swatches stay sharp: only the ink is behind the filter", () => {
-    expect(goo().style.filter).toMatch(/^url\("?#.+-goo"?\)$/);
-    expect(getComputedStyle(swatch(0).element()).filter).toBe("none");
+    const to = boxOf(swatch(3).element());
+    await frames(2);
+    // on the way: between the two
+    expect(boxOf(corner("tl")).left).toBeGreaterThan(from.left - PAD);
+    expect(boxOf(corner("tl")).left).toBeLessThan(to.left - PAD);
+    // locked on
+    await expect.poll(() => boxOf(corner("tl")).left).toBeCloseTo(to.left - PAD, 0);
+    await expect.poll(() => boxOf(corner("br")).right).toBeCloseTo(to.right + PAD, 0);
+    expect(swatch(3).element().getAttribute("aria-checked")).toBe("true");
+    expect(swatch(0).element().getAttribute("aria-checked")).toBe("false");
   });
 });

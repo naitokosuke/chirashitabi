@@ -39,5 +39,5 @@ export function useIndicator(list: Readonly<Ref<HTMLElement | null>>, watchSourc
     () =>
       `width: ${box.value.width}px; height: ${box.value.height}px; transform: translate(${box.value.x}px, ${box.value.y}px)`,
   );
-  return { style, ready };
+  return { box, style, ready };
 }
