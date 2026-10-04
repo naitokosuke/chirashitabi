@@ -49,7 +49,7 @@ export const useRoom = defineStore("room", () => {
   }
   /** The ledger's view into the cache */
   function show(state: RoomState) {
-    const id = sync.roomId;
+    const id = sync.room.id;
     put(roomKeys.notes(id), state.notes);
     put(roomKeys.members(id), state.members);
     if (state.trip !== null) put(roomKeys.trip(id), state.trip);

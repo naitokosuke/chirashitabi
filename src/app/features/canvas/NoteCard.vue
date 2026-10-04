@@ -56,7 +56,7 @@ const i18n = useI18n();
         alt=""
         draggable="false"
         loading="lazy"
-        :src="imageSrc(sync.roomId, note.image)"
+        :src="imageSrc(sync.room.id, note.image)"
       />
       <p>{{ note.title }}</p>
       <p v-if="note.body">{{ note.body }}</p>

@@ -17,10 +17,10 @@ export const useSync = defineStore("sync", () => {
   const session = shallowRef<Session>(OUT);
   const transport = shallowRef<Transport>(NOWHERE);
   /** The room whose cache entries the stores read */
-  const roomId = computed(() => roomOf(session.value));
+  const room = computed(() => ({ id: roomOf(session.value) }));
   /** Who is using this device, once in a room; their notes are signed with this id */
   const me = computed(() => (session.value.kind === "in" ? session.value.me : null));
   const commit = (msg: Mutation) => transport.value.commit(msg);
   const send = (msg: Mutation) => transport.value.send(msg);
-  return { session, transport, roomId, me, commit, send };
+  return { session, transport, room, me, commit, send };
 });

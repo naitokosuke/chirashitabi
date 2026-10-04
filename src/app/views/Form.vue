@@ -106,7 +106,7 @@ const PHOTO_STATE = {
   full: "form.photoFull",
 } as const satisfies Record<Exclude<PhotoState, "idle">, string>;
 const photoSrc = computed(() =>
-  form.value.image === null ? null : imageSrc(sync.roomId, form.value.image),
+  form.value.image === null ? null : imageSrc(sync.room.id, form.value.image),
 );
 async function onPhoto(e: Event) {
   const input = e.target as HTMLInputElement;

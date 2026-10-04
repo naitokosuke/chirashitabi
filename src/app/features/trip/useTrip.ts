@@ -25,7 +25,7 @@ export const useTrip = defineStore("trip", () => {
   const store = useNotes();
   const sync = useSync();
   /** Undefined until the room's first snapshot */
-  const { data: trip } = useQueryState(() => roomKeys.trip(sync.roomId));
+  const { data: trip } = useQueryState(() => roomKeys.trip(sync.room.id));
 
   const name = computed(() => trip.value?.name ?? "");
   const days = computed(() => trip.value?.days ?? []);

@@ -25,7 +25,7 @@ export interface Shape {
 export const useNotes = defineStore("notes", () => {
   const sync = useSync();
   /** Undefined until the room's first snapshot */
-  const { data: notes } = useQueryState(() => roomKeys.notes(sync.roomId));
+  const { data: notes } = useQueryState(() => roomKeys.notes(sync.room.id));
 
   /** A new memo near `at`; whose it is and when is stamped as it is applied */
   function add(input: NoteInput, at: { x: number; y: number }): NewMemo {

@@ -24,27 +24,26 @@ export const useMembers = defineQuery(() => {
   const sync = useSync();
   const queryCache = useQueryCache();
   const refreshRooms = useRefreshRooms();
-  const room = computed(() => sync.roomId);
-  const { data: members } = useQueryState(() => roomKeys.members(room.value));
+  const { data: members } = useQueryState(() => roomKeys.members(sync.room.id));
   /** This device's person, once the room has said who is in it */
   const me = computed(() =>
     members.value?.find((m): m is Person => m.kind === "person" && m.id === sync.me),
   );
 
   const invited = useQuery({
-    key: () => roomKeys.invited(room.value),
-    query: () => fetchInvited(room.value),
+    key: () => roomKeys.invited(sync.room.id),
+    query: () => fetchInvited(sync.room.id),
     enabled: () => me.value?.role === "owner",
   });
 
   const refresh = () => {
-    queryCache.invalidateQueries({ key: roomKeys.invited(room.value) }).catch(() => {
+    queryCache.invalidateQueries({ key: roomKeys.invited(sync.room.id) }).catch(() => {
       // the query's own error state reports it
     });
     refreshRooms();
   };
   const change = <V>(call: (room: RoomId, v: V) => Promise<unknown>) =>
-    useMutation({ mutation: (v: V) => call(room.value, v), onSettled: refresh });
+    useMutation({ mutation: (v: V) => call(sync.room.id, v), onSettled: refresh });
 
   return {
     members,
@@ -53,7 +52,7 @@ export const useMembers = defineQuery(() => {
     invite: change((r, email: string) => invite(r, email)),
     uninvite: change((r, email: string) => uninvite(r, email)),
     remove: change((r, member: MemberId) => removeMember(r, member)),
-    leave: useMutation({ mutation: () => leaveRoom(room.value), onSettled: refresh }),
-    deleteRoom: useMutation({ mutation: () => deleteRoom(room.value), onSettled: refresh }),
+    leave: useMutation({ mutation: () => leaveRoom(sync.room.id), onSettled: refresh }),
+    deleteRoom: useMutation({ mutation: () => deleteRoom(sync.room.id), onSettled: refresh }),
   };
 });
