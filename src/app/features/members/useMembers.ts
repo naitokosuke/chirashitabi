@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { defineQuery, useMutation, useQuery, useQueryCache, useQueryState } from "@pinia/colada";
 
 import type { RoomId } from "../rooms/types";
-import { useRefreshRooms } from "../rooms/useRooms";
+import { ROOMS_KEY } from "../rooms/useRooms";
 import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
@@ -23,7 +23,6 @@ import type { MemberId, Person } from "./types";
 export const useMembers = defineQuery(() => {
   const sync = useSync();
   const queryCache = useQueryCache();
-  const refreshRooms = useRefreshRooms();
   const { data: members } = useQueryState(() => roomKeys.members(sync.room.id));
   /** This device's person, once the room has said who is in it */
   const me = computed(() =>
@@ -36,11 +35,12 @@ export const useMembers = defineQuery(() => {
     enabled: () => me.value?.role === "owner",
   });
 
+  // the list of trips is only marked out of date: it is not fetched while in a room
   const refresh = () => {
-    queryCache.invalidateQueries({ key: roomKeys.invited(sync.room.id) }).catch(() => {
-      // the query's own error state reports it
-    });
-    refreshRooms();
+    for (const key of [roomKeys.invited(sync.room.id), ROOMS_KEY])
+      queryCache.invalidateQueries({ key }).catch(() => {
+        // each query's own error state reports it
+      });
   };
   const change = <V>(call: (room: RoomId, v: V) => Promise<unknown>) =>
     useMutation({ mutation: (v: V) => call(sync.room.id, v), onSettled: refresh });

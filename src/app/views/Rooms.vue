@@ -17,7 +17,7 @@ import { datesLabel, whenLabel } from "../features/rooms/label";
 import NewTrip from "../features/rooms/NewTrip.vue";
 import TripTag from "../features/rooms/TripTag.vue";
 import type { RoomId, RoomSummary } from "../features/rooms/types";
-import { useRemoveRoom, useRestoreRoom, useRoomList } from "../features/rooms/useRooms";
+import { useRooms } from "../features/rooms/useRooms";
 import { shortDate } from "../features/trip/format";
 import { shelve, whenOf } from "../features/rooms/when";
 import { useRoom } from "../features/sync/useRoom";
@@ -29,7 +29,8 @@ const router = useRouter();
 const route = useRoute();
 const today = Temporal.Now.plainDateISO();
 
-const { data: mine, status: listStatus, refetch: refetchList } = useRoomList();
+const trips = useRooms();
+const { data: mine, status: listStatus, refetch: refetchList } = trips.list;
 const rooms = computed(() => mine.value?.rooms);
 const invitations = computed(() => mine.value?.invitations ?? []);
 const deleted = computed(() => mine.value?.deleted ?? []);
@@ -51,7 +52,7 @@ function slide(id: RoomId, open: boolean) {
   if (open) slid.value = id;
   else if (slid.value === id) slid.value = null;
 }
-const { mutateAsync: remove, isLoading: removing } = useRemoveRoom();
+const { mutateAsync: remove, isLoading: removing } = trips.remove;
 const removeFailed = ref(false);
 /** Off the list: deleted by its owner (then on the deleted shelf), left by anyone else */
 async function takeOff(r: RoomSummary) {
@@ -69,7 +70,7 @@ async function takeOff(r: RoomSummary) {
 }
 
 /** A deleted trip back on the shelf; the one being restored, while it is */
-const restore = useRestoreRoom();
+const restore = trips.restore;
 const restoring = ref<RoomId | null>(null);
 const restoreFailed = ref(false);
 async function bringBack(id: RoomId) {
