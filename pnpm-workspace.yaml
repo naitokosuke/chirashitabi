@@ -4,8 +4,6 @@ minimumReleaseAgeExclude:
 allowBuilds:
   esbuild: true
   workerd: true
-  # its postinstall only copies the service worker into public/, which is committed
-  msw: false
 catalog:
   "@vitest/browser-playwright": 5.0.1
   playwright: ^1.63.0
