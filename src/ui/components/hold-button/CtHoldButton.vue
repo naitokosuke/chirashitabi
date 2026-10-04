@@ -101,8 +101,8 @@ function down(e: PointerEvent) {
   begin(e.pointerId, button.getBoundingClientRect());
 }
 function move(e: PointerEvent) {
-  const r = held?.rect;
-  if (!r || held?.pointer !== e.pointerId) return;
+  if (held === null || held.rect === null || held.pointer !== e.pointerId) return;
+  const r = held.rect;
   const off =
     e.clientX < r.left - PAD ||
     e.clientX > r.right + PAD ||

@@ -155,7 +155,7 @@ const menuNote = computed(() => {
 function noteAt(el: EventTarget | null): Note | undefined {
   const card = (el as HTMLElement).closest?.("[data-id]") as HTMLElement | null;
   // data-id comes back from the DOM as a plain string, so match it rather than trust it
-  return card ? notes.value?.find((n) => n.id === card.dataset.id) : undefined;
+  return card == null ? undefined : notes.value?.find((n) => n.id === card.dataset.id);
 }
 
 // ---- picking: a tap picks a card (framed, with handles and its toolbar); two taps open it ----
@@ -180,7 +180,7 @@ const SNAP_DEG = 15;
 /** A card's middle on screen: what it turns and grows around (its transform's origin) */
 function pivotOf(note: Note): Pivot | null {
   const r = cardEl(note)?.getBoundingClientRect();
-  return r ? { note, cx: r.left + r.width / 2, cy: r.top + r.height / 2 } : null;
+  return r === undefined ? null : { note, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
 }
 const angleOf = (at: Pivot, p: Pt) => (Math.atan2(p.y - at.cy, p.x - at.cx) * 180) / Math.PI;
 /** Degrees in (-180, 180], so a card turned all the way round is stored as it looks */
@@ -192,7 +192,7 @@ const wrap = (deg: number) => {
 function onDown(e: PointerEvent) {
   const target = e.target as HTMLElement;
   // a button, or words being written on the desk, is not the desk
-  if (target.closest("button, textarea")) return;
+  if (target.closest("button, textarea") !== null) return;
   menu.value = null;
   vp.value!.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -203,7 +203,7 @@ function onDown(e: PointerEvent) {
     return;
   }
   const note = noteAt(target);
-  if (!note) {
+  if (note === undefined) {
     setGesture({
       kind: "pan",
       x: e.clientX,
@@ -346,14 +346,14 @@ function tapCard(note: Note) {
 // ---- keyboard: Enter opens a focused card, Delete removes it, the context-menu key or Shift+F10 shows its menu; Esc closes the menu, then lets go ----
 function onKey(e: KeyboardEvent) {
   // words being written take their own keys (TextField)
-  if ((e.target as HTMLElement).closest?.("textarea")) return;
+  if ((e.target as HTMLElement).closest?.("textarea") != null) return;
   if (e.key === "Escape") {
-    if (menu.value) closeMenu();
+    if (menu.value !== null) closeMenu();
     else select(null);
     return;
   }
   const note = noteAt(e.target);
-  if (!note) return;
+  if (note === undefined) return;
   if (e.key === "Delete" || e.key === "Backspace") {
     e.preventDefault();
     remove(note);
@@ -387,7 +387,7 @@ const CLEAR = 28;
 function openMenu(note: Note, { focus = true } = {}) {
   const r = vp.value!.getBoundingClientRect();
   const card = cardEl(note)?.getBoundingClientRect();
-  if (!card) return;
+  if (card === undefined) return;
   menu.value = {
     note,
     x: Math.max(8, card.left - r.left),
@@ -396,7 +396,7 @@ function openMenu(note: Note, { focus = true } = {}) {
   // once it is drawn: measure it, keep it on screen (above the card near the bottom), and move focus in
   nextTick(() => {
     const m = menuEl.value;
-    if (!m || !menu.value) return;
+    if (m === null || menu.value === null) return;
     const w = m.offsetWidth;
     const h = m.offsetHeight;
     const x = Math.max(8, Math.min(card.left - r.left, r.width - w - 8));
@@ -417,7 +417,7 @@ function closeMenu() {
   const note = menu.value?.note;
   const hadFocus = menuEl.value?.contains(document.activeElement) ?? false;
   menu.value = null;
-  if (note && hadFocus) cardEl(note)?.focus();
+  if (note !== undefined && hadFocus) cardEl(note)?.focus();
 }
 /** Left and right walk the menu's buttons, as in any toolbar; Esc closes it (one handler: two on one element collide) */
 function onMenuKey(e: KeyboardEvent) {
@@ -434,10 +434,10 @@ function onMenuKey(e: KeyboardEvent) {
   next?.focus();
 }
 function setMenuColor(color: NoteColor) {
-  if (menu.value) store.recolor(menu.value.note.id, color);
+  if (menu.value !== null) store.recolor(menu.value.note.id, color);
 }
 function duplicateFromMenu() {
-  if (menu.value) store.duplicate(menu.value.note.id);
+  if (menu.value !== null) store.duplicate(menu.value.note.id);
   closeMenu();
 }
 function rewriteFromMenu() {
@@ -445,13 +445,13 @@ function rewriteFromMenu() {
   if (n?.kind === "text") rewrite(n);
 }
 function removeFromMenu() {
-  if (menu.value) remove(menu.value.note);
+  if (menu.value !== null) remove(menu.value.note);
 }
 
 // ---- fit ----
 function fitAll() {
   const to = fitted();
-  if (to) animateTo(to);
+  if (to !== null) animateTo(to);
 }
 function fitted(minScale = 0) {
   const r = vp.value!.getBoundingClientRect();
@@ -622,7 +622,7 @@ watch(
       <div class="top">
         <FilterBar />
         <button
-          v-if="worker.api"
+          v-if="worker.api !== null"
           type="button"
           :disabled="thinking"
           :aria-busy="thinking"
@@ -654,7 +654,7 @@ watch(
             @remove="() => remove(n)"
           />
           <TextField
-            v-if="writing"
+            v-if="writing !== null"
             :key="writing.id ?? 'new'"
             :rot="writing.rot"
             :scale="writing.scale"
@@ -663,14 +663,14 @@ watch(
             :y="writing.y"
             @done="doneWriting"
           />
-          <div v-if="pop" class="ring" :style="`--x: ${pop.x}px; --y: ${pop.y}px`"></div>
+          <div v-if="pop !== null" class="ring" :style="`--x: ${pop.x}px; --y: ${pop.y}px`"></div>
         </div>
       </div>
 
       <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
 
       <div
-        v-if="menu"
+        v-if="menu !== null"
         ref="menuEl"
         role="toolbar"
         :aria-label="menu.note.title"

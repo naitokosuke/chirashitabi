@@ -27,7 +27,7 @@ const days = computed(() => {
   <div class="flight">
     <p class="head">
       <b>{{ i18n.t(leg === "out" ? "flight.out" : "flight.back") }}</b>
-      <span v-if="flight.number">{{ flight.number }}</span>
+      <span v-if="flight.number !== ''">{{ flight.number }}</span>
       <small>{{ days }}</small>
     </p>
     <p class="route">

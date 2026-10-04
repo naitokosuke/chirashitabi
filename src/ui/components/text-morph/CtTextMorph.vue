@@ -25,13 +25,15 @@ watch(
   async () => {
     const next = align(glyphs.value, flatten(props.parts), mint);
     const el = root.value;
-    const css = el ? getComputedStyle(el) : null;
-    const duration = css ? parseFloat(css.getPropertyValue("--duration-swap")) * 1000 : 0;
-    if (!el || !css || !duration) {
+    const css = el === null ? null : getComputedStyle(el);
+    const duration = css === null ? 0 : parseFloat(css.getPropertyValue("--duration-swap")) * 1000;
+    // NaN when the property is unset
+    if (el === null || css === null || !(duration > 0)) {
       glyphs.value = next;
       return;
     }
-    const easing = css.getPropertyValue("--ease-morph").trim() || "ease-out";
+    const eased = css.getPropertyValue("--ease-morph").trim();
+    const easing = eased === "" ? "ease-out" : eased;
 
     // where every character is now
     const before = new Map<number, { x: number; y: number }>();
@@ -62,7 +64,7 @@ watch(
 
     for (const g of glyphEls()) {
       const was = before.get(Number(g.dataset.g));
-      if (was) {
+      if (was !== undefined) {
         const dx = was.x - g.offsetLeft;
         const dy = was.y - g.offsetTop;
         if (dx !== 0 || dy !== 0)

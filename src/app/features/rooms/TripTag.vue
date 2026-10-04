@@ -25,16 +25,16 @@ defineProps<{
     <span aria-hidden="true" class="hole"></span>
     <div class="head">
       <p class="name" :data-unnamed="unnamed || undefined">{{ name }}</p>
-      <p v-if="when" class="when">{{ when }}</p>
+      <p v-if="when !== ''" class="when">{{ when }}</p>
     </div>
-    <p v-if="dates" class="dates">{{ dates }}</p>
-    <div v-if="members.length || memos" class="foot">
-      <ul v-if="members.length">
+    <p v-if="dates !== ''" class="dates">{{ dates }}</p>
+    <div v-if="members.length > 0 || memos !== undefined" class="foot">
+      <ul v-if="members.length > 0">
         <li v-for="m in members" :key="`${m.kind}:${m.name}:${m.color}`">
           <span :data-agent="m.kind === 'agent' || undefined" :style="`--who: ${m.color}`"></span>{{ m.name }}
         </li>
       </ul>
-      <p v-if="memos">{{ memos }}</p>
+      <p v-if="memos !== undefined">{{ memos }}</p>
     </div>
   </div>
 </template>

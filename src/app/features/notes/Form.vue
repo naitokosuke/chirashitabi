@@ -72,7 +72,9 @@ watch(editingNote, (n) => {
 const startingInput = (): NoteInput => {
   const t = target.value;
   if (t.kind === "edit")
-    return editingNote.value ? inputFromNote(editingNote.value) : blankInput([], null);
+    return editingNote.value === undefined
+      ? blankInput([], null)
+      : inputFromNote(editingNote.value);
   return blankInput(docked.value ? [] : tags.selected, t.pin);
 };
 const form = ref<NoteInput>(startingInput());
@@ -238,7 +240,7 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKey);
-  if (!docked.value && opener && opener !== document.body)
+  if (!docked.value && opener !== null && opener !== document.body)
     setTimeout(() => opener.isConnected && opener.focus());
 });
 
@@ -274,10 +276,10 @@ const hintKey = computed(() =>
 
 function addTag(raw: string) {
   const t = normalizeTag(raw);
-  if (t && !form.value.tags.includes(t)) form.value.tags.push(t);
+  if (t !== "" && !form.value.tags.includes(t)) form.value.tags.push(t);
 }
 function commitTag() {
-  if (tagInput.value.trim()) {
+  if (tagInput.value.trim() !== "") {
     addTag(tagInput.value);
     tagInput.value = "";
   }
@@ -361,7 +363,7 @@ function submit() {
           </template>
         </div>
         <!-- what Clef finds fitting, from the words and the photo; a new tag is marked as such -->
-        <div v-if="worker.api" class="suggested">
+        <div v-if="worker.api !== null" class="suggested">
           <button
             type="button"
             :disabled="tagState === 'asking' || !text.trim()"
@@ -398,14 +400,14 @@ function submit() {
             )
           }}</p>
         <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
-        <div v-if="worker.api" class="places">
+        <div v-if="worker.api !== null" class="places">
           <button
             type="button"
             :disabled="placeState === 'asking' || !text.trim()"
             :aria-busy="placeState === 'asking'"
             @click="findPlaces"
           >{{ i18n.t("form.findPlace") }}</button>
-          <ul v-if="found.length">
+          <ul v-if="found.length > 0">
             <li v-for="p in found" :key="`${p.at.lat},${p.at.lng}`">
               <button type="button" @click="() => choosePlace(p)">
                 <span>{{ p.name }}</span>
@@ -413,13 +415,13 @@ function submit() {
               </button>
             </li>
           </ul>
-          <p v-if="found.length || namedByOsm" class="credit">{{ i18n.t("form.placesCredit") }}</p>
+          <p v-if="found.length > 0 || namedByOsm" class="credit">{{ i18n.t("form.placesCredit") }}</p>
           <p v-if="placeState !== 'idle'" aria-live="polite">{{ i18n.t(PLACE_STATE[placeState]) }}</p>
         </div>
       </div>
-      <div v-if="worker.api">
+      <div v-if="worker.api !== null">
         <label :for="`${id}-photo`">{{ i18n.t("form.photo") }}</label>
-        <figure v-if="photoSrc">
+        <figure v-if="photoSrc !== null">
           <img alt="" :src="photoSrc" />
           <button type="button" @click="removePhoto">{{ i18n.t("form.removePhoto") }}</button>
         </figure>

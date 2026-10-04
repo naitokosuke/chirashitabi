@@ -68,7 +68,7 @@ async function no() {
 <template>
   <form class="invitation" @submit.prevent="join">
     <p class="from">
-      <span v-if="from" aria-hidden="true" :style="`--who: ${from}`"></span>{{ i18n.t("rooms.invited") }}
+      <span v-if="from !== undefined" aria-hidden="true" :style="`--who: ${from}`"></span>{{ i18n.t("rooms.invited") }}
     </p>
     <TripTag v-bind="tag" />
 

@@ -88,6 +88,15 @@ export default defineConfig({
         "vue/multi-word-component-names": "off",
         // :items rather than :items="items", on components and native elements alike; the preset only warns
         "vue/prefer-props-shorthand": "error",
+        // the oxlint rule above reads .ts only; this one reads .vue scripts and template conditions
+        "type/strict-boolean-expressions": "error",
+      },
+      ruleOptions: {
+        "type/strict-boolean-expressions": {
+          allowString: false,
+          allowNumber: false,
+          allowNullableObject: false,
+        },
       },
     },
   },
