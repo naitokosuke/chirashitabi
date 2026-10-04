@@ -80,7 +80,18 @@ export interface Suggestion extends CardBase {
   kind: "suggestion";
 }
 
-export type Note = Memo | Suggestion;
+/**
+ * Words set straight on the desk, with no paper under them: a heading, a label, where a note
+ * would be too much. `title` is what it says; it has no paper, so its color is not shown.
+ */
+export interface TextBox extends CardBase {
+  kind: "text";
+}
+
+export type Note = Memo | Suggestion | TextBox;
+
+/** A text box as it is written; who and when are the room's to stamp, as for a memo */
+export type NewText = Omit<TextBox, "by" | "updatedAt">;
 
 /** A memo that is on a day */
 export type Scheduled = Memo & { schedule: Schedule };

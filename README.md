@@ -43,7 +43,7 @@ src/app/            The app
 
   views/
     Canvas.vue   Pan / pinch; pick a card (tap), move, resize and turn it (handles), open it (double tap),
-                 its toolbar; adding notes
+                 its toolbar; adding notes; writing on the desk (double click on it: a text box)
     Map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add
     Shiori.vue   The booklet (edit / read, appendix, a member's draft of a day)
     Form.vue     Full-screen note form (new / edit, Google Maps link -> coordinates)
@@ -67,7 +67,8 @@ src/app/            The app
              status, budgets, assigning a day, adopting a draft); formatting
     tags/    Tag colors and the tag filter (store, filter bar)
     place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON
-    canvas/  Sticky note card; transform (screen <-> world, zoom, pinch, fit); useViewport (the animated view)
+    canvas/  Sticky note card (a text box too); TextField (words being written on the desk); transform
+             (screen <-> world, zoom, pinch, fit); useViewport (the animated view)
     worker/  WorkerApi: by the room's agent, drafting a day (POST /api/rooms/<id>/draft) and leaving ideas
              on the canvas (POST /api/rooms/<id>/suggest); booklet export
 

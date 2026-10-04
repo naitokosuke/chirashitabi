@@ -43,6 +43,8 @@ export function applyToNotes(
         scale: m.scale ?? n.scale,
         updatedAt: at,
       }));
+    case "text:edit":
+      return edit(m.id, (n) => (n.kind === "text" ? { ...n, title: m.text, updatedAt: at } : null));
     case "note:adopt":
       return edit(m.id, (n) => (n.kind === "suggestion" ? { ...adopted(n), updatedAt: at } : null));
     case "note:delete":

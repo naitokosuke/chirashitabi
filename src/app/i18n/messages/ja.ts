@@ -110,7 +110,7 @@ export const ja: Messages = {
   "home.trips": "旅の一覧",
 
   "canvas.undo": "取り消す",
-  "canvas.tripName": "旅の名前",
+  "canvas.text": "机の上の文字",
   "canvas.duplicate": "複製",
   "canvas.delete": "削除",
   "canvas.write": "メモを書く",
@@ -119,7 +119,8 @@ export const ja: Messages = {
   "canvas.addedDrag":
     "「{$title}」を追加しました。タップで選んで大きさ・傾き・色、ダブルタップで編集",
   "canvas.deleted": "「{$title}」を削除しました",
-  "canvas.empty": "まだ何もない机です。＋ から最初の思いつきを散らしましょう",
+  "canvas.empty":
+    "まだ何もない机です。＋ から最初の思いつきを散らすか、ダブルクリックで机に直接書きましょう",
   "canvas.askIdeas": "提案を頼む",
   "canvas.thinking": "考えています…",
   "canvas.ideasAdded": "Claude が提案を {$count :integer} 枚貼りました",

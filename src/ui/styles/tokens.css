@@ -53,6 +53,10 @@
   --paper-ink: oklch(0.23 0.01 260);
   --paper-muted: oklch(0.45 0.01 260);
 
+  /* a text box on the desk, at its own size (it is scaled like a card), and the room around its words */
+  --text-box-size: 24px;
+  --text-box-pad: 2px 6px;
+
   --font-2xs: 12px; /* the floor: nothing on a phone is set smaller */
   --font-xs: 12px;
   --font-sm: 13px;

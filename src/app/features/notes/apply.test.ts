@@ -5,7 +5,7 @@ import { describe, expect, test } from "vite-plus/test";
 import type { MemberId } from "../members/types";
 
 import { applyToNotes } from "./apply";
-import type { Memo, Note, NoteId, Suggestion } from "./types";
+import type { Memo, Note, NoteId, Suggestion, TextBox } from "./types";
 
 const YUKI = "yuki" as MemberId;
 const KEN = "ken" as MemberId;
@@ -118,6 +118,15 @@ describe("applyToNotes", () => {
       apply(notes, { type: "note:delete", id: "a" as NoteId }, YUKI, t1).map((n) => n.id),
     ).toEqual(["b"]);
     expect(apply(notes, { type: "note:delete", id: "z" as NoteId }, YUKI, t1)).toBe(notes);
+  });
+
+  test("a text box is rewritten; a memo takes no rewrite", () => {
+    const box: TextBox = { ...memo("t"), kind: "text", title: "Day 1" } as TextBox;
+    const notes: Note[] = [box, memo("m")];
+    const next = apply(notes, { type: "text:edit", id: "t" as NoteId, text: "Day 2" }, KEN, t1);
+    expect(next[0]).toMatchObject({ kind: "text", title: "Day 2", updatedAt: t1, by: YUKI });
+    expect(next[1]).toBe(notes[1]);
+    expect(apply(notes, { type: "text:edit", id: "m" as NoteId, text: "x" }, KEN, t1)).toBe(notes);
   });
 
   test("a mutation that is not a note's keeps the array", () => {

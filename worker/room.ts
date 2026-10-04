@@ -29,7 +29,7 @@ const RATE = { window: 10_000, max: 200 };
 
 type NoteRow = {
   id: string;
-  kind: "memo" | "suggestion";
+  kind: "memo" | "suggestion" | "text";
   title: string;
   color: string;
   x: number;
@@ -90,28 +90,8 @@ export class Room extends DurableObject<Env> {
         position INTEGER NOT NULL,
         intro TEXT NOT NULL DEFAULT ''
       );
-      CREATE TABLE IF NOT EXISTS notes (
-        id TEXT PRIMARY KEY,
-        kind TEXT NOT NULL CHECK (kind IN ('memo', 'suggestion')),
-        title TEXT NOT NULL,
-        color TEXT NOT NULL,
-        x REAL NOT NULL,
-        y REAL NOT NULL,
-        rot REAL NOT NULL,
-        by TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        body TEXT NOT NULL DEFAULT '',
-        tags TEXT NOT NULL DEFAULT '[]',
-        maps_url TEXT,
-        pin_lat REAL,
-        pin_lng REAL,
-        sched_date TEXT,
-        sched_time TEXT,
-        sched_status TEXT,
-        budget REAL,
-        deleted_at TEXT
-      );
     `);
+    ctx.storage.sql.exec(notesTable("notes"));
     // Rooms made before the appendix's checks were shared gain the column once
     const cols = ctx.storage.sql.exec<{ name: string }>("PRAGMA table_info(notes)").toArray();
     if (!cols.some((c) => c.name === "checked")) {
@@ -124,6 +104,22 @@ export class Room extends DurableObject<Env> {
     // and how large a card is drawn, once cards could be resized
     if (!cols.some((c) => c.name === "scale")) {
       ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN scale REAL NOT NULL DEFAULT 1");
+    }
+    // and text boxes, once there were any: a CHECK cannot be altered, so the table is copied
+    // once into one whose CHECK lets them in, every column by name
+    const { sql: ddl } = ctx.storage.sql
+      .exec<{ sql: string }>(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'notes'",
+      )
+      .one();
+    if (!ddl.includes("'text'")) {
+      ctx.storage.transactionSync(() => {
+        const sql = ctx.storage.sql;
+        sql.exec(notesTable("notes_next"));
+        sql.exec(`INSERT INTO notes_next (${NOTE_COLUMNS}) SELECT ${NOTE_COLUMNS} FROM notes`);
+        sql.exec("DROP TABLE notes");
+        sql.exec("ALTER TABLE notes_next RENAME TO notes");
+      });
     }
     ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS pictures (
@@ -773,6 +769,13 @@ export class Room extends DurableObject<Env> {
         sql.exec("UPDATE notes SET color = ?, updated_at = ? WHERE id = ?", m.color, now, m.id);
         return m;
       }
+      case "text:edit": {
+        const row = this.note(m.id);
+        if (row === undefined) return "no such note";
+        if (row.kind !== "text") return "not a text box";
+        sql.exec("UPDATE notes SET title = ?, updated_at = ? WHERE id = ?", m.text, now, m.id);
+        return m;
+      }
       case "note:adopt": {
         const row = this.note(m.id);
         if (row === undefined) return "no such note";
@@ -860,6 +863,60 @@ export class Room extends DurableObject<Env> {
   }
 }
 
+/** Every column of a note, in the order `notesTable` makes them */
+const NOTE_COLUMNS = [
+  "id",
+  "kind",
+  "title",
+  "color",
+  "x",
+  "y",
+  "rot",
+  "by",
+  "updated_at",
+  "body",
+  "tags",
+  "maps_url",
+  "pin_lat",
+  "pin_lng",
+  "sched_date",
+  "sched_time",
+  "sched_status",
+  "budget",
+  "deleted_at",
+  "checked",
+  "image",
+  "scale",
+].join(", ");
+
+/** The notes table as it is now, under `name`: memos, suggestions and text boxes */
+const notesTable = (name: string) => `
+  CREATE TABLE IF NOT EXISTS ${name} (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('memo', 'suggestion', 'text')),
+    title TEXT NOT NULL,
+    color TEXT NOT NULL,
+    x REAL NOT NULL,
+    y REAL NOT NULL,
+    rot REAL NOT NULL,
+    by TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    body TEXT NOT NULL DEFAULT '',
+    tags TEXT NOT NULL DEFAULT '[]',
+    maps_url TEXT,
+    pin_lat REAL,
+    pin_lng REAL,
+    sched_date TEXT,
+    sched_time TEXT,
+    sched_status TEXT,
+    budget REAL,
+    deleted_at TEXT,
+    checked INTEGER NOT NULL DEFAULT 0,
+    image TEXT,
+    scale REAL NOT NULL DEFAULT 1
+  )
+`;
+
 const fromRow = (r: NoteRow): WireNote => {
   const card = {
     id: r.id,
@@ -873,6 +930,7 @@ const fromRow = (r: NoteRow): WireNote => {
     updatedAt: r.updated_at,
   };
   if (r.kind === "suggestion") return { ...card, kind: "suggestion" };
+  if (r.kind === "text") return { ...card, kind: "text" };
   return {
     ...card,
     kind: "memo",

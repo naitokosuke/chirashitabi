@@ -123,7 +123,7 @@ one {{{$count} note}}
   "home.trips": "All trips",
 
   "canvas.undo": "Undo",
-  "canvas.tripName": "Trip name",
+  "canvas.text": "Text on the desk",
   "canvas.duplicate": "Duplicate",
   "canvas.delete": "Delete",
   "canvas.write": "Write a note",
@@ -131,7 +131,8 @@ one {{{$count} note}}
   "canvas.addedAway": "Added “{$title}” to the canvas",
   "canvas.addedDrag": "Added “{$title}”. Tap to resize, turn or recolor it; double-tap to edit",
   "canvas.deleted": "Deleted “{$title}”",
-  "canvas.empty": "An empty desk. Tap + to scatter the first idea",
+  "canvas.empty":
+    "An empty desk. Tap + to scatter the first idea, or double-click to write on the desk itself",
   "canvas.askIdeas": "Ask for ideas",
   "canvas.thinking": "Thinking…",
   "canvas.ideasAdded": `

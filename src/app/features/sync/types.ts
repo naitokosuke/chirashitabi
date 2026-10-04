@@ -2,7 +2,7 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import type { HexColor } from "../../shared/color";
 
-import type { MemoPatch, NewMemo, NoteColor, NoteId } from "../notes/types";
+import type { MemoPatch, NewMemo, NewText, NoteColor, NoteId } from "../notes/types";
 
 /**
  * How the stores reach the room (useRoom installs it). `commit` is a change of ours: it shows
@@ -15,10 +15,11 @@ export interface Transport {
   send(msg: Mutation): void;
 }
 export type Mutation =
-  | { type: "note:add"; note: NewMemo } // stamped with `by` and `updatedAt` when applied
+  | { type: "note:add"; note: NewMemo | NewText } // stamped with `by` and `updatedAt` when applied
   | { type: "note:update"; id: NoteId; patch: MemoPatch } // memos only
   | { type: "note:recolor"; id: NoteId; color: NoteColor }
   | { type: "note:adopt"; id: NoteId } // a suggestion becomes a memo
+  | { type: "text:edit"; id: NoteId; text: string } // what a text box says, never empty
   // where a card is, and as it is turned or resized how it is turned and how large; throttled
   // while a finger holds it
   | { type: "note:move"; id: NoteId; x: number; y: number; rot?: number; scale?: number }

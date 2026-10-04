@@ -12,7 +12,7 @@ import type {
   WireTrip,
 } from "../../../../worker/wire";
 import type { Member, MemberId } from "../members/types";
-import type { ImageId, Memo, MemoPatch, Note, NoteId, Schedule } from "../notes/types";
+import type { ImageId, Memo, MemoPatch, Note, NoteId, Schedule, TextBox } from "../notes/types";
 import type { TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
@@ -42,6 +42,7 @@ export function reviveNote(n: WireNote): Note {
     updatedAt: Temporal.Instant.from(n.updatedAt),
   };
   if (n.kind === "suggestion") return { ...card, kind: "suggestion" };
+  if (n.kind === "text") return { ...card, kind: "text" };
   return {
     ...card,
     kind: "memo",
@@ -86,13 +87,15 @@ const revivePatch = (p: WireMemoPatch): MemoPatch => {
 export function reviveMutation(m: WireMutation): Mutation {
   switch (m.type) {
     case "note:add":
-      return { type: "note:add", note: reviveNote(m.note) as Memo };
+      return { type: "note:add", note: reviveNote(m.note) as Memo | TextBox };
     case "note:update":
       return { type: "note:update", id: m.id as NoteId, patch: revivePatch(m.patch) };
     case "note:recolor":
       return { type: "note:recolor", id: m.id as NoteId, color: m.color };
     case "note:adopt":
       return { type: "note:adopt", id: m.id as NoteId };
+    case "text:edit":
+      return { type: "text:edit", id: m.id as NoteId, text: m.text };
     case "note:move":
       return {
         type: "note:move",

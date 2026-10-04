@@ -24,8 +24,9 @@ export const useTags = defineStore("tags", () => {
     selected.value.has(t) ? selected.value.delete(t) : selected.value.add(t);
   const matches = (n: Note) =>
     selected.value.size === 0 || tagsOf(n).some((t) => selected.value.has(t));
+  // a text box is the desk's own lettering, not a note to sort: a filter leaves it be
   const visibility = (n: Note): Visibility =>
-    matches(n) ? "shown" : mode.value === "dim" ? "dimmed" : "hidden";
+    n.kind === "text" || matches(n) ? "shown" : mode.value === "dim" ? "dimmed" : "hidden";
 
   return { tagList, selected, mode, toggleTag, matches, visibility };
 });
