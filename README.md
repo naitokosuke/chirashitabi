@@ -43,7 +43,9 @@ src/app/            The app
                typed-router.d.ts); opens the last trip
 
   pages/       One .vue file per URL (vue-router's file-based routes); a folder named `__*` is not one
-    __params/roomId.ts   The `roomId` param: a room id, or the URL matches no page
+    __params/            The params' parsers (vue-router's experimental param parsers)
+      roomId.ts          A room id, or the URL matches no page
+      sheet.ts, number.ts   The memo sheet's query: writing or editing, and a place's lat / lng
     index.vue, new.vue   The trips (`/`), with the sheet making a new one (`/new`)
     useTrips.ts          Where the trips lead: into a trip, and the new trip's sheet
     rooms/[roomId=roomId].vue   A room: enters it, keeps each tab once opened (KeepAlive), the memo sheet

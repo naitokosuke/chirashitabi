@@ -43,7 +43,7 @@ import {
   watch,
 } from "vue";
 
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import { CtFab } from "../../../../ui/index";
 
@@ -86,9 +86,14 @@ import Icon from "../../../icons/Icon.vue";
 import plusIcon from "../../../icons/plus.svg";
 import { queryOf } from "../url";
 
+const route = useRoute("/rooms/[roomId=roomId]/canvas");
 const router = useRouter();
 /** A sheet over the canvas: a step of its own, so back closes it */
-const openSheet = (form: FormTarget) => router.push({ query: queryOf(form) });
+const openSheet = (form: FormTarget) =>
+  router.push({
+    name: "/rooms/[roomId=roomId]/canvas",
+    params: { roomId: route.params.roomId, ...queryOf(form) },
+  });
 const store = useNotes();
 const { notes } = store;
 const toast = useToast();

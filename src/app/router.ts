@@ -17,12 +17,9 @@ export const router = experimental_createRouter({
 // A URL that matches no page goes to the trips; a room's own URL opens on its canvas
 router.beforeEach((to) => {
   if (to.matched.length === 0) return "/";
+  // its params carry the sheet's query too (pages/rooms/[roomId=roomId].vue)
   if (to.name === "/rooms/[roomId=roomId]")
-    return {
-      name: "/rooms/[roomId=roomId]/canvas",
-      params: { roomId: to.params.roomId },
-      query: to.query,
-    };
+    return { name: "/rooms/[roomId=roomId]/canvas", params: to.params };
 });
 
 /**

@@ -19,12 +19,16 @@ import type {
 } from 'vue-router/experimental'
 
 // Custom route params parsers
+type Param_number = _ExtractParamParserType<typeof import('./pages/__params/number.ts').parser>
 type Param_roomId = _ExtractParamParserType<typeof import('./pages/__params/roomId.ts').parser>
+type Param_sheet = _ExtractParamParserType<typeof import('./pages/__params/sheet.ts').parser>
 
 declare module 'vue-router' {
   interface TypesConfig {
     _ParamParsers: {
+      'number': { type: Param_number }
       'roomId': { type: Param_roomId }
+      'sheet': { type: Param_sheet }
     }
     RouteNamedMap: import('vue-router/auto-routes').RouteNamedMap
     _RouteFileInfoMap: import('vue-router/auto-routes')._RouteFileInfoMap
@@ -53,8 +57,8 @@ declare module 'vue-router/auto-routes' {
     '/rooms/[roomId=roomId]': RouteRecordInfo<
       '/rooms/[roomId=roomId]',
       '/rooms/:roomId',
-      { roomId: Exclude<Param_roomId, unknown[] | null> },
-      { roomId: Exclude<Param_roomId, unknown[] | null> },
+      { lat?: Exclude<Param_number, unknown[] | null> | undefined, lng?: Exclude<Param_number, unknown[] | null> | undefined, note?: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet?: Exclude<Param_sheet, unknown[] | null> | undefined },
+      { lat: Exclude<Param_number, unknown[] | null> | undefined, lng: Exclude<Param_number, unknown[] | null> | undefined, note: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet: Exclude<Param_sheet, unknown[] | null> | undefined },
       | '/rooms/[roomId=roomId]/canvas'
       | '/rooms/[roomId=roomId]/home'
       | '/rooms/[roomId=roomId]/map'
@@ -64,36 +68,36 @@ declare module 'vue-router/auto-routes' {
     '/rooms/[roomId=roomId]/canvas': RouteRecordInfo<
       '/rooms/[roomId=roomId]/canvas',
       '/rooms/:roomId/canvas',
-      { roomId: Exclude<Param_roomId, unknown[] | null> },
-      { roomId: Exclude<Param_roomId, unknown[] | null> },
+      { lat?: Exclude<Param_number, unknown[] | null> | undefined, lng?: Exclude<Param_number, unknown[] | null> | undefined, note?: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet?: Exclude<Param_sheet, unknown[] | null> | undefined },
+      { lat: Exclude<Param_number, unknown[] | null> | undefined, lng: Exclude<Param_number, unknown[] | null> | undefined, note: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet: Exclude<Param_sheet, unknown[] | null> | undefined },
       | never
     >,
     '/rooms/[roomId=roomId]/home': RouteRecordInfo<
       '/rooms/[roomId=roomId]/home',
       '/rooms/:roomId/home',
-      { roomId: Exclude<Param_roomId, unknown[] | null> },
-      { roomId: Exclude<Param_roomId, unknown[] | null> },
+      { lat?: Exclude<Param_number, unknown[] | null> | undefined, lng?: Exclude<Param_number, unknown[] | null> | undefined, note?: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet?: Exclude<Param_sheet, unknown[] | null> | undefined },
+      { lat: Exclude<Param_number, unknown[] | null> | undefined, lng: Exclude<Param_number, unknown[] | null> | undefined, note: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet: Exclude<Param_sheet, unknown[] | null> | undefined },
       | never
     >,
     '/rooms/[roomId=roomId]/map': RouteRecordInfo<
       '/rooms/[roomId=roomId]/map',
       '/rooms/:roomId/map',
-      { roomId: Exclude<Param_roomId, unknown[] | null> },
-      { roomId: Exclude<Param_roomId, unknown[] | null> },
+      { lat?: Exclude<Param_number, unknown[] | null> | undefined, lng?: Exclude<Param_number, unknown[] | null> | undefined, note?: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet?: Exclude<Param_sheet, unknown[] | null> | undefined },
+      { lat: Exclude<Param_number, unknown[] | null> | undefined, lng: Exclude<Param_number, unknown[] | null> | undefined, note: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet: Exclude<Param_sheet, unknown[] | null> | undefined },
       | never
     >,
     '/rooms/[roomId=roomId]/memo': RouteRecordInfo<
       '/rooms/[roomId=roomId]/memo',
       '/rooms/:roomId/memo',
-      { roomId: Exclude<Param_roomId, unknown[] | null> },
-      { roomId: Exclude<Param_roomId, unknown[] | null> },
+      { lat?: Exclude<Param_number, unknown[] | null> | undefined, lng?: Exclude<Param_number, unknown[] | null> | undefined, note?: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet?: Exclude<Param_sheet, unknown[] | null> | undefined },
+      { lat: Exclude<Param_number, unknown[] | null> | undefined, lng: Exclude<Param_number, unknown[] | null> | undefined, note: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet: Exclude<Param_sheet, unknown[] | null> | undefined },
       | never
     >,
     '/rooms/[roomId=roomId]/shiori': RouteRecordInfo<
       '/rooms/[roomId=roomId]/shiori',
       '/rooms/:roomId/shiori',
-      { roomId: Exclude<Param_roomId, unknown[] | null> },
-      { roomId: Exclude<Param_roomId, unknown[] | null> },
+      { lat?: Exclude<Param_number, unknown[] | null> | undefined, lng?: Exclude<Param_number, unknown[] | null> | undefined, note?: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet?: Exclude<Param_sheet, unknown[] | null> | undefined },
+      { lat: Exclude<Param_number, unknown[] | null> | undefined, lng: Exclude<Param_number, unknown[] | null> | undefined, note: string | undefined, roomId: Exclude<Param_roomId, unknown[] | null>, sheet: Exclude<Param_sheet, unknown[] | null> | undefined },
       | never
     >,
   }

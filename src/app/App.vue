@@ -18,7 +18,7 @@ import mapIcon from "./icons/map.svg";
 import memoIcon from "./icons/memo.svg";
 import shioriIcon from "./icons/shiori.svg";
 import tripsIcon from "./icons/trips.svg";
-import { queryStrings, sheetOf, viewOf, type View } from "./pages/rooms/url";
+import { sheetOf, viewOf, type View } from "./pages/rooms/url";
 
 /**
  * Every page (pages/, router.ts) under the one menu, which floats over every screen in the same
@@ -38,7 +38,7 @@ const tab = computed(() => {
 });
 const inRoom = computed(() => tab.value !== null);
 /** A sheet is over the room's tab */
-const sheetOpen = computed(() => inRoom.value && sheetOf(queryStrings(route.query)) !== null);
+const sheetOpen = computed(() => inRoom.value && sheetOf(route.params) !== null);
 
 const views = computed((): CtOption<View>[] => [
   { value: "home", label: i18n.t("nav.home") },

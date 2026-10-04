@@ -14,7 +14,7 @@ import { useRoom } from "../../features/sync/useRoom";
 import { useSync } from "../../features/sync/useSync";
 import { useTrips } from "../useTrips";
 
-import { queryStrings, sheetOf, viewOf } from "./url";
+import { sheetOf, viewOf } from "./url";
 
 /**
  * A room: its tabs, each a page kept once it is opened (KeepAlive), so coming back to one shows
@@ -23,6 +23,11 @@ import { queryStrings, sheetOf, viewOf } from "./url";
  * enters the room the URL names, and leaving leaves it. Until this device is in it (session.ts),
  * the trips are shown, saying it is on its way.
  */
+// The sheet's query, as params of every tab's route (pages/__params/): a value that is not one is none
+definePage({
+  params: { query: { sheet: "sheet", note: "string", lat: "number", lng: "number" } },
+});
+
 const route = useRoute("/rooms/[roomId=roomId]");
 const router = useRouter();
 const room = useRoom();
@@ -52,7 +57,7 @@ watch(
 
 const inRoom = computed(() => sync.session.kind === "in" && sync.session.room === id.value);
 const tab = computed(() => viewOf(route.name) ?? "canvas");
-const form = computed(() => sheetOf(queryStrings(route.query)));
+const form = computed(() => sheetOf(route.params));
 const BACK = {
   home: "nav.home",
   canvas: "nav.canvas",
@@ -72,12 +77,15 @@ const sheet = computed((): FormMode | null =>
       },
 );
 
-/** The sheet's own step: going back is closing it, and leaves nothing to go forward to */
+/**
+ * The sheet's own step: going back is closing it, and leaves nothing to go forward to. The tab
+ * with no sheet is its name and the room alone: the sheet's query is params of the route too.
+ */
 function closeSheet() {
-  const here = router.resolve({ name: route.name, params: route.params }).fullPath;
+  const tabOnly = { name: route.name, params: { roomId: id.value } };
   const back = (window.history.state as { back?: unknown } | null)?.back;
-  if (back === here) router.back();
-  else void router.replace({ query: {} });
+  if (back === router.resolve(tabOnly).fullPath) router.back();
+  else void router.replace(tabOnly);
 }
 function onSave(input: NoteInput, keepOpen: boolean) {
   if (keepOpen) {

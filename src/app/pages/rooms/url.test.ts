@@ -2,7 +2,7 @@ import { describe, expect, test } from "vite-plus/test";
 
 import type { FormTarget, NoteId } from "../../features/notes/types";
 
-import { queryOf, queryStrings, sheetOf, viewOf } from "./url";
+import { queryOf, sheetOf, viewOf } from "./url";
 
 describe("sheetOf and queryOf", () => {
   test.each<[string, FormTarget]>([
@@ -13,18 +13,20 @@ describe("sheetOf and queryOf", () => {
     expect(sheetOf(queryOf(form))).toEqual(form);
   });
 
-  test("no sheet, or one it does not know, is none", () => {
+  test("no sheet, or an edit sheet with no note, is none", () => {
     expect(sheetOf({})).toBeNull();
-    expect(sheetOf({ sheet: "nope" })).toBeNull();
     expect(sheetOf({ sheet: "edit" })).toBeNull();
+    expect(sheetOf({ sheet: "edit", note: "" })).toBeNull();
   });
 
   test("a write sheet with half a place has no place", () => {
-    expect(sheetOf({ sheet: "write", lat: "25" })).toEqual({ kind: "new", pin: null });
+    expect(sheetOf({ sheet: "write", lat: 25 })).toEqual({ kind: "new", pin: null });
   });
 
-  test("a key given twice is not read", () => {
-    expect(queryStrings({ sheet: ["write", "edit"], note: "n1" })).toEqual({ note: "n1" });
+  test("a key with no value, which the router hands over as null, is none", () => {
+    const none = null as never;
+    expect(sheetOf({ sheet: "write", lat: none, lng: 121 })).toEqual({ kind: "new", pin: null });
+    expect(sheetOf({ sheet: "edit", note: none })).toBeNull();
   });
 });
 

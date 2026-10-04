@@ -1,3 +1,5 @@
+import type { RouteParams } from "vue-router";
+
 import type { FormTarget, NoteId } from "../../features/notes/types";
 
 /** A room's tabs, each a page under `pages/rooms/[roomId=roomId]/` */
@@ -10,32 +12,29 @@ export function viewOf(name: unknown): View | null {
   return VIEWS.find((v) => name === `/rooms/[roomId=roomId]/${v}`) ?? null;
 }
 
-/** A route's query as strings only: a key given twice, or without a value, is not one */
-export type Query = Record<string, string>;
-export const queryStrings = (query: Record<string, unknown>): Query =>
-  Object.fromEntries(
-    Object.entries(query).filter((e): e is [string, string] => typeof e[1] === "string"),
-  );
+/**
+ * The sheet's part of a room's URL: its query, as the room's routes parse it (`definePage` in
+ * `[roomId=roomId].vue`), each value the router could not read left out
+ */
+export type SheetQuery = Partial<Omit<RouteParams<"/rooms/[roomId=roomId]">, "roomId">>;
 
-/** The sheet a room's URL has open over its tab, in the query, so going back closes it */
-export function sheetOf(query: Query): FormTarget | null {
-  if (query.sheet === "edit" && query.note !== undefined && query.note !== "")
-    return { kind: "edit", id: query.note as NoteId };
-  if (query.sheet !== "write") return null;
-  const lat = Number(query.lat);
-  const lng = Number(query.lng);
-  const pinned =
-    query.lat !== undefined &&
-    query.lng !== undefined &&
-    Number.isFinite(lat) &&
-    Number.isFinite(lng);
+/**
+ * The sheet a room's URL has open over its tab, in the query, so going back closes it. A key
+ * given with no value (`?lat`) comes as null, whatever the types say, hence `typeof`.
+ */
+export function sheetOf(query: SheetQuery): FormTarget | null {
+  const { sheet, note, lat, lng } = query;
+  if (sheet === "edit" && typeof note === "string" && note !== "")
+    return { kind: "edit", id: note as NoteId };
+  if (sheet !== "write") return null;
+  const pinned = typeof lat === "number" && typeof lng === "number";
   return { kind: "new", pin: pinned ? { lat, lng } : null };
 }
 
 /** The query that opens a sheet on `form` */
-export function queryOf(form: FormTarget): Query {
+export function queryOf(form: FormTarget): SheetQuery {
   if (form.kind === "edit") return { sheet: "edit", note: form.id };
   return form.pin === null
     ? { sheet: "write" }
-    : { sheet: "write", lat: String(form.pin.lat), lng: String(form.pin.lng) };
+    : { sheet: "write", lat: form.pin.lat, lng: form.pin.lng };
 }
