@@ -119,7 +119,7 @@ function removePhoto() {
   form.value.image = null;
 }
 
-// ---- tags Clef finds fitting: asked for with a tap, offered as chips to add ----
+// ---- tags Clef finds fitting: asked by itself once the words settle, or with a tap at first ----
 type TagState = "idle" | "asking" | "none" | "failed" | "day" | "trip";
 const tagState = ref<TagState>("idle");
 const TAG_STATE = {
@@ -130,22 +130,73 @@ const TAG_STATE = {
   trip: "form.tagsTripLimit",
 } as const satisfies Record<Exclude<TagState, "idle">, string>;
 const offered = ref<{ tag: string; p: number; isNew: boolean }[]>([]);
-async function askForTags() {
+/**
+ * In a room with no tags yet, the first ask has the agent propose the trip's tags too, so it
+ * waits for a tap; after that Clef is asked by itself
+ */
+const askByTap = computed(() => tags.tagList.length === 0);
+/** Each ask is one of the person's budgeted calls: Clef asks by itself at most this often a memo */
+const MAX_ASKS = 2;
+/** How long the words stay still before Clef is asked */
+const SETTLE_MS = 1500;
+/** How many letters the words must have grown or lost since the last ask for another */
+const CHANGED_BY = 20;
+/** What Clef was last asked about for this memo, and how many times */
+let asked: { words: string; image: NoteInput["image"] } | null = null;
+let asks = 0;
+/** Counts the memos written here: an answer about one already saved is dropped */
+let memo = 0;
+async function askForTags(byTap: boolean) {
   const api = worker.api;
   if (api === null || tagState.value === "asking") return;
   const { title, body, tags: inline } = parseNoteText(text.value);
+  const of = memo;
+  asked = { words: `${title}\n${body}`, image: form.value.image };
+  asks++;
   tagState.value = "asking";
   try {
-    offered.value = await api.suggestTags({
+    const got = await api.suggestTags({
       title,
       body,
       image: form.value.image,
       chosen: [...form.value.tags, ...inline],
     });
-    tagState.value = offered.value.length === 0 ? "none" : "idle";
+    if (of !== memo) return;
+    offered.value = got;
+    // nothing fitting is worth saying only to the one who asked
+    tagState.value = got.length === 0 && byTap ? "none" : "idle";
   } catch (err) {
+    if (of !== memo) return;
+    // refused or failed: Clef stops asking by itself for this memo
+    asks = MAX_ASKS;
     tagState.value = err instanceof OverBudget ? err.ceiling : "failed";
   }
+}
+/** Asked once the words are there, then again only for a new photo or many more words */
+function worthAsking() {
+  if (askByTap.value || asks >= MAX_ASKS || text.value.trim() === "") return false;
+  if (asked === null) return true;
+  const { title, body } = parseNoteText(text.value);
+  return (
+    form.value.image !== asked.image ||
+    Math.abs(`${title}\n${body}`.length - asked.words.length) >= CHANGED_BY
+  );
+}
+let settle: ReturnType<typeof setTimeout> | undefined;
+watch([text, () => form.value.image], () => {
+  clearTimeout(settle);
+  settle = setTimeout(() => {
+    if (worthAsking()) void askForTags(false);
+  }, SETTLE_MS);
+});
+onBeforeUnmount(() => clearTimeout(settle));
+/** What Clef made of the last memo says nothing of the next */
+function forgetTags() {
+  memo++;
+  asked = null;
+  asks = 0;
+  offered.value = [];
+  tagState.value = "idle";
 }
 // ---- the tags to add: those in use and Clef's, in the order they fit the words as typed ----
 /** As many as a glance takes in */
@@ -350,17 +401,14 @@ function submit() {
     form.value = startingInput();
     mapsUrl.value = "";
     text.value = "";
-    // what Clef made of the last memo says nothing of the next
-    offered.value = [];
-    tagState.value = "idle";
+    forgetTags();
     focusText();
     return;
   }
   emit("save", input, keepOpen.value);
   if (keepOpen.value) {
     text.value = "";
-    offered.value = [];
-    tagState.value = "idle";
+    forgetTags();
     focusText();
   }
 }
@@ -409,12 +457,13 @@ function submit() {
           >#{{ o.name }}<small v-if="o.isNew">{{ i18n.t("form.newTag") }}</small></CtChip>
         </div>
         <!-- Clef looks at the words and the photo; what it finds fitting moves up the row -->
-        <div v-if="worker.api !== null" class="suggested">
+        <div v-if="worker.api !== null && (askByTap || tagState !== 'idle')" class="suggested">
           <button
+            v-if="askByTap"
             type="button"
             :disabled="tagState === 'asking' || !text.trim()"
             :aria-busy="tagState === 'asking'"
-            @click="askForTags"
+            @click="() => askForTags(true)"
           >{{ i18n.t("form.suggestTags") }}</button>
           <p v-if="tagState !== 'idle'" aria-live="polite">{{ i18n.t(TAG_STATE[tagState]) }}</p>
         </div>
