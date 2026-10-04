@@ -24,7 +24,7 @@ import {
   watch,
 } from "vue";
 
-import { CtChip } from "../../../ui/index";
+import { CtChip, useFlip } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -34,6 +34,7 @@ import Icon from "../../icons/Icon.vue";
 import { googleMapsLink, placeFromUrl, placeSearchLink } from "../place/google-maps";
 import type { FoundPlace } from "../place/types";
 import { useSync } from "../sync/useSync";
+import { fits, rankTags, type TagOption } from "../tags/rank";
 import { useTags } from "../tags/useTags";
 import { OverBudget, RoomFull } from "../worker/api";
 import { useWorker } from "../worker/useWorker";
@@ -128,9 +129,7 @@ const TAG_STATE = {
   day: "form.tagsLimit",
   trip: "form.tagsTripLimit",
 } as const satisfies Record<Exclude<TagState, "idle">, string>;
-const offered = ref<{ tag: string; isNew: boolean }[]>([]);
-/** The offers not on the memo yet: one added from them, or typed, goes */
-const offers = computed(() => offered.value.filter((o) => !form.value.tags.includes(o.tag)));
+const offered = ref<{ tag: string; p: number; isNew: boolean }[]>([]);
 async function askForTags() {
   const api = worker.api;
   if (api === null || tagState.value === "asking") return;
@@ -148,6 +147,49 @@ async function askForTags() {
     tagState.value = err instanceof OverBudget ? err.ceiling : "failed";
   }
 }
+// ---- the tags to add: those in use and Clef's, in the order they fit the words as typed ----
+/** As many as a glance takes in */
+const MAX_SHOWN = 8;
+/** Not on the memo yet, neither added nor written as a #tag: one added from them goes */
+const options = computed((): TagOption[] => {
+  const judged = new Map(offered.value.map((o) => [o.tag, o.p]));
+  const inUse = tags.tagList.map(({ name, count }) => ({
+    name,
+    count,
+    p: judged.get(name) ?? null,
+    isNew: false,
+  }));
+  const known = new Set(inUse.map((t) => t.name));
+  const fresh = offered.value
+    .filter((o) => !known.has(o.tag))
+    .map((o) => ({ name: o.tag, count: 0, p: o.p, isNew: true }));
+  const on = new Set([...form.value.tags, ...parseNoteText(text.value).tags]);
+  return [...inUse, ...fresh].filter((o) => !on.has(o.name));
+});
+const ranked = computed(() => rankTags(options.value, text.value).slice(0, MAX_SHOWN));
+/**
+ * What the row shows: the ranking, taken at most every so often so the chips slide to their
+ * places instead of shuffling under the fingers on every keystroke
+ */
+const shown = ref(ranked.value);
+const RESORT_MS = 300;
+const rowEl = useTemplateRef<HTMLElement>("rowEl");
+const flip = useFlip();
+let resorted = 0;
+let resort: ReturnType<typeof setTimeout> | undefined;
+function showRanked() {
+  resort = undefined;
+  resorted = Date.now();
+  flip(rowEl.value, () => (shown.value = ranked.value));
+}
+watch(ranked, () => {
+  if (resort !== undefined) return;
+  const wait = resorted + RESORT_MS - Date.now();
+  if (wait <= 0) showRanked();
+  else resort = setTimeout(showRanked, wait);
+});
+onBeforeUnmount(() => clearTimeout(resort));
+
 // ---- where the memo is: the agent names the place, OpenStreetMap finds it; one is chosen ----
 type PlaceState = "idle" | "asking" | "none" | "failed" | "day" | "trip";
 const placeState = ref<PlaceState>("idle");
@@ -308,12 +350,17 @@ function submit() {
     form.value = startingInput();
     mapsUrl.value = "";
     text.value = "";
+    // what Clef made of the last memo says nothing of the next
+    offered.value = [];
+    tagState.value = "idle";
     focusText();
     return;
   }
   emit("save", input, keepOpen.value);
   if (keepOpen.value) {
     text.value = "";
+    offered.value = [];
+    tagState.value = "idle";
     focusText();
   }
 }
@@ -350,12 +397,18 @@ function submit() {
             @blur="commitTag"
           />
         </div>
-        <div class="recent">
-          <template v-for="t in tags.tagList.slice(0, 8)" :key="t.name">
-            <CtChip v-if="!form.tags.includes(t.name)" @click="() => addTag(t.name)">#{{ t.name }}</CtChip>
-          </template>
+        <!-- the tags that fit the words go first; what Clef offered is among them, a new one marked -->
+        <div ref="rowEl" class="recent">
+          <CtChip
+            v-for="o in shown"
+            :key="o.name"
+            :data-flip="o.name"
+            :data-fit="fits(o, text) || undefined"
+            :data-new="o.isNew || undefined"
+            @click="() => addTag(o.name)"
+          >#{{ o.name }}<small v-if="o.isNew">{{ i18n.t("form.newTag") }}</small></CtChip>
         </div>
-        <!-- what Clef finds fitting, from the words and the photo; a new tag is marked as such -->
+        <!-- Clef looks at the words and the photo; what it finds fitting moves up the row -->
         <div v-if="worker.api !== null" class="suggested">
           <button
             type="button"
@@ -363,7 +416,6 @@ function submit() {
             :aria-busy="tagState === 'asking'"
             @click="askForTags"
           >{{ i18n.t("form.suggestTags") }}</button>
-          <CtChip v-for="o in offers" :key="o.tag" @click="() => addTag(o.tag)">#{{ o.tag }}<small v-if="o.isNew">{{ i18n.t("form.newTag") }}</small></CtChip>
           <p v-if="tagState !== 'idle'" aria-live="polite">{{ i18n.t(TAG_STATE[tagState]) }}</p>
         </div>
       </div>
@@ -590,6 +642,23 @@ form {
         flex-wrap: wrap;
         gap: 6px;
         margin-top: 8px;
+
+        /* the words name it, or Clef found it likely: it reads as a pick, not only as one in use */
+        > [data-fit] {
+          color: var(--ink);
+          border-color: color-mix(in oklch, var(--ink) 45%, var(--line));
+        }
+
+        /* Clef's new tag: no note has it yet, so its edge is dashed as the agent's things are */
+        > [data-new] {
+          border-style: dashed;
+        }
+
+        small {
+          font-size: var(--font-2xs);
+          font-weight: 400;
+          color: var(--muted);
+        }
       }
 
       /* the ask for tags, dashed like every ask of the agent's, then what came back */
@@ -724,18 +793,6 @@ form {
               animation: none;
             }
           }
-        }
-
-        /* what Clef offered: a chip like any other, its edge dashed as the agent's things are */
-        > button:not(:first-child) {
-          border-style: dashed;
-        }
-
-        /* "new": no note has this tag yet */
-        small {
-          font-size: var(--font-2xs);
-          font-weight: 400;
-          color: var(--muted);
         }
 
         > p {

@@ -26,15 +26,15 @@ export interface WorkerApi {
   uploadImage(image: Blob): Promise<ImageId>;
   /**
    * Tags that fit a memo as it is being written, judged by Clef on its words and its picture,
-   * from the tags in use and the trip's candidates (proposed by the agent once). `isNew` is a
-   * tag no note has yet
+   * from the tags in use and the trip's candidates (proposed by the agent once). `p` is how
+   * likely it fits, the likeliest first; `isNew` is a tag no note has yet
    */
   suggestTags(memo: {
     title: string;
     body: string;
     image: ImageId | null;
     chosen: string[];
-  }): Promise<{ tag: string; isNew: boolean }[]>;
+  }): Promise<{ tag: string; p: number; isNew: boolean }[]>;
   /**
    * Where a memo is: the room's agent names the place from its words, and OpenStreetMap finds
    * it, so the points are real ones. Up to three to choose from, none when the memo is not
