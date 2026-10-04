@@ -28,6 +28,7 @@ import {
 } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
 import { safeUrl } from "../features/place/google-maps";
+import FlightLine from "../features/trip/FlightLine.vue";
 import { fromHhmm, hhmm, longDate, shortDate } from "../features/trip/format";
 import { assignTo, cycleStatus, draftUpdates } from "../features/trip/itinerary";
 import { useTrip } from "../features/trip/useTrip";
@@ -58,6 +59,17 @@ const openingDay = computed(
 const dayOfTab = (t: Tab) => (t === "appendix" ? null : (t ?? openingDay.value));
 /** The day on the page, or null on the appendix tab (or while the trip has no days) */
 const day = computed(() => dayOfTab(tab.value));
+/** The flights that leave or land on the day on the page, the way there first */
+const flightsOn = computed(() => {
+  const d = day.value;
+  if (d === null) return [];
+  return (["out", "back"] as const).flatMap((leg) => {
+    const f = trip.flights[leg];
+    const on =
+      f !== null && (f.departs.toPlainDate().equals(d) || f.arrives.toPlainDate().equals(d));
+    return on ? [{ leg, flight: f }] : [];
+  });
+});
 /** The day the tabs and the heading show, ahead of the page by the time it takes to turn */
 const pickedDay = computed(() => dayOfTab(picked.value));
 const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
@@ -258,6 +270,10 @@ function adoptDraft() {
       <CtTabPanel>
         <!-- ---------- a day ---------- -->
         <template v-if="day">
+          <!-- a flight that day heads the page, before anything planned around it -->
+          <div v-if="flightsOn.length" class="flights" data-turn>
+            <FlightLine v-for="f in flightsOn" :key="f.leg" :flight="f.flight" :leg="f.leg" />
+          </div>
           <template v-if="editing">
             <textarea
               data-turn
@@ -637,6 +653,12 @@ article {
         color: var(--ink);
         resize: none;
         margin-block-end: 10px;
+      }
+
+      > .flights {
+        display: grid;
+        gap: 8px;
+        margin-block-end: 14px;
       }
 
       /* the day's line, written above the strip on the desk's own ruled line */

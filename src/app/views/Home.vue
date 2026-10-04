@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import type { Temporal } from "temporal-polyfill-lite";
 
-import { computed } from "vue";
+import { computed, ref } from "vue";
 
 import { formatMoney } from "../shared/money";
 
@@ -11,7 +11,9 @@ import People from "../features/members/People.vue";
 import { useMembers } from "../features/members/useMembers";
 import { PAPERS } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
+import FlightLine from "../features/trip/FlightLine.vue";
 import { shortDate, weekday } from "../features/trip/format";
+import TripEditor from "../features/trip/TripEditor.vue";
 import { useTrip } from "../features/trip/useTrip";
 
 const trip = useTrip();
@@ -20,6 +22,8 @@ const members = useMembers();
 const i18n = useI18n();
 const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
+/** The trip's settings are open under its title */
+const editing = ref(false);
 
 /** "11/3 – 11/6", one date for a day trip, or nothing while the room has no days */
 const range = computed(() => {
@@ -57,6 +61,14 @@ const allTotal = computed(() => trip.budgetOf(undefined, false));
           </li>
         </ul>
       </header>
+
+      <!-- how the trip goes: its flights, and the way to change its name, dates and flights -->
+      <TripEditor v-if="editing" @close="() => (editing = false)" />
+      <div v-else class="plan">
+        <FlightLine v-if="trip.flights.out" leg="out" :flight="trip.flights.out" />
+        <FlightLine v-if="trip.flights.back" leg="back" :flight="trip.flights.back" />
+        <button type="button" @click="() => (editing = true)">{{ i18n.t("trip.edit") }}</button>
+      </div>
 
       <!-- the days side by side, each a stack of its notes in their own paper; maybes faded -->
       <ol v-if="trip.days.length">
@@ -116,6 +128,30 @@ section {
     display: flex;
     flex-direction: column;
     gap: 28px;
+
+    /* the flights, one ticket strip each, and the way into the trip's settings under them */
+    > .plan {
+      display: grid;
+      gap: 8px;
+
+      > button {
+        justify-self: start;
+        min-height: var(--tap);
+        padding: 0 14px;
+        border-radius: 999px;
+        border: 0;
+        background: var(--wash);
+        color: var(--ink);
+        font: inherit;
+        font-size: var(--font-sm);
+        font-weight: 700;
+
+        &:focus-visible {
+          outline: 2px solid var(--ink);
+          outline-offset: 2px;
+        }
+      }
+    }
 
     > header {
       > h1 {

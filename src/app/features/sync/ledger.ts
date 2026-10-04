@@ -4,7 +4,7 @@ import { applyToMembers } from "../members/apply";
 import type { Member, MemberId } from "../members/types";
 import { applyToNotes } from "../notes/apply";
 import type { Note } from "../notes/types";
-import { applyToTrip } from "../trip/apply";
+import { applyToTrip, moveSchedules } from "../trip/apply";
 import type { TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
@@ -33,7 +33,11 @@ export function applyToRoom(
   by: MemberId,
   at: Temporal.Instant,
 ): RoomState {
-  const notes = applyToNotes(s.notes, m, by, at);
+  // the trip's dates move what is planned on them too, by how far its first day moved
+  const notes =
+    m.type === "trip:dates"
+      ? moveSchedules(s.notes, s.trip?.days[0]?.date, m, at)
+      : applyToNotes(s.notes, m, by, at);
   const members = applyToMembers(s.members, m, by);
   const trip = s.trip === null ? null : applyToTrip(s.trip, m);
   return notes === s.notes && members === s.members && trip === s.trip

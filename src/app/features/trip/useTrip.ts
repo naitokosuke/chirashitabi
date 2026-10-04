@@ -15,6 +15,7 @@ import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
 import * as itinerary from "./itinerary";
+import type { Flight, Flights, Leg } from "./types";
 
 /**
  * The trip's days, and the notes placed on them. The trip itself is what the query cache holds
@@ -31,6 +32,7 @@ export const useTrip = defineStore("trip", () => {
   const days = computed(() => trip.value?.days ?? []);
   const currency = computed(() => trip.value?.currency ?? currencyCode("USD")!);
   const center = computed(() => trip.value?.center ?? null);
+  const flights = computed((): Flights => trip.value?.flights ?? { out: null, back: null });
 
   const unassigned = computed(() => itinerary.unassigned(store.notes));
   const forDay = (date: Temporal.PlainDate, status?: NoteStatus) =>
@@ -47,6 +49,16 @@ export const useTrip = defineStore("trip", () => {
   function setIntro(date: Temporal.PlainDate, intro: string) {
     sync.commit({ type: "day:intro", date, intro });
   }
+  /** When the trip is: `days` days from `first`; what is planned moves with it (apply.ts) */
+  function setDates(first: Temporal.PlainDate, days: number) {
+    const was = trip.value?.days ?? [];
+    if (was.length === days && was[0]?.date.equals(first)) return;
+    sync.commit({ type: "trip:dates", first, days });
+  }
+  /** One of the trip's flights, or none */
+  function setFlight(leg: Leg, flight: Flight | null) {
+    sync.commit({ type: "trip:flight", leg, flight });
+  }
   /** A new name for the trip; a blank one, or the same one, changes nothing */
   function rename(next: string) {
     const n = next.trim();
@@ -59,6 +71,7 @@ export const useTrip = defineStore("trip", () => {
     days,
     currency,
     center,
+    flights,
     unassigned,
     forDay,
     byTag,
@@ -68,5 +81,7 @@ export const useTrip = defineStore("trip", () => {
     dayOf,
     setIntro,
     rename,
+    setDates,
+    setFlight,
   };
 });

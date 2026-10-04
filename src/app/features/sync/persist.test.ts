@@ -58,6 +58,16 @@ const room: RoomState = {
     days: [{ date: Temporal.PlainDate.from("2026-11-03"), intro: "Xiaolongbao" }],
     currency: currencyCode("TWD")!,
     center: { lat: 25.05, lng: 121.54 },
+    flights: {
+      out: {
+        number: "BR 191",
+        from: "HND",
+        to: "TSA",
+        departs: Temporal.PlainDateTime.from("2026-11-03T08:50"),
+        arrives: Temporal.PlainDateTime.from("2026-11-03T11:30"),
+      },
+      back: null,
+    },
   },
   members: [{ id: "yuki" as MemberId, kind: "person", name: "Yuki", color: hexColor("#3c6ee0")! }],
 };

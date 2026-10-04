@@ -7,13 +7,14 @@ import type {
   WireMember,
   WireMemoPatch,
   WireMutation,
+  WireFlight,
   WireNote,
   WireSchedule,
   WireTrip,
 } from "../../../../worker/wire";
 import type { Member, MemberId } from "../members/types";
 import type { ImageId, Memo, MemoPatch, Note, NoteId, Schedule, TextBox } from "../notes/types";
-import type { TripSnapshot } from "../trip/types";
+import type { Flight, TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
 
@@ -58,12 +59,25 @@ export function reviveNote(n: WireNote): Note {
   };
 }
 
+const reviveFlight = (f: WireFlight | null | undefined): Flight | null =>
+  f == null
+    ? null
+    : {
+        number: f.number,
+        from: f.from,
+        to: f.to,
+        departs: Temporal.PlainDateTime.from(f.departs),
+        arrives: Temporal.PlainDateTime.from(f.arrives),
+      };
+
 export const reviveTrip = (t: WireTrip): TripSnapshot => ({
   name: t.name,
   days: t.days.map((d) => ({ date: Temporal.PlainDate.from(d.date), intro: d.intro })),
   // the room only stores codes Intl knows, so this cannot be null
   currency: currencyCode(t.currency)!,
   center: t.center,
+  // a trip kept on a device before flights has none
+  flights: { out: reviveFlight(t.flights?.out), back: reviveFlight(t.flights?.back) },
 });
 
 export const reviveMember = (m: WireMember): Member => ({
@@ -113,5 +127,9 @@ export function reviveMutation(m: WireMutation): Mutation {
       return { type: "member:profile", name: m.name, color: hexColor(m.color)! };
     case "trip:rename":
       return { type: "trip:rename", name: m.name };
+    case "trip:dates":
+      return { type: "trip:dates", first: Temporal.PlainDate.from(m.first), days: m.days };
+    case "trip:flight":
+      return { type: "trip:flight", leg: m.leg, flight: reviveFlight(m.flight) };
   }
 }

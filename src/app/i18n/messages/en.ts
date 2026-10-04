@@ -84,6 +84,22 @@ one {{{$count} note}}
   "room.gone.left": "You left the trip",
   "room.gone.deleted": "The trip was deleted",
 
+  "trip.edit": "Edit trip",
+  "trip.save": "Save",
+  "trip.dropped":
+    "{$count :integer} planned notes fall outside the new dates and go back to having no day",
+  "flight.out": "There",
+  "flight.back": "Home",
+  "flight.number": "Flight",
+  "flight.from": "From",
+  "flight.to": "To",
+  "flight.departs": "Departs",
+  "flight.arrives": "Arrives",
+  "flight.localTime": "Each time in its own airport's local time, as on the ticket.",
+  "flight.remove": "Remove this flight",
+  "flight.addOut": "Add the flight there",
+  "flight.addBack": "Add the flight home",
+
   "people.title": "Members",
   "people.owner": "Owner",
   "people.you": "You",

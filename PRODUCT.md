@@ -42,7 +42,7 @@ Working today:
 
 - The canvas (pan, pinch; a card picked with a tap is moved, resized and turned with handles, and recolored, duplicated or deleted from its toolbar; a double tap opens it; undo of the last add), text written straight on the desk with a double click (a text box, moved, resized and turned like a card), the note form, tag filtering.
 - The memo tab: the note form kept open as its own view, for writing one note after another; each lands on the canvas.
-- The home tab: the trip at a glance (name, dates, members, note and budget counts, notes per day) and the way out to another trip.
+- The home tab: the trip at a glance (name, dates, members, flights, note and budget counts, notes per day) and the way out to another trip. Its settings are edited there: the name, when the trip is (first day and length; what is planned moves with it, and what falls outside goes back to having no day) and the flights there and home (number, airports, local departure and arrival); the booklet heads a day with the flights that leave or land on it.
 - The map (MapLibre + OpenFreeMap, no key): pins, a day's route, long-press to write a note at a place.
 - The booklet: days with intros, notes placed on days with times and statuses, an appendix by tag, a per-day budget, a tray of notes still without a day.
 - Suggestions: a card anyone (including the agent) can leave, adopted into an ordinary note or dismissed.

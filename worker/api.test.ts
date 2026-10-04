@@ -674,7 +674,11 @@ describe("the socket", () => {
         { id: memberId, kind: "person", name: "Yuki", color: "#3c6ee0" },
         { id: "agent:claude", kind: "agent", name: "Claude", color: "#d97757" },
       ],
-      trip: { ...TRIP, days: TRIP.days.map((date) => ({ date, intro: "" })) },
+      trip: {
+        ...TRIP,
+        days: TRIP.days.map((date) => ({ date, intro: "" })),
+        flights: { out: null, back: null },
+      },
       notes: [],
     });
     ws.close(1000, "done");
@@ -900,6 +904,109 @@ describe("the socket", () => {
     a.send({ type: "note:update", id: "p1", patch: { checked: "yes" } });
     const refused = await a.next();
     expect(refused).toEqual({ type: "rejected", reason: "not a mutation" });
+    for (const s of [a, b, c]) s.ws.close(1000, "done");
+  });
+
+  test("new dates move the days' intros and what is planned; a plan past the new end loses its day", async () => {
+    const owner = "dates-owner@example.com";
+    const { roomId } = await createRoom(owner); // 11/3, 11/4, 11/5
+    const a = await connect(roomId, owner);
+    a.send({ type: "day:intro", date: "2026-11-04", intro: "Jiufen", cid: "i" });
+    await a.next();
+    const on = (date: string) => ({
+      ...memo(`m${date}`),
+      schedule: { date, time: null, status: "fixed" },
+    });
+    for (const date of ["2026-11-03", "2026-11-05"]) {
+      a.send({ type: "note:add", note: on(date), cid: date });
+      await a.next();
+    }
+    // a week later, two days long: day 2 keeps its intro, 11/3 moves to 11/10, 11/5 falls off
+    a.send({ type: "trip:dates", first: "2026-11-10", days: 2, cid: "d" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "d" });
+    for (const bad of [
+      { first: "2026-02-30", days: 2 },
+      { first: "2026-11-10", days: 0 },
+      { first: "2026-11-10", days: 61 },
+    ]) {
+      a.send({ type: "trip:dates", ...bad });
+      expect(await a.next()).toMatchObject({ type: "rejected", reason: "not a mutation" });
+    }
+
+    const b = await connect(roomId, owner);
+    expect(b.snapshot).toMatchObject({
+      trip: {
+        days: [
+          { date: "2026-11-10", intro: "" },
+          { date: "2026-11-11", intro: "Jiufen" },
+        ],
+      },
+      notes: [
+        { id: "m2026-11-03", schedule: { date: "2026-11-10", status: "fixed" } },
+        { id: "m2026-11-05", schedule: null },
+      ],
+    });
+    expect((await me(owner)).rooms).toMatchObject([{ first: "2026-11-10", days: 2 }]);
+    for (const s of [a, b]) s.ws.close(1000, "done");
+  });
+
+  test("a flight is set from its ticket, changed, and taken away", async () => {
+    const owner = "flight-owner@example.com";
+    const partner = "flight-partner@example.com";
+    const { roomId } = await createRoom(owner);
+    expect((await admit(roomId, owner, partner)).status).toBe(200);
+    const a = await connect(roomId, owner);
+    const b = await connect(roomId, partner);
+    const flight = {
+      number: " BR 191 ",
+      from: "HND",
+      to: "TSA",
+      departs: "2026-11-03T08:50:00",
+      arrives: "2026-11-03T11:30",
+    };
+
+    a.send({ type: "trip:flight", leg: "out", flight, cid: "f" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "f" });
+    expect(await b.next()).toMatchObject({
+      mutation: {
+        type: "trip:flight",
+        leg: "out",
+        flight: { number: "BR 191", departs: "2026-11-03T08:50" },
+      },
+    });
+    a.send({
+      type: "trip:flight",
+      leg: "back",
+      flight: { ...flight, from: "TSA", to: "HND", departs: "2026-11-05T17:00" },
+    });
+    await b.next();
+    for (const bad of [
+      { leg: "sideways", flight },
+      { leg: "out", flight: { ...flight, from: " " } },
+      { leg: "out", flight: { ...flight, departs: "11/3 8:50" } },
+      { leg: "out", flight: { ...flight, number: "x".repeat(21) } },
+    ]) {
+      a.send({ type: "trip:flight", ...bad });
+      expect(await a.next()).toMatchObject({ type: "rejected", reason: "not a mutation" });
+    }
+    a.send({ type: "trip:flight", leg: "out", flight: null });
+    await b.next();
+
+    const c = await connect(roomId, partner);
+    expect(c.snapshot).toMatchObject({
+      trip: {
+        flights: {
+          out: null,
+          back: {
+            number: "BR 191",
+            from: "TSA",
+            to: "HND",
+            departs: "2026-11-05T17:00",
+            arrives: "2026-11-03T11:30",
+          },
+        },
+      },
+    });
     for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
 

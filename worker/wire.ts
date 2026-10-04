@@ -34,7 +34,27 @@ export interface WireTrip {
   days: WireDay[];
   currency: string;
   center: { lat: number; lng: number };
+  /** The flight there and the flight home, each or both not known yet */
+  flights: WireFlights;
 }
+
+/** Which flight: the one there, or the one home */
+export type Leg = "out" | "back";
+
+/**
+ * A flight as the travellers write it from their ticket: its number, where it leaves from and
+ * lands (a code or a name), and when, in each airport's own local time (YYYY-MM-DDTHH:MM). The
+ * landing may read earlier than the leaving, across time zones, so their order is not checked.
+ */
+export interface WireFlight {
+  number: string;
+  from: string;
+  to: string;
+  departs: string;
+  arrives: string;
+}
+
+export type WireFlights = Record<Leg, WireFlight | null>;
 
 export interface WireSchedule {
   date: string;
@@ -114,7 +134,11 @@ export type WireMutation =
   | { type: "day:intro"; date: string; intro: string }
   | { type: "member:profile"; name: string; color: string }
   // the trip's name, as written on the desk
-  | { type: "trip:rename"; name: string };
+  | { type: "trip:rename"; name: string }
+  // when the trip is: its first day and how many; everything planned moves with it
+  | { type: "trip:dates"; first: string; days: number }
+  // one of its flights, or none
+  | { type: "trip:flight"; leg: Leg; flight: WireFlight | null };
 
 /**
  * The client sends mutations as they are, with an optional `cid` beside the mutation's own
@@ -155,6 +179,8 @@ const URL_LEN = 2000;
 const ID = 64;
 const COORD = 1e6;
 const DAYS = 60;
+const FLIGHT_NO = 20;
+const PLACE = 60;
 
 // ---- checks ----
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
@@ -228,6 +254,30 @@ export const parseEmail = (v: unknown): string | null =>
     ? v.trim().toLowerCase()
     : null;
 
+/** A local date and time, to the minute or the second (as Temporal writes one) */
+export const isDateTime = (v: unknown): v is string =>
+  typeof v === "string" &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(v) &&
+  isDate(v.slice(0, 10)) &&
+  isTime(v.slice(11));
+
+/** A flight as a member writes it, trimmed; a place must be named, the number may be blank */
+const parseFlight = (v: unknown): WireFlight | null => {
+  if (!isRecord(v)) return null;
+  const { number, from, to, departs, arrives } = v;
+  if (!isText(number, FLIGHT_NO) || !isText(from, PLACE) || !isText(to, PLACE)) return null;
+  if (from.trim() === "" || to.trim() === "") return null;
+  if (!isDateTime(departs) || !isDateTime(arrives)) return null;
+  // kept to the minute, as a ticket says it
+  return {
+    number: number.trim(),
+    from: from.trim(),
+    to: to.trim(),
+    departs: departs.slice(0, 16),
+    arrives: arrives.slice(0, 16),
+  };
+};
+
 /** What a room is created with */
 export const parseTrip = (v: unknown): WireTrip | null => {
   if (!isRecord(v)) return null;
@@ -242,6 +292,7 @@ export const parseTrip = (v: unknown): WireTrip | null => {
     days: v.days.map((date) => ({ date, intro: "" })),
     currency: v.currency,
     center: v.center,
+    flights: { out: null, back: null },
   };
 };
 
@@ -395,6 +446,19 @@ export function parseMutation(v: unknown): WireMutation | null {
     case "member:profile": {
       const profile = parseProfile(v);
       return profile === null ? null : { type: "member:profile", ...profile };
+    }
+    case "trip:dates":
+      return isDate(v.first) &&
+        Number.isInteger(v.days) &&
+        (v.days as number) >= 1 &&
+        (v.days as number) <= DAYS
+        ? { type: "trip:dates", first: v.first, days: v.days as number }
+        : null;
+    case "trip:flight": {
+      if (v.leg !== "out" && v.leg !== "back") return null;
+      if (v.flight === null) return { type: "trip:flight", leg: v.leg, flight: null };
+      const flight = parseFlight(v.flight);
+      return flight === null ? null : { type: "trip:flight", leg: v.leg, flight };
     }
     case "trip:rename":
       return isText(v.name, NAME) && v.name.trim() !== ""

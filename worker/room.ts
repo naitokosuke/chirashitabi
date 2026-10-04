@@ -15,6 +15,8 @@ import {
   type WireRoomSummary,
   type WireTrip,
   type GoneReason,
+  type Leg,
+  type WireFlights,
 } from "./wire";
 
 export type MemberKind = "person" | "agent";
@@ -132,6 +134,14 @@ export class Room extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS invitations (
         id TEXT PRIMARY KEY,
         created_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS flights (
+        leg TEXT PRIMARY KEY CHECK (leg IN ('out', 'back')),
+        number TEXT NOT NULL,
+        from_place TEXT NOT NULL,
+        to_place TEXT NOT NULL,
+        departs TEXT NOT NULL,
+        arrives TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS deletion (
         id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -656,11 +666,30 @@ export class Room extends DurableObject<Env> {
     const days = sql
       .exec<{ date: string; intro: string }>("SELECT date, intro FROM days ORDER BY position")
       .toArray();
+    const flights: WireFlights = { out: null, back: null };
+    for (const f of sql
+      .exec<{
+        leg: Leg;
+        number: string;
+        from_place: string;
+        to_place: string;
+        departs: string;
+        arrives: string;
+      }>("SELECT * FROM flights")
+      .toArray())
+      flights[f.leg] = {
+        number: f.number,
+        from: f.from_place,
+        to: f.to_place,
+        departs: f.departs,
+        arrives: f.arrives,
+      };
     return {
       name: t.name,
       currency: t.currency,
       center: { lat: t.center_lat, lng: t.center_lng },
       days,
+      flights,
     };
   }
 
@@ -815,6 +844,60 @@ export class Room extends DurableObject<Env> {
       }
       case "member:profile": {
         sql.exec("UPDATE members SET name = ?, color = ? WHERE id = ?", m.name, m.color, by);
+        return m;
+      }
+      case "trip:dates": {
+        // the trip moves by how far its first day moved, and its days are the new run of them:
+        // each day keeps its place in the trip (day 2's intro is day 2's), each planned note
+        // moves with the trip, and one that falls past the new last day loses its day
+        const old = sql
+          .exec<{ date: string; intro: string }>("SELECT date, intro FROM days ORDER BY position")
+          .toArray();
+        const was = old[0]?.date ?? m.first;
+        const shift = (Date.parse(`${m.first}T00:00Z`) - Date.parse(`${was}T00:00Z`)) / 86_400_000;
+        const dates = Array.from({ length: m.days }, (_, i) =>
+          new Date(Date.parse(`${m.first}T00:00Z`) + i * 86_400_000).toISOString().slice(0, 10),
+        );
+        sql.exec("DELETE FROM days");
+        dates.forEach((date, i) =>
+          sql.exec(
+            "INSERT INTO days (date, position, intro) VALUES (?, ?, ?)",
+            date,
+            i,
+            old[i]?.intro ?? "",
+          ),
+        );
+        if (shift !== 0)
+          sql.exec(
+            `UPDATE notes SET sched_date = date(sched_date, ? || ' days'), updated_at = ?
+               WHERE sched_date IS NOT NULL`,
+            (shift > 0 ? "+" : "") + String(shift),
+            now,
+          );
+        sql.exec(
+          `UPDATE notes SET sched_date = NULL, sched_time = NULL, sched_status = NULL, updated_at = ?
+             WHERE sched_date IS NOT NULL AND (sched_date < ? OR sched_date > ?)`,
+          now,
+          dates[0],
+          dates.at(-1),
+        );
+        return m;
+      }
+      case "trip:flight": {
+        if (m.flight === null) sql.exec("DELETE FROM flights WHERE leg = ?", m.leg);
+        else
+          sql.exec(
+            `INSERT INTO flights (leg, number, from_place, to_place, departs, arrives)
+               VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT (leg) DO UPDATE SET number = excluded.number, from_place = excluded.from_place,
+               to_place = excluded.to_place, departs = excluded.departs, arrives = excluded.arrives`,
+            m.leg,
+            m.flight.number,
+            m.flight.from,
+            m.flight.to,
+            m.flight.departs,
+            m.flight.arrives,
+          );
         return m;
       }
       case "trip:rename": {
