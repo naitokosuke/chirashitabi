@@ -73,7 +73,12 @@ export interface WireSuggestion extends WireCard {
   kind: "suggestion";
 }
 
-export type WireNote = WireMemo | WireSuggestion;
+/** Words set straight on the desk, with no paper under them: a heading, a label. `title` is the text */
+export interface WireText extends WireCard {
+  kind: "text";
+}
+
+export type WireNote = WireMemo | WireSuggestion | WireText;
 
 /** What a memo's `note:update` may change */
 export type WireMemoPatch = Partial<
@@ -101,6 +106,8 @@ export type WireMutation =
   | { type: "note:update"; id: string; patch: WireMemoPatch }
   | { type: "note:recolor"; id: string; color: NoteColor }
   | { type: "note:adopt"; id: string }
+  // what a text box says; empty, it is deleted instead
+  | { type: "text:edit"; id: string; text: string }
   // where a card is; as it is turned or resized, how it is turned and how large
   | { type: "note:move"; id: string; x: number; y: number; rot?: number; scale?: number }
   | { type: "note:delete"; id: string }
@@ -137,6 +144,8 @@ export const MAX_MESSAGE_BYTES = 32 * 1024;
 
 // ---- limits ----
 const TITLE = 200;
+/** A text box's words: a few lines at most */
+const TEXT = 1000;
 const BODY = 4000;
 const TAG = 40;
 const TAGS = 20;
@@ -239,7 +248,8 @@ export const parseTrip = (v: unknown): WireTrip | null => {
 /** A note as the client may send it in `note:add`; `by` and `updatedAt` are the room's to set */
 const parseNote = (v: unknown): WireNote | null => {
   if (!isRecord(v)) return null;
-  if (!isId(v.id) || !isText(v.title, TITLE) || !isColor(v.color)) return null;
+  const max = v.kind === "text" ? TEXT : TITLE;
+  if (!isId(v.id) || !isText(v.title, max) || !isColor(v.color)) return null;
   if (!isFinite_(v.x) || !isFinite_(v.y) || !isFinite_(v.rot, 360)) return null;
   // a client from before cards could be resized sends no scale: its own size
   if (!(v.scale === undefined || isScale(v.scale))) return null;
@@ -255,6 +265,7 @@ const parseNote = (v: unknown): WireNote | null => {
     updatedAt: "",
   };
   if (v.kind === "suggestion") return { ...card, kind: "suggestion" };
+  if (v.kind === "text") return { ...card, kind: "text" };
   if (v.kind !== "memo") return null;
   if (!isText(v.body, BODY) || !isTags(v.tags)) return null;
   if (!(v.mapsUrl === null || isUrl(v.mapsUrl))) return null;
@@ -358,6 +369,10 @@ export function parseMutation(v: unknown): WireMutation | null {
         : null;
     case "note:adopt":
       return isId(v.id) ? { type: "note:adopt", id: v.id } : null;
+    case "text:edit":
+      return isId(v.id) && isText(v.text, TEXT)
+        ? { type: "text:edit", id: v.id, text: v.text }
+        : null;
     case "note:move": {
       if (!isId(v.id) || !isFinite_(v.x) || !isFinite_(v.y)) return null;
       if (!(v.rot === undefined || isFinite_(v.rot, 360))) return null;

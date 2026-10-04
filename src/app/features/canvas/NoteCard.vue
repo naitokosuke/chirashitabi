@@ -31,9 +31,9 @@ const i18n = useI18n();
     :data-visibility="visibility"
     :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}; --card: ${PAPERS[note.color]}; --who: ${members.colorOf(note.by)}`"
     :data-id="note.id"
-    :tabindex="note.kind === 'memo' && visibility !== 'dimmed' ? 0 : undefined"
-    :role="note.kind === 'memo' ? 'button' : undefined"
-    :aria-label="note.kind === 'memo' ? note.title : undefined"
+    :tabindex="note.kind !== 'suggestion' && visibility !== 'dimmed' ? 0 : undefined"
+    :role="note.kind !== 'suggestion' ? 'button' : undefined"
+    :aria-label="note.kind !== 'suggestion' ? note.title : undefined"
   >
     <template v-if="note.kind === 'suggestion'">
       <header>
@@ -43,6 +43,8 @@ const i18n = useI18n();
       <p>{{ note.title }}</p>
       <footer><button type="button" @click.stop="() => $emit('adopt')">{{ i18n.t("note.adopt") }}</button><button type="button" @click.stop="() => $emit('remove')">{{ i18n.t("common.dismiss") }}</button></footer>
     </template>
+    <!-- words on the desk itself: no paper, no author's dot -->
+    <p v-else-if="note.kind === 'text'">{{ note.title }}</p>
     <template v-else>
       <!-- the card's picture, across its top; the card is still what a finger holds -->
       <img
@@ -203,6 +205,37 @@ div {
       inset-block-start: calc(var(--tap) * -1.4);
       inset-inline-start: calc(50% - var(--tap) / 2);
       cursor: grab;
+    }
+  }
+
+  /*
+   * A text box: the desk's own lettering, no paper and no shadow, in the desk's ink so it reads
+   * in either theme, as wide as its longest line up to a point. Picked, it is framed like a card.
+   */
+  &[data-kind="text"] {
+    width: max-content;
+    max-width: 560px;
+    padding: var(--text-box-pad);
+    border-radius: 4px;
+    background: transparent;
+    box-shadow: none;
+    color: var(--ink);
+
+    &[data-dragging] {
+      box-shadow: none;
+    }
+
+    &[data-selected] {
+      box-shadow: 0 0 0 2px var(--ink);
+    }
+
+    > p {
+      font-size: var(--text-box-size);
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: 0.02em;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
   }
 

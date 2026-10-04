@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { PinchStart } from "../features/canvas/transform";
-import type { Memo, NewMemo, Note, NoteInput } from "../features/notes/types";
+import type { Memo, NewMemo, Note, NoteInput, TextBox } from "../features/notes/types";
 
 // Module scope is shared with every importer. The canvas is mounted once and
 // never unmounted, so one slot is enough.
@@ -63,23 +63,14 @@ import { CtFab } from "../../ui/index";
 import { useI18n } from "../i18n/useI18n";
 
 import NoteCard from "../features/canvas/NoteCard.vue";
-import {
-  distance,
-  fitView,
-  pinchTo,
-  startPinch,
-  tagSpot,
-  type Pt,
-} from "../features/canvas/transform";
+import TextField from "../features/canvas/TextField.vue";
+import { distance, fitView, pinchTo, startPinch, type Pt } from "../features/canvas/transform";
 import { useViewport } from "../features/canvas/useViewport";
 import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteId } from "../features/notes/types";
 import { useNotes, type Shape } from "../features/notes/useNotes";
-import { MAX_NAME } from "../features/rooms/newRoom";
 import { useToast } from "../features/toast/useToast";
 import FilterBar from "../features/tags/FilterBar.vue";
 import { useTags } from "../features/tags/useTags";
-import { shortDate } from "../features/trip/format";
-import { useTrip } from "../features/trip/useTrip";
 import { OverBudget } from "../features/worker/api";
 import { useWorker } from "../features/worker/useWorker";
 import { useSuggest } from "../features/worker/useWorkerCalls";
@@ -91,16 +82,7 @@ const store = useNotes();
 const toast = useToast();
 const worker = useWorker();
 const tags = useTags();
-const trip = useTrip();
 const i18n = useI18n();
-/** "11/3 – 11/6", one date for a day trip, or nothing while the room has no days */
-const dates = computed(() => {
-  const first = trip.days[0]?.date;
-  const last = trip.days.at(-1)?.date;
-  if (first === undefined || last === undefined) return "";
-  const from = shortDate(first, i18n.locale);
-  return first.equals(last) ? from : `${from} – ${shortDate(last, i18n.locale)}`;
-});
 const { view, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
 const worldStyle = computed(
@@ -170,8 +152,8 @@ const wrap = (deg: number) => {
 
 function onDown(e: PointerEvent) {
   const target = e.target as HTMLElement;
-  // a button, or the trip's name being written on the desk, is not the desk
-  if (target.closest("button, input")) return;
+  // a button, or words being written on the desk, is not the desk
+  if (target.closest("button, textarea")) return;
   menu.value = null;
   vp.value!.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -297,8 +279,8 @@ function onUp(e: PointerEvent) {
   if (g.kind === "pinch" && pointers.size >= 2) return;
   const tapped = e.type === "pointerup";
   if (g.kind === "press" && tapped) tapCard(g.grab.note);
-  // a tap on the bare desk lets go of the picked card
-  if (g.kind === "pan" && !g.moved && tapped) select(null);
+  // a tap on the bare desk lets go of the picked card; a second one there writes on the desk
+  if (g.kind === "pan" && !g.moved && tapped) tapDesk(e);
   // let go: the one write of where it landed, how it is turned and how large
   const h = held.value;
   if ((g.kind === "drag" || g.kind === "resize" || g.kind === "rotate") && h !== null)
@@ -306,13 +288,15 @@ function onUp(e: PointerEvent) {
   held.value = null;
   setGesture(IDLE);
 }
-/** One tap picks the card and shows its toolbar; a second one soon after opens a memo */
+/** One tap picks the card and shows its toolbar; a second one soon after opens it */
 function tapCard(note: Note) {
   const now = performance.now();
   if (lastTap !== null && lastTap.id === note.id && now - lastTap.at < DOUBLE_TAP_MS) {
     lastTap = null;
-    // suggestions are adopted with their own buttons, not opened
+    // a memo opens in the form, a text box is rewritten where it is; suggestions are adopted
+    // with their own buttons, not opened
     if (note.kind === "memo") emit("edit", note);
+    else if (note.kind === "text") rewrite(note);
     return;
   }
   lastTap = { id: note.id, at: now };
@@ -322,6 +306,8 @@ function tapCard(note: Note) {
 
 // ---- keyboard: Enter opens a focused card, Delete removes it, the context-menu key or Shift+F10 shows its menu; Esc closes the menu, then lets go ----
 function onKey(e: KeyboardEvent) {
+  // words being written take their own keys (TextField)
+  if ((e.target as HTMLElement).closest?.("textarea")) return;
   if (e.key === "Escape") {
     if (menu.value) closeMenu();
     else select(null);
@@ -334,10 +320,11 @@ function onKey(e: KeyboardEvent) {
     remove(note);
     return;
   }
-  if (note.kind !== "memo") return;
+  if (note.kind === "suggestion") return;
   if (e.key === "Enter") {
     e.preventDefault();
-    emit("edit", note);
+    if (note.kind === "memo") emit("edit", note);
+    else rewrite(note);
   } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
     e.preventDefault();
     select(note);
@@ -414,6 +401,10 @@ function duplicateFromMenu() {
   if (menu.value) store.duplicate(menu.value.note.id);
   closeMenu();
 }
+function rewriteFromMenu() {
+  const n = menuNote.value;
+  if (n?.kind === "text") rewrite(n);
+}
 function removeFromMenu() {
   if (menu.value) remove(menu.value.note);
 }
@@ -425,45 +416,58 @@ function fitAll() {
 }
 function fitted(minScale = 0) {
   const r = vp.value!.getBoundingClientRect();
-  // the trip's tag counts as one more card, so a fit always shows it
-  const at = tagAt.value;
-  const tag = at === null ? [] : [{ x: at.x - 82, y: at.y - 40 }];
-  return fitView([...store.notes, ...tag], r.width, r.height, minScale);
+  return fitView(store.notes, r.width, r.height, minScale);
 }
 
-// ---- the trip's name, written on the desk ----
-/** What is being typed, while the name has focus; otherwise the field shows the trip's name */
-const draft = ref<string | null>(null);
-const nameField = computed({
-  get: () => draft.value ?? trip.name,
-  set: (v: string) => (draft.value = v),
-});
-const startRename = () => (draft.value = trip.name);
-/** Leaving the field keeps what was typed; a blank name keeps the old one */
-function endRename() {
-  if (draft.value !== null) trip.rename(draft.value);
-  draft.value = null;
-}
-function onNameKey(e: KeyboardEvent) {
-  // an IME's Enter picks a word; only a plain one is done
-  if (e.isComposing) return;
-  const field = e.currentTarget as HTMLInputElement;
-  if (e.key === "Enter") field.blur();
-  else if (e.key === "Escape") {
-    draft.value = null;
-    field.blur();
+// ---- writing on the desk: a double click on it, or on a text box, writes there ----
+/** Words being written: a new text box (no id) or one being rewritten, and where they sit */
+const writing = shallowRef<{
+  id: NoteId | null;
+  x: number;
+  y: number;
+  rot: number;
+  scale: number;
+  text: string;
+} | null>(null);
+/** The last tap on the bare desk, to tell a double one */
+let lastDeskTap: ({ at: number } & Pt) | null = null;
+/** How far apart two taps may land and still be one double tap */
+const DOUBLE_TAP_PX = 24;
+function tapDesk(e: PointerEvent) {
+  const now = performance.now();
+  const p = { x: e.clientX, y: e.clientY };
+  const last = lastDeskTap;
+  lastDeskTap = { at: now, ...p };
+  if (last === null || now - last.at >= DOUBLE_TAP_MS || distance(last, p) > DOUBLE_TAP_PX) {
+    select(null);
+    return;
   }
+  lastDeskTap = null;
+  // the caret lands about where the click did: the box's corner a little up and to the left
+  const w = toWorld(p.x, p.y);
+  writing.value = { id: null, x: w.x - 6, y: w.y - 16, rot: 0, scale: 1, text: "" };
+}
+/** A text box is rewritten where it is; it is hidden while the field is over it */
+function rewrite(note: TextBox) {
+  menu.value = null;
+  writing.value = { ...note, text: note.title };
+}
+function doneWriting(text: string | null) {
+  const w = writing.value;
+  writing.value = null;
+  if (w === null || text === null) return;
+  if (w.id === null) {
+    const n = store.addText(text, { x: w.x, y: w.y });
+    if (n !== undefined) select(store.byId(n.id) ?? null);
+    return;
+  }
+  const note = store.byId(w.id);
+  if (note === undefined) return;
+  // emptied: it goes like any card, with the toast's undo
+  if (text.trim() === "") remove(note);
+  else store.editText(w.id, text);
 }
 
-// ---- the trip's tag: where the trip goes, an object on the desk that is not a note ----
-/** Its middle, in desk coordinates. Set once the desk's notes are known, then left where it is */
-const tagAt = shallowRef<Pt | null>(null);
-/** Where a new card lands right now: the middle of the view */
-function landing(): Pt {
-  const r = vp.value!.getBoundingClientRect();
-  const c = toWorld(r.width / 2, r.height / 2);
-  return { x: c.x, y: c.y };
-}
 /** The first look never shrinks a card past readable; the fit button still shows everything */
 const FIRST_LOOK_MIN_SCALE = 0.8;
 
@@ -477,7 +481,8 @@ const undoAdd = (id: NoteId) => ({ undo: () => store.remove(id) });
 const pendingDelete = ref(new Set<NoteId>());
 const shownNotes = computed(() =>
   store.notes
-    .filter((n) => !pendingDelete.value.has(n.id))
+    // a text box being rewritten is shown by its field instead
+    .filter((n) => !pendingDelete.value.has(n.id) && n.id !== writing.value?.id)
     .map((n) => {
       const h = held.value;
       return h?.id === n.id ? { ...n, x: h.x, y: h.y, ...h.shape } : n;
@@ -558,21 +563,18 @@ onMounted(() =>
   nextTick(() => {
     const r = vp.value!.getBoundingClientRect();
     if (store.notes.length > 0) {
-      tagAt.value = tagSpot(store.notes, landing());
       view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value;
       return;
     }
     view.value = { tx: (r.width - 164) / 2, ty: r.height / 2 - 60, s: 1 };
-    tagAt.value = tagSpot([], landing());
   }),
 );
-// Notes that arrive later (the room's first snapshot) get the same first look, once, and the tag moves over them
+// Notes that arrive later (the room's first snapshot) get the same first look, once
 watch(
   () => store.notes.length > 0,
   (has, had) => {
     if (!has || had) return;
     nextTick(() => {
-      tagAt.value = tagSpot(store.notes, landing());
       view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value;
     });
   },
@@ -608,27 +610,6 @@ watch(
         @keydown="onKey"
       >
         <div :style="worldStyle">
-          <!--
-            where the trip goes, printed on the desk under the notes and panning with them; the
-            name is written right there: tap it and type
-          -->
-          <div v-if="tagAt !== null" class="tag" :style="`--x: ${tagAt.x}px; --y: ${tagAt.y}px`">
-            <span class="name" :data-value="nameField || ' '">
-              <input
-                v-model="nameField"
-                :aria-label="i18n.t('canvas.tripName')"
-                autocomplete="off"
-                enterkeyhint="done"
-                :maxlength="MAX_NAME"
-                size="1"
-                spellcheck="false"
-                @blur="endRename"
-                @focus="startRename"
-                @keydown="onNameKey"
-              />
-            </span>
-            <p v-if="dates">{{ dates }}</p>
-          </div>
           <NoteCard
             v-for="n in shownNotes"
             :key="n.id"
@@ -639,6 +620,16 @@ watch(
             :visibility="tags.visibility(n)"
             @adopt="() => store.adopt(n.id)"
             @remove="() => remove(n)"
+          />
+          <TextField
+            v-if="writing"
+            :key="writing.id ?? 'new'"
+            :rot="writing.rot"
+            :scale="writing.scale"
+            :text="writing.text"
+            :x="writing.x"
+            :y="writing.y"
+            @done="doneWriting"
           />
           <div v-if="pop" class="ring" :style="`--x: ${pop.x}px; --y: ${pop.y}px`"></div>
         </div>
@@ -655,8 +646,9 @@ watch(
         @pointerdown.stop
         @keydown="onMenuKey"
       >
+        <button v-if="menu.note.kind === 'text'" type="button" @click="rewriteFromMenu">{{ i18n.t("common.edit") }}</button>
         <button
-          v-for="c in COLORS"
+          v-for="c in menu.note.kind === 'text' ? [] : COLORS"
           :key="c"
           type="button"
           :style="`background:${PAPERS[c]}`"
@@ -783,102 +775,6 @@ section {
         inset-block-start: 0;
         transform-origin: 0 0;
         will-change: transform;
-
-        /*
-         * The trip's name, printed on the desk rather than lying on it: no frame, no fill, no
-         * shadow (what can be moved casts one). The name alone, large, in the same gothic as the
-         * notes; the desk's own color fades in behind it so the dot grid does not run through the
-         * letters. The name is also where it is renamed: tapping it is typing in it. Elsewhere
-         * clicks go through to the desk.
-         */
-        > .tag {
-          position: absolute;
-          inset-inline-start: 0;
-          inset-block-start: 0;
-          transform: translate(var(--x), var(--y)) translate(-50%, -50%);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          /* as wide as its name (the desk it sits in has no width of its own), up to a point */
-          width: max-content;
-          max-width: 560px;
-          padding: 28px 56px;
-          background: radial-gradient(closest-side, var(--bg) 62%, transparent);
-          color: var(--ink);
-          pointer-events: none;
-          white-space: nowrap;
-          user-select: none;
-
-          /*
-           * The name, as wide as what is in it: a hidden copy of the text sizes the cell, and the
-           * field fills it. It shows itself a field only when reached for: a faint rule under it
-           * on hover, a firmer one while it is being written.
-           */
-          > .name {
-            display: inline-grid;
-            max-width: 100%;
-            font-size: 40px;
-            font-weight: 700;
-            letter-spacing: 0.04em;
-            line-height: 1.25;
-
-            &::after,
-            > input {
-              grid-area: 1 / 1;
-              font: inherit;
-              letter-spacing: inherit;
-              /* the spacing after the last character, matched before the first, keeps it centred */
-              padding: 0 0 2px 0.04em;
-            }
-
-            &::after {
-              content: attr(data-value);
-              visibility: hidden;
-              white-space: pre;
-              overflow: hidden;
-            }
-
-            > input {
-              min-width: 1em;
-              width: 100%;
-              margin: 0;
-              border: 0;
-              border-radius: 0;
-              background: transparent;
-              color: inherit;
-              text-align: center;
-              text-overflow: ellipsis;
-              caret-color: var(--ink);
-              pointer-events: auto;
-              cursor: text;
-              box-shadow: 0 1.5px 0 transparent;
-              transition: box-shadow var(--duration-swap) ease;
-
-              @media (--can-hover) {
-                &:hover {
-                  box-shadow: 0 1.5px 0 color-mix(in oklch, var(--ink) 18%, transparent);
-                }
-              }
-
-              &:focus {
-                outline: none;
-                box-shadow: 0 1.5px 0 color-mix(in oklch, var(--ink) 55%, transparent);
-              }
-            }
-          }
-
-          /* its dates, under it, small and spaced like a caption */
-          > p {
-            margin: 6px 0 0;
-            font-size: var(--font-xs);
-            font-weight: 700;
-            letter-spacing: 0.24em;
-            /* the trailing spacing, matched before the first figure */
-            padding-inline-start: 0.24em;
-            color: var(--muted);
-            font-variant-numeric: tabular-nums;
-          }
-        }
 
         > .ring {
           position: absolute;

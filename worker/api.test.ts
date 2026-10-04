@@ -726,6 +726,96 @@ describe("the socket", () => {
     for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
 
+  test("a text box is written on the desk, rewritten, resized and taken away", async () => {
+    const owner = "text-owner@example.com";
+    const partner = "text-partner@example.com";
+    const { roomId } = await createRoom(owner);
+    expect((await admit(roomId, owner, partner)).status).toBe(200);
+    const a = await connect(roomId, owner);
+    const b = await connect(roomId, partner);
+    const box = {
+      id: "t1",
+      kind: "text",
+      title: "Day 1",
+      color: "#ffffff",
+      x: 5,
+      y: 6,
+      rot: 0,
+      scale: 1,
+    };
+
+    a.send({ type: "note:add", note: box, cid: "c1" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c1" });
+    expect(await b.next()).toMatchObject({
+      mutation: { type: "note:add", note: { kind: "text" } },
+    });
+    a.send({ type: "text:edit", id: "t1", text: "Day 1 · Taipei" });
+    await b.next();
+    a.send({ type: "note:move", id: "t1", x: 50, y: 60, scale: 2 });
+    await b.next();
+    a.send({ type: "text:edit", id: "t1", text: "x".repeat(1001), cid: "c2" });
+    expect(await a.next()).toMatchObject({ type: "rejected", reason: "not a mutation" });
+    a.send({ type: "note:add", note: memo("m1"), cid: "c3" });
+    await a.next();
+    await b.next();
+    a.send({ type: "text:edit", id: "m1", text: "x", cid: "c4" });
+    expect(await a.next()).toMatchObject({ type: "rejected", reason: "not a text box" });
+
+    const c = await connect(roomId, partner);
+    expect(c.snapshot).toMatchObject({
+      notes: [
+        { id: "t1", kind: "text", title: "Day 1 · Taipei", x: 50, y: 60, scale: 2 },
+        { id: "m1" },
+      ],
+    });
+    a.send({ type: "note:delete", id: "t1" });
+    await b.next();
+    const d = await connect(roomId, partner);
+    expect(d.snapshot).toMatchObject({ notes: [{ id: "m1" }] });
+    // the room's list counts memos, not words on the desk
+    expect((await me(owner)).rooms).toMatchObject([{ memos: 1 }]);
+    for (const s of [a, b, c, d]) s.ws.close(1000, "done");
+  });
+
+  test("a room from before text boxes takes them once its notes are copied over", async () => {
+    const owner = "old-room@example.com";
+    const { roomId } = await createRoom(owner);
+    const worker = server.getWorker();
+    const room = await worker.getDurableObjectStorage("Room", { name: roomId });
+    // the notes table as it was: a CHECK without 'text', with a memo in it
+    await room.exec("DROP TABLE notes");
+    await room.exec(`CREATE TABLE notes (
+      id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('memo', 'suggestion')),
+      title TEXT NOT NULL, color TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL, rot REAL NOT NULL,
+      by TEXT NOT NULL, updated_at TEXT NOT NULL, body TEXT NOT NULL DEFAULT '',
+      tags TEXT NOT NULL DEFAULT '[]', maps_url TEXT, pin_lat REAL, pin_lng REAL, sched_date TEXT,
+      sched_time TEXT, sched_status TEXT, budget REAL, deleted_at TEXT,
+      checked INTEGER NOT NULL DEFAULT 0, image TEXT, scale REAL NOT NULL DEFAULT 1)`);
+    await room.exec(
+      `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at, tags, checked)
+       VALUES ('old', 'memo', 'Kept', '#fff1b8', 1, 2, 3, 'someone', '2026-01-01T00:00:00Z', '["Food"]', 1)`,
+    );
+    await worker.evictDurableObject("Room", { name: roomId });
+
+    const a = await connect(roomId, owner);
+    expect(a.snapshot).toMatchObject({
+      notes: [{ id: "old", title: "Kept", tags: ["Food"], checked: true, rot: 3 }],
+    });
+    const box = {
+      id: "t2",
+      kind: "text",
+      title: "Hi",
+      color: "#ffffff",
+      x: 0,
+      y: 0,
+      rot: 0,
+      scale: 1,
+    };
+    a.send({ type: "note:add", note: box, cid: "c1" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c1" });
+    a.ws.close(1000, "done");
+  });
+
   test("updates, moves, recolors, adoption, deletion and the day intro all land", async () => {
     const { roomId, memberId: yuki } = await createRoom(ME);
     await admit(roomId, ME, PARTNER);

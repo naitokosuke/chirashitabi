@@ -8,7 +8,7 @@ import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
 import { duplicateInput } from "./input";
-import type { MemoPatch, NewMemo, NoteColor, NoteId, NoteInput } from "./types";
+import type { MemoPatch, NewMemo, NewText, NoteColor, NoteId, NoteInput } from "./types";
 
 const uid = () => Math.random().toString(36).slice(2, 10) as NoteId;
 
@@ -46,6 +46,25 @@ export const useNotes = defineStore("notes", () => {
     sync.commit({ type: "note:add", note: n });
     return n;
   }
+  /**
+   * A text box saying `text` with its top-left at `at`, level and its own size; nothing is
+   * made for blank text
+   */
+  function addText(text: string, at: { x: number; y: number }, shape = { rot: 0, scale: 1 }) {
+    const t = text.trim();
+    if (t === "") return;
+    const n: NewText = { id: uid(), kind: "text", title: t, color: "#ffffff", ...at, ...shape };
+    sync.commit({ type: "note:add", note: n });
+    return n;
+  }
+  /** What a text box says; blank, the box goes */
+  function editText(id: NoteId, text: string) {
+    const n = byId(id);
+    if (n?.kind !== "text") return;
+    const t = text.trim();
+    if (t === "") remove(id);
+    else if (t !== n.title) sync.commit({ type: "text:edit", id, text: t });
+  }
   /** Only memos have fields to edit; a suggestion is adopted first */
   function update(id: NoteId, patch: MemoPatch) {
     if (byId(id)?.kind !== "memo") return;
@@ -75,7 +94,9 @@ export const useNotes = defineStore("notes", () => {
   function duplicate(id: NoteId) {
     const n = byId(id);
     if (n === undefined) return;
-    return add(duplicateInput(n), { x: n.x + 24, y: n.y + 24 });
+    const at = { x: n.x + 24, y: n.y + 24 };
+    if (n.kind === "text") return addText(n.title, at, { rot: n.rot, scale: n.scale });
+    return add(duplicateInput(n), at);
   }
   /** A suggestion becomes an ordinary memo; `by` still says whose idea it was */
   function adopt(id: NoteId) {
@@ -84,5 +105,18 @@ export const useNotes = defineStore("notes", () => {
   }
   const byId = (id: NoteId) => notes.value.find((n) => n.id === id);
 
-  return { notes, add, update, recolor, move, sendMove, remove, duplicate, adopt, byId };
+  return {
+    notes,
+    add,
+    addText,
+    editText,
+    update,
+    recolor,
+    move,
+    sendMove,
+    remove,
+    duplicate,
+    adopt,
+    byId,
+  };
 });
