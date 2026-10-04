@@ -14,7 +14,7 @@ export const useTags = defineStore("tags", () => {
 
   const tagList = computed(() => {
     const c = new Map<string, number>();
-    for (const n of store.notes) for (const t of tagsOf(n)) c.set(t, (c.get(t) ?? 0) + 1);
+    for (const n of store.notes ?? []) for (const t of tagsOf(n)) c.set(t, (c.get(t) ?? 0) + 1);
     return [...c].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
   });
 

@@ -54,7 +54,7 @@ const dropped = computed(() => {
   const s = settings.value;
   if (s === null) return 0;
   const m = { type: "trip:dates", first: s.first, days: s.days } as const;
-  const before = store.notes;
+  const before = store.notes ?? [];
   const next = moveSchedules(before, trip.days[0]?.date, m, Temporal.Now.instant());
   // only a planned note changes, so one that changed and has no day now lost it
   return next.filter((n, i) => n !== before[i] && n.kind === "memo" && n.schedule === null).length;

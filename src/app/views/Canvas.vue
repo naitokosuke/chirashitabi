@@ -116,7 +116,7 @@ const menuNote = computed(() =>
 function noteAt(el: EventTarget | null): Note | undefined {
   const card = (el as HTMLElement).closest?.("[data-id]") as HTMLElement | null;
   // data-id comes back from the DOM as a plain string, so match it rather than trust it
-  return card ? store.notes.find((n) => n.id === card.dataset.id) : undefined;
+  return card ? store.notes?.find((n) => n.id === card.dataset.id) : undefined;
 }
 
 // ---- picking: a tap picks a card (framed, with handles and its toolbar); two taps open it ----
@@ -416,7 +416,7 @@ function fitAll() {
 }
 function fitted(minScale = 0) {
   const r = vp.value!.getBoundingClientRect();
-  return fitView(store.notes, r.width, r.height, minScale);
+  return fitView(store.notes ?? [], r.width, r.height, minScale);
 }
 
 // ---- writing on the desk: a double click on it, or on a text box, writes there ----
@@ -480,7 +480,7 @@ const undoAdd = (id: NoteId) => ({ undo: () => store.remove(id) });
 // ---- deleting: the card leaves at once; the room hears about it once the toast is gone ----
 const pendingDelete = ref(new Set<NoteId>());
 const shownNotes = computed(() =>
-  store.notes
+  (store.notes ?? [])
     // a text box being rewritten is shown by its field instead
     .filter((n) => !pendingDelete.value.has(n.id) && n.id !== writing.value?.id)
     .map((n) => {
@@ -562,7 +562,7 @@ onBeforeUnmount(() => vp.value?.removeEventListener("wheel", onWheel));
 onMounted(() =>
   nextTick(() => {
     const r = vp.value!.getBoundingClientRect();
-    if (store.notes.length > 0) {
+    if (store.notes?.length) {
       view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value;
       return;
     }
@@ -571,7 +571,7 @@ onMounted(() =>
 );
 // Notes that arrive later (the room's first snapshot) get the same first look, once
 watch(
-  () => store.notes.length > 0,
+  () => (store.notes?.length ?? 0) > 0,
   (has, had) => {
     if (!has || had) return;
     nextTick(() => {
@@ -585,7 +585,7 @@ watch(
   <section>
     <!-- no bar: the desk runs to the top, and what would sit in a bar floats on it -->
     <div>
-      <p v-if="store.notes.length === 0">{{ i18n.t("canvas.empty") }}</p>
+      <p v-if="store.notes?.length === 0">{{ i18n.t("canvas.empty") }}</p>
 
       <div class="top">
         <FilterBar />

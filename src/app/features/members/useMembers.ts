@@ -1,5 +1,3 @@
-import { computed } from "vue";
-
 import { defineStore } from "pinia";
 
 import { useQueryState } from "@pinia/colada";
@@ -15,10 +13,10 @@ import type { MemberId } from "./types";
 export const useMembers = defineStore("members", () => {
   const i18n = useI18n();
   const sync = useSync();
-  const { data } = useQueryState(() => roomKeys.members(sync.roomId));
-  const members = computed(() => data.value ?? []);
 
-  const byId = (id: MemberId) => members.value.find((m) => m.id === id);
+  const { data: members } = useQueryState(() => roomKeys.members(sync.roomId));
+
+  const byId = (id: MemberId) => members.value?.find((m) => m.id === id);
   const nameOf = (id: MemberId) => byId(id)?.name ?? i18n.t("member.someone");
   const colorOf = (id: MemberId) => byId(id)?.color ?? "var(--muted)";
 

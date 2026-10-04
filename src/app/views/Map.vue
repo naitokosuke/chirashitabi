@@ -54,12 +54,12 @@ const holding = ref<{ x: number; y: number } | null>(null);
 /** The pin whose card is open, by id: the note object is replaced whenever it changes */
 const selectedId = ref<string | null>(null);
 const selected = computed(
-  (): Pinned | null => pinnedOf(store.notes).find((n) => n.id === selectedId.value) ?? null,
+  (): Pinned | null => pinnedOf(store.notes ?? []).find((n) => n.id === selectedId.value) ?? null,
 );
 const day = ref<Temporal.PlainDate | null>(null); // show a day's route
 const isDay = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
 const toggleDay = (date: Temporal.PlainDate) => (day.value = isDay(date) ? null : date);
-const noPin = computed(() => store.notes.filter(needsPin).length);
+const noPin = computed(() => (store.notes ?? []).filter(needsPin).length);
 const showAllDays = () => (day.value = null);
 const closeCard = () => (selectedId.value = null);
 const editSelected = () => {
@@ -176,7 +176,7 @@ function pinEl(n: Pinned) {
 function syncMarkers() {
   if (!map) return;
   const seen = new Set<string>();
-  for (const n of pinnedOf(store.notes)) {
+  for (const n of pinnedOf(store.notes ?? [])) {
     seen.add(n.id);
     let m = markers.get(n.id);
     if (!m) {
@@ -214,7 +214,13 @@ function syncRoute() {
 }
 // re-sync whenever notes, filter or selection change (cheap: a dozen DOM toggles)
 watchEffect(() => {
-  void pinnedOf(store.notes).map((n) => [n.pin.lat, n.pin.lng, n.title, n.color, n.tags.length]);
+  void pinnedOf(store.notes ?? []).map((n) => [
+    n.pin.lat,
+    n.pin.lng,
+    n.title,
+    n.color,
+    n.tags.length,
+  ]);
   void tags.mode;
   void [...tags.selected];
   void selected.value;
@@ -224,10 +230,10 @@ const scheduleKey = (n: Note) =>
   n.kind === "memo" && n.schedule
     ? `${n.schedule.date} ${n.schedule.time} ${n.schedule.status}`
     : "";
-watch([day, () => store.notes.map(scheduleKey)], syncRoute);
+watch([day, () => (store.notes ?? []).map(scheduleKey)], syncRoute);
 
 function fitAll() {
-  const b = boundsOf(pinnedOf(store.notes).map((n) => lngLat(n.pin)));
+  const b = boundsOf(pinnedOf(store.notes ?? []).map((n) => lngLat(n.pin)));
   if (b) map?.fitBounds(b, { padding: 80, duration: 500 });
 }
 </script>

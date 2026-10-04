@@ -1,5 +1,3 @@
-import { computed } from "vue";
-
 import { defineStore } from "pinia";
 
 import { useQueryState } from "@pinia/colada";
@@ -26,8 +24,8 @@ export interface Shape {
  */
 export const useNotes = defineStore("notes", () => {
   const sync = useSync();
-  const { data } = useQueryState(() => roomKeys.notes(sync.roomId));
-  const notes = computed(() => data.value ?? []);
+  /** Undefined until the room's first snapshot */
+  const { data: notes } = useQueryState(() => roomKeys.notes(sync.roomId));
 
   /** A new memo near `at`; whose it is and when is stamped as it is applied */
   function add(input: NoteInput, at: { x: number; y: number }): NewMemo {
@@ -103,7 +101,7 @@ export const useNotes = defineStore("notes", () => {
     if (byId(id)?.kind !== "suggestion") return;
     sync.commit({ type: "note:adopt", id });
   }
-  const byId = (id: NoteId) => notes.value.find((n) => n.id === id);
+  const byId = (id: NoteId) => notes.value?.find((n) => n.id === id);
 
   return {
     notes,

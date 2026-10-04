@@ -24,9 +24,8 @@ import type { Flight, Flights, Leg } from "./types";
 export const useTrip = defineStore("trip", () => {
   const store = useNotes();
   const sync = useSync();
-  const { data } = useQueryState(() => roomKeys.trip(sync.roomId));
-  /** Null until the room's first snapshot */
-  const trip = computed(() => data.value ?? null);
+  /** Undefined until the room's first snapshot */
+  const { data: trip } = useQueryState(() => roomKeys.trip(sync.roomId));
 
   const name = computed(() => trip.value?.name ?? "");
   const days = computed(() => trip.value?.days ?? []);
@@ -34,13 +33,13 @@ export const useTrip = defineStore("trip", () => {
   const center = computed(() => trip.value?.center ?? null);
   const flights = computed((): Flights => trip.value?.flights ?? { out: null, back: null });
 
-  const unassigned = computed(() => itinerary.unassigned(store.notes));
+  const unassigned = computed(() => itinerary.unassigned(store.notes ?? []));
   const forDay = (date: Temporal.PlainDate, status?: NoteStatus) =>
-    itinerary.forDay(store.notes, date, status);
-  const byTag = (tag: string) => itinerary.byTag(store.notes, tag);
+    itinerary.forDay(store.notes ?? [], date, status);
+  const byTag = (tag: string) => itinerary.byTag(store.notes ?? [], tag);
   const budgetOf = (date?: Temporal.PlainDate, onlyFixed = true) =>
-    itinerary.budgetOf(store.notes, date, onlyFixed);
-  const fixedCount = computed(() => itinerary.fixedCount(store.notes));
+    itinerary.budgetOf(store.notes ?? [], date, onlyFixed);
+  const fixedCount = computed(() => itinerary.fixedCount(store.notes ?? []));
   const dayNumber = (date: Temporal.PlainDate) => itinerary.dayNumber(days.value, date);
 
   const dayOf = (date: Temporal.PlainDate) => days.value.find((d) => d.date.equals(date));

@@ -35,7 +35,7 @@ const range = computed(() => {
 
 /** Every memo in one of three piles: confirmed (or done), on a day as a maybe, or not on a day yet */
 const piles = computed(() => {
-  const memos = store.notes.filter((n) => n.kind === "memo");
+  const memos = (store.notes ?? []).filter((n) => n.kind === "memo");
   const fixed = memos.filter((n) => n.schedule !== null && n.schedule.status !== "idea").length;
   const loose = memos.filter((n) => n.schedule === null).length;
   return { fixed, maybe: memos.length - fixed - loose, loose, total: memos.length };
