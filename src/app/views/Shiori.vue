@@ -42,7 +42,7 @@ type Draft = DayDraft & { date: Temporal.PlainDate };
 const store = useNotes();
 const trip = useTrip();
 const worker = useWorker();
-const members = useMembers();
+const { members } = useMembers();
 const i18n = useI18n();
 type Tab = Temporal.PlainDate | "appendix" | null;
 /**

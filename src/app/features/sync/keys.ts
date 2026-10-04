@@ -21,7 +21,7 @@ export const roomKeys = {
   members: slice<Member[]>("members"),
   /**
    * Not a slice of the socket's: the e-mails the owner invited, fetched over HTTP by the owner
-   * only (useMembership), refreshed when the members change
+   * only (useMembers), refreshed when the members change
    */
   invited: slice<string[]>("invited"),
 };

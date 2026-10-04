@@ -18,7 +18,7 @@ const props = defineProps<{
   selected: boolean;
 }>();
 defineEmits<{ adopt: []; remove: [] }>();
-const members = useMembers();
+const { members } = useMembers();
 /** Whose card it is; nobody once they have left the room */
 const author = computed(() => members.value?.find((m) => m.id === props.note.by));
 const sync = useSync();

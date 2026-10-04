@@ -18,7 +18,7 @@ import { useTrip } from "../features/trip/useTrip";
 
 const trip = useTrip();
 const store = useNotes();
-const members = useMembers();
+const { members } = useMembers();
 const i18n = useI18n();
 const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);

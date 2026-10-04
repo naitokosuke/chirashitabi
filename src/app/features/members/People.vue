@@ -8,7 +8,7 @@ import { KEPT_DAYS } from "../rooms/api";
 import { useSync } from "../sync/useSync";
 
 import { SEATS, type MemberId, type Person } from "./types";
-import { useMembership } from "./useMembers";
+import { useMembers } from "./useMembers";
 
 /**
  * Who is on the trip, and the way in and out of it, at the foot of the trip's home. The owner
@@ -19,7 +19,7 @@ const i18n = useI18n();
 const id = useId();
 const router = useRouter();
 const sync = useSync();
-const membership = useMembership();
+const membership = useMembers();
 const { members, me, invited } = membership;
 
 const persons = computed(() =>
@@ -58,7 +58,7 @@ async function sendInvite() {
   }
 }
 
-/** One change of who is in; a failure is said, the list is refreshed either way (useMembership) */
+/** One change of who is in; a failure is said, the list is refreshed either way (useMembers) */
 async function run(change: () => Promise<unknown>, then?: () => void) {
   failed.value = null;
   try {
