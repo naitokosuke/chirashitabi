@@ -67,6 +67,8 @@ export const reviveTrip = (t: WireTrip): TripSnapshot => ({
 
 export const reviveMember = (m: WireMember): Member => ({
   id: m.id as MemberId,
+  // a member kept on a device before kinds were kept is a person until the room says otherwise
+  kind: m.kind === "agent" ? "agent" : "person",
   name: m.name,
   color: hexColor(m.color)!,
 });

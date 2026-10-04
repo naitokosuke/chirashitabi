@@ -59,7 +59,7 @@ const room: RoomState = {
     currency: currencyCode("TWD")!,
     center: { lat: 25.05, lng: 121.54 },
   },
-  members: [{ id: "yuki" as MemberId, name: "Yuki", color: hexColor("#3c6ee0")! }],
+  members: [{ id: "yuki" as MemberId, kind: "person", name: "Yuki", color: hexColor("#3c6ee0")! }],
 };
 
 describe("keep and kept", () => {

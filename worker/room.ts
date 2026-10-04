@@ -14,6 +14,7 @@ import {
   type WireNote,
   type WireRoomSummary,
   type WireTrip,
+  type GoneReason,
 } from "./wire";
 
 export type MemberKind = "person" | "agent";
@@ -131,7 +132,16 @@ export class Room extends DurableObject<Env> {
         type TEXT NOT NULL,
         bytes INTEGER NOT NULL,
         created_at TEXT NOT NULL
-      )
+      );
+      CREATE TABLE IF NOT EXISTS invitations (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS deletion (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        room_id TEXT NOT NULL,
+        at TEXT NOT NULL
+      );
     `);
   }
 
@@ -209,18 +219,188 @@ export class Room extends DurableObject<Env> {
     return creator;
   }
 
-  /** Called with the inviter's resolved id; mints the invitee's id, or null when the room is full */
-  invite(by: string, invitee: Profile): string | null {
+  /** Who made the room and so may invite, remove and delete; asked by member `by` */
+  owner(by: string): string {
     this.assertMember(by);
-    if (this.count("person") >= Room.MAX_PEOPLE) return null;
+    return this.ownerId();
+  }
+
+  /**
+   * Holds a seat for someone the owner `by` invites, until they answer or the owner takes it
+   * back; null when `by` is not the owner or every seat is taken or held. The index keeps who
+   * the seat is for; the room keeps no e-mail.
+   */
+  openSeat(by: string): string | null {
+    this.assertMember(by);
+    if (by !== this.ownerId()) return null;
+    const sql = this.ctx.storage.sql;
+    const held = sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM invitations").one().n;
+    if (this.count("person") + held >= Room.MAX_PEOPLE) return null;
     const id = crypto.randomUUID();
-    this.ctx.storage.sql.exec(
-      "INSERT INTO members (id, kind, name, color) VALUES (?, 'person', ?, ?)",
+    sql.exec(
+      "INSERT INTO invitations (id, created_at) VALUES (?, ?)",
       id,
-      invitee.name,
-      invitee.color,
+      new Date().toISOString(),
     );
     return id;
+  }
+
+  /** The seat is given back: declined, withdrawn, or not recorded in the index after all */
+  closeSeat(id: string): void {
+    this.ctx.storage.sql.exec("DELETE FROM invitations WHERE id = ?", id);
+  }
+
+  /**
+   * The invited person takes their seat as who they say they are; returns their new member id,
+   * or null when the seat is gone (withdrawn, or the room deleted). Everyone in is told.
+   */
+  accept(seat: string, me: Profile): string | null {
+    if (this.deletion() !== null) return null;
+    const sql = this.ctx.storage.sql;
+    if (sql.exec("DELETE FROM invitations WHERE id = ? RETURNING id", seat).toArray().length === 0)
+      return null;
+    const id = crypto.randomUUID();
+    sql.exec(
+      "INSERT INTO members (id, kind, name, color) VALUES (?, 'person', ?, ?)",
+      id,
+      me.name,
+      me.color,
+    );
+    this.tellMembers();
+    return id;
+  }
+
+  /** The index could not record a member `accept` just let in: they are not in after all */
+  unaccept(member: string): void {
+    this.ctx.storage.sql.exec("DELETE FROM members WHERE id = ? AND creator = 0", member);
+    this.tellMembers();
+  }
+
+  /**
+   * A deleted room as a person in it sees it, to restore it; null for anyone else, or when it
+   * is not deleted. Only the owner deletes, but either person can take it back, so one member
+   * cannot destroy the room beyond recovery (docs/auth-and-security.md).
+   */
+  deletedFor(by: string): { name: string; deletedAt: string } | null {
+    const deletion = this.deletion();
+    if (deletion === null || !this.isPerson(by)) return null;
+    const { name } = this.ctx.storage.sql
+      .exec<{ name: string }>("SELECT name FROM trip WHERE id = 1")
+      .one();
+    return { name, deletedAt: deletion.at };
+  }
+
+  /**
+   * Takes `member` out: the owner `by` removing someone else, or someone other than the owner
+   * leaving (`by` is `member`). False for anything else; the owner never leaves their own
+   * room, they delete it. Their notes stay; their socket is told and closed.
+   */
+  remove(by: string, member: string): boolean {
+    this.assertMember(by);
+    const owner = this.ownerId();
+    if (member === owner || (by !== owner && by !== member)) return false;
+    const sql = this.ctx.storage.sql;
+    const gone = sql
+      .exec("DELETE FROM members WHERE id = ? AND kind = 'person' RETURNING id", member)
+      .toArray();
+    if (gone.length === 0) return false;
+    this.#rate.delete(member);
+    this.closeSockets(this.ctx.getWebSockets(member), by === member ? "left" : "removed");
+    this.tellMembers();
+    return true;
+  }
+
+  /**
+   * The owner `by` deletes the room: nobody can open it from now on, and in DELETE_AFTER it is
+   * gone for good unless the owner restores it. `roomId` is kept for that day, when its pictures
+   * go too. False when `by` is not the owner.
+   */
+  delete(by: string, roomId: string): boolean {
+    this.assertMember(by);
+    if (by !== this.ownerId()) return false;
+    const at = new Date();
+    const sql = this.ctx.storage.sql;
+    sql.exec("INSERT INTO deletion (id, room_id, at) VALUES (1, ?, ?)", roomId, at.toISOString());
+    sql.exec("DELETE FROM invitations");
+    this.closeSockets(this.ctx.getWebSockets(), "deleted");
+    void this.ctx.storage.setAlarm(at.getTime() + Room.DELETE_AFTER);
+    return true;
+  }
+
+  /** How long a deleted room can be restored */
+  static readonly DELETE_AFTER = 30 * 24 * 60 * 60 * 1000;
+
+  /** When the room was deleted, or null while it is not */
+  deletedAt(): string | null {
+    return this.deletion()?.at ?? null;
+  }
+
+  /** A person in the room, `by`, takes the deletion back; false when it is not deleted */
+  restore(by: string): boolean {
+    if (this.deletion() === null) return false;
+    this.assertPerson(by);
+    this.ctx.storage.sql.exec("DELETE FROM deletion");
+    void this.ctx.storage.deleteAlarm();
+    return true;
+  }
+
+  /**
+   * A deleted room's day has come: its pictures, its place in the index and its storage go.
+   * Alarms do nothing else (docs/auth-and-security.md); none of this is a paid call.
+   */
+  override async alarm(): Promise<void> {
+    await this.sweep();
+  }
+
+  /** What the alarm does, callable on its own so the tests need not wait thirty days */
+  async sweep(): Promise<void> {
+    const deletion = this.deletion();
+    if (deletion === null) return;
+    const due = Date.parse(deletion.at) + Room.DELETE_AFTER;
+    if (Date.now() < due) {
+      await this.ctx.storage.setAlarm(due);
+      return;
+    }
+    const keys = this.ctx.storage.sql
+      .exec<{ id: string }>("SELECT id FROM pictures")
+      .toArray()
+      .map((p) => `rooms/${deletion.room_id}/images/${p.id}`);
+    // R2 deletes up to 1000 keys a call; a room holds at most MAX_IMAGES
+    if (keys.length > 0) await this.env.IMAGES.delete(keys);
+    await this.env.ROOMS.getByName("index").drop(deletion.room_id);
+    await this.ctx.storage.deleteAll();
+  }
+
+  private deletion(): { room_id: string; at: string } | null {
+    return (
+      this.ctx.storage.sql
+        .exec<{ room_id: string; at: string }>("SELECT room_id, at FROM deletion")
+        .toArray()[0] ?? null
+    );
+  }
+
+  private ownerId(): string {
+    return this.ctx.storage.sql
+      .exec<{ id: string }>("SELECT id FROM members WHERE creator = 1")
+      .one().id;
+  }
+
+  /** Who is in the room now, to every socket */
+  private tellMembers(): void {
+    const out = JSON.stringify({
+      type: "members",
+      members: this.members(),
+    } satisfies ServerMessage);
+    // a socket just closed on someone removed is still listed, and takes nothing more
+    for (const ws of this.ctx.getWebSockets()) if (ws.readyState === WebSocket.OPEN) ws.send(out);
+  }
+
+  private closeSockets(sockets: WebSocket[], reason: GoneReason): void {
+    const out = JSON.stringify({ type: "gone", reason } satisfies ServerMessage);
+    for (const ws of sockets) {
+      ws.send(out);
+      ws.close(4001, reason);
+    }
   }
 
   /** The trip at a glance, for a member's list of rooms: its name, days, members and memo count */
@@ -392,7 +572,9 @@ export class Room extends DurableObject<Env> {
     if (request.headers.get("Upgrade") !== "websocket" || memberId === null) {
       return new Response("Bad Request", { status: 400 });
     }
-    this.assertMember(memberId);
+    // removed or deleted between the index's answer and here
+    if (!this.isPerson(memberId) || this.deletion() !== null)
+      return new Response("Forbidden", { status: 403 });
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
     this.ctx.acceptWebSocket(server, [memberId]);
@@ -655,11 +837,22 @@ export class Room extends DurableObject<Env> {
     return row.n;
   }
 
+  /** A person in the room's table, the room deleted or not */
+  private assertPerson(id: string): void {
+    if (!this.isPerson(id)) throw new Error("not a member");
+  }
+
+  /** A person in a room that is not deleted: the only one the room acts for */
   private assertMember(id: string): void {
+    this.assertPerson(id);
+    if (this.deletion() !== null) throw new Error("room deleted");
+  }
+
+  private isPerson(id: string): boolean {
     const row = this.ctx.storage.sql
       .exec<{ kind: MemberKind }>("SELECT kind FROM members WHERE id = ?", id)
       .toArray()[0];
-    if (row === undefined || row.kind !== "person") throw new Error("not a member");
+    return row?.kind === "person";
   }
 }
 

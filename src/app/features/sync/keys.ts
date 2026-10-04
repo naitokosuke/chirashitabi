@@ -1,6 +1,6 @@
 import type { EntryKeyTagged } from "@pinia/colada";
 
-import type { Member } from "../members/types";
+import type { Member, People } from "../members/types";
 import type { Note } from "../notes/types";
 import type { RoomId } from "../rooms/types";
 import type { TripSnapshot } from "../trip/types";
@@ -19,4 +19,6 @@ export const roomKeys = {
   notes: slice<Note[]>("notes"),
   trip: slice<TripSnapshot>("trip"),
   members: slice<Member[]>("members"),
+  /** Not a slice of the socket's: fetched over HTTP (usePeople), refreshed when the members change */
+  people: slice<People>("people"),
 };

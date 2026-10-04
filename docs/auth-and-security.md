@@ -115,14 +115,17 @@ A member id never travels from the client as a claim of identity.
 Creating and joining are explicit operations, not side effects of a first visit.
 
 - `room:create` is called by any authenticated e-mail.
-  The caller becomes the first member and the room's creator.
-  An e-mail may have at most ten rooms, counted in the index.
-- `room:invite(email)` is called by an existing member of that room, and a room holds at most two people.
+  The caller becomes the first member and the room's owner (`creator` in its table).
+  An e-mail may have at most ten rooms, counted in the index; a deleted room counts until it is gone for good.
+- `room:invite(email)` is called by the owner, and a room holds at most `Room.MAX_PEOPLE` people (two).
+  The room holds a seat for the invitation and the index records the e-mail against it; a held seat counts as taken, so the people plus the open invitations never exceed the limit.
+  The invitee sees it in `/api/me` and answers it: accepting (`/api/invitations/<room>/accept`) brings their own name and color, and the room mints their member id only then; declining gives the seat back, and so does the owner withdrawing it (`room:uninvite`).
   The invitee must also be allowed by Access, or the invitation sits unused.
-- `room:remove(member)` is called by the creator, or by any member with the other member's confirmation recorded in the room.
-- `room:delete` is a soft delete, whoever calls it: the room is marked deleted, dropped from the index listing and its booklet files are deleted from R2 as on rotation, and either member can restore it for 30 days (restoring means publishing again).
-  After 30 days an alarm calls `deleteAll` on the object and removes it from the index.
-- Everything else from a member id that is not in the table is rejected inside the object.
+- `room:remove(member)` is called by the owner, for anyone but themselves; `room:leave` by anyone else, for themselves.
+  The room tells that person's sockets they are out (`gone`) and closes them, tells the rest who is in now (`members`), and the index forgets the membership; what they wrote stays, signed with their old id.
+- `room:delete` is called by the owner and is a soft delete: the room is marked deleted, every socket is told and closed, the index stops resolving anyone in it and drops its open invitations, and either person who was in it can restore it for 30 days (`room:restore`).
+  After 30 days an alarm deletes its pictures from R2, removes it from the index and calls `deleteAll` on the object; the booklet's files will go the same way once publishing exists.
+- Everything else from a member id that is not in the table, or in a deleted room, is rejected inside the object.
 
 `MemberId` is a random id assigned by the room at creation or invitation.
 The e-mail is a login attribute stored in the index and may change, and so may the mechanism behind `identify`; the id does not.
@@ -248,7 +251,7 @@ The client cannot be trusted to have run its own checks, so the room validates e
 - Each member has a token bucket for messages, separate from the paid-call budget.
 - `updatedAt` and ordering are assigned by the room, not sent by the client.
 - `note:delete` is a soft delete with 30 days of history, so one member cannot wipe the room beyond recovery.
-- The room's state is snapshotted to R2 nightly by an alarm; alarms do nothing but this snapshot and the delayed `deleteAll` above.
+- The room's state is snapshotted to R2 nightly by an alarm; alarms do nothing but this snapshot and the delayed deletion above.
 
 ## Sessions and secrets
 

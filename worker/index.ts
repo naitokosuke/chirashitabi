@@ -6,18 +6,19 @@ import { draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude"
 import { CLEF_MODEL, judgeTags, MAX_TAGS } from "./clef";
 import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
 import { Room } from "./room";
+import { RoomsIndex } from "./rooms-index";
 import {
   IMAGE_TYPES,
   isDate,
   isImageId,
   MAX_IMAGE_BYTES,
+  parseEmail,
   parsePoint,
   parseProfile,
   parseTrip,
 } from "./wire";
 
-export { Room };
-export { RoomsIndex } from "./rooms-index";
+export { Room, RoomsIndex };
 
 /**
  * Structured logs (evlog): one wide event per API request, built up as the request goes
@@ -52,7 +53,24 @@ export default withEvlog<Env>(
 const booklet = () => new Response("Not Found", { status: 404 });
 
 const status = (code: number, text: string) => new Response(text, { status: code });
-const ROOM = /^\/api\/rooms\/([0-9a-f-]{36})\/(invite|ws|draft|suggest|tags|places|where)$/;
+type RoomAction =
+  | "ws"
+  | "draft"
+  | "suggest"
+  | "tags"
+  | "places"
+  | "where"
+  | "people"
+  | "invite"
+  | "uninvite"
+  | "remove"
+  | "leave"
+  | "delete"
+  | "restore";
+const ROOM =
+  /^\/api\/rooms\/([0-9a-f-]{36})\/(ws|draft|suggest|tags|places|where|people|invite|uninvite|remove|leave|delete|restore)$/;
+/** An invitation to a room, answered by the person invited */
+const INVITATION = /^\/api\/invitations\/([0-9a-f-]{36})\/(accept|decline)$/;
 /** A room's pictures: POST to upload one, GET `/images/<id>` to show it */
 const IMAGES = /^\/api\/rooms\/([0-9a-f-]{36})\/images(?:\/([0-9a-f-]{36}))?$/;
 
@@ -144,11 +162,54 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
 
   if (url.pathname === "/api/me") {
     if (upgrade) return status(403, "Forbidden");
-    const ids = await index.rooms(email);
-    const rooms = await Promise.all(
-      ids.map(async (id) => ({ id, ...(await env.ROOM.getByName(id).summary()) })),
-    );
-    return Response.json({ rooms });
+    const [ids, invitedTo, deletedIds] = await Promise.all([
+      index.rooms(email),
+      index.invitations(email),
+      index.rooms(email, true),
+    ]);
+    const glance = async (id: string) => ({ id, ...(await env.ROOM.getByName(id).summary()) });
+    const rooms = await Promise.all(ids.map(glance));
+    // an invitation shows the trip it is to, its owner leading the members
+    const invitations = await Promise.all(invitedTo.map(glance));
+    // a deleted trip, to the people who were in it, who may restore it
+    const deleted = (
+      await Promise.all(
+        deletedIds.map(async (id) => {
+          const by = await index.resolve(email, id, true);
+          const d = by === null ? null : await env.ROOM.getByName(id).deletedFor(by);
+          return d === null ? [] : [{ id, ...d }];
+        }),
+      )
+    ).flat();
+    return Response.json({ rooms, invitations, deleted });
+  }
+
+  const answer = INVITATION.exec(url.pathname);
+  if (answer !== null) {
+    if (upgrade) return status(403, "Forbidden");
+    const [, roomId, verb] = answer as unknown as [string, string, "accept" | "decline"];
+    log.set({ room: roomId, action: verb });
+    const room = env.ROOM.getByName(roomId);
+    if (verb === "decline") {
+      const seat = await index.take(email, roomId);
+      if (seat === null) return status(404, "Not Found");
+      await room.closeSeat(seat);
+      return Response.json({});
+    }
+    // who they will be in the room is theirs to say, checked before the seat is taken
+    const me = parseProfile(await json(request));
+    if (me === null) return status(400, "Bad Request");
+    const seat = await index.take(email, roomId);
+    if (seat === null) return status(404, "Not Found");
+    const memberId = await room.accept(seat, me);
+    if (memberId === null) return status(409, "Conflict");
+    if (!(await index.add(email, roomId, memberId))) {
+      // at the cap of rooms: the seat is lost, as a declined one would be
+      await room.unaccept(memberId);
+      return status(409, "Conflict");
+    }
+    log.set({ member: memberId });
+    return Response.json({ memberId });
   }
 
   if (url.pathname === "/api/rooms") {
@@ -165,11 +226,19 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
 
   const m = ROOM.exec(url.pathname);
   if (m === null) return status(404, "Not Found");
-  const [, roomId, action] = m as unknown as [
-    string,
-    string,
-    "invite" | "ws" | "draft" | "suggest" | "tags" | "places" | "where",
-  ];
+  const [, roomId, action] = m as unknown as [string, string, RoomAction];
+
+  if (action === "restore") {
+    if (upgrade) return status(403, "Forbidden");
+    // a deleted room resolves nobody, but the people who were in it may take the deletion back
+    const member = await index.resolve(email, roomId, true);
+    if (member === null) return status(403, "Forbidden");
+    log.set({ room: roomId, member, action });
+    if (!(await env.ROOM.getByName(roomId).restore(member))) return status(403, "Forbidden");
+    await index.mark(roomId, null);
+    return Response.json({});
+  }
+
   const memberId = await index.resolve(email, roomId);
   if (memberId === null) return status(403, "Forbidden");
   log.set({ room: roomId, member: memberId, action });
@@ -375,16 +444,72 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
     return Response.json({ added });
   }
 
-  const invitee = parseProfile(body);
-  const inviteeEmail = body?.email;
-  if (invitee === null || typeof inviteeEmail !== "string" || inviteeEmail === "") {
-    return status(400, "Bad Request");
+  return people(action, { index, room, roomId, memberId, body });
+}
+
+/**
+ * Who is in a room, and who is asked in: the owner invites, takes an invitation back, removes
+ * someone and deletes the room; anyone else may leave. The room decides who may; the index
+ * keeps the e-mails.
+ */
+async function people(
+  action: Exclude<RoomAction, "ws" | "draft" | "suggest" | "tags" | "places" | "where" | "restore">,
+  {
+    index,
+    room,
+    roomId,
+    memberId,
+    body,
+  }: {
+    index: DurableObjectStub<RoomsIndex>;
+    room: DurableObjectStub<Room>;
+    roomId: string;
+    memberId: string;
+    body: Record<string, unknown> | null;
+  },
+): Promise<Response> {
+  switch (action) {
+    case "people": {
+      const owner = await room.owner(memberId);
+      // the e-mails invited are the owner's to see: they typed them
+      const invited = owner === memberId ? await index.invited(roomId) : [];
+      return Response.json({ owner, invited, seats: Room.MAX_PEOPLE });
+    }
+    case "invite": {
+      const invitee = parseEmail(body?.email);
+      if (invitee === null) return status(400, "Bad Request");
+      if ((await room.owner(memberId)) !== memberId) return status(403, "Forbidden");
+      const seat = await room.openSeat(memberId);
+      if (seat === null) return status(409, "Conflict"); // every seat taken or held
+      if (!(await index.invite(invitee, roomId, seat))) {
+        await room.closeSeat(seat);
+        return status(409, "Conflict"); // already in, or already invited
+      }
+      return Response.json({ invited: invitee });
+    }
+    case "uninvite": {
+      const invitee = parseEmail(body?.email);
+      if (invitee === null) return status(400, "Bad Request");
+      if ((await room.owner(memberId)) !== memberId) return status(403, "Forbidden");
+      const seat = await index.take(invitee, roomId);
+      if (seat === null) return status(404, "Not Found");
+      await room.closeSeat(seat);
+      return Response.json({});
+    }
+    case "remove":
+    case "leave": {
+      const member = action === "leave" ? memberId : body?.member;
+      if (typeof member !== "string" || member === "") return status(400, "Bad Request");
+      if (!(await room.remove(memberId, member))) return status(403, "Forbidden");
+      await index.forget(roomId, member);
+      return Response.json({});
+    }
+    case "delete": {
+      if (!(await room.delete(memberId, roomId))) return status(403, "Forbidden");
+      await index.mark(roomId, await room.deletedAt());
+      return Response.json({});
+    }
   }
-  if ((await index.resolve(inviteeEmail, roomId)) !== null) return status(409, "Conflict");
-  const id = await room.invite(memberId, invitee);
-  if (id === null) return status(409, "Conflict");
-  if (!(await index.add(inviteeEmail, roomId, id))) return status(409, "Conflict");
-  return Response.json({ memberId: id });
 }
 
 /** The JSON body as a record, or null when it is not one */

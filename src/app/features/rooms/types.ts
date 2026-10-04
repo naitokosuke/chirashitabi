@@ -28,6 +28,23 @@ export interface RoomSummary {
   memos: number;
 }
 
+/** A trip its owner deleted, which either person in it can restore until `until` (the room's own count of days) */
+export interface DeletedRoom {
+  id: RoomId;
+  name: string;
+  until: Temporal.PlainDate;
+}
+
+/**
+ * What the signed-in person has: the trips they are in, the ones they are invited to (each
+ * with its owner leading its members) and the deleted ones they can still restore.
+ */
+export interface Mine {
+  rooms: RoomSummary[];
+  invitations: RoomSummary[];
+  deleted: DeletedRoom[];
+}
+
 /**
  * A trip as it is started, checked (newRoom.ts): a name, `days` days in a row from `first`
  * (at least one), a currency this runtime can format; and its first member, named, in a color
@@ -41,5 +58,11 @@ export interface NewRoom {
     currency: CurrencyCode;
     center: LatLng;
   };
-  me: { name: string; color: HexColor };
+  me: Profile;
+}
+
+/** How a person is shown in a room: a name, and a color that can go into a style */
+export interface Profile {
+  name: string;
+  color: HexColor;
 }

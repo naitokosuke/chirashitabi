@@ -4,8 +4,9 @@ import { DurableObject } from "cloudflare:workers";
 export type Refusal = "day" | "trip";
 
 /**
- * One per account: which rooms each e-mail belongs to, and as which member, and what each
- * person has spent (docs/auth-and-security.md, "The budget"). The only place an e-mail is stored.
+ * One per account: which rooms each e-mail belongs to, and as which member, which rooms it is
+ * invited to, and what each person has spent (docs/auth-and-security.md, "The budget"). The
+ * only place an e-mail is stored.
  */
 export class RoomsIndex extends DurableObject<Env> {
   static readonly MAX_ROOMS_PER_EMAIL = 10;
@@ -26,7 +27,18 @@ export class RoomsIndex extends DurableObject<Env> {
         day TEXT NOT NULL,
         refunded INTEGER NOT NULL DEFAULT 0
       );
+      CREATE TABLE IF NOT EXISTS invitations (
+        email TEXT NOT NULL,
+        room_id TEXT NOT NULL,
+        invite_id TEXT NOT NULL,
+        PRIMARY KEY (email, room_id)
+      );
     `);
+    // Indexes made before a room could be deleted gain the column once
+    const cols = ctx.storage.sql.exec<{ name: string }>("PRAGMA table_info(memberships)").toArray();
+    if (!cols.some((c) => c.name === "deleted_at")) {
+      ctx.storage.sql.exec("ALTER TABLE memberships ADD COLUMN deleted_at TEXT");
+    }
   }
 
   // ---- the budget: reserve, call, settle ----
@@ -60,11 +72,17 @@ export class RoomsIndex extends DurableObject<Env> {
     this.ctx.storage.sql.exec("UPDATE spends SET refunded = 1 WHERE id = ?", id);
   }
 
-  /** The member id `email` has in `roomId`, or null when it is not a member */
-  resolve(email: string, roomId: string): string | null {
+  // ---- memberships ----
+
+  /**
+   * The member id `email` has in `roomId`, or null when it is not a member. A deleted room
+   * speaks for nobody, but with `deleted`, which is how its owner restores it.
+   */
+  resolve(email: string, roomId: string, deleted = false): string | null {
     const row = this.ctx.storage.sql
       .exec<{ member_id: string }>(
-        "SELECT member_id FROM memberships WHERE email = ? AND room_id = ?",
+        `SELECT member_id FROM memberships
+           WHERE email = ? AND room_id = ? AND deleted_at IS ${deleted ? "NOT NULL" : "NULL"}`,
         email.toLowerCase(),
         roomId,
       )
@@ -72,17 +90,22 @@ export class RoomsIndex extends DurableObject<Env> {
     return row?.member_id ?? null;
   }
 
-  rooms(email: string): string[] {
+  /** The rooms `email` is in, oldest first; with `deleted`, the deleted ones instead */
+  rooms(email: string, deleted = false): string[] {
     return this.ctx.storage.sql
       .exec<{ room_id: string }>(
-        "SELECT room_id FROM memberships WHERE email = ? ORDER BY rowid",
+        `SELECT room_id FROM memberships
+           WHERE email = ? AND deleted_at IS ${deleted ? "NOT NULL" : "NULL"} ORDER BY rowid`,
         email.toLowerCase(),
       )
       .toArray()
       .map((r) => r.room_id);
   }
 
-  /** Records a membership the room has already minted; false when `email` is at its room cap */
+  /**
+   * Records a membership the room has already minted; false when `email` is at its room cap.
+   * A deleted room still counts until it is gone for good.
+   */
   add(email: string, roomId: string, memberId: string): boolean {
     const e = email.toLowerCase();
     const count = this.ctx.storage.sql
@@ -96,6 +119,91 @@ export class RoomsIndex extends DurableObject<Env> {
       memberId,
     );
     return true;
+  }
+
+  /** `memberId` is no longer in `roomId`: removed by the owner, or left */
+  forget(roomId: string, memberId: string): void {
+    this.ctx.storage.sql.exec(
+      "DELETE FROM memberships WHERE room_id = ? AND member_id = ?",
+      roomId,
+      memberId,
+    );
+  }
+
+  // ---- invitations: a seat the room holds for an e-mail, until it is taken or given back ----
+
+  /**
+   * Records that `email` is invited to `roomId`, to the room's seat `inviteId`; false when it
+   * is already a member there or already invited.
+   */
+  invite(email: string, roomId: string, inviteId: string): boolean {
+    const e = email.toLowerCase();
+    const sql = this.ctx.storage.sql;
+    const known = (table: "memberships" | "invitations") =>
+      sql.exec(`SELECT 1 FROM ${table} WHERE email = ? AND room_id = ?`, e, roomId).toArray()
+        .length > 0;
+    if (known("memberships") || known("invitations")) return false;
+    sql.exec(
+      "INSERT INTO invitations (email, room_id, invite_id) VALUES (?, ?, ?)",
+      e,
+      roomId,
+      inviteId,
+    );
+    return true;
+  }
+
+  /** The rooms `email` is invited to, oldest first */
+  invitations(email: string): string[] {
+    return this.ctx.storage.sql
+      .exec<{ room_id: string }>(
+        "SELECT room_id FROM invitations WHERE email = ? ORDER BY rowid",
+        email.toLowerCase(),
+      )
+      .toArray()
+      .map((r) => r.room_id);
+  }
+
+  /** Who `roomId` has invited and not heard from yet, oldest first */
+  invited(roomId: string): string[] {
+    return this.ctx.storage.sql
+      .exec<{ email: string }>(
+        "SELECT email FROM invitations WHERE room_id = ? ORDER BY rowid",
+        roomId,
+      )
+      .toArray()
+      .map((r) => r.email);
+  }
+
+  /**
+   * Takes the invitation of `email` to `roomId` out, accepted, declined or withdrawn; returns
+   * the room's seat it held, or null when there was none.
+   */
+  take(email: string, roomId: string): string | null {
+    const row = this.ctx.storage.sql
+      .exec<{ invite_id: string }>(
+        "DELETE FROM invitations WHERE email = ? AND room_id = ? RETURNING invite_id",
+        email.toLowerCase(),
+        roomId,
+      )
+      .toArray()[0];
+    return row?.invite_id ?? null;
+  }
+
+  // ---- deleting a room: hidden from everyone at once, gone for good when the room says so ----
+
+  /** The room was deleted at `at`, or restored (null); its members' lists and requests follow */
+  mark(roomId: string, at: string | null): void {
+    const sql = this.ctx.storage.sql;
+    sql.exec("UPDATE memberships SET deleted_at = ? WHERE room_id = ?", at, roomId);
+    // nobody is waiting to join a room nobody can open
+    if (at !== null) sql.exec("DELETE FROM invitations WHERE room_id = ?", roomId);
+  }
+
+  /** The room is gone for good: nothing of it is left here but what was spent in it */
+  drop(roomId: string): void {
+    const sql = this.ctx.storage.sql;
+    sql.exec("DELETE FROM memberships WHERE room_id = ?", roomId);
+    sql.exec("DELETE FROM invitations WHERE room_id = ?", roomId);
   }
 }
 

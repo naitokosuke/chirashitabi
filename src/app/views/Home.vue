@@ -7,6 +7,7 @@ import { formatMoney } from "../shared/money";
 
 import { useI18n } from "../i18n/useI18n";
 
+import People from "../features/members/People.vue";
 import { useMembers } from "../features/members/useMembers";
 import { PAPERS } from "../features/notes/types";
 import { useNotes } from "../features/notes/useNotes";
@@ -90,7 +91,10 @@ const allTotal = computed(() => trip.budgetOf(undefined, false));
         </ul>
       </figure>
 
-      <p><small>{{ i18n.t("home.budget") }}</small>{{ price(fixedTotal) }}<small v-if="allTotal > fixedTotal">{{ i18n.t("shiori.withMaybes", { total: price(allTotal) }) }}</small></p> </div>
+      <p><small>{{ i18n.t("home.budget") }}</small>{{ price(fixedTotal) }}<small v-if="allTotal > fixedTotal">{{ i18n.t("shiori.withMaybes", { total: price(allTotal) }) }}</small></p>
+
+      <People />
+    </div>
   </section>
 </template>
 

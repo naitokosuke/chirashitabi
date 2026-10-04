@@ -19,6 +19,7 @@ import { useRoom } from "./features/sync/useRoom";
 import Connection from "./features/sync/Connection.vue";
 import ThemeSwitch from "./features/theme/ThemeSwitch.vue";
 import Toast from "./features/toast/Toast.vue";
+import { useToast } from "./features/toast/useToast";
 import Canvas, { place } from "./views/Canvas.vue";
 import Form from "./views/Form.vue";
 import Home from "./views/Home.vue";
@@ -30,6 +31,7 @@ import { initialState, locationOf, next, placeOf, type AppEvent, type View } fro
 
 const i18n = useI18n();
 const room = useRoom();
+const toast = useToast();
 const router = useRouter();
 const route = useRoute();
 
@@ -52,6 +54,15 @@ watch(
     } else if (s.kind !== "out" && s.room !== LOCAL) room.leave();
   },
   { immediate: true },
+);
+
+/** Put out of the room it is showing (removed, left, the room deleted): back to the trips */
+watch(
+  () => room.gone,
+  (g) => {
+    const w = where.value;
+    if (g !== null && w.kind === "room" && w.room === g.room) void router.replace("/");
+  },
 );
 
 /**
@@ -199,7 +210,8 @@ function onMemoSaved(input: NoteInput) {
     </Transition>
   </main>
   <Rooms v-else />
-  <Toast v-if="inRoom" :inert="state.form !== null" />
+  <!-- out of a room only what has nothing to undo there: being put out of one, say -->
+  <Toast v-if="inRoom || toast.current?.undo === undefined" :inert="inRoom && state.form !== null" />
   <Connection v-if="inRoom" />
   <!--
     The one menu, floating over every screen in the same place: the trips, then (in a room)

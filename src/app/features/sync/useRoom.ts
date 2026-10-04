@@ -1,6 +1,6 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed } from "vue";
+import { computed, shallowRef } from "vue";
 
 import { defineStore } from "pinia";
 
@@ -8,15 +8,17 @@ import { type EntryKeyTagged, useQueryCache } from "@pinia/colada";
 
 import { useI18n } from "../../i18n/useI18n";
 
+import type { GoneReason } from "../../../../worker/wire";
 import type { MemberId } from "../members/types";
 import { roomId, type RoomId } from "../rooms/types";
+import { ROOMS_KEY } from "../rooms/useRooms";
 import { useToast } from "../toast/useToast";
 import { roomWorkerApi } from "../worker/api";
 import { useWorker } from "../worker/useWorker";
 
 import { roomKeys } from "./keys";
 import { createLedger, EMPTY_ROOM, type RoomState } from "./ledger";
-import { keep, kept } from "./persist";
+import { forget, keep, kept } from "./persist";
 import { linked, LOCAL, opened, OUT, synced } from "./session";
 import { createRoomSocket } from "./socket";
 import type { Mutation } from "./types";
@@ -121,11 +123,41 @@ export const useRoom = defineStore("room", () => {
         toast.show(i18n.t("room.refused"));
       }
     },
+    onMembers(members) {
+      show(ledger.members(members.map(reviveMember)));
+      // who may do what, and the trip's tag in the list, changed with them
+      const s = sync.session;
+      if (s.kind !== "out") refresh(s.room);
+    },
+    onGone(reason) {
+      const s = sync.session;
+      if (s.kind === "out") return;
+      // nothing of the room stays on this device: it would open a room that refuses it
+      leave();
+      forget(localStorage, s.room);
+      // only the list: who may do what in a room this device is out of is not its to ask
+      queryCache.invalidateQueries({ key: ROOMS_KEY }).catch(() => {
+        // the list's own error state reports it
+      });
+      toast.show(i18n.t(`room.gone.${reason}`));
+      gone.value = { room: s.room, reason };
+    },
     onStatus(next) {
       // "idle" is the socket left behind; the session leaves the room itself (leave)
       if (next !== "idle") sync.session = linked(sync.session, next);
     },
   });
+
+  /** The last room this device was put out of, and why; the shell goes back to the trips (App.vue) */
+  const gone = shallowRef<{ room: RoomId; reason: GoneReason } | null>(null);
+
+  function refresh(room: RoomId) {
+    const quiet = () => {
+      // each query's own error state reports it
+    };
+    queryCache.invalidateQueries({ key: roomKeys.people(room) }).catch(quiet);
+    queryCache.invalidateQueries({ key: ROOMS_KEY }).catch(quiet);
+  }
 
   /**
    * Ours: shown at once, kept until the room answers, sent now or after the next snapshot.
@@ -213,5 +245,6 @@ export const useRoom = defineStore("room", () => {
     leave,
     reconnect: socket.reconnect,
     offline,
+    gone: computed(() => gone.value),
   };
 });

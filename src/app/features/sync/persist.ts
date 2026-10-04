@@ -44,6 +44,15 @@ export function keep(storage: Storage, roomId: string, room: Kept) {
   }
 }
 
+/** Nothing of the room is kept any more: this device's person is out of it, or it was deleted */
+export function forget(storage: Storage, roomId: string) {
+  try {
+    storage.removeItem(keyOf(roomId));
+  } catch {
+    // still kept; the room refuses this device when it is opened again
+  }
+}
+
 /** The room as it was kept, or null: never kept, from another version, without who this device is, or unreadable */
 export function kept(storage: Storage, roomId: string): Kept | null {
   try {

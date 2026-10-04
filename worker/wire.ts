@@ -119,7 +119,14 @@ export type ServerMessage =
   | { type: "snapshot"; me: string; members: WireMember[]; trip: WireTrip; notes: WireNote[] }
   | { type: "mutation"; mutation: WireMutation; by: string; updatedAt: string }
   | { type: "ack"; cid: string; updatedAt: string }
-  | { type: "rejected"; reason: string; cid?: string };
+  | { type: "rejected"; reason: string; cid?: string }
+  // someone joined, was removed or left: who is in the room now
+  | { type: "members"; members: WireMember[] }
+  // this socket's person is out of the room, or the room was deleted; the socket closes after
+  | { type: "gone"; reason: GoneReason };
+
+/** Why a member's socket was closed by the room: removed by the owner, left on their own, or the room deleted */
+export type GoneReason = "removed" | "left" | "deleted";
 
 /** The client's id for one of its mutations, if the message carries a valid one */
 export const parseCid = (v: unknown): string | null => (isRecord(v) && isId(v.cid) ? v.cid : null);
@@ -199,6 +206,15 @@ const isBudget = (v: unknown): v is number | null =>
 export const parseProfile = (v: unknown): { name: string; color: string } | null =>
   isRecord(v) && isText(v.name, NAME) && v.name.trim() !== "" && hexColor(String(v.color)) !== null
     ? { name: v.name.trim(), color: String(v.color).toLowerCase() }
+    : null;
+
+/**
+ * An e-mail address to invite, lowercased as the index keeps it, or null. Only its shape is
+ * checked; whether it can log in is Access's to say.
+ */
+export const parseEmail = (v: unknown): string | null =>
+  typeof v === "string" && v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
+    ? v.trim().toLowerCase()
     : null;
 
 /** What a room is created with */
