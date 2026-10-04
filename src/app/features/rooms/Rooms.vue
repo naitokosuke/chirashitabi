@@ -3,8 +3,6 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
-import { useRoute, useRouter } from "vue-router";
-
 import { CtHoldButton, CtSwipeRow } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
@@ -23,11 +21,25 @@ import type { RoomId, RoomSummary } from "./types";
 import { useRooms } from "./useRooms";
 import { shelve, whenOf } from "./when";
 
+/**
+ * The trips, and the sheet making a new one while `creating`. Where a trip or the sheet is, and
+ * going there, is the page's: each link is `hrefOf` a trip or `newHref`, and a plain click on it
+ * asks the page to go (`open`, `create`); so do closing the sheet and the trip it made.
+ */
+defineProps<{
+  creating: boolean;
+  hrefOf: (id: RoomId) => string;
+  newHref: string;
+}>();
+const emit = defineEmits<{
+  open: [room: RoomId];
+  create: [];
+  close: [];
+  created: [room: RoomId];
+}>();
 const i18n = useI18n();
 const room = useRoom();
 const sync = useSync();
-const router = useRouter();
-const route = useRoute();
 const today = Temporal.Now.plainDateISO();
 
 const trips = useRooms();
@@ -109,13 +121,6 @@ const tagOf = (r: RoomSummary) => ({
   memos: i18n.t("rooms.memos", { count: r.memos }),
 });
 
-/** Into a trip, on its canvas: the URL names it, and its page enters it (pages/rooms/[roomId].vue) */
-const placeOf = (id: RoomId) => ({
-  name: "/rooms/[roomId]/canvas" as const,
-  params: { roomId: id },
-});
-/** A trip's own path: built from a checked room id (a UUID), so nothing else gets into the href */
-const hrefOf = (id: RoomId) => router.resolve(placeOf(id)).href;
 /** What a screen reader says for a tag: its name, then where it stands and when */
 const labelOf = (r: RoomSummary) => {
   const t = tagOf(r);
@@ -127,18 +132,8 @@ function follow(e: MouseEvent, to: () => unknown) {
   e.preventDefault();
   to();
 }
-const enter = (e: MouseEvent, id: RoomId) => follow(e, () => router.push(placeOf(id)));
-
-/** Making a trip is a step of its own (`/new`), so back puts the sheet away */
-const creating = computed(() => route.name === "/new");
-const startCreating = (e: MouseEvent) => follow(e, () => router.push("/new"));
-function stopCreating() {
-  const back = (window.history.state as { back?: unknown } | null)?.back;
-  if (back === "/") router.back();
-  else void router.replace("/");
-}
-/** The new trip takes the sheet's place: back from it goes to the list, not to an empty form */
-const created = (id: RoomId) => router.replace(placeOf(id));
+const enter = (e: MouseEvent, id: RoomId) => follow(e, () => emit("open", id));
+const startCreating = (e: MouseEvent) => follow(e, () => emit("create"));
 
 /** Opening a trip this device has nothing of: still trying, or given up; null otherwise */
 const joining = computed(() => {
@@ -188,7 +183,7 @@ function retry() {
             <h2>{{ i18n.t("rooms.invitations") }}</h2>
             <ul class="tags">
               <li v-for="r in mine?.invitations" :key="r.id">
-                <Invitation :room="r" @joined="(id) => router.push(placeOf(id))" />
+                <Invitation :room="r" @joined="(id) => emit('open', id)" />
               </li>
             </ul>
           </section>
@@ -214,7 +209,7 @@ function retry() {
               </li>
               <!-- a blank tag: the next trip starts by writing one -->
               <li>
-                <a class="blank" href="/new" @click="startCreating">
+                <a class="blank" :href="newHref" @click="startCreating">
                   <span aria-hidden="true" class="hole"></span>
                   <Icon :size="18" :src="plusIcon" />{{ i18n.t("rooms.new") }}
                 </a>
@@ -280,7 +275,7 @@ function retry() {
     </div>
 
     <Transition name="ct-slide">
-      <NewTrip v-if="creating" @close="stopCreating" @created="created" />
+      <NewTrip v-if="creating" @close="() => emit('close')" @created="(id) => emit('created', id)" />
     </Transition>
   </div>
 </template>

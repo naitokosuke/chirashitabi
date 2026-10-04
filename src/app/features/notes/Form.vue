@@ -1,14 +1,15 @@
 <script lang="ts">
-import type { FormTarget, View } from "../../shell";
+import type { FormTarget } from "./types";
 
 /**
  * Where the form is. The memo tab itself: always a new, unplaced memo, never closed, each save
- * goes to the canvas and leaves it blank; `active` while the tab is up. Or a sheet over a tab
- * (`from`, so the back control and the copy speak of it), on a target.
+ * goes to the canvas and leaves it blank; `active` while the tab is up. Or a sheet on a target,
+ * over what `back` names (the back control says it), and `onMap` when that is the map, where a
+ * memo with a place is a pin.
  */
 export type FormMode =
   | { kind: "tab"; active: boolean }
-  | { kind: "sheet"; target: FormTarget; from: View };
+  | { kind: "sheet"; target: FormTarget; back: string; onMap: boolean };
 </script>
 
 <script setup lang="ts" vapor>
@@ -51,8 +52,7 @@ const i18n = useI18n();
 const id = useId();
 const docked = computed(() => props.mode.kind === "tab");
 const active = computed(() => props.mode.kind === "tab" && props.mode.active);
-/** The tab a sheet was opened over; the memo tab stands for itself */
-const from = computed(() => (props.mode.kind === "sheet" ? props.mode.from : "memo"));
+const onMap = computed(() => props.mode.kind === "sheet" && props.mode.onMap);
 const target = computed(
   (): FormTarget => (props.mode.kind === "sheet" ? props.mode.target : { kind: "new", pin: null }),
 );
@@ -244,17 +244,10 @@ onBeforeUnmount(() => {
     setTimeout(() => opener.isConnected && opener.focus());
 });
 
-const BACK = {
-  home: "nav.home",
-  canvas: "nav.canvas",
-  memo: "nav.memo",
-  map: "nav.map",
-  shiori: "nav.booklet",
-} as const;
 /** From the map with a place: the note is a pin there (and a card on the desk) */
-const atPlace = computed(() => from.value === "map" && hasPin());
+const atPlace = computed(() => onMap.value && hasPin());
 /** From the map's stamp with no place yet: it still lands on the canvas, so say so instead of "save to canvas" from a map */
-const noPlace = computed(() => from.value === "map" && !hasPin());
+const noPlace = computed(() => onMap.value && !hasPin());
 const saveLabel = computed(() =>
   editing.value
     ? "form.save"
@@ -329,8 +322,8 @@ function submit() {
 <template>
   <form :data-docked="docked || undefined" @submit.prevent="submit">
     <!-- no bar: as a sheet, the way back floats where a bar would be; the title opens the page -->
-    <button v-if="!docked" class="back" type="button" @click="() => emit('close')">
-      <Icon :size="16" :src="backIcon" />{{ i18n.t(BACK[from]) }}
+    <button v-if="mode.kind === 'sheet'" class="back" type="button" @click="() => emit('close')">
+      <Icon :size="16" :src="backIcon" />{{ mode.back }}
     </button>
     <div>
       <h2 class="title">{{ i18n.t(editing ? "form.titleEdit" : "form.titleNew") }}</h2>

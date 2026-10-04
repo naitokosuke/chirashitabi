@@ -40,14 +40,15 @@ In production Access sets the token header itself; the stub only exists because 
 src/app/            The app
   main.ts, App.vue, style.css   Boot; every page under the one menu (the dock) and the toast
   router.ts    vue-router over the pages' files (typed in typed-router.d.ts); opens the last trip
-  shell.ts     A room's tabs, and the memo sheet's place in the URL's query
 
-  pages/       One file per URL (vue-router's file-based routes)
+  pages/       One .vue file per URL (vue-router's file-based routes)
     index.vue, new.vue   The trips (`/`), with the sheet making a new one (`/new`)
+    useTrips.ts          Where the trips lead: into a trip, and the new trip's sheet
     rooms/[roomId].vue   A room: enters it, keeps each tab once opened (KeepAlive), the memo sheet
+    rooms/url.ts         A room's tabs by their route, and the memo sheet's place in the URL's query
     rooms/[roomId]/
       canvas.vue   Pan / pinch; pick a card (tap), move, resize and turn it (handles), open it (double tap),
-                   its toolbar; adding notes (placed even before the canvas is opened); writing on the desk
+                   its toolbar; writing on the desk
       home.vue     The trip at a glance: dates, flights, the piles, the budget, who is in
       memo.vue     The memo form as a tab: each save goes on the canvas
       map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add
@@ -63,7 +64,7 @@ src/app/            The app
              Rooms (the list itself, each trip a luggage tag, coming up then been)
     notes/   Notes: store, types; input (the form's text -> title, body, tags); image (a photo shrunk
              on the device, and where a room's picture is shown from); Form (the note form, new or
-             edit, Google Maps link -> coordinates: the memo tab, and the sheet over any tab)
+             edit, Google Maps link -> coordinates: the memo tab, and a sheet over anything)
     sync/    useSync (the session: which room, who this device is in it, where changes go); keys
              (the room's cache keys); useRoom (the socket to a room, written into the cache); ledger
              (confirmed state and our unanswered changes); persist (the room kept on the device);
@@ -76,7 +77,8 @@ src/app/            The app
     tags/    Tag colors and the tag filter (store, filter bar)
     place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON
     canvas/  Sticky note card (a text box too); TextField (words being written on the desk); transform
-             (screen <-> world, zoom, pinch, fit); useViewport (the animated view)
+             (screen <-> world, zoom, pinch, fit); useViewport (the animated view); usePlace (adding
+             a note on the canvas, placed even before the canvas is opened)
     worker/  WorkerApi: by the room's agent, drafting a day (POST /api/rooms/<id>/draft) and leaving ideas
              on the canvas (POST /api/rooms/<id>/suggest); booklet export
 
