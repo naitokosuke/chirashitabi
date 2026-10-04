@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "check:worker": "wrangler types && tsc -p worker",
-    "deploy": "VITE_MOCK=false vp build && wrangler deploy"
+    "deploy": "VITE_MOCK=false vp build && wrangler deploy",
+    "musea": "MUSEA=true vp dev --open /__musea__"
   },
   "dependencies": {
     "@pinia/colada": "^1.4.6",
@@ -20,7 +21,8 @@
     "@types/geojson": "^7946.0.16",
     "@types/node": "^26.6.3",
     "@vitest/browser-playwright": "catalog:",
-    "@vizejs/vite-plugin": "^0.429.2",
+    "@vizejs/vite-plugin": "^0.432.0",
+    "@vizejs/vite-plugin-musea": "^0.432.0",
     "@vue/devtools-api": "^8.2.1",
     "msw": "^2.15.0",
     "playwright": "catalog:",

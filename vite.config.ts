@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 
+import { musea } from "@vizejs/vite-plugin-musea";
 import { defineConfig } from "@vizejs/vite-plugin/vite-plus";
 import { defineProject } from "vite-plus";
 import { playwright } from "vite-plus/test/browser-playwright";
@@ -19,6 +20,16 @@ export default defineConfig({
       dts: "src/app/typed-router.d.ts",
       importMode: "sync",
     }),
+    // the component gallery (Musea) at /__musea__, from the *.art.vue beside each component;
+    // only under `vp run musea`, so neither `vp dev` nor a deploy carries it
+    ...(process.env.MUSEA === "true"
+      ? musea({
+          include: ["src/ui/**/*.art.vue"],
+          previewCss: ["src/ui/styles/index.css"],
+          previewSetup: "src/ui/musea.preview.ts",
+          theme: "system",
+        })
+      : []),
   ],
   compiler: { vapor: true },
   typecheck: true,

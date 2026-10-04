@@ -1,5 +1,18 @@
 minimumReleaseAgeExclude:
   - vite@8.3.2
+  - "@vizejs/native-darwin-arm64@0.432.0"
+  - "@vizejs/native-darwin-x64@0.432.0"
+  - "@vizejs/native-linux-arm64-gnu@0.432.0"
+  - "@vizejs/native-linux-arm64-musl@0.432.0"
+  - "@vizejs/native-linux-x64-gnu@0.432.0"
+  - "@vizejs/native-linux-x64-musl@0.432.0"
+  - "@vizejs/native-win32-arm64-msvc@0.432.0"
+  - "@vizejs/native-win32-x64-msvc@0.432.0"
+  - "@vizejs/native@0.432.0"
+  - "@vizejs/unplugin@0.432.0"
+  - "@vizejs/vite-plugin-musea@0.432.0"
+  - "@vizejs/vite-plugin@0.432.0"
+  - vize@0.432.0
 # wrangler's runtime (workerd) and bundler (esbuild) fetch a native binary on install
 allowBuilds:
   esbuild: true
