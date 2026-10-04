@@ -20,10 +20,10 @@ const i18n = useI18n();
 const id = useId();
 const router = useRouter();
 const sync = useSync();
-const members = useMembers();
+const { members } = useMembers();
 const people = usePeople();
 
-const persons = computed(() => (members.members ?? []).filter((m) => m.kind === "person"));
+const persons = computed(() => (members.value ?? []).filter((m) => m.kind === "person"));
 const owner = computed(() => people.data.value?.owner ?? null);
 const invited = computed(() => people.data.value?.invited ?? []);
 const seats = computed(() => people.data.value?.seats ?? 0);

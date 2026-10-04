@@ -42,7 +42,7 @@ type Draft = DayDraft & { date: Temporal.PlainDate };
 const store = useNotes();
 const trip = useTrip();
 const worker = useWorker();
-const members = useMembers();
+const { nameOf, colorOf } = useMembers();
 const i18n = useI18n();
 type Tab = Temporal.PlainDate | "appendix" | null;
 /**
@@ -350,9 +350,9 @@ function adoptDraft() {
             <div
               v-if="draft && draft.date.equals(day)"
               data-turn
-              :style="`--who: ${members.colorOf(draft.by)}`"
+              :style="`--who: ${colorOf(draft.by)}`"
             >
-              <div><span aria-hidden="true"></span>{{ members.nameOf(draft.by) }}<small>{{ i18n.t("shiori.draft") }}</small></div>
+              <div><span aria-hidden="true"></span>{{ nameOf(draft.by) }}<small>{{ i18n.t("shiori.draft") }}</small></div>
               <p>{{ draft.reason }}</p>
               <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}</li></ol>
               <div><button type="button" @click="adoptDraft">{{ i18n.t("shiori.adoptDraft") }}</button><button type="button" @click="() => (draft = null)">{{ i18n.t("common.dismiss") }}</button></div>

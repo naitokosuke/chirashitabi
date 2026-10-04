@@ -18,7 +18,7 @@ import { useTrip } from "../features/trip/useTrip";
 
 const trip = useTrip();
 const store = useNotes();
-const members = useMembers();
+const { members } = useMembers();
 const i18n = useI18n();
 const price = (amount: number) => formatMoney(amount, trip.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
@@ -55,7 +55,7 @@ const allTotal = computed(() => trip.budgetOf(undefined, false));
         <p v-if="range">{{ range }} · {{ i18n.t("home.days", { count: trip.days.length }) }}</p>
         <!-- who is in: a face each, initial on their color -->
         <ul>
-          <li v-for="m in members.members" :key="m.id" :style="`--who: ${m.color}`" :title="m.name">
+          <li v-for="m in members" :key="m.id" :style="`--who: ${m.color}`" :title="m.name">
             <span aria-hidden="true">{{ m.name.slice(0, 1) }}</span>
             <span>{{ m.name }}</span>
           </li>

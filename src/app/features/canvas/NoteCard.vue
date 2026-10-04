@@ -16,7 +16,7 @@ defineProps<{
   selected: boolean;
 }>();
 defineEmits<{ adopt: []; remove: [] }>();
-const members = useMembers();
+const { nameOf, colorOf } = useMembers();
 const sync = useSync();
 const i18n = useI18n();
 </script>
@@ -29,7 +29,7 @@ const i18n = useI18n();
     :data-pop="pop || undefined"
     :data-selected="selected || undefined"
     :data-visibility="visibility"
-    :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}; --card: ${PAPERS[note.color]}; --who: ${members.colorOf(note.by)}`"
+    :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}; --card: ${PAPERS[note.color]}; --who: ${colorOf(note.by)}`"
     :data-id="note.id"
     :tabindex="note.kind !== 'suggestion' && visibility !== 'dimmed' ? 0 : undefined"
     :role="note.kind !== 'suggestion' ? 'button' : undefined"
@@ -38,7 +38,7 @@ const i18n = useI18n();
     <template v-if="note.kind === 'suggestion'">
       <header>
         <span aria-hidden="true"></span>
-        {{ members.nameOf(note.by) }}<small>{{ i18n.t("note.suggestion") }}</small>
+        {{ nameOf(note.by) }}<small>{{ i18n.t("note.suggestion") }}</small>
       </header>
       <p>{{ note.title }}</p>
       <footer><button type="button" @click.stop="() => $emit('adopt')">{{ i18n.t("note.adopt") }}</button><button type="button" @click.stop="() => $emit('remove')">{{ i18n.t("common.dismiss") }}</button></footer>
