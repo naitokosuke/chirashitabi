@@ -813,6 +813,32 @@ describe("the socket", () => {
     for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
 
+  test("the trip's name, written on the desk, reaches the other member and the list of trips", async () => {
+    const owner = "rename-owner@example.com";
+    const partner = "rename-partner@example.com";
+    const { roomId } = await createRoom(owner);
+    await admit(roomId, owner, partner);
+    const a = await connect(roomId, owner);
+    const b = await connect(roomId, partner);
+
+    a.send({ type: "trip:rename", name: "  台湾の秋  ", cid: "r1" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "r1" });
+    expect(await b.next()).toMatchObject({
+      type: "mutation",
+      mutation: { type: "trip:rename", name: "台湾の秋" },
+    });
+    for (const name of ["   ", "x".repeat(61)]) {
+      a.send({ type: "trip:rename", name });
+      expect(await a.next()).toEqual({ type: "rejected", reason: "not a mutation" });
+    }
+    const c = await connect(roomId, partner);
+    expect(c.snapshot).toMatchObject({ trip: { name: "台湾の秋" } });
+    const list = (await (await post("/api/me", partner)).json()) as { rooms: { name: string }[] };
+    expect(list.rooms.map((r) => r.name)).toEqual(["台湾の秋"]);
+    b.idle();
+    for (const s of [a, b, c]) s.ws.close(1000, "done");
+  });
+
   test("what the room refuses, with the reason, and nobody else hears", async () => {
     const { roomId } = await createRoom(ME);
     await admit(roomId, ME, PARTNER);

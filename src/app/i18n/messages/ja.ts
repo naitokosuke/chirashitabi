@@ -110,6 +110,7 @@ export const ja: Messages = {
   "home.trips": "旅の一覧",
 
   "canvas.undo": "取り消す",
+  "canvas.tripName": "旅の名前",
   "canvas.duplicate": "複製",
   "canvas.delete": "削除",
   "canvas.write": "メモを書く",

@@ -24,4 +24,5 @@ export type Mutation =
   | { type: "note:move"; id: NoteId; x: number; y: number; rot?: number; scale?: number }
   | { type: "note:delete"; id: NoteId }
   | { type: "day:intro"; date: Temporal.PlainDate; intro: string }
-  | { type: "member:profile"; name: string; color: HexColor }; // how the sender wants to be shown
+  | { type: "member:profile"; name: string; color: HexColor } // how the sender wants to be shown
+  | { type: "trip:rename"; name: string }; // the trip's name, trimmed, never empty

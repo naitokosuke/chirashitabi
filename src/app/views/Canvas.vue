@@ -74,6 +74,7 @@ import {
 import { useViewport } from "../features/canvas/useViewport";
 import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteId } from "../features/notes/types";
 import { useNotes, type Shape } from "../features/notes/useNotes";
+import { MAX_NAME } from "../features/rooms/newRoom";
 import { useToast } from "../features/toast/useToast";
 import FilterBar from "../features/tags/FilterBar.vue";
 import { useTags } from "../features/tags/useTags";
@@ -169,7 +170,8 @@ const wrap = (deg: number) => {
 
 function onDown(e: PointerEvent) {
   const target = e.target as HTMLElement;
-  if (target.closest("button")) return;
+  // a button, or the trip's name being written on the desk, is not the desk
+  if (target.closest("button, input")) return;
   menu.value = null;
   vp.value!.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -429,6 +431,30 @@ function fitted(minScale = 0) {
   return fitView([...store.notes, ...tag], r.width, r.height, minScale);
 }
 
+// ---- the trip's name, written on the desk ----
+/** What is being typed, while the name has focus; otherwise the field shows the trip's name */
+const draft = ref<string | null>(null);
+const nameField = computed({
+  get: () => draft.value ?? trip.name,
+  set: (v: string) => (draft.value = v),
+});
+const startRename = () => (draft.value = trip.name);
+/** Leaving the field keeps what was typed; a blank name keeps the old one */
+function endRename() {
+  if (draft.value !== null) trip.rename(draft.value);
+  draft.value = null;
+}
+function onNameKey(e: KeyboardEvent) {
+  // an IME's Enter picks a word; only a plain one is done
+  if (e.isComposing) return;
+  const field = e.currentTarget as HTMLInputElement;
+  if (e.key === "Enter") field.blur();
+  else if (e.key === "Escape") {
+    draft.value = null;
+    field.blur();
+  }
+}
+
 // ---- the trip's tag: where the trip goes, an object on the desk that is not a note ----
 /** Its middle, in desk coordinates. Set once the desk's notes are known, then left where it is */
 const tagAt = shallowRef<Pt | null>(null);
@@ -582,9 +608,25 @@ watch(
         @keydown="onKey"
       >
         <div :style="worldStyle">
-          <!-- where the trip goes: a nameplate printed on the desk, under the notes, panning with them -->
+          <!--
+            where the trip goes, printed on the desk under the notes and panning with them; the
+            name is written right there: tap it and type
+          -->
           <div v-if="tagAt !== null" class="tag" :style="`--x: ${tagAt.x}px; --y: ${tagAt.y}px`">
-            <p>{{ trip.name }}</p>
+            <span class="name" :data-value="nameField || ' '">
+              <input
+                v-model="nameField"
+                :aria-label="i18n.t('canvas.tripName')"
+                autocomplete="off"
+                enterkeyhint="done"
+                :maxlength="MAX_NAME"
+                size="1"
+                spellcheck="false"
+                @blur="endRename"
+                @focus="startRename"
+                @keydown="onNameKey"
+              />
+            </span>
             <p v-if="dates">{{ dates }}</p>
           </div>
           <NoteCard
@@ -743,11 +785,11 @@ section {
         will-change: transform;
 
         /*
-         * The trip's nameplate: printed on the desk, not lying on it, so nothing about it says
-         * "pick me up". No fill and no shadow (what can be moved casts one), a capsule ruled in
-         * two hairlines of ink like a seal (a note's corners are 6px), and the trip's name in the
-         * device's mincho, spaced out, where every note is in the gothic. Clicks go through it
-         * to the desk, so it pans like the desk does.
+         * The trip's name, printed on the desk rather than lying on it: no frame, no fill, no
+         * shadow (what can be moved casts one). The name alone, large, in the same gothic as the
+         * notes; the desk's own color fades in behind it so the dot grid does not run through the
+         * letters. The name is also where it is renamed: tapping it is typing in it. Elsewhere
+         * clicks go through to the desk.
          */
         > .tag {
           position: absolute;
@@ -759,45 +801,82 @@ section {
           align-items: center;
           /* as wide as its name (the desk it sits in has no width of its own), up to a point */
           width: max-content;
-          max-width: 360px;
-          padding: 12px 30px 11px;
-          border-radius: 999px;
-          border: 1.5px solid color-mix(in oklch, var(--ink) 75%, transparent);
-          /* the desk's own color inside, so the dot grid does not run through the name */
-          background: var(--bg);
-          /* the inner rule, a little in from the outer one */
-          box-shadow: inset 0 0 0 3px var(--bg), inset 0 0 0 4px color-mix(in oklch, var(--ink) 35%, transparent);
+          max-width: 560px;
+          padding: 28px 56px;
+          background: radial-gradient(closest-side, var(--bg) 62%, transparent);
           color: var(--ink);
           pointer-events: none;
           white-space: nowrap;
           user-select: none;
 
-          > p {
-            margin: 0;
+          /*
+           * The name, as wide as what is in it: a hidden copy of the text sizes the cell, and the
+           * field fills it. It shows itself a field only when reached for: a faint rule under it
+           * on hover, a firmer one while it is being written.
+           */
+          > .name {
+            display: inline-grid;
             max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            font-size: 40px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            line-height: 1.25;
 
-            /* the trip's name */
-            &:first-of-type {
-              font-family: var(--font-print);
-              font-size: var(--font-4xl);
-              font-weight: 600;
-              letter-spacing: 0.12em;
-              line-height: 1.3;
+            &::after,
+            > input {
+              grid-area: 1 / 1;
+              font: inherit;
+              letter-spacing: inherit;
               /* the spacing after the last character, matched before the first, keeps it centred */
-              padding-inline-start: 0.12em;
+              padding: 0 0 2px 0.04em;
             }
 
-            /* its dates, under it */
-            & + p {
-              margin-block-start: 2px;
-              font-size: var(--font-xs);
-              font-weight: 700;
-              letter-spacing: 0.08em;
-              color: var(--muted);
-              font-variant-numeric: tabular-nums;
+            &::after {
+              content: attr(data-value);
+              visibility: hidden;
+              white-space: pre;
+              overflow: hidden;
             }
+
+            > input {
+              min-width: 1em;
+              width: 100%;
+              margin: 0;
+              border: 0;
+              border-radius: 0;
+              background: transparent;
+              color: inherit;
+              text-align: center;
+              text-overflow: ellipsis;
+              caret-color: var(--ink);
+              pointer-events: auto;
+              cursor: text;
+              box-shadow: 0 1.5px 0 transparent;
+              transition: box-shadow var(--duration-swap) ease;
+
+              @media (--can-hover) {
+                &:hover {
+                  box-shadow: 0 1.5px 0 color-mix(in oklch, var(--ink) 18%, transparent);
+                }
+              }
+
+              &:focus {
+                outline: none;
+                box-shadow: 0 1.5px 0 color-mix(in oklch, var(--ink) 55%, transparent);
+              }
+            }
+          }
+
+          /* its dates, under it, small and spaced like a caption */
+          > p {
+            margin: 6px 0 0;
+            font-size: var(--font-xs);
+            font-weight: 700;
+            letter-spacing: 0.24em;
+            /* the trailing spacing, matched before the first figure */
+            padding-inline-start: 0.24em;
+            color: var(--muted);
+            font-variant-numeric: tabular-nums;
           }
         }
 
