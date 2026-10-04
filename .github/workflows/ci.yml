@@ -24,6 +24,8 @@ jobs:
       - run: vp run check
       # build before test: the Worker's integration tests start it with its assets directory
       - run: vp build
+      # the browser tests (*.browser.test.ts) run in the Chromium Playwright pins
+      - run: vp exec playwright install --with-deps chromium
       - run: vp test
 
   # main, once every check has passed, goes to chirashitabi.app; nothing else is deployed
