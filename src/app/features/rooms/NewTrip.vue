@@ -3,7 +3,14 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, onMounted, ref, useId, useTemplateRef } from "vue";
 
-import { CtChipPick, CtSwatches, type CtOption } from "../../../ui/index";
+import {
+  CtChipPick,
+  CtCalendar,
+  CtSwatches,
+  type CtDateRange,
+  type CtOption,
+  lengthOf,
+} from "../../../ui/index";
 
 import type { HexColor } from "../../shared/color";
 
@@ -11,8 +18,8 @@ import { useI18n } from "../../i18n/useI18n";
 
 import backIcon from "../../icons/back.svg";
 import Icon from "../../icons/Icon.vue";
-import minusIcon from "../../icons/minus.svg";
-import plusIcon from "../../icons/plus.svg";
+
+import { longDate } from "../trip/format";
 
 import { datesLabel, whenLabel } from "./label";
 import { CURRENCIES, DEFAULT_CENTER, MAX_DAYS, MAX_NAME, MEMBER_COLORS, newRoom } from "./newRoom";
@@ -28,19 +35,20 @@ const id = useId();
 const today = Temporal.Now.plainDateISO();
 
 const name = ref("");
-const firstDay = ref(today.add({ days: 30 }).toString());
-const count = ref(4);
+const start = today.add({ days: 30 });
+const dates = ref<CtDateRange>({ start, end: start.add({ days: 3 }) });
+/** How many days the trip runs, 0 while its last day is still to be picked */
+const count = computed(() => lengthOf(dates.value) ?? 0);
 const currency = ref<string>(CURRENCIES[0]);
 const currencies: CtOption[] = CURRENCIES.map((c) => ({ value: c, label: c }));
 const color = ref<string>(MEMBER_COLORS[0]);
-const step = (by: number) => (count.value = Math.min(MAX_DAYS, Math.max(1, count.value + by)));
 
 /** The form as a room the Worker will take, or null while it is not one yet */
 const filled = computed(() =>
   newRoom(
     {
       name: name.value,
-      firstDay: firstDay.value,
+      firstDay: dates.value.start.toString(),
       days: count.value,
       currency: currency.value,
       color: color.value,
@@ -50,13 +58,6 @@ const filled = computed(() =>
 );
 
 /** The tag the trip will get, drawn as the form is filled in */
-const first = computed(() => {
-  try {
-    return Temporal.PlainDate.from(firstDay.value);
-  } catch {
-    return null;
-  }
-});
 const preview = computed(() => {
   // the person, nameless, in their color; and the agent, in every trip from the start (worker/room.ts)
   const members: RoomSummary["members"] = [
@@ -66,8 +67,12 @@ const preview = computed(() => {
   return {
     name: name.value.trim() || i18n.t("rooms.namePlaceholder"),
     unnamed: name.value.trim() === "",
-    dates: datesLabel(first.value, count.value, i18n.locale, i18n.t),
-    when: whenLabel(whenOf({ first: first.value, days: count.value }, today), i18n.t),
+    // while the last day is to be picked, the first one, open-ended
+    dates:
+      count.value === 0
+        ? `${longDate(dates.value.start, i18n.locale)} –`
+        : datesLabel(dates.value.start, count.value, i18n.locale, i18n.t),
+    when: whenLabel(whenOf({ first: dates.value.start, days: count.value || 1 }, today), i18n.t),
     members,
   };
 });
@@ -120,33 +125,19 @@ onMounted(() => nameEl.value?.focus());
         />
       </div>
 
-      <div class="row">
-        <div class="field">
-          <label :for="`${id}-first`">{{ i18n.t("rooms.firstDay") }}</label>
-          <input :id="`${id}-first`" v-model="firstDay" required type="date" />
-        </div>
-        <div class="field">
-          <span :id="`${id}-days`">{{ i18n.t("rooms.days") }}</span>
-          <div class="stepper" role="group" :aria-labelledby="`${id}-days`">
-            <button
-              type="button"
-              :aria-label="i18n.t('rooms.fewer')"
-              :disabled="count <= 1"
-              @click="() => step(-1)"
-            >
-              <Icon :size="18" :src="minusIcon" />
-            </button>
-            <output aria-live="polite">{{ i18n.t("home.days", { count }) }}</output>
-            <button
-              type="button"
-              :aria-label="i18n.t('rooms.more')"
-              :disabled="count >= MAX_DAYS"
-              @click="() => step(1)"
-            >
-              <Icon :size="18" :src="plusIcon" />
-            </button>
-          </div>
-        </div>
+      <div class="field">
+        <span>
+          {{ i18n.t("rooms.dates") }}
+          <em v-if="dates.end === null" aria-live="polite">{{ i18n.t("rooms.pickLast") }}</em>
+        </span>
+        <CtCalendar
+          v-model="dates"
+          range
+          :max-days="MAX_DAYS"
+          :locale="i18n.locale"
+          :prev-label="i18n.t('rooms.prevMonth')"
+          :next-label="i18n.t('rooms.nextMonth')"
+        />
       </div>
 
       <div class="field">
@@ -249,6 +240,14 @@ onMounted(() => nameEl.value?.focus());
     font-size: var(--font-sm);
     font-weight: 700;
     color: var(--muted);
+
+    /* what the field waits for, after its name */
+    > em {
+      margin-inline-start: 8px;
+      font-style: normal;
+      font-weight: 400;
+      color: var(--ink);
+    }
   }
 
   > input {
@@ -269,57 +268,6 @@ onMounted(() => nameEl.value?.focus());
       outline: 2px solid var(--ink);
       outline-offset: 2px;
     }
-  }
-}
-
-/* first day, and how many: side by side */
-.row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-}
-
-.stepper {
-  display: flex;
-  align-items: center;
-  min-height: 46px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-
-  > button {
-    display: grid;
-    place-items: center;
-    width: 46px;
-    align-self: stretch;
-    border: 0;
-    background: transparent;
-    color: var(--ink);
-    border-radius: 10px;
-
-    &:disabled {
-      color: var(--muted);
-      opacity: 0.4;
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: -2px;
-    }
-
-    @media (--can-hover) {
-      &:not(:disabled):hover {
-        background: var(--wash);
-      }
-    }
-  }
-
-  > output {
-    min-width: 5.5em;
-    text-align: center;
-    font-size: var(--font-lg);
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
   }
 }
 
