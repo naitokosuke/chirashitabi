@@ -34,7 +34,7 @@ import Icon from "../../icons/Icon.vue";
 import { googleMapsLink, placeFromUrl, placeSearchLink } from "../place/google-maps";
 import type { FoundPlace } from "../place/types";
 import { useSync } from "../sync/useSync";
-import { fits, rankTags, type TagOption } from "../tags/rank";
+import { FITS_AT, fits, likeness, rankTags, type TagOption } from "../tags/rank";
 import { useTags } from "../tags/useTags";
 import { OverBudget, RoomFull } from "../worker/api";
 import { useWorker } from "../worker/useWorker";
@@ -139,8 +139,8 @@ const askByTap = computed(() => tags.tagList.length === 0);
 const MAX_ASKS = 2;
 /** How long the words stay still before Clef is asked */
 const SETTLE_MS = 1500;
-/** How many letters the words must have grown or lost since the last ask for another */
-const CHANGED_BY = 20;
+/** Words less alike than this to those last asked about are a new memo to Clef (tags/rank.ts) */
+const ASKED_ALIKE = 0.6;
 /** What Clef was last asked about for this memo, and how many times */
 let asked: { words: string; image: NoteInput["image"] } | null = null;
 let asks = 0;
@@ -164,7 +164,7 @@ async function askForTags(byTap: boolean) {
     if (of !== memo) return;
     offered.value = got;
     // nothing fitting is worth saying only to the one who asked
-    tagState.value = got.length === 0 && byTap ? "none" : "idle";
+    tagState.value = byTap && !got.some((t) => t.p >= FITS_AT) ? "none" : "idle";
   } catch (err) {
     if (of !== memo) return;
     // refused or failed: Clef stops asking by itself for this memo
@@ -172,19 +172,20 @@ async function askForTags(byTap: boolean) {
     tagState.value = err instanceof OverBudget ? err.ceiling : "failed";
   }
 }
-/** Asked once the words are there, then again only for a new photo or many more words */
+/** Asked once the words are there, then again only for a new photo or words much changed */
 function worthAsking() {
   if (askByTap.value || asks >= MAX_ASKS || text.value.trim() === "") return false;
   if (asked === null) return true;
   const { title, body } = parseNoteText(text.value);
   return (
-    form.value.image !== asked.image ||
-    Math.abs(`${title}\n${body}`.length - asked.words.length) >= CHANGED_BY
+    form.value.image !== asked.image || likeness(`${title}\n${body}`, asked.words) < ASKED_ALIKE
   );
 }
 let settle: ReturnType<typeof setTimeout> | undefined;
 watch([text, () => form.value.image], () => {
   clearTimeout(settle);
+  // the words all taken back: what comes next is another memo, with its own asks
+  if (text.value.trim() === "" && asked !== null) forgetTags();
   settle = setTimeout(() => {
     if (worthAsking()) void askForTags(false);
   }, SETTLE_MS);
@@ -198,7 +199,21 @@ function forgetTags() {
   offered.value = [];
   tagState.value = "idle";
 }
-// ---- the tags to add: those in use and Clef's, in the order they fit the words as typed ----
+// ---- the tags to add: those in use and the trip's, in the order they fit the words as typed ----
+/** The trip's candidate tags the agent proposed; read once the Worker is there, free */
+const candidates = ref<string[]>([]);
+watch(
+  () => worker.api,
+  (api) => {
+    api
+      ?.tagCandidates()
+      .then((c) => (candidates.value = c))
+      .catch(() => {
+        // the tags in use still rank; Clef's answers bring the candidates too
+      });
+  },
+  { immediate: true },
+);
 /** As many as a glance takes in */
 const MAX_SHOWN = 8;
 /** Not on the memo yet, neither added nor written as a #tag: one added from them goes */
@@ -211,9 +226,10 @@ const options = computed((): TagOption[] => {
     isNew: false,
   }));
   const known = new Set(inUse.map((t) => t.name));
-  const fresh = offered.value
-    .filter((o) => !known.has(o.tag))
-    .map((o) => ({ name: o.tag, count: 0, p: o.p, isNew: true }));
+  // the trip's candidates, and any Clef judged that came after them: no note has them yet
+  const fresh = [...new Set([...candidates.value, ...offered.value.map((o) => o.tag)])]
+    .filter((t) => !known.has(t))
+    .map((name) => ({ name, count: 0, p: judged.get(name) ?? null, isNew: true }));
   const on = new Set([...form.value.tags, ...parseNoteText(text.value).tags]);
   return [...inUse, ...fresh].filter((o) => !on.has(o.name));
 });

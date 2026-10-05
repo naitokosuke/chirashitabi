@@ -50,6 +50,9 @@ const notFound = () => new HttpResponse(null, { status: 404 });
 const now = () => Temporal.Now.instant();
 
 /** The room a request names, if there is one and it is not deleted */
+/** The trip's candidate tags, as the agent would have proposed them */
+const CANDIDATES = ["Airport", "Souvenirs", "Night markets", "Temples", "Tea"];
+
 const open = (id: unknown) => {
   const room = rooms.get(roomId(id) ?? ("" as RoomId));
   return room?.deletedAt === null ? room : undefined;
@@ -171,11 +174,17 @@ const agent = [
     if (room === undefined) return forbidden();
     const { chosen } = (await request.json()) as { chosen: string[] };
     const inUse = new Set(room.state.notes.flatMap((n) => (n.kind === "memo" ? n.tags : [])));
-    const tags = [...inUse].filter((t) => !chosen.includes(t)).slice(0, 3);
+    // every tag judged, the likeliest first: the in-use ones, then the trip's candidates
+    const tags = [...inUse, ...CANDIDATES.filter((t) => !inUse.has(t))].filter(
+      (t) => !chosen.includes(t),
+    );
     return HttpResponse.json({
-      tags: tags.map((tag, i) => ({ tag, p: 0.9 - i * 0.1, isNew: false })),
+      tags: tags.map((tag, i) => ({ tag, p: 0.9 * 0.8 ** i, isNew: !inUse.has(tag) })),
     });
   }),
+  http.post("/api/rooms/:roomId/candidates", ({ params }) =>
+    open(params.roomId) === undefined ? forbidden() : HttpResponse.json({ tags: CANDIDATES }),
+  ),
   http.post("/api/rooms/:roomId/places", ({ params }) =>
     open(params.roomId) === undefined ? forbidden() : HttpResponse.json({ places: [] }),
   ),

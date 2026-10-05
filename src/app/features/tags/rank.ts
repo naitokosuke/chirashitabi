@@ -42,5 +42,22 @@ export function rankTags(options: readonly TagOption[], text: string): TagOption
     .map(({ o }) => o);
 }
 
+/** Clef finds a tag this likely or more fitting; the Worker draws the same line (worker/clef.ts) */
+export const FITS_AT = 0.5;
+
 /** A tag the text names, or Clef found likely: shown as fitting, not only as one in use */
-export const fits = (o: TagOption, text: string) => o.p !== null || mention(o.name, text) > 0;
+export const fits = (o: TagOption, text: string) =>
+  (o.p !== null && o.p >= FITS_AT) || mention(o.name, text) > 0;
+
+/**
+ * How alike two texts are, from 0 to 1, by the pairs of letters they share: a few letters more
+ * leave them alike, a rewrite does not ("桃園空港のコンビニ" and "空港のコンビニで日本の製品を探す"
+ * are about half alike)
+ */
+export function likeness(a: string, b: string): number {
+  const pa = pairs(a.toLowerCase());
+  const pb = new Set(pairs(b.toLowerCase()));
+  if (pa.length + pb.size === 0) return 1;
+  const shared = new Set(pa.filter((p) => pb.has(p))).size;
+  return (2 * shared) / (new Set(pa).size + pb.size);
+}

@@ -8,10 +8,11 @@
 
 export const CLEF_MODEL = "@cf/cloudflare/clef-flash";
 
-/** A tag's likelihood above this is offered */
-const OFFER_AT = 0.5;
-/** At most this many tags are offered at once */
-const MAX_OFFERS = 6;
+/**
+ * A tag this likely or more fits the memo. Every tag goes back with its likelihood, the
+ * unlikely ones too, for the form to rank; the form draws the same line (features/tags/rank.ts)
+ */
+export const FITS_AT = 0.5;
 /** Clef takes at most 64 questions a call */
 export const MAX_TAGS = 64;
 
@@ -39,8 +40,8 @@ interface ClefInput {
 }
 
 /**
- * How likely each tag fits the memo, its text and its picture; the likely ones, most likely
- * first. Asks one yes/no question per tag, all in one call.
+ * How likely each tag fits the memo, its text and its picture; every tag Clef answered for,
+ * most likely first. Asks one yes/no question per tag, all in one call.
  */
 export async function judgeTags(env: Env, memo: MemoToTag, tags: string[]): Promise<ClefResult> {
   const names = tags.slice(0, MAX_TAGS);
@@ -80,9 +81,8 @@ export async function judgeTags(env: Env, memo: MemoToTag, tags: string[]): Prom
     return { ok: false, refund: false, reason: "Clef's answer had no answers" };
   const scored = names
     .map((tag, i) => ({ tag, p: answers[`t${i}`]?.noul }))
-    .filter((t): t is { tag: string; p: number } => typeof t.p === "number" && t.p >= OFFER_AT)
-    .sort((a, b) => b.p - a.p)
-    .slice(0, MAX_OFFERS);
+    .filter((t): t is { tag: string; p: number } => typeof t.p === "number")
+    .sort((a, b) => b.p - a.p);
   return { ok: true, tags: scored };
 }
 
