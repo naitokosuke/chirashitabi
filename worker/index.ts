@@ -3,7 +3,7 @@ import { initWorkersLogger, withEvlog } from "evlog/workers";
 
 import { AccessVerifier, Unauthenticated } from "./access";
 import { draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
-import { CLEF_MODEL, judgeTags, MAX_TAGS } from "./clef";
+import { CLEF_MODEL, FITS_AT, judgeTags, MAX_TAGS } from "./clef";
 import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
 import { Room } from "./room";
 import { RoomsIndex } from "./rooms-index";
@@ -58,6 +58,7 @@ type RoomAction =
   | "draft"
   | "suggest"
   | "tags"
+  | "candidates"
   | "places"
   | "where"
   | "invited"
@@ -69,7 +70,7 @@ type RoomAction =
   | "restore"
   | "purge";
 const ROOM =
-  /^\/api\/rooms\/([0-9a-f-]{36})\/(ws|draft|suggest|tags|places|where|invited|invite|uninvite|remove|leave|delete|restore|purge)$/;
+  /^\/api\/rooms\/([0-9a-f-]{36})\/(ws|draft|suggest|tags|candidates|places|where|invited|invite|uninvite|remove|leave|delete|restore|purge)$/;
 /** An invitation to a room, answered by the person invited */
 const INVITATION = /^\/api\/invitations\/([0-9a-f-]{36})\/(accept|decline)$/;
 /** A room's pictures: POST to upload one, GET `/images/<id>` to show it */
@@ -355,13 +356,26 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
       return status(502, "Bad Gateway");
     }
     await room.recordAgentCall(memberId, "tag", { input: 0, output: 0 });
+    // how likely the likeliest were, numbers only: what the threshold should be is read here
     log.set({
-      clef: { model: CLEF_MODEL, ok: true, asked: vocabulary.length, offered: judged.tags.length },
+      clef: {
+        model: CLEF_MODEL,
+        ok: true,
+        asked: vocabulary.length,
+        fitting: judged.tags.filter((t) => t.p >= FITS_AT).length,
+        top: judged.tags.slice(0, 3).map((t) => Math.round(t.p * 100) / 100),
+      },
     });
     const inUse = new Set(context.tags);
     return Response.json({
       tags: judged.tags.map((t) => ({ tag: t.tag, p: t.p, isNew: !inUse.has(t.tag) })),
     });
+  }
+
+  if (action === "candidates") {
+    // the trip's candidate tags, for the form to rank as the words are typed: free, so not budgeted
+    const { candidates } = await room.tagContext(memberId);
+    return Response.json({ tags: candidates });
   }
 
   if (action === "where") {
@@ -466,7 +480,7 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
 async function people(
   action: Exclude<
     RoomAction,
-    "ws" | "draft" | "suggest" | "tags" | "places" | "where" | "restore" | "purge"
+    "ws" | "draft" | "suggest" | "tags" | "candidates" | "places" | "where" | "restore" | "purge"
   >,
   {
     index,

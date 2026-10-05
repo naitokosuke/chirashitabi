@@ -1471,7 +1471,7 @@ describe("tags suggested for a memo", () => {
   const ask = (roomId: string, email: string, body: unknown) =>
     post(`/api/rooms/${roomId}/tags`, email, body);
 
-  test("Claude proposes the trip's candidates once; Clef picks what fits, in use or new", async () => {
+  test("Claude proposes the trip's candidates once; Clef judges each, in use or new", async () => {
     const email = "tagger@example.com";
     const { roomId } = await createRoom(email);
     const a = await connect(roomId, email);
@@ -1489,10 +1489,12 @@ describe("tags suggested for a memo", () => {
       chosen: [],
     });
     expect(res.status).toBe(200);
+    // every tag with how likely it fits, the unlikely too: the form ranks by it
     expect(await res.json()).toEqual({
       tags: [
         { tag: "Night markets", p: 0.93, isNew: true },
         { tag: "Hot springs", p: 0.62, isNew: true },
+        { tag: "Food", p: 0.4, isNew: false },
       ],
     });
     expect(asked.length).toBe(calls + 1);
@@ -1517,6 +1519,25 @@ describe("tags suggested for a memo", () => {
     expect(again.status).toBe(200);
     expect(asked.length).toBe(calls + 1);
     expect(Object.keys(judged.at(-1)!.questions)).toHaveLength(2);
+  });
+
+  test("the trip's candidates are read for free: none before the first ask, then the agent's", async () => {
+    const email = "candidates@example.com";
+    const { roomId } = await createRoom(email);
+    const candidates = () => post(`/api/rooms/${roomId}/candidates`, email, {});
+    const calls = asked.length;
+    const before = await candidates();
+    expect(before.status).toBe(200);
+    expect(await before.json()).toEqual({ tags: [] });
+    expect(asked.length).toBe(calls);
+
+    answer = () => proposingTags(["Airport", "Souvenirs"]);
+    judge = judging({});
+    await ask(roomId, email, { title: "x", body: "", image: null, chosen: [] });
+    expect(await (await candidates()).json()).toEqual({ tags: ["Airport", "Souvenirs"] });
+    const index = await server.getWorker().getDurableObjectStorage("RoomsIndex", { name: "index" });
+    // the ask spent Claude's and Clef's calls; reading the candidates spent nothing
+    expect(await index.exec("SELECT id FROM spends WHERE email = ?", email)).toHaveLength(2);
   });
 
   test("the memo's picture goes to Clef with its words", async () => {

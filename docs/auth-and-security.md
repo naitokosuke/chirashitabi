@@ -185,6 +185,7 @@ Built for `draftDay` (`POST /api/rooms/<id>/draft`), the agent's suggestions (`P
 Finding a place is one Claude call, which names the place as search strings; the coordinates then come from OpenStreetMap's geocoder (Nominatim), which is free and takes no key, so it is not budgeted. What reaches it is Claude's search string (a place's name, city and country), never the memo itself, with an identifying User-Agent, at most two queries a second apart, as its usage policy asks.
 A point pinned on the map is named the same way (`POST /api/rooms/<id>/where`): one reverse lookup at the geocoder, no Claude call, so it is not budgeted either; only the point's coordinates reach it.
 A tag suggestion is one Clef call; the first one in a trip also makes the Claude call that proposes the trip's candidate tags, which the room then keeps, so each counts on its own.
+Reading the kept candidates (`POST /api/rooms/<id>/candidates`) calls nothing outside the room, so it is not budgeted.
 The ceilings count calls, `SPEND_PER_DAY` (20, a UTC day) and `SPEND_PER_TRIP` (200); a var that is missing or not a number allows nothing.
 `RoomsIndex.reserve` refuses past either with a 429 naming which, and the app says so instead of offering a retry.
 A provider answer outside 2xx refunds; no answer, or an answer that is not a draft, is spent.

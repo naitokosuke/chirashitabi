@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { fits, mention, rankTags, type TagOption } from "./rank";
+import { fits, likeness, mention, rankTags, type TagOption } from "./rank";
 
 const tag = (name: string, count = 1, p: number | null = null): TagOption => ({
   name,
@@ -48,9 +48,26 @@ describe("rankTags", () => {
 });
 
 describe("fits", () => {
-  test("a tag fits when the text names half of it or more, or Clef judged it", () => {
+  test("a tag fits when the text names half of it or more, or Clef found it likely", () => {
     expect(fits(tag("Food"), "food")).toBe(true);
     expect(fits(tag("Food", 1, 0.6), "")).toBe(true);
+    expect(fits(tag("Food", 1, 0.3), "")).toBe(false);
     expect(fits(tag("Food"), "")).toBe(false);
+  });
+});
+
+describe("likeness", () => {
+  test("the same words are alike; a few letters more leave them nearly so", () => {
+    expect(likeness("空港のコンビニ", "空港のコンビニ")).toBe(1);
+    expect(
+      likeness("空港のコンビニで日本の製品を探す", "空港のコンビニで日本の製品を探す。"),
+    ).toBeGreaterThan(0.9);
+  });
+
+  test("a rewrite is about half alike, and other words are not alike at all", () => {
+    const rewrite = likeness("桃園空港のコンビニ", "空港のコンビニで日本の製品を探す");
+    expect(rewrite).toBeGreaterThan(0.4);
+    expect(rewrite).toBeLessThan(0.6);
+    expect(likeness("Night market", "空港")).toBe(0);
   });
 });
