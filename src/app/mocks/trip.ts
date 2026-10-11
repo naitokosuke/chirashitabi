@@ -21,4 +21,14 @@ export const mockTrip = (): TripSnapshot => ({
     },
     back: null,
   },
+  stays: [
+    {
+      name: "Hotel Proverbs Taipei",
+      checkIn: start,
+      nights: 3,
+      mapsUrl:
+        "https://www.google.com/maps/search/Hotel%20Proverbs%20Taipei/@25.041600,121.548900,17z",
+      pin: { lat: 25.0416, lng: 121.5489 },
+    },
+  ],
 });

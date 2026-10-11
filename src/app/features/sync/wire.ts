@@ -10,11 +10,12 @@ import type {
   WireFlight,
   WireNote,
   WireSchedule,
+  WireStay,
   WireTrip,
 } from "../../../../worker/wire";
 import type { Member, MemberId } from "../members/types";
 import type { ImageId, Memo, MemoPatch, Note, NoteId, Schedule, TextBox } from "../notes/types";
-import type { Flight, TripSnapshot } from "../trip/types";
+import type { Flight, Stay, TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
 
@@ -78,7 +79,11 @@ export const reviveTrip = (t: WireTrip): TripSnapshot => ({
   center: t.center,
   // a trip kept on a device before flights has none
   flights: { out: reviveFlight(t.flights?.out), back: reviveFlight(t.flights?.back) },
+  // nor one kept before stays
+  stays: (t.stays ?? []).map(reviveStay),
 });
+
+const reviveStay = (s: WireStay): Stay => ({ ...s, checkIn: Temporal.PlainDate.from(s.checkIn) });
 
 export const reviveMember = (m: WireMember): Member => {
   const common = { id: m.id as MemberId, name: m.name, color: hexColor(m.color)! };
@@ -131,5 +136,7 @@ export function reviveMutation(m: WireMutation): Mutation {
       return { type: "trip:dates", first: Temporal.PlainDate.from(m.first), days: m.days };
     case "trip:flight":
       return { type: "trip:flight", leg: m.leg, flight: reviveFlight(m.flight) };
+    case "trip:stays":
+      return { type: "trip:stays", stays: m.stays.map(reviveStay) };
   }
 }

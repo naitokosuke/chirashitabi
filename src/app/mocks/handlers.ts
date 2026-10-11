@@ -301,6 +301,7 @@ const mine = [
           ...trip,
           days: trip.days.map((date) => ({ date, intro: "" })),
           flights: { out: null, back: null },
+          stays: [],
         }),
         members: [creator, mockMembers().find((m) => m.id === CLAUDE)!],
       },

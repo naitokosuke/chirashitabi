@@ -1,8 +1,10 @@
 import { Temporal } from "temporal-polyfill-lite";
 
+import { parseMapsUrl, safeUrl } from "../place/google-maps";
+import type { LatLng } from "../place/types";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
 
-import type { Flight, Flights, Leg, TripSnapshot } from "./types";
+import type { Flight, Flights, Leg, Stay, TripSnapshot } from "./types";
 
 /** The Worker's limits on a flight (worker/wire.ts) */
 export const MAX_FLIGHT_NO = 20;
@@ -19,6 +21,16 @@ export interface FlightForm {
   arrives: string;
 }
 
+/** A stay as its inputs hold it; the pin it had stays when its link names no point */
+export interface StayForm {
+  name: string;
+  /** As `<input type="date">` holds it */
+  checkIn: string;
+  nights: number;
+  mapsUrl: string;
+  pin: LatLng | null;
+}
+
 /** The trip's settings as the editor's inputs hold them */
 export interface TripForm {
   name: string;
@@ -26,6 +38,7 @@ export interface TripForm {
   firstDay: string;
   days: number;
   flights: Record<Leg, FlightForm>;
+  stays: StayForm[];
 }
 
 const local = (t: Temporal.PlainDateTime) => t.toString({ smallestUnit: "minute" });
@@ -41,7 +54,57 @@ export const formOf = (trip: TripSnapshot): TripForm => ({
   firstDay: trip.days[0]?.date.toString() ?? Temporal.Now.plainDateISO().toString(),
   days: Math.max(1, trip.days.length),
   flights: { out: flightForm(trip.flights.out), back: flightForm(trip.flights.back) },
+  stays: trip.stays.map((s) => ({ ...s, checkIn: s.checkIn.toString(), mapsUrl: s.mapsUrl ?? "" })),
 });
+
+/**
+ * A stay first added: from the night after the last one ends (the first night of the trip
+ * when there is none), for one night
+ */
+export function newStay(stays: StayForm[], first: Temporal.PlainDate): StayForm {
+  const last = stays.at(-1);
+  let checkIn = first;
+  if (last !== undefined)
+    try {
+      checkIn = Temporal.PlainDate.from(last.checkIn).add({ days: last.nights });
+    } catch {
+      // the last one's date is half typed: from the first night
+    }
+  return { name: "", checkIn: checkIn.toString(), nights: 1, mapsUrl: "", pin: null };
+}
+
+/** A stay's inputs as the room takes it, or undefined while it is not one yet */
+export function stayOf(f: StayForm): Stay | undefined {
+  const name = f.name.trim();
+  if (name === "" || name.length > MAX_NAME) return undefined;
+  if (!Number.isInteger(f.nights) || f.nights < 1 || f.nights > MAX_DAYS) return undefined;
+  let checkIn: Temporal.PlainDate;
+  try {
+    checkIn = Temporal.PlainDate.from(f.checkIn);
+  } catch {
+    return undefined;
+  }
+  // the link is a stay's only way to a place: no link, no pin; one that names no point keeps the pin it had
+  const link = f.mapsUrl.trim();
+  if (link === "") return { name, checkIn, nights: f.nights, mapsUrl: null, pin: null };
+  // only a link the room takes: one it would refuse is not one yet
+  if (safeUrl(link) === undefined) return undefined;
+  return { name, checkIn, nights: f.nights, mapsUrl: link, pin: parseMapsUrl(link) ?? f.pin };
+}
+
+export const sameStays = (a: Stay[], b: Stay[]) =>
+  a.length === b.length &&
+  a.every((s, i) => {
+    const t = b[i]!;
+    return (
+      s.name === t.name &&
+      s.checkIn.equals(t.checkIn) &&
+      s.nights === t.nights &&
+      s.mapsUrl === t.mapsUrl &&
+      s.pin?.lat === t.pin?.lat &&
+      s.pin?.lng === t.pin?.lng
+    );
+  });
 
 /**
  * A flight first added: the way there leaves on the first day, the way home on the last, at a
@@ -96,9 +159,13 @@ export const sameFlight = (a: Flight | null, b: Flight | null) =>
     a.arrives.equals(b.arrives));
 
 /** The settings the room takes, or null while one of them is not one yet */
-export function settingsOf(
-  form: TripForm,
-): { name: string; first: Temporal.PlainDate; days: number; flights: Flights } | null {
+export function settingsOf(form: TripForm): {
+  name: string;
+  first: Temporal.PlainDate;
+  days: number;
+  flights: Flights;
+  stays: Stay[];
+} | null {
   const name = form.name.trim();
   if (name === "" || name.length > MAX_NAME) return null;
   let first: Temporal.PlainDate;
@@ -111,5 +178,7 @@ export function settingsOf(
   const out = flightOf(form.flights.out);
   const back = flightOf(form.flights.back);
   if (out === undefined || back === undefined) return null;
-  return { name, first, days: form.days, flights: { out, back } };
+  const stays = form.stays.map(stayOf);
+  if (!stays.every((s) => s !== undefined)) return null;
+  return { name, first, days: form.days, flights: { out, back }, stays };
 }

@@ -15,6 +15,7 @@ import { PAPERS } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
 import FlightLine from "../../../features/trip/FlightLine.vue";
 import { shortDate, weekday } from "../../../features/trip/format";
+import StayLine from "../../../features/trip/StayLine.vue";
 import TripEditor from "../../../features/trip/TripEditor.vue";
 import { useTrip } from "../../../features/trip/useTrip";
 
@@ -68,7 +69,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
         </ul>
       </header>
 
-      <!-- how the trip goes: its flights, and the way to change its name, dates and flights -->
+      <!-- how the trip goes: its flights and stays, and the way to change them, its name and dates -->
       <TripEditor v-if="editing && trip !== undefined" :trip @close="() => (editing = false)" />
       <div v-else class="plan">
         <FlightLine
@@ -81,6 +82,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
           leg="back"
           :flight="trip.flights.back"
         />
+        <StayLine v-for="(s, i) in trip?.stays" :key="i" :label="i18n.t('stay.title')" :stay="s" />
         <button type="button" @click="() => (editing = true)">{{ i18n.t("trip.edit") }}</button>
       </div>
 

@@ -36,11 +36,12 @@ import { PAPERS, type FormTarget, type Memo, type Note } from "../../../features
 import { useNotes } from "../../../features/notes/useNotes";
 import { placeLink, safeUrl } from "../../../features/place/google-maps";
 import { lngLat, needsPin, pinnedOf, type Pinned } from "../../../features/place/pin";
-import { boundsOf, routeLine, routeStops } from "../../../features/place/route";
+import { boundsOf, dayStops, routeLine } from "../../../features/place/route";
 import { guardMissingProperties } from "../../../features/place/style";
 import type { LatLng } from "../../../features/place/types";
 import { useTags } from "../../../features/tags/useTags";
 import { hhmm, shortDate } from "../../../features/trip/format";
+import { stayOn, wakeAt } from "../../../features/trip/itinerary";
 import { useTrip } from "../../../features/trip/useTrip";
 import { useWorker } from "../../../features/worker/useWorker";
 import closeIcon from "../../../icons/close.svg";
@@ -125,6 +126,7 @@ onMounted(() => {
       paint: { "line-color": "#24272e", "line-width": 3, "line-dasharray": [1.5, 1.5] },
     });
     syncMarkers();
+    syncStays();
     syncRoute();
   });
   map.on("click", () => {
@@ -171,6 +173,7 @@ onMounted(() => {
 onActivated(() => map?.resize());
 onBeforeUnmount(() => {
   markers.forEach((m) => m.remove());
+  stayMarkers.forEach((m) => m.remove());
   map?.remove();
   map = null;
 });
@@ -222,7 +225,12 @@ function syncMarkers() {
 function syncRoute() {
   if (map === null || map.getSource("route") === undefined) return;
   const src = map.getSource("route") as maplibregl.GeoJSONSource;
-  const stops = day.value === null ? [] : routeStops(forDay(day.value));
+  const d = day.value;
+  const stays = trip.value?.stays ?? [];
+  const stops =
+    d === null
+      ? []
+      : dayStops(forDay(d), wakeAt(stays, d)?.pin ?? null, stayOn(stays, d)?.pin ?? null);
   src.setData(routeLine(stops));
   const b = boundsOf(stops);
   if (b !== null) {
@@ -251,7 +259,29 @@ const scheduleKey = (n: Note) =>
   n.kind === "memo" && n.schedule !== null
     ? `${n.schedule.date} ${n.schedule.time} ${n.schedule.status}`
     : "";
-watch([day, () => (notes.value ?? []).map(scheduleKey)], syncRoute);
+watch([day, () => (notes.value ?? []).map(scheduleKey), () => trip.value?.stays], syncRoute);
+
+/** Where the nights are spent, a square of ink each, under the notes' pins */
+const stayMarkers: Marker[] = [];
+function syncStays() {
+  if (map === null) return;
+  for (const m of stayMarkers.splice(0)) m.remove();
+  for (const s of trip.value?.stays ?? []) {
+    if (s.pin === null) continue;
+    const d = document.createElement("div");
+    d.className = "pin stay";
+    const dot = document.createElement("span"),
+      lbl = document.createElement("span");
+    dot.className = "dot";
+    lbl.className = "lbl";
+    lbl.textContent = s.name;
+    d.append(dot, lbl);
+    stayMarkers.push(
+      new Marker({ element: d, anchor: "bottom" }).setLngLat(lngLat(s.pin)).addTo(map),
+    );
+  }
+}
+watch(() => trip.value?.stays, syncStays);
 
 function fitAll() {
   const b = boundsOf(pinnedOf(notes.value ?? []).map((n) => lngLat(n.pin)));
@@ -371,6 +401,19 @@ section {
 
     &.on > .dot {
       transform: rotate(-45deg) scale(1.3);
+    }
+
+    /* a stay: a square of ink, not a note's paper, and nothing to tap */
+    &.stay {
+      cursor: default;
+      pointer-events: none;
+
+      > .dot {
+        border-radius: 4px;
+        transform: none;
+        background: var(--paper-ink);
+        border-color: rgb(255 255 255 / 0.92);
+      }
     }
 
     /* the children fade, not the marker: MapLibre writes its own inline opacity on the marker root */

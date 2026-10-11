@@ -110,6 +110,23 @@ one {{{$count} note}}
   "flight.addOut": "Add the flight there",
   "flight.addBack": "Add the flight home",
 
+  "stay.title": "Stays",
+  "stay.name": "Where",
+  "stay.checkIn": "First night",
+  "stay.nights": "Nights",
+  "stay.link": "Google Maps link",
+  "stay.linkHint": "With a link, each day's route on the map starts and ends here.",
+  "stay.add": "Add a stay",
+  "stay.remove": "Remove this stay",
+  "stay.when": `
+.input {$count :integer}
+.match $count
+one {{From {$date} · {$count} night}}
+*   {{From {$date} · {$count} nights}}
+`,
+  "stay.tonight": "Tonight",
+  "stay.open": "Open in Google Maps",
+
   "people.title": "Members",
   "people.owner": "Owner",
   "people.you": "You",

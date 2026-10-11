@@ -96,6 +96,18 @@ export const ja: Messages = {
   "flight.addOut": "行きの便を追加",
   "flight.addBack": "帰りの便を追加",
 
+  "stay.title": "宿",
+  "stay.name": "宿の名前",
+  "stay.checkIn": "最初の夜",
+  "stay.nights": "泊数",
+  "stay.link": "Google マップのリンク",
+  "stay.linkHint": "リンクがあると、地図の各日のルートがここから出てここに戻ります。",
+  "stay.add": "宿を追加",
+  "stay.remove": "この宿を消す",
+  "stay.when": "{$date}から{$count :integer}泊",
+  "stay.tonight": "今夜の宿",
+  "stay.open": "Google マップで開く",
+
   "people.title": "メンバー",
   "people.owner": "作成者",
   "people.you": "あなた",

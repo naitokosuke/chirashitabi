@@ -11,7 +11,7 @@ import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
 import * as itinerary from "./itinerary";
-import type { Flight, Leg } from "./types";
+import type { Flight, Leg, Stay } from "./types";
 
 /**
  * The trip, and the notes placed on its days. The trip itself is what the query cache holds
@@ -47,6 +47,10 @@ export const useTrip = defineQuery(() => {
   function setFlight(leg: Leg, flight: Flight | null) {
     sync.commit({ type: "trip:flight", leg, flight });
   }
+  /** Where the nights are spent, the whole list at once */
+  function setStays(stays: Stay[]) {
+    sync.commit({ type: "trip:stays", stays });
+  }
   /** A new name for the trip; a blank one, or the same one, changes nothing */
   function rename(next: string) {
     const n = next.trim();
@@ -67,5 +71,6 @@ export const useTrip = defineQuery(() => {
     rename,
     setDates,
     setFlight,
+    setStays,
   };
 });
