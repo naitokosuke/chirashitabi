@@ -57,6 +57,12 @@ export interface WorkerApi {
    * named in `lang`; null when it has nothing there. Free, so not budgeted
    */
   whereIs(at: LatLng, lang: "ja" | "en"): Promise<FoundPlace | null>;
+  /**
+   * The Google Maps link a short one (`maps.app.goo.gl/…`) stands for, so its point can be
+   * read; any other link, or one that does not say, comes back as it was. When it leads to a
+   * place's name and not its point, `at` is where OpenStreetMap finds that name. Budgeted
+   */
+  expandLink(url: string, lang: "ja" | "en"): Promise<{ url: string; at: LatLng | null }>;
   /** Have a member order a day's notes and give them times */
   draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<DayDraft>;
   /**

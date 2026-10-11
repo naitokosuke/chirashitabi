@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { parseMapsUrl, placeSearchLink, safeUrl } from "./google-maps";
+import { isShortMapsLink, parseMapsUrl, placeSearchLink, safeUrl } from "./google-maps";
 
 describe("placeSearchLink", () => {
   test("searches the name at the point, and the point reads back as the pin", () => {
@@ -21,5 +21,22 @@ describe("placeSearchLink", () => {
       lng: 121,
     });
     expect(parseMapsUrl(link)).toEqual({ lat: -33.9, lng: 151.2 });
+  });
+});
+
+describe("parseMapsUrl and isShortMapsLink", () => {
+  test("the point a shared short link leads to is read", () => {
+    expect(parseMapsUrl("https://www.google.com/maps/search/25.0416,+121.5489?entry=tts")).toEqual({
+      lat: 25.0416,
+      lng: 121.5489,
+    });
+  });
+
+  test("a short link is one Google Maps hands out to share, and only that", () => {
+    expect(isShortMapsLink("https://maps.app.goo.gl/AbC123")).toBe(true);
+    expect(isShortMapsLink("https://goo.gl/maps/xyz")).toBe(true);
+    expect(isShortMapsLink("https://goo.gl/other")).toBe(false);
+    expect(isShortMapsLink("https://www.google.com/maps/@25,121,15z")).toBe(false);
+    expect(isShortMapsLink("javascript:alert(1)")).toBe(false);
   });
 });

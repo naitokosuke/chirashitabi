@@ -5,6 +5,7 @@ import { http, HttpResponse, ws, type WebSocketHandlerConnection } from "msw";
 import type { ClientMessage, ServerMessage, WireNote, WireMutation } from "../../../worker/wire";
 import { SEATS, type Member } from "../features/members/types";
 import type { Note } from "../features/notes/types";
+import { isShortMapsLink } from "../features/place/google-maps";
 import { roomId, type RoomId } from "../features/rooms/types";
 import { applyToRoom, type RoomState } from "../features/sync/ledger";
 import { reviveMember, reviveMutation, reviveNote, reviveTrip } from "../features/sync/wire";
@@ -185,6 +186,19 @@ const agent = [
   http.post("/api/rooms/:roomId/candidates", ({ params }) =>
     open(params.roomId) === undefined ? forbidden() : HttpResponse.json({ tags: CANDIDATES }),
   ),
+  // a short link leads to a point near the trip's center, as maps.app.goo.gl's redirect would;
+  // any other link comes back as it was
+  http.post("/api/rooms/:roomId/expand", async ({ params, request }) => {
+    const room = open(params.roomId);
+    if (room === undefined) return forbidden();
+    const { url } = (await request.json()) as { url: string };
+    if (!isShortMapsLink(url)) return HttpResponse.json({ url, at: null });
+    const { lat, lng } = room.state.trip.center;
+    return HttpResponse.json({
+      url: `https://www.google.com/maps/search/${lat},+${lng}`,
+      at: null,
+    });
+  }),
   // the memo's title as one place near the trip's center, open in the evening, as OpenStreetMap writes it
   http.post("/api/rooms/:roomId/places", async ({ params, request }) => {
     const room = open(params.roomId);

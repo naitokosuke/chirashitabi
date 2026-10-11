@@ -9,7 +9,9 @@ import Icon from "../../icons/Icon.vue";
 import minusIcon from "../../icons/minus.svg";
 import plusIcon from "../../icons/plus.svg";
 import { useNotes } from "../notes/useNotes";
+import { isShortMapsLink } from "../place/google-maps";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
+import { useWorker } from "../worker/useWorker";
 
 import { moveSchedules } from "./apply";
 import {
@@ -21,6 +23,8 @@ import {
   sameFlight,
   sameStays,
   settingsOf,
+  stayOf,
+  type StayForm,
   type TripForm,
 } from "./settings";
 import type { Leg, TripSnapshot } from "./types";
@@ -28,8 +32,8 @@ import { useTrip } from "./useTrip";
 
 /**
  * The trip's settings, on its home: its name, when it is (the first day and how many days), its
- * flights there and home, and where its nights are spent. Nothing reaches the room until it is saved, and then only what
- * changed. Moving the dates moves what is planned with them; what would fall past the new last
+ * flights there and home, and where its nights are spent. Nothing reaches the room until it is
+ * saved, and then only what changed. Moving the dates moves what is planned with them; what would fall past the new last
  * day is said before saving, since it goes back to having no day.
  */
 const props = defineProps<{ trip: TripSnapshot }>();
@@ -38,6 +42,7 @@ const i18n = useI18n();
 const id = useId();
 const { rename, setDates, setFlight, setStays } = useTrip();
 const { notes } = useNotes();
+const worker = useWorker();
 
 const LEGS: readonly Leg[] = ["out", "back"];
 const form = reactive<TripForm>(formOf(props.trip));
@@ -78,6 +83,39 @@ function addStay() {
   form.stays.push(newStay(form.stays, first));
 }
 const removeStay = (i: number) => form.stays.splice(i, 1);
+
+/** The stays whose short link is on its way to the Worker to be read */
+const expanding = reactive(new Set<StayForm>());
+/**
+ * A link changed: its point is read from it alone. A shared short link hides its point, so the
+ * Worker reads where it leads, and the link becomes that
+ */
+function onStayLink(s: StayForm) {
+  // a new link: the point the old one had is not this one's
+  s.pin = null;
+  const short = s.mapsUrl.trim();
+  const api = worker.api;
+  if (api === null || !isShortMapsLink(short)) return;
+  expanding.add(s);
+  api
+    .expandLink(short, i18n.locale === "en" ? "en" : "ja")
+    .then(({ url, at }) => {
+      if (s.mapsUrl.trim() !== short) return;
+      s.mapsUrl = url;
+      // the link's own point when it has one (stayOf reads it), else where its name was found
+      if (at !== null) s.pin = at;
+    })
+    .catch(() => {
+      // the short link stays; the hint says it has no point
+    })
+    .finally(() => expanding.delete(s));
+}
+/** What the link under a stay does: nothing yet, being read, a place on the map, or no place */
+function stayLinkState(s: StayForm) {
+  if (s.mapsUrl.trim() === "") return "stay.linkHint";
+  if (expanding.has(s)) return "stay.linkExpanding";
+  return (stayOf(s)?.pin ?? null) === null ? "stay.linkNoPin" : "stay.linkPinned";
+}
 
 function save() {
   const s = settings.value;
@@ -220,9 +258,15 @@ function save() {
         </div>
         <div class="field">
           <label :for="`${id}-stay-${i}-url`">{{ i18n.t("stay.link") }}</label>
-          <input :id="`${id}-stay-${i}-url`" v-model="s.mapsUrl" inputmode="url" type="url" />
+          <input
+            :id="`${id}-stay-${i}-url`"
+            v-model="s.mapsUrl"
+            inputmode="url"
+            type="url"
+            @change="() => onStayLink(s)"
+          />
         </div>
-        <p class="hint">{{ i18n.t("stay.linkHint") }}</p>
+        <p aria-live="polite" class="hint">{{ i18n.t(stayLinkState(s)) }}</p>
         <button class="quiet" type="button" @click="() => removeStay(i)">{{ i18n.t("stay.remove") }}</button>
       </div>
       <button class="add" type="button" @click="addStay"><Icon :size="16" :src="plusIcon" />{{ i18n.t("stay.add") }}</button>

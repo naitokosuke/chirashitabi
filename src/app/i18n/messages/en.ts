@@ -116,6 +116,11 @@ one {{{$count} note}}
   "stay.nights": "Nights",
   "stay.link": "Google Maps link",
   "stay.linkHint": "With a link, each day's route on the map starts and ends here.",
+  "stay.linkExpanding": "Following the shared link to its place…",
+  "stay.linkPinned":
+    "Its place is read: it shows on the map, and each day's route starts and ends here.",
+  "stay.linkNoPin":
+    "No place could be read from this link. Open the place in Google Maps and paste the address bar's URL.",
   "stay.add": "Add a stay",
   "stay.remove": "Remove this stay",
   "stay.when": `
@@ -223,6 +228,7 @@ one {{Claude left {$count} idea here}}
     "No coordinates in that link. Paste the long link from “Share”, or use “Find the place”",
   "form.findPlace": "Find the place",
   "form.placeNaming": "Looking up what is here…",
+  "form.placeExpanding": "Following the shared link to its place…",
   "form.placesAsking": "Looking for the place…",
   "form.placesNone": "Could not tell a place on the map from this note.",
   "form.placesFailed": "The places did not come back. Ask again.",

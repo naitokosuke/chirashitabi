@@ -11,4 +11,6 @@ interface Env {
   CLEF_BASE_URL?: string;
   /** Where places are looked up (geocode.ts); unset in production, a local stub in the tests */
   GEOCODER_BASE_URL?: string;
+  /** Where short Google Maps links are expanded (expand.ts); unset in production, a stub in the tests */
+  SHORTLINK_BASE_URL?: string;
 }

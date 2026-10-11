@@ -207,6 +207,11 @@ The Worker is fetching a URL the user typed, so the fetch is fenced.
   The page behind the `Location` is never fetched, so the consent page Google shows to fresh clients never enters the picture.
   Anything else is returned unexpanded and the note is placed by long-press instead.
 - Expansions count against the member's budget like any other outbound call.
+- A phone's share often leads to the place's name (`?q=<name>&ftid=…`) rather than its point.
+  Then the `q` is looked up on OpenStreetMap's geocoder, which is free, and its first place's point comes back beside the link.
+
+This is `worker/expand.ts`, answered at `POST /api/rooms/<id>/expand`.
+Wrangler's test harness follows a redirect even with `redirect: "manual"`, so a runtime that followed is held to the same rule on the URL it ended at; `worker/expand.test.ts` shows how a `Location` is read.
 
 ## What stays outside Access
 
