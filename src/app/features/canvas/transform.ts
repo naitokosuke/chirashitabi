@@ -58,8 +58,10 @@ export function fitView(points: Pt[], width: number, height: number, minScale = 
     minY = Math.min(...ys) - 30,
     maxY = Math.max(...ys) + 160;
   const room = height - FIT_TOP - FIT_BOTTOM;
-  // below `minScale` the cards would be too small to read: stop there, centered on the pile
-  const s = clampScale(Math.max(minScale, Math.min(width / (maxX - minX), room / (maxY - minY))));
+  // below `minScale` the cards would be too small to read: stop there, centered on the pile;
+  // and a fit never draws them larger than their own size, however few they are
+  const fit = Math.min(1, width / (maxX - minX), room / (maxY - minY));
+  const s = clampScale(Math.max(minScale, fit));
   return {
     tx: (width - (maxX + minX) * s) / 2,
     ty: FIT_TOP + (room - (maxY + minY) * s) / 2,

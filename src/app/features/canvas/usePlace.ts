@@ -17,7 +17,7 @@ type Place = (input: NoteInput, how: PlaceHow) => NewMemo;
 let placeOnMounted: Place | undefined;
 
 /** The first look never shrinks a card past readable; the fit button still shows everything */
-export const FIRST_LOOK_MIN_SCALE = 0.8;
+export const FIRST_LOOK_MIN_SCALE = 0.6;
 /**
  * How the canvas first shows `notes` on a desk `width` by `height`: every card, whatever the
  * screen; an empty desk with room to write in the middle
