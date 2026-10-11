@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 
-import { acceptedLocation, expand } from "./expand";
+import { acceptedLocation, expand, placeName } from "./expand";
 
 describe("acceptedLocation", () => {
   test("Google Maps itself, on any of Google's country hosts", () => {
@@ -76,5 +76,25 @@ describe("expand", () => {
     const asked = seen.length;
     expect(await expand("https://evil.example/abc", base)).toBeNull();
     expect(seen.length).toBe(asked);
+  });
+});
+
+describe("placeName", () => {
+  test("the name a link is about: its q, else the place in its path", () => {
+    expect(placeName("https://maps.google.com/?q=Hotel+Proverbs+Taipei&ftid=0x1:0x2")).toBe(
+      "Hotel Proverbs Taipei",
+    );
+    expect(
+      placeName(
+        "https://www.google.com/maps/place/%E8%B1%A1%E5%B1%B1+Hotel/data=!4m2!3m1!1s0x3442:0x1?entry=gps",
+      ),
+    ).toBe("象山 Hotel");
+    expect(placeName("https://www.google.com/maps/search/Din+Tai+Fung/")).toBe("Din Tai Fung");
+  });
+
+  test("a link with no name, or only a point, names nothing", () => {
+    expect(placeName("https://www.google.com/maps/search/25.0416,+121.5489")).toBeNull();
+    expect(placeName("https://www.google.com/maps/@25.04,121.55,15z")).toBeNull();
+    expect(placeName("not a url")).toBeNull();
   });
 });

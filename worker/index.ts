@@ -6,7 +6,7 @@ import { isShortMapsLink, parseMapsUrl } from "../src/app/features/place/google-
 import { AccessVerifier, Unauthenticated } from "./access";
 import { draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
 import { CLEF_MODEL, FITS_AT, judgeTags, MAX_TAGS } from "./clef";
-import { expand } from "./expand";
+import { expand, placeName } from "./expand";
 import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
 import { Room } from "./room";
 import { RoomsIndex } from "./rooms-index";
@@ -394,16 +394,23 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
       return status(429, `Budget: ${reserved.refused}`);
     }
     const expanded = await expand(url, env.SHORTLINK_BASE_URL);
-    // a phone's share often leads to the place's name (`?q=…&ftid=…`), not its point: then
-    // OpenStreetMap finds the name, free, and its point is the link's
+    // a short link most often leads to the place's name (`/maps/place/<name>/data=…`, or
+    // `?q=<name>`), not its point: then OpenStreetMap finds the name, free, and its point is the link's
     let at: { lat: number; lng: number } | null = null;
-    const q = expanded === null ? null : new URL(expanded).searchParams.get("q");
-    if (expanded !== null && parseMapsUrl(expanded) === null && q !== null && q.trim() !== "") {
-      const found = await geocode(env, q.slice(0, 200), body?.lang === "en" ? "en" : "ja");
+    const point = expanded === null ? null : parseMapsUrl(expanded);
+    const name = expanded === null || point !== null ? null : placeName(expanded);
+    if (name !== null) {
+      const found = await geocode(env, name, body?.lang === "en" ? "en" : "ja");
       const first = found?.[0];
       if (first !== undefined) at = { lat: first.lat, lng: first.lng };
     }
-    log.set({ expand: { ok: expanded !== null, geocoded: at !== null } });
+    // the shape it led to, not the place: enough to tell which way a link that found nothing went
+    const shape =
+      expanded === null ? null : (/\/maps\/(\w+)/.exec(new URL(expanded).pathname)?.[1] ?? "root");
+    log.set({
+      expand: { ok: expanded !== null, shape, point: point !== null, named: name !== null },
+      geocoder: { ok: name === null || at !== null },
+    });
     return Response.json({ url: expanded ?? url, at });
   }
 
