@@ -636,7 +636,10 @@ export class Room extends DurableObject<Env> {
     if (mutation === null) return reject("not a mutation");
 
     const updatedAt = new Date().toISOString();
-    const result = this.apply(mutation, by, updatedAt);
+    // a card on its way under a finger is relayed, not kept; letting go sends the move with a cid
+    const dragging = cid === null && mutation.type === "note:move";
+    if (dragging && this.note(mutation.id) === undefined) return reject("no such note");
+    const result = dragging ? mutation : this.apply(mutation, by, updatedAt);
     if (typeof result === "string") return reject(result);
 
     if (cid !== null)

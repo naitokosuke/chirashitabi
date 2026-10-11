@@ -143,8 +143,8 @@ export type WireMutation =
 /**
  * The client sends mutations as they are, with an optional `cid` beside the mutation's own
  * fields. A mutation with a `cid` is answered to its sender only: `ack` once it is applied
- * (with the room's `updatedAt`), or `rejected` with that `cid`. One without (a card's
- * position while it is being dragged) is relayed and not answered.
+ * (with the room's `updatedAt`), or `rejected` with that `cid`. A `note:move` without one
+ * (a card's position while it is being dragged) is relayed, not kept, and not answered.
  */
 export type ClientMessage = WireMutation & { cid?: string };
 
