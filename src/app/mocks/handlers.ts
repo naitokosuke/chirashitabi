@@ -185,9 +185,16 @@ const agent = [
   http.post("/api/rooms/:roomId/candidates", ({ params }) =>
     open(params.roomId) === undefined ? forbidden() : HttpResponse.json({ tags: CANDIDATES }),
   ),
-  http.post("/api/rooms/:roomId/places", ({ params }) =>
-    open(params.roomId) === undefined ? forbidden() : HttpResponse.json({ places: [] }),
-  ),
+  // the memo's title as one place near the trip's center, open in the evening, as OpenStreetMap writes it
+  http.post("/api/rooms/:roomId/places", async ({ params, request }) => {
+    const room = open(params.roomId);
+    if (room === undefined) return forbidden();
+    const { title } = (await request.json()) as { title: string };
+    const { lat, lng } = room.state.trip.center;
+    return HttpResponse.json({
+      places: [{ name: title, address: "臺北市, 臺灣", lat, lng, hours: "Mo-Su 17:00-24:00" }],
+    });
+  }),
   http.post("/api/rooms/:roomId/where", ({ params }) =>
     open(params.roomId) === undefined ? forbidden() : HttpResponse.json({ place: null }),
   ),

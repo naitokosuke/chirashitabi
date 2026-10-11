@@ -67,22 +67,34 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
   async findPlaces(memo) {
     const res = await call(room, "places", memo);
     const { places } = (await res.json()) as {
-      places: { name: string; address: string; lat: number; lng: number }[];
+      places: { name: string; address: string; lat: number; lng: number; hours: string | null }[];
     };
     return places.map((p): FoundPlace => ({
       name: p.name,
       address: p.address,
       at: { lat: p.lat, lng: p.lng },
+      hours: p.hours,
     }));
   },
   async whereIs(at, lang) {
     const res = await call(room, "where", { lat: at.lat, lng: at.lng, lang });
     const { place } = (await res.json()) as {
-      place: { name: string; address: string; lat: number; lng: number } | null;
+      place: {
+        name: string;
+        address: string;
+        lat: number;
+        lng: number;
+        hours: string | null;
+      } | null;
     };
     return place === null
       ? null
-      : { name: place.name, address: place.address, at: { lat: place.lat, lng: place.lng } };
+      : {
+          name: place.name,
+          address: place.address,
+          at: { lat: place.lat, lng: place.lng },
+          hours: place.hours,
+        };
   },
   async suggest(at) {
     const res = await call(room, "suggest", { at });

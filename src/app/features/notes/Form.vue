@@ -286,10 +286,18 @@ async function findPlaces() {
     placeState.value = err instanceof OverBudget ? err.ceiling : "failed";
   }
 }
-/** The chosen place becomes the memo's link, and its point the pin, as a pasted link would */
+/**
+ * The chosen place becomes the memo's link, and its point the pin, as a pasted link would; when
+ * OpenStreetMap knows its opening hours they go under the memo's words, once, for the booklet
+ */
 function choosePlace(p: FoundPlace) {
   mapsUrl.value = placeSearchLink(p.name, p.at);
   onMapsUrl();
+  if (p.hours !== null) {
+    // the label from the messages, the hours as they are: the memo's words keep no isolating marks
+    const line = `${i18n.t("form.hours")} ${p.hours}`;
+    if (!text.value.includes(line)) text.value = `${text.value.trimEnd()}\n${line}`;
+  }
   found.value = [];
 }
 
@@ -318,7 +326,11 @@ function nameThePin() {
         mapsUrl.value = placeSearchLink(place.name, at);
         onMapsUrl();
       }
-      if (text.value.trim() === "") text.value = place.name;
+      if (text.value.trim() === "")
+        text.value =
+          place.hours === null
+            ? place.name
+            : `${place.name}\n${i18n.t("form.hours")} ${place.hours}`;
       namedByOsm.value = true;
     })
     .catch(() => {
