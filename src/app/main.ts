@@ -28,6 +28,14 @@ if (import.meta.env.VITE_MOCK !== "false") {
   await startMocks();
 }
 
+// The files that draw the app, kept for the trip with no connection (sw.js); only against the
+// Worker, since a scope has one service worker and MSW's is the mocks'
+if (import.meta.env.PROD && import.meta.env.VITE_MOCK === "false" && "serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {
+    // not kept: the app still runs while the connection does
+  });
+}
+
 await openWhereLeft(router, useRoom());
 
 app.mount("#app");
