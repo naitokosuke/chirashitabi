@@ -83,7 +83,7 @@ src/app/            The app
              tab); FlightLine (a flight); StayLine (a stay)
     tags/    Tag colors and the tag filter (store, filter bar)
     place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON, from and back to
-             the stays
+             the stays; how far apart two points are, and a walk's minutes
     canvas/  Sticky note card (a text box too); TextField (words being written on the desk); transform
              (screen <-> world, zoom, pinch, fit); useViewport (the animated view); usePlace (adding
              a note on the canvas, placed even before the canvas is opened)

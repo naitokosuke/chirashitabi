@@ -44,7 +44,7 @@ Working today:
 - The memo tab: the note form kept open as its own view, for writing one note after another; each lands on the canvas.
 - The home tab: the trip at a glance (name, dates, members, flights, stays, note and budget counts, notes per day) and the way out to another trip. Its settings are edited there: the name, when the trip is (first day and length; what is planned moves with it, and what falls outside goes back to having no day), the flights there and home (number, airports, local departure and arrival) and the stays; the booklet heads a day with the flights that leave or land on it and the night's stay, and the map's route for a day leaves from the night before's stay and ends at that night's.
 - The map (MapLibre + OpenFreeMap, no key): pins, a day's route, long-press to write a note at a place.
-- The booklet: days with intros, notes placed on days with times and statuses, an appendix by tag, a per-day budget, a tray of notes still without a day.
+- The booklet: days with intros, notes placed on days with times and statuses, between two with places how far apart they are (minutes on foot when walkable, else kilometres, as the crow flies; from and back to the stay), an appendix by tag, a per-day budget, a tray of notes still without a day.
 - Suggestions: a card anyone (including the agent) can leave, adopted into an ordinary note or dismissed.
 - Pictures: a note can carry one photo, shrunk on the phone and kept privately for the room.
 - Rooms: create, remember on the device, reconnect; both members see each other's changes live.

@@ -28,9 +28,16 @@ import {
 } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
 import { safeUrl } from "../../../features/place/google-maps";
+import { distanceKm, WALKABLE_KM, walkMinutes } from "../../../features/place/route";
 import FlightLine from "../../../features/trip/FlightLine.vue";
 import { fromHhmm, hhmm, longDate, shortDate } from "../../../features/trip/format";
-import { assignTo, cycleStatus, draftUpdates, stayOn } from "../../../features/trip/itinerary";
+import {
+  assignTo,
+  cycleStatus,
+  draftUpdates,
+  stayOn,
+  wakeAt,
+} from "../../../features/trip/itinerary";
 import StayLine from "../../../features/trip/StayLine.vue";
 import { useTrip } from "../../../features/trip/useTrip";
 import { OverBudget } from "../../../features/worker/api";
@@ -79,6 +86,43 @@ const tonight = computed(() => {
   const d = day.value;
   return d === null ? undefined : stayOn(trip.value?.stays ?? [], d);
 });
+/** The day's strip as it is shown: read, the maybes wait at its end */
+const shown = computed(() => {
+  const d = day.value;
+  if (d === null) return [];
+  return editing.value ? forDay(d) : forDay(d).filter((n) => n.schedule.status !== "idea");
+});
+/**
+ * How far each sticky with a place is from the last place before it on the strip, the first
+ * from the stay the day wakes at; and from the last one to where the night is spent
+ */
+const legs = computed(() => {
+  const d = day.value;
+  const before = new Map<NoteId, { km: number; fromStay: boolean }>();
+  if (d === null) return { before, toStay: null };
+  let at = wakeAt(trip.value?.stays ?? [], d)?.pin ?? null;
+  let fromStay = at !== null;
+  for (const n of shown.value) {
+    if (n.pin === null) continue;
+    if (at !== null) before.set(n.id, { km: distanceKm(at, n.pin), fromStay });
+    at = n.pin;
+    fromStay = false;
+  }
+  const night = tonight.value?.pin ?? null;
+  const toStay = night === null || at === null || fromStay ? null : distanceKm(at, night);
+  return { before, toStay };
+});
+/** A leg as it reads: minutes on foot when it is a walk, else how far */
+const far = (km: number) =>
+  km < WALKABLE_KM
+    ? i18n.t("shiori.walk", { minutes: walkMinutes(km) })
+    : i18n.t("shiori.far", { km: km.toFixed(1) });
+/** The leg up to a sticky, said from the stay when the day starts there */
+function legTo(id: NoteId) {
+  const leg = legs.value.before.get(id);
+  if (leg === undefined) return "";
+  return leg.fromStay ? `${i18n.t("shiori.fromStay")} · ${far(leg.km)}` : far(leg.km);
+}
 /** The day the tabs and the heading show, ahead of the page by the time it takes to turn */
 const pickedDay = computed(() => dayOfTab(picked.value));
 const price = (amount: number) =>
@@ -304,40 +348,47 @@ function adoptDraft() {
 
           <!-- the day is a strip of the same stickies as the canvas, pinned in time order -->
           <ol>
-            <li
-              v-for="n in editing ? forDay(day) : forDay(day).filter((m) => m.schedule.status !== 'idea')"
-              :key="n.id"
-              data-turn
-              :data-status="n.schedule.status"
-              :style="`--card:${PAPERS[n.color]}`"
-              :data-stamp="i18n.t('status.done')"
-            >
-              <div>
-                <input
-                  v-if="editing"
-                  type="time"
-                  :aria-label="i18n.t('shiori.time')"
-                  :value="n.schedule.time ? hhmm(n.schedule.time) : ''"
-                  @change="(e) => setTime(n, e)"
-                />
-                <span v-else>{{ n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime") }}</span>
-              </div>
-              <div>
-                <p>{{ n.title }}</p>
-                <p v-if="n.body !== ''">{{ n.body }}</p>
-                <div v-if="editing">
-                  <button type="button" :data-status="n.schedule.status" @click="() => nextStatus(n)">{{ i18n.t(`status.${n.schedule.status}`) }}</button>
-                  <span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span>
-                  <button type="button" @click="() => assign(n, null)">{{ i18n.t("shiori.removeDay") }}</button>
+            <template v-for="n in shown" :key="n.id">
+              <!-- how far it is from the place before it: a guess as the crow flies, to plan by -->
+              <li v-if="legs.before.has(n.id)" class="leg" data-turn>{{ legTo(n.id) }}</li>
+              <li
+                data-turn
+                :data-status="n.schedule.status"
+                :style="`--card:${PAPERS[n.color]}`"
+                :data-stamp="i18n.t('status.done')"
+              >
+                <div>
+                  <input
+                    v-if="editing"
+                    type="time"
+                    :aria-label="i18n.t('shiori.time')"
+                    :value="n.schedule.time ? hhmm(n.schedule.time) : ''"
+                    @change="(e) => setTime(n, e)"
+                  />
+                  <span v-else>{{ n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime") }}</span>
                 </div>
-                <p v-else class="meta"><span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span><a
-                    v-if="safeUrl(n.mapsUrl) !== undefined"
-                    :href="safeUrl(n.mapsUrl)"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >{{ i18n.t("shiori.mapLink") }}</a></p>
-              </div>
-            </li>
+                <div>
+                  <p>{{ n.title }}</p>
+                  <p v-if="n.body !== ''">{{ n.body }}</p>
+                  <div v-if="editing">
+                    <button
+                      type="button"
+                      :data-status="n.schedule.status"
+                      @click="() => nextStatus(n)"
+                    >{{ i18n.t(`status.${n.schedule.status}`) }}</button>
+                    <span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span>
+                    <button type="button" @click="() => assign(n, null)">{{ i18n.t("shiori.removeDay") }}</button>
+                  </div>
+                  <p v-else class="meta"><span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span><a
+                      v-if="safeUrl(n.mapsUrl) !== undefined"
+                      :href="safeUrl(n.mapsUrl)"
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >{{ i18n.t("shiori.mapLink") }}</a></p>
+                </div>
+              </li>
+            </template>
+            <li v-if="legs.toStay !== null" class="leg" data-turn>{{ `${i18n.t("shiori.toStay")} · ${far(legs.toStay)}` }}</li>
           </ol>
 
           <!-- read mode: the maybes, faded, at the end of the strip -->
@@ -700,6 +751,22 @@ article {
         display: flex;
         flex-direction: column;
         gap: 12px;
+
+        /* the way from one place to the next: no paper, a dotted line down from the time tabs, and how far */
+        > li.leg {
+          display: block;
+          margin-block: -4px;
+          margin-inline-start: 34px;
+          padding: 2px 0 2px 14px;
+          border-radius: 0;
+          background: none;
+          box-shadow: none;
+          border-inline-start: 2px dotted color-mix(in oklch, var(--ink) 30%, transparent);
+          color: var(--muted);
+          font-size: var(--font-xs);
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+        }
 
         /* A sticky, the same paper as on the canvas, with a time tab along its left edge; level, for reading (only the desk tilts) */
         > li {
