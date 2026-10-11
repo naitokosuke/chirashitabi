@@ -51,6 +51,10 @@ let find: (query: string, url: URL) => { status: number; body: unknown } = () =>
 });
 const looked: { q: string | null; lang: string | null; agent: string | undefined }[] = [];
 
+/** Stands in for maps.app.goo.gl: every path redirects away; `followed` keeps the paths */
+let shortlinks: Server;
+const followed: string[] = [];
+
 beforeAll(async () => {
   const pair = (await crypto.subtle.generateKey(
     {
@@ -121,6 +125,17 @@ beforeAll(async () => {
   await new Promise<void>((resolve) => geocoder.listen(0, "127.0.0.1", resolve));
   const geocoderPort = (geocoder.address() as AddressInfo).port;
 
+  shortlinks = createServer((req, res) => {
+    followed.push(req.url ?? "");
+    res.statusCode = 302;
+    // a host that never answers: the harness follows a redirect even when told not to (expand.ts),
+    // and a test must not reach Google. What a redirect is read as is expand.test.ts's to show
+    res.setHeader("Location", "https://www.google.invalid/maps/search/25.0416,+121.5489");
+    res.end();
+  });
+  await new Promise<void>((resolve) => shortlinks.listen(0, "127.0.0.1", resolve));
+  const shortlinksPort = (shortlinks.address() as AddressInfo).port;
+
   // The Worker as it is deployed, but for its Workers AI binding: that one only runs against
   // Cloudflare (a login, which CI does not have), so Clef is the stub at CLEF_BASE_URL instead.
   // Written to a folder of its own, away from a developer's .dev.vars, with its paths made whole.
@@ -146,6 +161,7 @@ beforeAll(async () => {
           ANTHROPIC_API_KEY: "test-key",
           CLEF_BASE_URL: `http://127.0.0.1:${clefPort}`,
           GEOCODER_BASE_URL: `http://127.0.0.1:${geocoderPort}`,
+          SHORTLINK_BASE_URL: `http://127.0.0.1:${shortlinksPort}`,
           SPEND_PER_DAY: String(PER_DAY),
         },
       },
@@ -160,6 +176,7 @@ afterAll(async () => {
   claude?.close();
   clef?.close();
   geocoder?.close();
+  shortlinks?.close();
 });
 
 const b64url = (data: Uint8Array | string) => {
@@ -1833,5 +1850,44 @@ describe("what is at a pinned point", () => {
     find = () => ({ status: 503, body: {} });
     expect((await where(roomId, email, { lat: 25, lng: 121 })).status).toBe(502);
     expect((await where(roomId, STRANGER, { lat: 25, lng: 121 })).status).toBe(403);
+  });
+});
+
+describe("a short Google Maps link", () => {
+  const expandLink = (roomId: string, email: string, body: unknown) =>
+    post(`/api/rooms/${roomId}/expand`, email, body);
+
+  test("is asked of its host, within the person's budget; one that leads nowhere comes back as it was", async () => {
+    const email = "expand@example.com";
+    const { roomId } = await createRoom(email);
+    const seen = followed.length;
+    const short = "https://maps.app.goo.gl/AbC123";
+    const res = await expandLink(roomId, email, { url: short });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ url: short, at: null });
+    expect(followed.slice(seen)).toEqual(["/AbC123"]);
+    // each expansion is a fetch the person asked for: it spends from the day's budget
+    for (let i = 1; i < PER_DAY; i++)
+      expect((await expandLink(roomId, email, { url: "https://maps.app.goo.gl/x" })).status).toBe(
+        200,
+      );
+    expect((await expandLink(roomId, email, { url: "https://maps.app.goo.gl/x" })).status).toBe(
+      429,
+    );
+  });
+
+  test("a link that is not a short one comes back as it was, fetched by no one and free", async () => {
+    const email = "expand2@example.com";
+    const { roomId } = await createRoom(email);
+    const seen = followed.length;
+    const long = "https://www.google.com/maps/place/x/@25.04,121.55,17z";
+    for (let i = 0; i <= PER_DAY; i++)
+      expect(await (await expandLink(roomId, email, { url: long })).json()).toEqual({
+        url: long,
+        at: null,
+      });
+    expect(followed.length).toBe(seen);
+    expect((await expandLink(roomId, email, { url: 42 })).status).toBe(400);
+    expect((await expandLink(roomId, STRANGER, { url: long })).status).toBe(403);
   });
 });

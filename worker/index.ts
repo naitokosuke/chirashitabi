@@ -1,9 +1,12 @@
 import type { RequestLogger } from "evlog";
 import { initWorkersLogger, withEvlog } from "evlog/workers";
 
+import { isShortMapsLink, parseMapsUrl } from "../src/app/features/place/google-maps";
+
 import { AccessVerifier, Unauthenticated } from "./access";
 import { draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
 import { CLEF_MODEL, FITS_AT, judgeTags, MAX_TAGS } from "./clef";
+import { expand } from "./expand";
 import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
 import { Room } from "./room";
 import { RoomsIndex } from "./rooms-index";
@@ -61,6 +64,7 @@ type RoomAction =
   | "candidates"
   | "places"
   | "where"
+  | "expand"
   | "invited"
   | "invite"
   | "uninvite"
@@ -70,7 +74,7 @@ type RoomAction =
   | "restore"
   | "purge";
 const ROOM =
-  /^\/api\/rooms\/([0-9a-f-]{36})\/(ws|draft|suggest|tags|candidates|places|where|invited|invite|uninvite|remove|leave|delete|restore|purge)$/;
+  /^\/api\/rooms\/([0-9a-f-]{36})\/(ws|draft|suggest|tags|candidates|places|where|expand|invited|invite|uninvite|remove|leave|delete|restore|purge)$/;
 /** An invitation to a room, answered by the person invited */
 const INVITATION = /^\/api\/invitations\/([0-9a-f-]{36})\/(accept|decline)$/;
 /** A room's pictures: POST to upload one, GET `/images/<id>` to show it */
@@ -378,6 +382,31 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
     return Response.json({ tags: candidates });
   }
 
+  if (action === "expand") {
+    // a short Google Maps link, expanded by reading its one redirect; anything else is answered
+    // as it came, without a fetch. A fetch of a URL a person typed counts against their budget
+    const url = body?.url;
+    if (typeof url !== "string" || url.length > 2000) return status(400, "Bad Request");
+    if (!isShortMapsLink(url)) return Response.json({ url, at: null });
+    const reserved = await index.reserve(email, roomId);
+    if ("refused" in reserved) {
+      log.set({ budget: { refused: reserved.refused } });
+      return status(429, `Budget: ${reserved.refused}`);
+    }
+    const expanded = await expand(url, env.SHORTLINK_BASE_URL);
+    // a phone's share often leads to the place's name (`?q=…&ftid=…`), not its point: then
+    // OpenStreetMap finds the name, free, and its point is the link's
+    let at: { lat: number; lng: number } | null = null;
+    const q = expanded === null ? null : new URL(expanded).searchParams.get("q");
+    if (expanded !== null && parseMapsUrl(expanded) === null && q !== null && q.trim() !== "") {
+      const found = await geocode(env, q.slice(0, 200), body?.lang === "en" ? "en" : "ja");
+      const first = found?.[0];
+      if (first !== undefined) at = { lat: first.lat, lng: first.lng };
+    }
+    log.set({ expand: { ok: expanded !== null, geocoded: at !== null } });
+    return Response.json({ url: expanded ?? url, at });
+  }
+
   if (action === "where") {
     // what is at a point the asker pinned on the map: free (no agent), so not budgeted
     const lat = body?.lat;
@@ -480,7 +509,16 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
 async function people(
   action: Exclude<
     RoomAction,
-    "ws" | "draft" | "suggest" | "tags" | "candidates" | "places" | "where" | "restore" | "purge"
+    | "ws"
+    | "draft"
+    | "suggest"
+    | "tags"
+    | "candidates"
+    | "places"
+    | "where"
+    | "expand"
+    | "restore"
+    | "purge"
   >,
   {
     index,

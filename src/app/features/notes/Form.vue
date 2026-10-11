@@ -31,7 +31,12 @@ import { useI18n } from "../../i18n/useI18n";
 import backIcon from "../../icons/back.svg";
 import closeIcon from "../../icons/close.svg";
 import Icon from "../../icons/Icon.vue";
-import { googleMapsLink, placeFromUrl, placeSearchLink } from "../place/google-maps";
+import {
+  googleMapsLink,
+  isShortMapsLink,
+  placeFromUrl,
+  placeSearchLink,
+} from "../place/google-maps";
 import type { FoundPlace } from "../place/types";
 import { useSync } from "../sync/useSync";
 import { FITS_AT, fits, likeness, rankTags, type TagOption } from "../tags/rank";
@@ -80,8 +85,27 @@ const startingInput = (): NoteInput => {
 };
 const form = ref<NoteInput>(startingInput());
 const mapsUrl = ref(form.value.mapsUrl ?? "");
+/** A short link is on its way to the Worker to be read */
+const expanding = ref(false);
 function onMapsUrl() {
   Object.assign(form.value, placeFromUrl(mapsUrl.value, form.value.pin));
+  const short = mapsUrl.value.trim();
+  const api = worker.api;
+  if (api === null || !isShortMapsLink(short)) return;
+  // a shared short link hides its point: the Worker reads where it leads, and the link becomes
+  // that one, unless something else was pasted meanwhile
+  expanding.value = true;
+  api
+    .expandLink(short, i18n.locale === "en" ? "en" : "ja")
+    .then(({ url, at }) => {
+      if (mapsUrl.value.trim() !== short || url === short) return;
+      mapsUrl.value = url;
+      Object.assign(form.value, placeFromUrl(url, at ?? form.value.pin));
+    })
+    .catch(() => {
+      // the short link stays; the form says it has no point yet
+    })
+    .finally(() => (expanding.value = false));
 }
 const hasPin = () => form.value.pin !== null;
 const text = ref(noteText(form.value));
@@ -510,15 +534,17 @@ function submit() {
             i18n.t(
               naming
                 ? "form.placeNaming"
-                : hasPin()
-                  ? "form.pinned"
-                  : mapsUrl.trim()
-                    ? worker.api
-                      ? "form.urlNoPinFind"
-                      : "form.urlNoPin"
-                    : worker.api
-                      ? "form.unpinnedFind"
-                      : "form.unpinned",
+                : expanding
+                  ? "form.placeExpanding"
+                  : hasPin()
+                    ? "form.pinned"
+                    : mapsUrl.trim()
+                      ? worker.api
+                        ? "form.urlNoPinFind"
+                        : "form.urlNoPin"
+                      : worker.api
+                        ? "form.unpinnedFind"
+                        : "form.unpinned",
             )
           }}</p>
         <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->

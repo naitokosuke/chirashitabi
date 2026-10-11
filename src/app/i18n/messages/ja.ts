@@ -102,6 +102,10 @@ export const ja: Messages = {
   "stay.nights": "泊数",
   "stay.link": "Google マップのリンク",
   "stay.linkHint": "リンクがあると、地図の各日のルートがここから出てここに戻ります。",
+  "stay.linkExpanding": "共有リンクの行き先を調べています…",
+  "stay.linkPinned": "場所を読み取りました。地図に出て、各日のルートがここから出てここに戻ります。",
+  "stay.linkNoPin":
+    "このリンクからは場所を読み取れませんでした。Google マップで宿を開いたときのアドレスバーの URL を貼ってください。",
   "stay.add": "宿を追加",
   "stay.remove": "この宿を消す",
   "stay.when": "{$date}から{$count :integer}泊",
@@ -200,6 +204,7 @@ export const ja: Messages = {
     "このリンクからは座標が読めません。「共有」の長いリンクを貼るか、「場所を探す」を使ってください",
   "form.findPlace": "場所を探す",
   "form.placeNaming": "この場所の名前を調べています…",
+  "form.placeExpanding": "共有リンクの行き先を調べています…",
   "form.placesAsking": "場所を探しています…",
   "form.placesNone": "このメモからは、地図で見つかる場所が分かりませんでした。",
   "form.placesFailed": "場所が届きませんでした。もう一度頼んでください。",

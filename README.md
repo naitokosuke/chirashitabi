@@ -143,6 +143,7 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
   clef.ts           Clef on Workers AI (clef-flash): which tags fit a memo, from its words and photo
   geocode.ts        OpenStreetMap's geocoder (Nominatim): the places a name finds, with real coordinates,
                     and what is at a pinned point (its name, else its street's)
+  expand.ts         A short Google Maps link (maps.app.goo.gl) read as the link its redirect names
   room.ts           Room: the trip, its notes and members in SQLite, and which pictures it has (their bytes
                     in the R2 bucket chirashitabi-images); the socket: snapshot on connect,
                     mutations checked, stamped (by, updatedAt), written and sent to the other sockets
@@ -174,7 +175,7 @@ Currencies and member colors arrive as plain strings too; `currencyCode` and `he
 ## Map
 
 - Tiles come from OpenFreeMap (`https://tiles.openfreemap.org/styles/liberty`): free, no key.
-- Coordinates come from the Google Maps link pasted into the form. Short `maps.app.goo.gl` links need the Worker
-  to follow the redirect before `parseMapsUrl` sees them (not implemented yet; see `features/place/google-maps.ts`).
+- Coordinates come from the Google Maps link pasted into the form. A short `maps.app.goo.gl` link is read by the Worker
+  (`worker/expand.ts`), and the point comes from where it leads.
 - When there are no coordinates, long-press the map to place the note.
 - Google Maps is only an "open" link; no Google key ever ships to the browser (see `docs/auth-and-security.md`).

@@ -2,7 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import type { MemberId } from "../members/types";
 import type { ImageId, NoteId } from "../notes/types";
-import type { FoundPlace } from "../place/types";
+import type { FoundPlace, LatLng } from "../place/types";
 import type { RoomId } from "../rooms/types";
 
 import type { WorkerApi } from "./types";
@@ -27,7 +27,7 @@ interface WireDraft {
 /** A POST to one of the room's agent calls; a refusal by the budget is an OverBudget */
 async function call(
   room: RoomId,
-  what: "draft" | "suggest" | "tags" | "candidates" | "places" | "where",
+  what: "draft" | "suggest" | "tags" | "candidates" | "places" | "where" | "expand",
   body: unknown,
 ): Promise<Response> {
   const res = await fetch(`/api/rooms/${room}/${what}`, {
@@ -75,6 +75,10 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
       at: { lat: p.lat, lng: p.lng },
       hours: p.hours,
     }));
+  },
+  async expandLink(url, lang) {
+    const res = await call(room, "expand", { url, lang });
+    return (await res.json()) as { url: string; at: LatLng | null };
   },
   async whereIs(at, lang) {
     const res = await call(room, "where", { lat: at.lat, lng: at.lng, lang });
