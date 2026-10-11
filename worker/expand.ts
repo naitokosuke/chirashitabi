@@ -26,6 +26,28 @@ export function acceptedLocation(location: string | null): string | null {
 }
 
 /**
+ * The name a Google Maps link is about, when it names a place rather than a point: its `q`
+ * (`?q=Hotel+Proverbs&ftid=…`, a phone's share), else the place in its path
+ * (`/maps/place/Hotel+Proverbs/data=…`, what a short link most often leads to)
+ */
+export function placeName(url: string): string | null {
+  if (!URL.canParse(url)) return null;
+  const u = new URL(url);
+  const q = u.searchParams.get("q")?.trim() ?? "";
+  if (q !== "") return q.slice(0, 200);
+  const m = /\/maps\/(?:place|search)\/([^/]+)/.exec(u.pathname);
+  if (m === null) return null;
+  let name: string;
+  try {
+    name = decodeURIComponent(m[1]!.replace(/\+/g, " ")).trim();
+  } catch {
+    return null;
+  }
+  // a search for a point is not a name (parseMapsUrl reads that one)
+  return name === "" || /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(name) ? null : name.slice(0, 200);
+}
+
+/**
  * The link a short one stands for, or null when it is not a short one or did not say; `base`
  * replaces the short link's origin in the tests
  */
