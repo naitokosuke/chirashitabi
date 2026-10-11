@@ -796,7 +796,8 @@ describe("the socket", () => {
     });
     a.send({ type: "text:edit", id: "t1", text: "Day 1 · Taipei" });
     await b.next();
-    a.send({ type: "note:move", id: "t1", x: 50, y: 60, scale: 2 });
+    a.send({ type: "note:move", id: "t1", x: 50, y: 60, scale: 2, cid: "c1b" });
+    await a.next();
     await b.next();
     a.send({ type: "text:edit", id: "t1", text: "x".repeat(1001), cid: "c2" });
     expect(await a.next()).toMatchObject({ type: "rejected", reason: "not a mutation" });
@@ -1143,6 +1144,13 @@ describe("the socket", () => {
     a.idle();
     b.idle();
     for (const s of [a, b]) s.ws.close(1000, "done");
+
+    // nor kept: whoever opens the room next finds the card where it was before the drag
+    const c = await connect(roomId, partner);
+    expect(c.snapshot.type === "snapshot" && c.snapshot.notes).toMatchObject([
+      { id: "n1", x: 10, y: 20 },
+    ]);
+    c.ws.close(1000, "done");
   });
 });
 
