@@ -3,7 +3,7 @@ import type { FeatureCollection } from "geojson";
 import type { Scheduled } from "../notes/types";
 
 import { isPinned, lngLat } from "./pin";
-import type { LngLat } from "./types";
+import type { LatLng, LngLat } from "./types";
 
 /** The stops of a day's route, in order: everything with a place except the maybes */
 export const routeStops = (notes: Scheduled[]): LngLat[] =>
@@ -11,6 +11,16 @@ export const routeStops = (notes: Scheduled[]): LngLat[] =>
     .filter((n) => n.schedule.status !== "idea")
     .filter(isPinned)
     .map((n) => lngLat(n.pin));
+
+/**
+ * A day's stops, leaving from where its night before was spent and back to where its night is,
+ * when the trip knows where those are; a day with no stops of its own goes nowhere
+ */
+export function dayStops(notes: Scheduled[], from: LatLng | null, to: LatLng | null): LngLat[] {
+  const stops = routeStops(notes);
+  if (stops.length === 0) return [];
+  return [...(from === null ? [] : [lngLat(from)]), ...stops, ...(to === null ? [] : [lngLat(to)])];
+}
 
 /** A line through the stops, or nothing while there are fewer than two */
 export const routeLine = (stops: LngLat[]): FeatureCollection => ({

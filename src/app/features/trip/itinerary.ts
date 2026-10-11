@@ -11,6 +11,8 @@ import {
 } from "../notes/types";
 import type { DayDraft } from "../worker/types";
 
+import type { Stay } from "./types";
+
 const NEXT_STATUS: Record<NoteStatus, NoteStatus> = { idea: "fixed", fixed: "done", done: "idea" };
 /** Maybe -> Confirmed -> Done -> Maybe */
 export const cycleStatus = (s: Schedule): Schedule => ({ ...s, status: NEXT_STATUS[s.status] });
@@ -56,6 +58,21 @@ export const fixedCount = (notes: Note[]) => notes.filter(isMemo).filter(isFixed
 /** "Day 1" is the first day of the trip */
 export const dayNumber = (days: { date: Temporal.PlainDate }[], date: Temporal.PlainDate) =>
   days.findIndex((d) => d.date.equals(date)) + 1;
+
+/** The night after its last: the day it is left */
+export const checkOut = (s: Stay) => s.checkIn.add({ days: s.nights });
+
+/** Where the night of `date` is spent, if the trip says */
+export const stayOn = (stays: Stay[], date: Temporal.PlainDate) =>
+  stays.find(
+    (s) =>
+      Temporal.PlainDate.compare(s.checkIn, date) <= 0 &&
+      Temporal.PlainDate.compare(date, checkOut(s)) < 0,
+  );
+
+/** Where `date` begins: the night before's stay */
+export const wakeAt = (stays: Stay[], date: Temporal.PlainDate) =>
+  stayOn(stays, date.subtract({ days: 1 }));
 
 /** Put a memo on a day (keeping its time and status), or take it off the itinerary */
 export const assignTo = (n: Memo, date: Temporal.PlainDate | null): MemoPatch => ({

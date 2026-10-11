@@ -26,6 +26,18 @@ export interface Flight {
 
 export type Flights = Record<Leg, Flight | null>;
 
+/**
+ * Where the nights are spent: its name, the first night and how many, and where it is when a
+ * Google Maps link said so. A day's plan leaves from where its night before was spent.
+ */
+export interface Stay {
+  name: string;
+  checkIn: Temporal.PlainDate;
+  nights: number;
+  mapsUrl: string | null;
+  pin: LatLng | null;
+}
+
 /** What the room knows about the trip itself */
 export interface TripSnapshot {
   name: string; // the room name, e.g. "Taiwan trip"
@@ -33,4 +45,6 @@ export interface TripSnapshot {
   currency: CurrencyCode; // what every budget is in
   center: LatLng; // where the map opens
   flights: Flights;
+  /** In the order they come */
+  stays: Stay[];
 }

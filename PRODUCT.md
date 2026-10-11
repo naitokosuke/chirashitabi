@@ -31,7 +31,7 @@ Trip planners start from the schedule; this starts from the pile of ideas and le
 
 - Sign-in is Cloudflare Access with an e-mail code; there is no account inside the app. A person belongs to rooms; a room holds at most two people and the agent.
 - Places arrive as Google Maps links pasted into the note form, or found from the note by Claude and OpenStreetMap (which makes the link); coordinates come from the link, or from a long-press on the map.
-- A trip has a name, a run of days, a currency and a map center. A note can carry tags, a body, a place, a day with a time and a status (maybe, confirmed, done), and a budget.
+- A trip has a name, a run of days, a currency, a map center, its flights and its stays (where the nights are spent: a name, the first night and how many, a Google Maps link). A note can carry tags, a body, a place, a day with a time and a status (maybe, confirmed, done), and a budget.
 - The interface is in Japanese and English, chosen per device.
 - The booklet (`shiori`) is read on the trip, on a phone; it must survive a bad connection.
 - Everything runs on Cloudflare's free tier by design; the owner's standing requirement is that nobody outside the two members can cause a paid call, and that a lost phone or a bug can only spend a bounded amount (`docs/auth-and-security.md`).
@@ -42,7 +42,7 @@ Working today:
 
 - The canvas (pan, pinch; a card picked with a tap is moved, resized and turned with handles, and recolored, put on a day (which its card then shows), duplicated or deleted from its toolbar; a double tap opens it; undo of the last add), text written straight on the desk with a double click (a text box, moved, resized and turned like a card), the note form, tag filtering.
 - The memo tab: the note form kept open as its own view, for writing one note after another; each lands on the canvas.
-- The home tab: the trip at a glance (name, dates, members, flights, note and budget counts, notes per day) and the way out to another trip. Its settings are edited there: the name, when the trip is (first day and length; what is planned moves with it, and what falls outside goes back to having no day) and the flights there and home (number, airports, local departure and arrival); the booklet heads a day with the flights that leave or land on it.
+- The home tab: the trip at a glance (name, dates, members, flights, stays, note and budget counts, notes per day) and the way out to another trip. Its settings are edited there: the name, when the trip is (first day and length; what is planned moves with it, and what falls outside goes back to having no day), the flights there and home (number, airports, local departure and arrival) and the stays; the booklet heads a day with the flights that leave or land on it and the night's stay, and the map's route for a day leaves from the night before's stay and ends at that night's.
 - The map (MapLibre + OpenFreeMap, no key): pins, a day's route, long-press to write a note at a place.
 - The booklet: days with intros, notes placed on days with times and statuses, an appendix by tag, a per-day budget, a tray of notes still without a day.
 - Suggestions: a card anyone (including the agent) can leave, adopted into an ordinary note or dismissed.

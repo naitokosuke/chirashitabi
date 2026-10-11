@@ -29,10 +29,11 @@ function datesOf(days: Day[], first: Temporal.PlainDate, count: number): Day[] {
   }));
 }
 
-/** The trip after a mutation: its name, its days or a flight; unchanged, it is the same object */
+/** The trip after a mutation: its name, its days, a flight or its stays; unchanged, it is the same object */
 export function applyToTrip(trip: TripSnapshot, m: Mutation): TripSnapshot {
   if (m.type === "trip:rename") return trip.name === m.name ? trip : { ...trip, name: m.name };
   if (m.type === "trip:flight") return { ...trip, flights: { ...trip.flights, [m.leg]: m.flight } };
+  if (m.type === "trip:stays") return { ...trip, stays: m.stays };
   const days = applyToDays(trip.days, m);
   return days === trip.days ? trip : { ...trip, days };
 }

@@ -17,7 +17,9 @@ import {
   MAX_FLIGHT_NO,
   MAX_PLACE,
   newFlight,
+  newStay,
   sameFlight,
+  sameStays,
   settingsOf,
   type TripForm,
 } from "./settings";
@@ -25,8 +27,8 @@ import type { Leg, TripSnapshot } from "./types";
 import { useTrip } from "./useTrip";
 
 /**
- * The trip's settings, on its home: its name, when it is (the first day and how many days) and
- * its flights there and home. Nothing reaches the room until it is saved, and then only what
+ * The trip's settings, on its home: its name, when it is (the first day and how many days), its
+ * flights there and home, and where its nights are spent. Nothing reaches the room until it is saved, and then only what
  * changed. Moving the dates moves what is planned with them; what would fall past the new last
  * day is said before saving, since it goes back to having no day.
  */
@@ -34,7 +36,7 @@ const props = defineProps<{ trip: TripSnapshot }>();
 const emit = defineEmits<{ close: [] }>();
 const i18n = useI18n();
 const id = useId();
-const { rename, setDates, setFlight } = useTrip();
+const { rename, setDates, setFlight, setStays } = useTrip();
 const { notes } = useNotes();
 
 const LEGS: readonly Leg[] = ["out", "back"];
@@ -66,6 +68,17 @@ function addFlight(leg: Leg) {
 }
 const removeFlight = (leg: Leg) => (form.flights[leg] = { ...form.flights[leg], on: false });
 
+function addStay() {
+  let first: Temporal.PlainDate;
+  try {
+    first = Temporal.PlainDate.from(form.firstDay);
+  } catch {
+    first = Temporal.Now.plainDateISO();
+  }
+  form.stays.push(newStay(form.stays, first));
+}
+const removeStay = (i: number) => form.stays.splice(i, 1);
+
 function save() {
   const s = settings.value;
   if (s === null) return;
@@ -73,6 +86,7 @@ function save() {
   setDates(s.first, s.days);
   for (const leg of LEGS)
     if (!sameFlight(s.flights[leg], props.trip.flights[leg])) setFlight(leg, s.flights[leg]);
+  if (!sameStays(s.stays, props.trip.stays)) setStays(s.stays);
   emit("close");
 }
 </script>
@@ -176,6 +190,42 @@ function save() {
       <button v-else class="add" type="button" @click="() => addFlight(leg)">
         <Icon :size="16" :src="plusIcon" />{{ i18n.t(leg === "out" ? "flight.addOut" : "flight.addBack") }}
       </button>
+    </fieldset>
+
+    <!-- where the nights are spent: each a few fields, in the order they come -->
+    <fieldset>
+      <legend>{{ i18n.t("stay.title") }}</legend>
+      <div v-for="(s, i) in form.stays" :key="i" class="stay">
+        <div class="field">
+          <label :for="`${id}-stay-${i}-name`">{{ i18n.t("stay.name") }}</label>
+          <input :id="`${id}-stay-${i}-name`" v-model="s.name" :maxlength="MAX_NAME" required />
+        </div>
+        <div class="row">
+          <div class="field">
+            <label :for="`${id}-stay-${i}-in`">{{ i18n.t("stay.checkIn") }}</label>
+            <input :id="`${id}-stay-${i}-in`" v-model="s.checkIn" required type="date" />
+          </div>
+          <div class="field">
+            <label :for="`${id}-stay-${i}-nights`">{{ i18n.t("stay.nights") }}</label>
+            <input
+              :id="`${id}-stay-${i}-nights`"
+              v-model.number="s.nights"
+              inputmode="numeric"
+              :max="MAX_DAYS"
+              min="1"
+              required
+              type="number"
+            />
+          </div>
+        </div>
+        <div class="field">
+          <label :for="`${id}-stay-${i}-url`">{{ i18n.t("stay.link") }}</label>
+          <input :id="`${id}-stay-${i}-url`" v-model="s.mapsUrl" inputmode="url" type="url" />
+        </div>
+        <p class="hint">{{ i18n.t("stay.linkHint") }}</p>
+        <button class="quiet" type="button" @click="() => removeStay(i)">{{ i18n.t("stay.remove") }}</button>
+      </div>
+      <button class="add" type="button" @click="addStay"><Icon :size="16" :src="plusIcon" />{{ i18n.t("stay.add") }}</button>
     </fieldset>
 
     <footer>
@@ -284,8 +334,15 @@ fieldset {
   }
 }
 
-.note,
-.hint {
+/* one stay's fields, a dashed line under each */
+.stay {
+  display: grid;
+  gap: 12px;
+  padding-block-end: 12px;
+  border-block-end: 1px dashed var(--line);
+}
+
+.note, .hint {
   margin: 0;
   font-size: var(--font-xs);
   line-height: 1.6;
@@ -297,9 +354,7 @@ fieldset {
   color: var(--ink);
 }
 
-button.add,
-button.quiet,
-button.primary {
+button.add, button.quiet, button.primary {
   justify-self: start;
   display: inline-flex;
   align-items: center;
@@ -313,10 +368,12 @@ button.primary {
   font: inherit;
   font-size: var(--font-sm);
   font-weight: 700;
+
   &:focus-visible {
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
+
   &:disabled {
     opacity: 0.35;
   }

@@ -36,6 +36,8 @@ export interface WireTrip {
   center: { lat: number; lng: number };
   /** The flight there and the flight home, each or both not known yet */
   flights: WireFlights;
+  /** Where the nights are spent, in the order they come */
+  stays: WireStay[];
 }
 
 /** Which flight: the one there, or the one home */
@@ -55,6 +57,18 @@ export interface WireFlight {
 }
 
 export type WireFlights = Record<Leg, WireFlight | null>;
+
+/**
+ * Where the travellers sleep: a name, the first night (YYYY-MM-DD) and how many, and where it
+ * is, as a Google Maps link and the point it names, when they gave one
+ */
+export interface WireStay {
+  name: string;
+  checkIn: string;
+  nights: number;
+  mapsUrl: string | null;
+  pin: { lat: number; lng: number } | null;
+}
 
 export interface WireSchedule {
   date: string;
@@ -138,7 +152,9 @@ export type WireMutation =
   // when the trip is: its first day and how many; everything planned moves with it
   | { type: "trip:dates"; first: string; days: number }
   // one of its flights, or none
-  | { type: "trip:flight"; leg: Leg; flight: WireFlight | null };
+  | { type: "trip:flight"; leg: Leg; flight: WireFlight | null }
+  // where the nights are spent: the whole list, as the editor saves it
+  | { type: "trip:stays"; stays: WireStay[] };
 
 /**
  * The client sends mutations as they are, with an optional `cid` beside the mutation's own
@@ -181,6 +197,8 @@ const COORD = 1e6;
 const DAYS = 60;
 const FLIGHT_NO = 20;
 const PLACE = 60;
+/** Stays in a trip: one a night at most, for a trip as long as it may be */
+const STAYS = DAYS;
 
 // ---- checks ----
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
@@ -278,6 +296,17 @@ const parseFlight = (v: unknown): WireFlight | null => {
   };
 };
 
+/** A stay as a member writes it, its name trimmed; its nights within a trip's length */
+const parseStay = (v: unknown): WireStay | null => {
+  if (!isRecord(v)) return null;
+  const { name, checkIn, nights, mapsUrl, pin } = v;
+  if (!isText(name, NAME) || name.trim() === "" || !isDate(checkIn)) return null;
+  if (typeof nights !== "number" || !Number.isInteger(nights) || nights < 1 || nights > DAYS)
+    return null;
+  if (!(mapsUrl === null || isUrl(mapsUrl)) || !(pin === null || isLatLng(pin))) return null;
+  return { name: name.trim(), checkIn, nights, mapsUrl, pin };
+};
+
 /** What a room is created with */
 export const parseTrip = (v: unknown): WireTrip | null => {
   if (!isRecord(v)) return null;
@@ -293,6 +322,7 @@ export const parseTrip = (v: unknown): WireTrip | null => {
     currency: v.currency,
     center: v.center,
     flights: { out: null, back: null },
+    stays: [],
   };
 };
 
@@ -459,6 +489,11 @@ export function parseMutation(v: unknown): WireMutation | null {
       if (v.flight === null) return { type: "trip:flight", leg: v.leg, flight: null };
       const flight = parseFlight(v.flight);
       return flight === null ? null : { type: "trip:flight", leg: v.leg, flight };
+    }
+    case "trip:stays": {
+      if (!Array.isArray(v.stays) || v.stays.length > STAYS) return null;
+      const stays = v.stays.map(parseStay);
+      return stays.every((s) => s !== null) ? { type: "trip:stays", stays } : null;
     }
     case "trip:rename":
       return isText(v.name, NAME) && v.name.trim() !== ""

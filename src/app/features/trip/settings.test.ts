@@ -4,7 +4,16 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { currencyCode } from "../../shared/money";
 
-import { flightOf, formOf, newFlight, sameFlight, settingsOf } from "./settings";
+import {
+  flightOf,
+  formOf,
+  newFlight,
+  newStay,
+  sameFlight,
+  sameStays,
+  settingsOf,
+  stayOf,
+} from "./settings";
 import type { TripSnapshot } from "./types";
 
 const first = Temporal.PlainDate.from("2026-11-03");
@@ -21,6 +30,15 @@ const trip: TripSnapshot = {
   currency: currencyCode("TWD")!,
   center: { lat: 25, lng: 121 },
   flights: { out, back: null },
+  stays: [
+    {
+      name: "Hotel Proverbs",
+      checkIn: first,
+      nights: 2,
+      mapsUrl: "https://www.google.com/maps?q=25.04,121.55",
+      pin: { lat: 25.04, lng: 121.55 },
+    },
+  ],
 };
 
 describe("formOf and settingsOf", () => {
@@ -33,6 +51,8 @@ describe("formOf and settingsOf", () => {
     expect(s?.first.equals(first)).toBe(true);
     expect(sameFlight(s!.flights.out, out)).toBe(true);
     expect(s?.flights.back).toBeNull();
+    expect(form.stays[0]).toMatchObject({ checkIn: "2026-11-03", nights: 2 });
+    expect(sameStays(s!.stays, trip.stays)).toBe(true);
   });
 
   test("a blank name, a day that is not one, or a half-written flight is not taken", () => {
@@ -42,6 +62,22 @@ describe("formOf and settingsOf", () => {
     expect(settingsOf({ ...form, days: 0 })).toBeNull();
     const half = { ...newFlight("back", first, 4), from: "TSA" };
     expect(settingsOf({ ...form, flights: { ...form.flights, back: half } })).toBeNull();
+  });
+});
+
+describe("newStay and stayOf", () => {
+  test("a new stay starts the night the last one ends, or on the first night", () => {
+    expect(newStay([], first).checkIn).toBe("2026-11-03");
+    expect(newStay(formOf(trip).stays, first).checkIn).toBe("2026-11-05");
+  });
+
+  test("its link sets its pin; a blank link clears both; a stay with no name is not one yet", () => {
+    const blank = newStay([], first);
+    expect(stayOf(blank)).toBeUndefined();
+    const s = stayOf({ ...blank, name: " Inn ", mapsUrl: "https://maps.google.com/?q=25.1,121.8" });
+    expect(s).toMatchObject({ name: "Inn", pin: { lat: 25.1, lng: 121.8 } });
+    expect(stayOf({ ...blank, name: "Inn", pin: { lat: 1, lng: 2 } })?.pin).toBeNull();
+    expect(stayOf({ ...blank, name: "Inn", mapsUrl: "javascript:alert(1)" })).toBeUndefined();
   });
 });
 

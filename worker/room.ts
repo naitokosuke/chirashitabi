@@ -18,6 +18,7 @@ import {
   type GoneReason,
   type Leg,
   type WireFlights,
+  type WireStay,
 } from "./wire";
 
 export type MemberKind = "person" | "agent";
@@ -143,6 +144,15 @@ export class Room extends DurableObject<Env> {
         to_place TEXT NOT NULL,
         departs TEXT NOT NULL,
         arrives TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS stays (
+        position INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        check_in TEXT NOT NULL,
+        nights INTEGER NOT NULL,
+        maps_url TEXT,
+        pin_lat REAL,
+        pin_lng REAL
       );
       CREATE TABLE IF NOT EXISTS deletion (
         id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -711,12 +721,30 @@ export class Room extends DurableObject<Env> {
         departs: f.departs,
         arrives: f.arrives,
       };
+    const stays = sql
+      .exec<{
+        name: string;
+        check_in: string;
+        nights: number;
+        maps_url: string | null;
+        pin_lat: number | null;
+        pin_lng: number | null;
+      }>("SELECT * FROM stays ORDER BY position")
+      .toArray()
+      .map((s): WireStay => ({
+        name: s.name,
+        checkIn: s.check_in,
+        nights: s.nights,
+        mapsUrl: s.maps_url,
+        pin: s.pin_lat === null || s.pin_lng === null ? null : { lat: s.pin_lat, lng: s.pin_lng },
+      }));
     return {
       name: t.name,
       currency: t.currency,
       center: { lat: t.center_lat, lng: t.center_lng },
       days,
       flights,
+      stays,
     };
   }
 
@@ -925,6 +953,23 @@ export class Room extends DurableObject<Env> {
             m.flight.departs,
             m.flight.arrives,
           );
+        return m;
+      }
+      case "trip:stays": {
+        sql.exec("DELETE FROM stays");
+        m.stays.forEach((s, i) =>
+          sql.exec(
+            `INSERT INTO stays (position, name, check_in, nights, maps_url, pin_lat, pin_lng)
+               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            i,
+            s.name,
+            s.checkIn,
+            s.nights,
+            s.mapsUrl,
+            s.pin?.lat ?? null,
+            s.pin?.lng ?? null,
+          ),
+        );
         return m;
       }
       case "trip:rename": {

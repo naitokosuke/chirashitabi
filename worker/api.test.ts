@@ -719,6 +719,7 @@ describe("the socket", () => {
         ...TRIP,
         days: TRIP.days.map((date) => ({ date, intro: "" })),
         flights: { out: null, back: null },
+        stays: [],
       },
       notes: [],
     });
@@ -991,6 +992,68 @@ describe("the socket", () => {
     });
     expect((await me(owner)).rooms).toMatchObject([{ first: "2026-11-10", days: 2 }]);
     for (const s of [a, b]) s.ws.close(1000, "done");
+  });
+
+  test("the stays are saved as a list, checked, and kept in order", async () => {
+    const owner = "stay-owner@example.com";
+    const partner = "stay-partner@example.com";
+    const { roomId } = await createRoom(owner);
+    expect((await admit(roomId, owner, partner)).status).toBe(200);
+    const a = await connect(roomId, owner);
+    const b = await connect(roomId, partner);
+    const stay = {
+      name: " Hotel Proverbs ",
+      checkIn: "2026-11-03",
+      nights: 2,
+      mapsUrl: "https://maps.google.com/?q=25.04,121.55",
+      pin: { lat: 25.04, lng: 121.55 },
+    };
+    const second = {
+      name: "Jiufen inn",
+      checkIn: "2026-11-05",
+      nights: 1,
+      mapsUrl: null,
+      pin: null,
+    };
+
+    a.send({ type: "trip:stays", stays: [stay, second], cid: "s" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "s" });
+    expect(await b.next()).toMatchObject({
+      mutation: { type: "trip:stays", stays: [{ name: "Hotel Proverbs" }, { name: "Jiufen inn" }] },
+    });
+    for (const bad of [
+      [{ ...stay, name: " " }],
+      [{ ...stay, checkIn: "11/3" }],
+      [{ ...stay, nights: 0 }],
+      [{ ...stay, nights: 1.5 }],
+      [{ ...stay, mapsUrl: "javascript:alert(1)" }],
+      [{ ...stay, pin: { lat: 91, lng: 0 } }],
+      Array.from({ length: 61 }, () => second),
+    ]) {
+      a.send({ type: "trip:stays", stays: bad });
+      expect(await a.next()).toMatchObject({ type: "rejected", reason: "not a mutation" });
+    }
+
+    const c = await connect(roomId, partner);
+    expect(c.snapshot).toMatchObject({
+      trip: {
+        stays: [
+          {
+            name: "Hotel Proverbs",
+            checkIn: "2026-11-03",
+            nights: 2,
+            mapsUrl: stay.mapsUrl,
+            pin: stay.pin,
+          },
+          second,
+        ],
+      },
+    });
+    a.send({ type: "trip:stays", stays: [] });
+    await b.next();
+    const d = await connect(roomId, owner);
+    expect(d.snapshot).toMatchObject({ trip: { stays: [] } });
+    for (const s of [a, b, c, d]) s.ws.close(1000, "done");
   });
 
   test("a flight is set from its ticket, changed, and taken away", async () => {

@@ -77,11 +77,13 @@ src/app/            The app
              wire (the room's JSON back into the app's types)
     theme/   Light or dark: the device's until picked (useTheme, remembered); ThemeSwitch, the dock's
              sun and moon, whose new colors spread from it like ink
-    trip/    The room's trip (name, days, currency, map center, flights); itinerary (notes on a day,
-             status, budgets, assigning a day, adopting a draft); formatting; settings and
-             TripEditor (name, dates and flights, edited on the home tab); FlightLine (a flight)
+    trip/    The room's trip (name, days, currency, map center, flights, stays); itinerary (notes on a
+             day, status, budgets, assigning a day, adopting a draft, where a night is spent);
+             formatting; settings and TripEditor (name, dates, flights and stays, edited on the home
+             tab); FlightLine (a flight); StayLine (a stay)
     tags/    Tag colors and the tag filter (store, filter bar)
-    place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON
+    place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON, from and back to
+             the stays
     canvas/  Sticky note card (a text box too); TextField (words being written on the desk); transform
              (screen <-> world, zoom, pinch, fit); useViewport (the animated view); usePlace (adding
              a note on the canvas, placed even before the canvas is opened)

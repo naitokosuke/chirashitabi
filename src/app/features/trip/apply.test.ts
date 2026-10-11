@@ -39,7 +39,13 @@ describe("applyToTrip", () => {
     currency: currencyCode("TWD")!,
     center: { lat: 25, lng: 121 },
     flights: { out: null, back: null },
+    stays: [],
   };
+
+  test("the stays are replaced as a list", () => {
+    const stays = [{ name: "Inn", checkIn: d1, nights: 1, mapsUrl: null, pin: null }];
+    expect(applyToTrip(trip, { type: "trip:stays", stays }).stays).toBe(stays);
+  });
 
   test("new dates: the run of days from the first, each day keeping its place's intro", () => {
     const two = {

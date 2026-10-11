@@ -30,7 +30,8 @@ import { useNotes } from "../../../features/notes/useNotes";
 import { safeUrl } from "../../../features/place/google-maps";
 import FlightLine from "../../../features/trip/FlightLine.vue";
 import { fromHhmm, hhmm, longDate, shortDate } from "../../../features/trip/format";
-import { assignTo, cycleStatus, draftUpdates } from "../../../features/trip/itinerary";
+import { assignTo, cycleStatus, draftUpdates, stayOn } from "../../../features/trip/itinerary";
+import StayLine from "../../../features/trip/StayLine.vue";
 import { useTrip } from "../../../features/trip/useTrip";
 import { OverBudget } from "../../../features/worker/api";
 import type { DayDraft } from "../../../features/worker/types";
@@ -72,6 +73,11 @@ const flightsOn = computed(() => {
       f !== null && (f.departs.toPlainDate().equals(d) || f.arrives.toPlainDate().equals(d));
     return on ? [{ leg, flight: f }] : [];
   });
+});
+/** Where the night of the day on the page is spent, if the trip says */
+const tonight = computed(() => {
+  const d = day.value;
+  return d === null ? undefined : stayOn(trip.value?.stays ?? [], d);
 });
 /** The day the tabs and the heading show, ahead of the page by the time it takes to turn */
 const pickedDay = computed(() => dayOfTab(picked.value));
@@ -277,9 +283,10 @@ function adoptDraft() {
       <CtTabPanel>
         <!-- ---------- a day ---------- -->
         <template v-if="day !== null">
-          <!-- a flight that day heads the page, before anything planned around it -->
-          <div v-if="flightsOn.length > 0" class="flights" data-turn>
+          <!-- a flight that day, and where its night is spent, head the page, before anything planned around them -->
+          <div v-if="flightsOn.length > 0 || tonight !== undefined" class="flights" data-turn>
             <FlightLine v-for="f in flightsOn" :key="f.leg" :flight="f.flight" :leg="f.leg" />
+            <StayLine v-if="tonight !== undefined" :label="i18n.t('stay.tonight')" :stay="tonight" />
           </div>
           <template v-if="editing">
             <textarea
