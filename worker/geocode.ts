@@ -19,7 +19,12 @@ export interface Place {
   address: string;
   lat: number;
   lng: number;
+  /** When it is open, as OpenStreetMap writes it (`Mo-Su 10:00-21:00`); null when it does not say */
+  hours: string | null;
 }
+
+/** The longest opening hours kept; OpenStreetMap's own limit on a value is 255 */
+const HOURS = 255;
 
 /** The places a query finds, best first; null when the geocoder could not be asked */
 export async function geocode(env: Env, query: string, lang: "ja" | "en"): Promise<Place[] | null> {
@@ -27,6 +32,8 @@ export async function geocode(env: Env, query: string, lang: "ja" | "en"): Promi
     q: query,
     format: "jsonv2",
     limit: String(MAX_PLACES),
+    // the place's own tags beside its address: its opening hours, when it has them
+    extratags: "1",
     "accept-language": lang,
   });
   let res: Response;
@@ -47,7 +54,7 @@ export function placesFrom(raw: unknown): Place[] {
   const out: Place[] = [];
   for (const r of raw) {
     if (typeof r !== "object" || r === null) continue;
-    const { name, display_name: line, lat, lon } = r as Record<string, unknown>;
+    const { name, display_name: line, lat, lon, extratags } = r as Record<string, unknown>;
     const la = Number(lat);
     const ln = Number(lon);
     if (typeof line !== "string" || !Number.isFinite(la) || !Number.isFinite(ln)) continue;
@@ -57,10 +64,25 @@ export function placesFrom(raw: unknown): Place[] {
     if (title === "") continue;
     // the address is the line without the name it starts with
     const address = (parts[0] === title ? parts.slice(1) : parts).join(", ");
-    out.push({ name: title.slice(0, 120), address: address.slice(0, 240), lat: la, lng: ln });
+    out.push({
+      name: title.slice(0, 120),
+      address: address.slice(0, 240),
+      lat: la,
+      lng: ln,
+      hours: hoursOf(extratags),
+    });
     if (out.length === MAX_PLACES) break;
   }
   return out;
+}
+
+/** A place's `opening_hours` tag, on one line, or null when it has none */
+function hoursOf(tags: unknown): string | null {
+  if (typeof tags !== "object" || tags === null) return null;
+  const v = (tags as Record<string, unknown>).opening_hours;
+  if (typeof v !== "string") return null;
+  const line = v.replace(/\s+/g, " ").trim();
+  return line === "" ? null : line.slice(0, HOURS);
 }
 
 /**
@@ -79,6 +101,7 @@ export async function reverseGeocode(
     // a building's level: the shop or the sight the point is on, not the district
     zoom: "18",
     addressdetails: "1",
+    extratags: "1",
     "accept-language": lang,
   });
   let res: Response;
@@ -133,5 +156,11 @@ export function placeAt(raw: unknown, at: { lat: number; lng: number }): Place |
   const parts = line.split(",").map((p) => p.trim());
   const from = parts.indexOf(name);
   const rest = (from === -1 ? parts : parts.slice(from + 1)).join(", ");
-  return { name: name.slice(0, 120), address: rest.slice(0, 240), lat: at.lat, lng: at.lng };
+  return {
+    name: name.slice(0, 120),
+    address: rest.slice(0, 240),
+    lat: at.lat,
+    lng: at.lng,
+    hours: hoursOf(r.extratags),
+  };
 }

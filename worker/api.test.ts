@@ -1664,6 +1664,7 @@ describe("finding a memo's place", () => {
     display_name: "寧夏夜市, 寧夏路, 大同區, 臺北市, 103, 臺灣",
     lat: "25.0563",
     lon: "121.5154",
+    extratags: { opening_hours: "Mo-Su 17:00-01:00\n" },
   };
   const ask = (roomId: string, email: string, body: unknown) =>
     post(`/api/rooms/${roomId}/places`, email, body);
@@ -1693,6 +1694,8 @@ describe("finding a memo's place", () => {
           address: "寧夏路, 大同區, 臺北市, 103, 臺灣",
           lat: 25.0563,
           lng: 121.5154,
+          // its opening hours as OpenStreetMap tags them, on one line
+          hours: "Mo-Su 17:00-01:00",
         },
       ],
     });
@@ -1783,11 +1786,13 @@ describe("what is at a pinned point", () => {
         address: "信義路二段, 大安區, 臺北市, 臺灣",
         lat: 25.03361,
         lng: 121.53005,
+        hours: null,
       },
     });
     expect(asked.length).toBe(calls);
     const url = asked_at as unknown as URL;
     expect(url.pathname).toBe("/reverse");
+    expect(url.searchParams.get("extratags")).toBe("1");
     expect(url.searchParams.get("lat")).toBe("25.03361");
     expect(url.searchParams.get("accept-language")).toBe("en");
   });
@@ -1811,6 +1816,7 @@ describe("what is at a pinned point", () => {
         address: "大同區, 臺北市, 103, 臺灣",
         lat: 25.056188,
         lng: 121.515222,
+        hours: null,
       },
     });
   });

@@ -204,6 +204,7 @@ export const ja: Messages = {
   "form.placesNone": "このメモからは、地図で見つかる場所が分かりませんでした。",
   "form.placesFailed": "場所が届きませんでした。もう一度頼んでください。",
   "form.placesCredit": "地図データ © OpenStreetMap contributors",
+  "form.hours": "営業時間（OpenStreetMap）:",
   "form.color": "色",
   "form.save": "保存",
   "form.saveToCanvas": "キャンバスに貼る",

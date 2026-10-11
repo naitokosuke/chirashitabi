@@ -227,6 +227,7 @@ one {{Claude left {$count} idea here}}
   "form.placesNone": "Could not tell a place on the map from this note.",
   "form.placesFailed": "The places did not come back. Ask again.",
   "form.placesCredit": "Map data © OpenStreetMap contributors",
+  "form.hours": "Hours (OpenStreetMap):",
   "form.color": "Color",
   "form.save": "Save",
   "form.saveToCanvas": "Save to canvas",
