@@ -8,6 +8,7 @@ import { imageSrc } from "../notes/image";
 import { PAPERS, type Note } from "../notes/types";
 import { useSync } from "../sync/useSync";
 import type { Visibility } from "../tags/types";
+import { hhmm, shortDate } from "../trip/format";
 
 const props = defineProps<{
   note: Note;
@@ -23,6 +24,13 @@ const { members } = useMembers();
 const author = computed(() => members.value?.find((m) => m.id === props.note.by));
 const sync = useSync();
 const i18n = useI18n();
+/** "11/3 12:30", or the date alone when it has no time; nothing off the itinerary */
+const day = computed(() => {
+  const s = props.note.kind === "memo" ? props.note.schedule : null;
+  if (s === null) return "";
+  const date = shortDate(s.date, i18n.locale);
+  return s.time === null ? date : `${date} ${hhmm(s.time)}`;
+});
 </script>
 
 <template>
@@ -61,6 +69,8 @@ const i18n = useI18n();
       <p>{{ note.title }}</p>
       <p v-if="note.body !== ''">{{ note.body }}</p>
       <ul v-if="note.tags.length > 0"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
+      <!-- its day on the trip, once it has one: the desk shows how far the plan has come -->
+      <time v-if="note.schedule !== null" :datetime="note.schedule.date.toString()">{{ day }}</time>
       <span></span>
     </template>
     <!-- picked: a handle above to turn it, one at the corner to resize it (the canvas drives both) -->
@@ -152,6 +162,18 @@ div {
     display: flex;
     flex-wrap: wrap;
     gap: 2px 8px;
+  }
+
+  /* its day, a small stamp under the tags */
+  > time {
+    display: inline-block;
+    margin-block-start: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: var(--font-xs);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    background: color-mix(in oklch, var(--paper-ink) 10%, transparent);
   }
 
   /* who wrote it (the handles are spans too, and come after) */

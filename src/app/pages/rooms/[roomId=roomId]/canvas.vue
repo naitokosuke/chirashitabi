@@ -32,6 +32,8 @@ const IDLE: Gesture = { kind: "idle" };
 </script>
 
 <script setup lang="ts" vapor>
+import type { Temporal } from "temporal-polyfill-lite";
+
 import {
   computed,
   nextTick,
@@ -79,6 +81,9 @@ import { useNotes, type Shape } from "../../../features/notes/useNotes";
 import FilterBar from "../../../features/tags/FilterBar.vue";
 import { useTags } from "../../../features/tags/useTags";
 import { useToast } from "../../../features/toast/useToast";
+import { shortDate } from "../../../features/trip/format";
+import { assignTo } from "../../../features/trip/itinerary";
+import { useTrip } from "../../../features/trip/useTrip";
 import { OverBudget } from "../../../features/worker/api";
 import { useWorker } from "../../../features/worker/useWorker";
 import { useWorkerCalls } from "../../../features/worker/useWorkerCalls";
@@ -99,6 +104,7 @@ const { notes } = store;
 const toast = useToast();
 const worker = useWorker();
 const tags = useTags();
+const { trip } = useTrip();
 const i18n = useI18n();
 const { view, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
@@ -415,6 +421,15 @@ function onMenuKey(e: KeyboardEvent) {
 function setMenuColor(color: NoteColor) {
   if (menu.value !== null) store.recolor(menu.value.note.id, color);
 }
+/** The menu's card when it is a memo, the only kind that goes on a day */
+const menuMemo = computed(() => (menuNote.value?.kind === "memo" ? menuNote.value : null));
+/** Put the menu's memo on a day, or take it off; the menu stays, so another day is one tap */
+function setMenuDay(date: Temporal.PlainDate | null) {
+  const n = menuMemo.value;
+  if (n !== null) store.update(n.id, assignTo(n, date));
+}
+const onMenuDay = (date: Temporal.PlainDate) =>
+  menuMemo.value?.schedule?.date.equals(date) ?? false;
 function duplicateFromMenu() {
   if (menu.value !== null) store.duplicate(menu.value.note.id);
   closeMenu();
@@ -666,6 +681,25 @@ watch(
           :aria-pressed="menuNote?.color === c"
           @click="() => setMenuColor(c)"
         ></button>
+        <!-- the trip's days: a memo goes on one from the desk, where the ideas are -->
+        <div
+          v-if="menuMemo !== null && (trip?.days.length ?? 0) > 0"
+          role="group"
+          :aria-label="i18n.t('canvas.day')"
+        >
+          <button
+            v-for="d in trip?.days"
+            :key="d.date.toString()"
+            type="button"
+            :aria-pressed="onMenuDay(d.date)"
+            @click="() => setMenuDay(d.date)"
+          >{{ shortDate(d.date, i18n.locale) }}</button>
+          <button
+            type="button"
+            :aria-pressed="menuMemo.schedule === null"
+            @click="() => setMenuDay(null)"
+          >{{ i18n.t("canvas.noDay") }}</button>
+        </div>
         <button type="button" @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</button>
         <button type="button" @click="removeFromMenu">{{ i18n.t("canvas.delete") }}</button>
       </div>
@@ -863,7 +897,7 @@ section {
           }
         }
 
-        /* a paper color: the only buttons with a pressed state */
+        /* a paper color: the only direct buttons with a pressed state */
         &[aria-pressed] {
           width: var(--tap);
           height: var(--tap);
@@ -877,6 +911,37 @@ section {
           &[aria-pressed="true"] {
             outline: 2px solid var(--ink);
             outline-offset: 2px;
+          }
+        }
+      }
+
+      /* the days, a row of their own between the colors and the actions; the memo's day inked */
+      > [role="group"] {
+        flex-basis: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding-block: 4px;
+        border-block: 1px solid var(--line);
+
+        > button {
+          min-height: var(--tap);
+          padding: 0 10px;
+          border-radius: 999px;
+          font-size: var(--font-sm);
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          color: var(--muted);
+
+          @media (--can-hover) {
+            &:hover {
+              background: var(--wash);
+            }
+          }
+
+          &[aria-pressed="true"] {
+            background: var(--ink);
+            color: var(--surface);
           }
         }
       }

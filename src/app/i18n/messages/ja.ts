@@ -138,6 +138,8 @@ export const ja: Messages = {
   "canvas.text": "机の上の文字",
   "canvas.duplicate": "複製",
   "canvas.delete": "削除",
+  "canvas.day": "日付",
+  "canvas.noDay": "日付なし",
   "canvas.write": "メモを書く",
   "canvas.added": "「{$title}」を追加しました",
   "canvas.addedAway": "「{$title}」をキャンバスに貼りました",
