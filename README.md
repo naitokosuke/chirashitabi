@@ -41,6 +41,8 @@ src/app/            The app
   main.ts, App.vue, style.css   Boot; every page under the one menu (the dock) and the toast
   router.ts    vue-router (its experimental router) over the pages' files (typed in
                typed-router.d.ts); opens the last trip
+  sw.js        The service worker: keeps the build's files (listed into it by vite.config.ts) and a
+               room's pictures, so the booklet opens with no connection; registered against the Worker only
 
   pages/       One .vue file per URL (vue-router's file-based routes); a folder named `__*` is not one
     __params/            The params' parsers (vue-router's experimental param parsers)

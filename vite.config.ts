@@ -1,9 +1,10 @@
-import { existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { musea } from "@vizejs/vite-plugin-musea";
 import { defineConfig } from "@vizejs/vite-plugin/vite-plus";
 import { msw } from "msw/vite";
-import { defineProject } from "vite-plus";
+import { defineProject, type Plugin } from "vite-plus";
 import { playwright } from "vite-plus/test/browser-playwright";
 import VueRouter from "vue-router/vite";
 
@@ -11,6 +12,33 @@ import VueRouter from "vue-router/vite";
 const devToken = existsSync(".dev-token.local")
   ? readFileSync(".dev-token.local", "utf8").trim()
   : null;
+
+/**
+ * The service worker (src/app/sw.js) as /sw.js, keeping every file this build emitted; a build
+ * that emits other files names another cache, and the old one is dropped
+ */
+const serviceWorker: Plugin = {
+  name: "chirashitabi:sw",
+  apply: "build",
+  enforce: "post",
+  generateBundle(_, bundle) {
+    const shell = [
+      "/",
+      ...Object.keys(bundle)
+        .filter((f) => f !== "index.html" && f !== "mockServiceWorker.js" && !f.endsWith(".map"))
+        .map((f) => `/${f}`),
+      ...readdirSync("public").map((f) => `/${f}`),
+    ].sort();
+    const version = createHash("sha256").update(shell.join("\n")).digest("hex").slice(0, 12);
+    this.emitFile({
+      type: "asset",
+      fileName: "sw.js",
+      source: readFileSync("src/app/sw.js", "utf8")
+        .replace("self.__SHELL__", JSON.stringify(shell))
+        .replace("self.__VERSION__", JSON.stringify(version)),
+    });
+  },
+};
 
 export default defineConfig({
   plugins: [
@@ -27,6 +55,7 @@ export default defineConfig({
     // serves the mock service worker in dev and emits it beside a bundle that imports
     // virtual:msw (src/app/mocks/), so no copy of it is committed
     msw(),
+    serviceWorker,
     // the component gallery (Musea) at /__musea__, from the *.art.vue beside each component;
     // only under `vp run musea`, so neither `vp dev` nor a deploy carries it
     ...(process.env.MUSEA === "true"
