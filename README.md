@@ -52,7 +52,7 @@ src/app/            The app
     rooms/url.ts         A room's tabs by their route, and the memo sheet's place in the URL's query
     rooms/[roomId=roomId]/
       canvas.vue   Pan / pinch; pick a card (tap), move, resize and turn it (handles), open it (double tap),
-                   its toolbar; writing on the desk
+                   its toolbar (color, day, duplicate, delete); writing on the desk
       home.vue     The trip at a glance: dates, flights, the piles, the budget, who is in
       memo.vue     The memo form as a tab: each save goes on the canvas
       map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add

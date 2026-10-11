@@ -152,6 +152,8 @@ one {{{$count} note}}
   "canvas.text": "Text on the desk",
   "canvas.duplicate": "Duplicate",
   "canvas.delete": "Delete",
+  "canvas.day": "Day",
+  "canvas.noDay": "No day",
   "canvas.write": "Write a note",
   "canvas.added": "Added “{$title}”",
   "canvas.addedAway": "Added “{$title}” to the canvas",
