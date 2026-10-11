@@ -356,6 +356,7 @@ function adoptDraft() {
           <template v-if="editing && worker.api !== null && forDay(day).length > 0">
             <div
               v-if="draft !== null && draft.date.equals(day)"
+              class="draft"
               data-turn
               :style="`--who: ${drafter?.color ?? 'var(--muted)'}`"
             >
@@ -879,8 +880,8 @@ article {
         color: var(--muted);
       }
 
-      /* a member's draft of the day */
-      > div {
+      /* a member's draft of the day (a class: the flights above are a div on the page too) */
+      > .draft {
         margin-block-start: 14px;
         padding: 12px 14px;
         /* square, white and dashed: the agent's paper, as on the canvas */
