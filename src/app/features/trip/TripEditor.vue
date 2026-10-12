@@ -14,11 +14,11 @@ import type { FoundPlace } from "../place/types";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
 import { useWorker } from "../worker/useWorker";
 
+import AirportField from "./AirportField.vue";
 import { moveSchedules } from "./apply";
 import {
   formOf,
   MAX_FLIGHT_NO,
-  MAX_PLACE,
   newFlight,
   newStay,
   sameFlight,
@@ -196,37 +196,30 @@ function save() {
     <fieldset v-for="leg in LEGS" :key="leg">
       <legend>{{ i18n.t(leg === "out" ? "flight.out" : "flight.back") }}</legend>
       <template v-if="form.flights[leg].on">
-        <div class="row three">
-          <div class="field">
-            <label :for="`${id}-${leg}-no`">{{ i18n.t("flight.number") }}</label>
-            <input
-              :id="`${id}-${leg}-no`"
-              v-model="form.flights[leg].number"
-              autocapitalize="characters"
-              :maxlength="MAX_FLIGHT_NO"
-              :placeholder="leg === 'out' ? 'BR 191' : 'BR 192'"
-            />
-          </div>
-          <div class="field">
-            <label :for="`${id}-${leg}-from`">{{ i18n.t("flight.from") }}</label>
-            <input
-              :id="`${id}-${leg}-from`"
-              v-model="form.flights[leg].from"
-              :maxlength="MAX_PLACE"
-              :placeholder="leg === 'out' ? 'HND' : 'TSA'"
-              required
-            />
-          </div>
-          <div class="field">
-            <label :for="`${id}-${leg}-to`">{{ i18n.t("flight.to") }}</label>
-            <input
-              :id="`${id}-${leg}-to`"
-              v-model="form.flights[leg].to"
-              :maxlength="MAX_PLACE"
-              :placeholder="leg === 'out' ? 'TSA' : 'HND'"
-              required
-            />
-          </div>
+        <!-- the airports, the one thing a flight needs -->
+        <div class="row airports">
+          <AirportField
+            :id="`${id}-${leg}-from`"
+            v-model="form.flights[leg].from"
+            :label="i18n.t('flight.from')"
+            :placeholder="leg === 'out' ? i18n.t('flight.airportHint') : 'TSA'"
+          />
+          <AirportField
+            :id="`${id}-${leg}-to`"
+            v-model="form.flights[leg].to"
+            :label="i18n.t('flight.to')"
+            :placeholder="leg === 'out' ? 'TSA' : i18n.t('flight.airportHint')"
+          />
+        </div>
+        <div class="field">
+          <label :for="`${id}-${leg}-no`">{{ i18n.t("flight.number") }}</label>
+          <input
+            :id="`${id}-${leg}-no`"
+            v-model="form.flights[leg].number"
+            autocapitalize="characters"
+            :maxlength="MAX_FLIGHT_NO"
+            :placeholder="leg === 'out' ? 'BR 191' : 'BR 192'"
+          />
         </div>
         <div class="row">
           <div class="field">
@@ -357,8 +350,10 @@ function save() {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
-  &.three {
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  /* the two airports side by side even on a phone: a code is short, the names wrap under */
+  &.airports {
+    position: relative; /* the airports offered float under the whole row (AirportField) */
+    grid-template-columns: 1fr 1fr;
   }
 }
 

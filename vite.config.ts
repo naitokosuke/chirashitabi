@@ -135,7 +135,8 @@ export default defineConfig({
   fmt: {
     vize: true,
     // written by vue-router's plugin on every build, as it writes it
-    ignorePatterns: ["src/app/typed-router.d.ts"],
+    // and the airports, as scripts/airports.mjs writes them: one line, kept small
+    ignorePatterns: ["src/app/typed-router.d.ts", "src/app/features/place/airports.json"],
     // Farthest first: the further an import is from this module, the higher it sits
     sortImports: {
       customGroups: [

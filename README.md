@@ -80,10 +80,11 @@ src/app/            The app
     trip/    The room's trip (name, days, currency, map center, flights, stays); itinerary (notes on a
              day, status, budgets, assigning a day, adopting a draft, where a night is spent);
              formatting; settings and TripEditor (name, dates, flights and stays, edited on the home
-             tab); FlightLine (a flight); StayLine (a stay)
+             tab); FlightLine (a flight); StayLine (a stay); AirportField (an airport, suggested as typed)
     tags/    Tag colors and the tag filter (store, filter bar)
     place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON, from and back to
-             the stays; how far apart two points are, and a walk's minutes
+             the stays (or the airports on a flight's day); how far apart two points are, and a walk's minutes;
+             airports (airports.json from OurAirports, fetched when first needed; suggestions as typed)
     canvas/  Sticky note card (a text box too); TextField (words being written on the desk); transform
              (screen <-> world, zoom, pinch, fit); useViewport (the animated view); usePlace (adding
              a note on the canvas, placed even before the canvas is opened)
@@ -126,7 +127,8 @@ src/ui/             The design system: props, slots and events only, no app impo
   musea.preview.ts     Musea's preview app: the interop plugin, so it mounts the Vapor components
 
 public/             favicon.svg: three notes scattered on a red tile, served as they are
-scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop (see "Running against the Worker")
+scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop (see "Running against the Worker");
+                    airports.mjs: rebuilds src/app/features/place/airports.json from OurAirports (public domain)
 
 .claude/skills/impeccable/   A text-only copy of the Impeccable design skill (SKILL.md + reference/, no scripts
                              or hooks); PROVENANCE.md says what is left out and why
