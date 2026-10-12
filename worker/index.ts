@@ -102,6 +102,24 @@ const api = new Hono<ApiEnv>()
   .basePath("/api")
   // the app's files are not logged, only what the API decides
   .use(evlog({ redact: true }))
+  // what evlog's Workers wrapper put on every event and its Hono middleware, made for any
+  // runtime, does not: the request's Ray (its id, unless the request names one), its trace,
+  // and where Cloudflare took it in
+  .use(async (c, next) => {
+    const ray = c.req.header("cf-ray");
+    const cf = c.req.raw.cf;
+    c.var.log.set({
+      ...(ray !== undefined && c.req.header("x-request-id") === undefined
+        ? { requestId: ray }
+        : {}),
+      cfRay: ray,
+      traceparent: c.req.header("traceparent"),
+      colo: cf?.colo,
+      country: cf?.country,
+      asn: cf?.asn,
+    });
+    await next();
+  })
   .use(identify)
 
   .get(`${ROOM}/images/:imageId`, member("image"), async (c) => {
