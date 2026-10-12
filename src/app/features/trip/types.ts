@@ -2,6 +2,7 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import type { CurrencyCode } from "../../shared/money";
 
+import type { AirportCode } from "../place/airports";
 import type { LatLng } from "../place/types";
 
 export interface Day {
@@ -13,14 +14,14 @@ export interface Day {
 export type Leg = "out" | "back";
 
 /**
- * A flight as written from the ticket: where it leaves from and lands (a code or a name), its
+ * A flight as written from the ticket: where it leaves from and lands (airports on the list), its
  * number (may be blank), and when, each in its own airport's local time; null while the times
  * are not known, when the way there is taken to be on the first day and the way home the last.
  */
 export interface Flight {
   number: string;
-  from: string;
-  to: string;
+  from: AirportCode;
+  to: AirportCode;
   departs: Temporal.PlainDateTime | null;
   arrives: Temporal.PlainDateTime | null;
 }

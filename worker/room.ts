@@ -3,6 +3,7 @@ import { DurableObject } from "cloudflare:workers";
 import { SEATS } from "../src/app/features/members/types";
 import type { NoteStatus } from "../src/app/features/notes/types";
 
+import { airportCodeOf, isAirportCode } from "./airports";
 import type { PlaceContext, SuggestContext, TagContext } from "./claude";
 import {
   MAX_MESSAGE_BYTES,
@@ -160,6 +161,25 @@ export class Room extends DurableObject<Env> {
         at TEXT NOT NULL
       );
     `);
+    // a flight kept before its airports had to be codes on the list: one it names by a code in
+    // another case, a name or a Japanese name becomes that code; one it names by nothing on the
+    // list stays as written, out of the snapshot (trip()), until a member sets it again
+    for (const f of ctx.storage.sql
+      .exec<{ leg: string; from_place: string; to_place: string }>(
+        "SELECT leg, from_place, to_place FROM flights",
+      )
+      .toArray()) {
+      const from = airportCodeOf(f.from_place);
+      const to = airportCodeOf(f.to_place);
+      if (from === null || to === null) continue;
+      if (from !== f.from_place || to !== f.to_place)
+        ctx.storage.sql.exec(
+          "UPDATE flights SET from_place = ?, to_place = ? WHERE leg = ?",
+          from,
+          to,
+          f.leg,
+        );
+    }
   }
 
   // ---- pictures (RPC from the Worker; the bytes are in R2, the room keeps which it has) ----
@@ -713,7 +733,9 @@ export class Room extends DurableObject<Env> {
         departs: string;
         arrives: string;
       }>("SELECT * FROM flights")
-      .toArray())
+      .toArray()
+      // only a flight between airports on the list (one kept from before stays out until set again)
+      .filter((f) => isAirportCode(f.from_place) && isAirportCode(f.to_place)))
       flights[f.leg] = {
         number: f.number,
         from: f.from_place,

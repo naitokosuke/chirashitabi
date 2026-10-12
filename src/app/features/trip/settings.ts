@@ -1,14 +1,14 @@
 import { Temporal } from "temporal-polyfill-lite";
 
+import { findAirport, type Airport } from "../place/airports";
 import { parseMapsUrl, safeUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
 
 import type { Flight, Flights, Leg, Stay, TripSnapshot } from "./types";
 
-/** The Worker's limits on a flight (worker/wire.ts) */
+/** The Worker's limit on a flight's number (worker/wire.ts) */
 export const MAX_FLIGHT_NO = 20;
-export const MAX_PLACE = 60;
 
 /** A flight as its inputs hold it; `on` is whether the trip has this flight at all */
 export interface FlightForm {
@@ -134,21 +134,21 @@ const dateTime = (s: string) => {
 
 /**
  * A flight's inputs as the room takes it: null for no flight, undefined while it is not one
- * yet (an airport not named, a time half typed, or more than the room keeps). The number and
- * the times may be blank.
+ * yet (an airport not on the list `airports`, a time half typed, or a number longer than the
+ * room keeps). The number and the times may be blank; an airport may be typed as its code, its
+ * name or a Japanese name, and is taken as its code.
  */
-export function flightOf(f: FlightForm): Flight | null | undefined {
+export function flightOf(f: FlightForm, airports: Airport[]): Flight | null | undefined {
   if (!f.on) return null;
-  const from = f.from.trim();
-  const to = f.to.trim();
+  const from = findAirport(airports, f.from)?.code;
+  const to = findAirport(airports, f.to)?.code;
   const number = f.number.trim();
   const departs = f.departs === "" ? null : dateTime(f.departs);
   const arrives = f.arrives === "" ? null : dateTime(f.arrives);
-  if (from === "" || to === "") return undefined;
+  if (from === undefined || to === undefined) return undefined;
   if ((f.departs !== "" && departs === null) || (f.arrives !== "" && arrives === null))
     return undefined;
-  if (from.length > MAX_PLACE || to.length > MAX_PLACE || number.length > MAX_FLIGHT_NO)
-    return undefined;
+  if (number.length > MAX_FLIGHT_NO) return undefined;
   return { number, from, to, departs, arrives };
 }
 
@@ -165,8 +165,14 @@ export const sameFlight = (a: Flight | null, b: Flight | null) =>
     sameTime(a.departs, b.departs) &&
     sameTime(a.arrives, b.arrives));
 
-/** The settings the room takes, or null while one of them is not one yet */
-export function settingsOf(form: TripForm): {
+/**
+ * The settings the room takes, or null while one of them is not one yet; a flight's airports
+ * are found among `airports`, so none is taken before they are fetched
+ */
+export function settingsOf(
+  form: TripForm,
+  airports: Airport[],
+): {
   name: string;
   first: Temporal.PlainDate;
   days: number;
@@ -182,8 +188,8 @@ export function settingsOf(form: TripForm): {
     return null;
   }
   if (!Number.isInteger(form.days) || form.days < 1 || form.days > MAX_DAYS) return null;
-  const out = flightOf(form.flights.out);
-  const back = flightOf(form.flights.back);
+  const out = flightOf(form.flights.out, airports);
+  const back = flightOf(form.flights.back, airports);
   if (out === undefined || back === undefined) return null;
   const stays = form.stays.map(stayOf);
   if (!stays.every((s) => s !== undefined)) return null;

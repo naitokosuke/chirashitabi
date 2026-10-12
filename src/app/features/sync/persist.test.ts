@@ -7,6 +7,7 @@ import { currencyCode } from "../../shared/money";
 
 import type { MemberId } from "../members/types";
 import type { Memo, NoteId } from "../notes/types";
+import type { AirportCode } from "../place/airports";
 
 import type { RoomState } from "./ledger";
 import { keep, kept } from "./persist";
@@ -61,8 +62,8 @@ const room: RoomState = {
     flights: {
       out: {
         number: "BR 191",
-        from: "HND",
-        to: "TSA",
+        from: "HND" as AirportCode,
+        to: "TSA" as AirportCode,
         departs: Temporal.PlainDateTime.from("2026-11-03T08:50"),
         arrives: Temporal.PlainDateTime.from("2026-11-03T11:30"),
       },

@@ -6,12 +6,10 @@ import { useI18n } from "../../i18n/useI18n";
 import { findAirport, suggestAirports, type Airport } from "../place/airports";
 import { useAirports } from "../place/useAirports";
 
-import { MAX_PLACE } from "./settings";
-
 /**
  * An airport, typed: its code, its name or a Japanese name, with the airports it may mean
  * offered under it as it is typed; one chosen is written as its code. Under the field, the
- * airport it names, or that it names none on the map.
+ * airport it names, or that it names none on the list (and so the trip is not saved yet).
  */
 const props = defineProps<{ id: string; label: string; modelValue: string; placeholder: string }>();
 const emit = defineEmits<{ "update:modelValue": [value: string] }>();
@@ -71,7 +69,6 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
       :aria-controls="listId"
       :aria-expanded="offered.length > 0"
       aria-autocomplete="list"
-      :maxlength="MAX_PLACE"
       :placeholder
       required
       role="combobox"

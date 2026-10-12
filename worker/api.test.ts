@@ -1106,6 +1106,10 @@ describe("the socket", () => {
     for (const bad of [
       { leg: "sideways", flight },
       { leg: "out", flight: { ...flight, from: " " } },
+      // an airport is a code on the list, exactly: not a name, not another case, not made up
+      { leg: "out", flight: { ...flight, from: "羽田" } },
+      { leg: "out", flight: { ...flight, from: "hnd" } },
+      { leg: "out", flight: { ...flight, to: "ZZZ" } },
       { leg: "out", flight: { ...flight, departs: "11/3 8:50" } },
       { leg: "out", flight: { ...flight, number: "x".repeat(21) } },
     ]) {

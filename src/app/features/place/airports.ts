@@ -1,4 +1,12 @@
+import type { Brand } from "../../shared/brand";
+
 import type { LatLng } from "./types";
+
+/**
+ * An airport's IATA code that is on the list (airports.json): what a flight's from and to are.
+ * Only the list mints one (airportOf), or the room, which checked it against the same list.
+ */
+export type AirportCode = Brand<string, "AirportCode">;
 
 /**
  * Airports with an IATA code and scheduled service, from OurAirports (airports.json, built by
@@ -6,7 +14,7 @@ import type { LatLng } from "./types";
  * they are typed and for its point on the map.
  */
 export interface Airport {
-  code: string;
+  code: AirportCode;
   name: string;
   city: string;
   country: string;
@@ -24,7 +32,7 @@ export type AirportRow = [
 ];
 
 export const airportOf = ([code, name, city, country, lat, lng]: AirportRow): Airport => ({
-  code,
+  code: code as AirportCode,
   name,
   city,
   country,

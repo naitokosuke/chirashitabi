@@ -4,6 +4,7 @@ import { describe, expect, test } from "vite-plus/test";
 
 import type { MemberId } from "../members/types";
 import type { Memo, NoteId, NoteStatus } from "../notes/types";
+import type { AirportCode } from "../place/airports";
 
 import { flightDays, forDay, stayOn, wakeAt } from "./itinerary";
 import type { Stay } from "./types";
@@ -85,7 +86,13 @@ describe("stayOn and wakeAt", () => {
 
 describe("flightDays", () => {
   const days = [0, 1, 2].map((i) => ({ date: day.add({ days: i }) }));
-  const flight = { number: "", from: "HND", to: "TSA", departs: null, arrives: null };
+  const flight = {
+    number: "",
+    from: "HND" as AirportCode,
+    to: "TSA" as AirportCode,
+    departs: null,
+    arrives: null,
+  };
 
   test("with no times, the way there is on the first day and the way home on the last", () => {
     expect(flightDays(flight, "out", days).map(String)).toEqual(["2026-11-03"]);

@@ -146,6 +146,8 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
   geocode.ts        OpenStreetMap's geocoder (Nominatim): the places a name finds, with real coordinates,
                     and what is at a pinned point (its name, else its street's)
   expand.ts         A short Google Maps link (maps.app.goo.gl) read as the link its redirect names
+  airports.ts       The airports a flight may name (the app's airports.json): a code is checked against them,
+                    and a flight kept from before codes were required is given one by the name it had
   room.ts           Room: the trip, its notes and members in SQLite, and which pictures it has (their bytes
                     in the R2 bucket chirashitabi-images); the socket: snapshot on connect,
                     mutations checked, stamped (by, updatedAt), written and sent to the other sockets
