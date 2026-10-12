@@ -13,15 +13,16 @@ export interface Day {
 export type Leg = "out" | "back";
 
 /**
- * A flight as written from the ticket: its number (may be blank), where it leaves from and
- * lands (a code or a name), and when, each in its own airport's local time.
+ * A flight as written from the ticket: where it leaves from and lands (a code or a name), its
+ * number (may be blank), and when, each in its own airport's local time; null while the times
+ * are not known, when the way there is taken to be on the first day and the way home the last.
  */
 export interface Flight {
   number: string;
   from: string;
   to: string;
-  departs: Temporal.PlainDateTime;
-  arrives: Temporal.PlainDateTime;
+  departs: Temporal.PlainDateTime | null;
+  arrives: Temporal.PlainDateTime | null;
 }
 
 export type Flights = Record<Leg, Flight | null>;

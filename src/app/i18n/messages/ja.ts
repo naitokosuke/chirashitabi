@@ -91,7 +91,8 @@ export const ja: Messages = {
   "flight.to": "到着",
   "flight.departs": "出発日時",
   "flight.arrives": "到着日時",
-  "flight.localTime": "どちらも各空港の現地時刻で（航空券の表記どおりに）入れてください。",
+  "flight.localTime":
+    "必須は空港だけです。便名と時刻は決まってからで構いません。時刻は各空港の現地時刻で（航空券の表記どおりに）。",
   "flight.remove": "この便を消す",
   "flight.addOut": "行きの便を追加",
   "flight.addBack": "帰りの便を追加",

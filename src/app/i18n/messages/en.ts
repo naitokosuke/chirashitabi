@@ -105,7 +105,8 @@ one {{{$count} note}}
   "flight.to": "To",
   "flight.departs": "Departs",
   "flight.arrives": "Arrives",
-  "flight.localTime": "Each time in its own airport's local time, as on the ticket.",
+  "flight.localTime":
+    "Only the airports are needed. The flight and its times can wait for the ticket; each time is in its own airport's local time.",
   "flight.remove": "Remove this flight",
   "flight.addOut": "Add the flight there",
   "flight.addBack": "Add the flight home",

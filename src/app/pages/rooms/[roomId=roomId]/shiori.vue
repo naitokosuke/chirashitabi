@@ -35,6 +35,7 @@ import {
   assignTo,
   cycleStatus,
   draftUpdates,
+  flightDays,
   stayOn,
   wakeAt,
 } from "../../../features/trip/itinerary";
@@ -76,9 +77,8 @@ const flightsOn = computed(() => {
   if (d === null) return [];
   return (["out", "back"] as const).flatMap((leg) => {
     const f = trip.value?.flights[leg] ?? null;
-    const on =
-      f !== null && (f.departs.toPlainDate().equals(d) || f.arrives.toPlainDate().equals(d));
-    return on ? [{ leg, flight: f }] : [];
+    const on = f !== null && flightDays(f, leg, trip.value?.days ?? []).some((x) => x.equals(d));
+    return on ? [{ leg, flight: f, day: d }] : [];
   });
 });
 /** Where the night of the day on the page is spent, if the trip says */
@@ -329,7 +329,13 @@ function adoptDraft() {
         <template v-if="day !== null">
           <!-- a flight that day, and where its night is spent, head the page, before anything planned around them -->
           <div v-if="flightsOn.length > 0 || tonight !== undefined" class="flights" data-turn>
-            <FlightLine v-for="f in flightsOn" :key="f.leg" :flight="f.flight" :leg="f.leg" />
+            <FlightLine
+              v-for="f in flightsOn"
+              :key="f.leg"
+              :flight="f.flight"
+              :leg="f.leg"
+              :on="f.day"
+            />
             <StayLine v-if="tonight !== undefined" :label="i18n.t('stay.tonight')" :stay="tonight" />
           </div>
           <template v-if="editing">

@@ -67,8 +67,8 @@ const reviveFlight = (f: WireFlight | null | undefined): Flight | null =>
         number: f.number,
         from: f.from,
         to: f.to,
-        departs: Temporal.PlainDateTime.from(f.departs),
-        arrives: Temporal.PlainDateTime.from(f.arrives),
+        departs: f.departs === null ? null : Temporal.PlainDateTime.from(f.departs),
+        arrives: f.arrives === null ? null : Temporal.PlainDateTime.from(f.arrives),
       };
 
 export const reviveTrip = (t: WireTrip): TripSnapshot => ({

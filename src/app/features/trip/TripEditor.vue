@@ -61,17 +61,7 @@ const dropped = computed(() => {
   return next.filter((n, i) => n !== before[i] && n.kind === "memo" && n.schedule === null).length;
 });
 
-function addFlight(leg: Leg) {
-  const s = settings.value;
-  let first = s?.first;
-  if (first === undefined)
-    try {
-      first = Temporal.PlainDate.from(form.firstDay);
-    } catch {
-      first = Temporal.Now.plainDateISO();
-    }
-  form.flights[leg] = newFlight(leg, first, form.days);
-}
+const addFlight = (leg: Leg) => (form.flights[leg] = newFlight());
 const removeFlight = (leg: Leg) => (form.flights[leg] = { ...form.flights[leg], on: false });
 
 function addStay() {
@@ -241,21 +231,11 @@ function save() {
         <div class="row">
           <div class="field">
             <label :for="`${id}-${leg}-dep`">{{ i18n.t("flight.departs") }}</label>
-            <input
-              :id="`${id}-${leg}-dep`"
-              v-model="form.flights[leg].departs"
-              required
-              type="datetime-local"
-            />
+            <input :id="`${id}-${leg}-dep`" v-model="form.flights[leg].departs" type="datetime-local" />
           </div>
           <div class="field">
             <label :for="`${id}-${leg}-arr`">{{ i18n.t("flight.arrives") }}</label>
-            <input
-              :id="`${id}-${leg}-arr`"
-              v-model="form.flights[leg].arrives"
-              required
-              type="datetime-local"
-            />
+            <input :id="`${id}-${leg}-arr`" v-model="form.flights[leg].arrives" type="datetime-local" />
           </div>
         </div>
         <p class="hint">{{ i18n.t("flight.localTime") }}</p>

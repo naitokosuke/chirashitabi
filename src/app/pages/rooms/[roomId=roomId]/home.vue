@@ -76,11 +76,13 @@ const allTotal = computed(() => budgetOf(undefined, false));
           v-if="trip !== undefined && trip.flights.out !== null"
           leg="out"
           :flight="trip.flights.out"
+          :on="trip.days[0]?.date"
         />
         <FlightLine
           v-if="trip !== undefined && trip.flights.back !== null"
           leg="back"
           :flight="trip.flights.back"
+          :on="trip.days.at(-1)?.date"
         />
         <StayLine v-for="(s, i) in trip?.stays" :key="i" :label="i18n.t('stay.title')" :stay="s" />
         <button type="button" @click="() => (editing = true)">{{ i18n.t("trip.edit") }}</button>

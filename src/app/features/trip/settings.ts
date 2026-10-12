@@ -46,7 +46,12 @@ const local = (t: Temporal.PlainDateTime) => t.toString({ smallestUnit: "minute"
 const flightForm = (f: Flight | null): FlightForm =>
   f === null
     ? { on: false, number: "", from: "", to: "", departs: "", arrives: "" }
-    : { on: true, ...f, departs: local(f.departs), arrives: local(f.arrives) };
+    : {
+        on: true,
+        ...f,
+        departs: f.departs === null ? "" : local(f.departs),
+        arrives: f.arrives === null ? "" : local(f.arrives),
+      };
 
 /** The editor's inputs, filled from the trip as it is */
 export const formOf = (trip: TripSnapshot): TripForm => ({
@@ -107,21 +112,17 @@ export const sameStays = (a: Stay[], b: Stay[]) =>
   });
 
 /**
- * A flight first added: the way there leaves on the first day, the way home on the last, at a
- * plausible hour the person then corrects
+ * A flight first added: its airports to name, and its number and times left blank until the
+ * ticket says them (the way there is then on the first day, the way home on the last)
  */
-export function newFlight(leg: Leg, first: Temporal.PlainDate, days: number): FlightForm {
-  const day = leg === "out" ? first : first.add({ days: days - 1 });
-  const [departs, arrives] = leg === "out" ? ["09:00", "12:00"] : ["17:00", "21:00"];
-  return {
-    on: true,
-    number: "",
-    from: "",
-    to: "",
-    departs: `${day}T${departs}`,
-    arrives: `${day}T${arrives}`,
-  };
-}
+export const newFlight = (): FlightForm => ({
+  on: true,
+  number: "",
+  from: "",
+  to: "",
+  departs: "",
+  arrives: "",
+});
 
 const dateTime = (s: string) => {
   try {
@@ -133,20 +134,26 @@ const dateTime = (s: string) => {
 
 /**
  * A flight's inputs as the room takes it: null for no flight, undefined while it is not one
- * yet (a place not named, a time not set, or more than the room keeps)
+ * yet (an airport not named, a time half typed, or more than the room keeps). The number and
+ * the times may be blank.
  */
 export function flightOf(f: FlightForm): Flight | null | undefined {
   if (!f.on) return null;
   const from = f.from.trim();
   const to = f.to.trim();
   const number = f.number.trim();
-  const departs = dateTime(f.departs);
-  const arrives = dateTime(f.arrives);
-  if (from === "" || to === "" || departs === null || arrives === null) return undefined;
+  const departs = f.departs === "" ? null : dateTime(f.departs);
+  const arrives = f.arrives === "" ? null : dateTime(f.arrives);
+  if (from === "" || to === "") return undefined;
+  if ((f.departs !== "" && departs === null) || (f.arrives !== "" && arrives === null))
+    return undefined;
   if (from.length > MAX_PLACE || to.length > MAX_PLACE || number.length > MAX_FLIGHT_NO)
     return undefined;
   return { number, from, to, departs, arrives };
 }
+
+const sameTime = (a: Temporal.PlainDateTime | null, b: Temporal.PlainDateTime | null) =>
+  a === null || b === null ? a === b : a.equals(b);
 
 export const sameFlight = (a: Flight | null, b: Flight | null) =>
   a === b ||
@@ -155,8 +162,8 @@ export const sameFlight = (a: Flight | null, b: Flight | null) =>
     a.number === b.number &&
     a.from === b.from &&
     a.to === b.to &&
-    a.departs.equals(b.departs) &&
-    a.arrives.equals(b.arrives));
+    sameTime(a.departs, b.departs) &&
+    sameTime(a.arrives, b.arrives));
 
 /** The settings the room takes, or null while one of them is not one yet */
 export function settingsOf(form: TripForm): {
