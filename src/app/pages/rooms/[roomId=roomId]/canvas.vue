@@ -138,9 +138,11 @@ const menuNote = computed(() => {
 });
 
 function noteAt(el: EventTarget | null): Note | undefined {
-  const card = (el as HTMLElement).closest?.("[data-id]") as HTMLElement | null;
+  const card = el instanceof Element ? el.closest("[data-id]") : null;
   // data-id comes back from the DOM as a plain string, so match it rather than trust it
-  return card == null ? undefined : notes.value?.find((n) => n.id === card.dataset.id);
+  return card instanceof HTMLElement
+    ? notes.value?.find((n) => n.id === card.dataset.id)
+    : undefined;
 }
 
 // ---- picking: a tap picks a card (framed, with handles and its toolbar); two taps open it ----
@@ -175,11 +177,11 @@ const wrap = (deg: number) => {
 };
 
 function onDown(e: PointerEvent) {
-  const target = e.target as HTMLElement;
+  const target = e.target;
   // a button, or words being written on the desk, is not the desk
-  if (target.closest("button, textarea") !== null) return;
+  if (!(target instanceof Element) || target.closest("button, textarea") !== null) return;
   menu.value = null;
-  vp.value!.setPointerCapture(e.pointerId);
+  vp.value?.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   // a second finger turns whatever was going on into a pinch; a third is ignored
   if (pointers.size >= 2) {
@@ -332,7 +334,7 @@ function tapCard(note: Note) {
 // ---- keyboard: Enter opens a focused card, Delete removes it, the context-menu key or Shift+F10 shows its menu; Esc closes the menu, then lets go ----
 function onKey(e: KeyboardEvent) {
   // words being written take their own keys (TextField)
-  if ((e.target as HTMLElement).closest?.("textarea") != null) return;
+  if (e.target instanceof Element && e.target.closest("textarea") !== null) return;
   if (e.key === "Escape") {
     if (menu.value !== null) closeMenu();
     else select(null);
@@ -371,7 +373,8 @@ function onWheel(e: WheelEvent) {
 const CLEAR = 28;
 /** Below the card, so the card stays visible while its color is picked; above it near the bottom edge */
 function openMenu(note: Note, { focus = true } = {}) {
-  const r = vp.value!.getBoundingClientRect();
+  const r = vp.value?.getBoundingClientRect();
+  if (r === undefined) return;
   const card = cardEl(note)?.getBoundingClientRect();
   if (card === undefined) return;
   menu.value = {
@@ -414,7 +417,7 @@ function onMenuKey(e: KeyboardEvent) {
   }
   if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
   const buttons = [...(menuEl.value?.querySelectorAll<HTMLElement>("button") ?? [])];
-  const i = buttons.indexOf(document.activeElement as HTMLElement);
+  const i = buttons.findIndex((b) => b === document.activeElement);
   const next = buttons[(i + (e.key === "ArrowRight" ? 1 : buttons.length - 1)) % buttons.length];
   e.preventDefault();
   next?.focus();
@@ -449,7 +452,8 @@ function fitAll() {
   if (to !== null) animateTo(to);
 }
 function fitted(minScale = 0) {
-  const r = vp.value!.getBoundingClientRect();
+  const r = vp.value?.getBoundingClientRect();
+  if (r === undefined) return null;
   return fitView(notes.value ?? [], r.width, r.height, minScale);
 }
 
@@ -547,7 +551,8 @@ const { mutateAsync: suggestAt, isLoading: thinking } = useWorkerCalls().suggest
  */
 async function askForIdeas() {
   if (thinking.value) return;
-  const r = vp.value!.getBoundingClientRect();
+  // the desk is always there while it asks; were it not, its corner
+  const r = vp.value?.getBoundingClientRect() ?? { width: 0, height: 0 };
   const c = toWorld(r.width / 2, r.height / 2);
   try {
     const n = await suggestAt({ x: c.x, y: c.y });
@@ -565,7 +570,8 @@ function write() {
   void openSheet({ kind: "new", pin: null });
 }
 function placeAtCenter(input: NoteInput, how: PlaceHow) {
-  const r = vp.value!.getBoundingClientRect();
+  // the desk is always there while it places; were it not, its corner
+  const r = vp.value?.getBoundingClientRect() ?? { width: 0, height: 0 };
   const c = toWorld(r.width / 2, r.height / 2);
   const n = store.add(input, { x: c.x - 82, y: c.y - 40 });
   if (how === "pop") {
@@ -585,13 +591,14 @@ useCanvasPlace(placeAtCenter);
 // The wheel is listened to on the desk itself, not with @wheel: Vapor delegates a template's
 // handlers to the document, where Chrome makes a wheel listener passive, so preventDefault is
 // ignored and a trackpad pinch zooms the whole page instead of the desk
-onMounted(() => vp.value!.addEventListener("wheel", onWheel, { passive: false }));
+onMounted(() => vp.value?.addEventListener("wheel", onWheel, { passive: false }));
 onBeforeUnmount(() => vp.value?.removeEventListener("wheel", onWheel));
 
 // The first look (firstLook), the one a note is placed in before the canvas is opened
 onMounted(() =>
   nextTick(() => {
-    const r = vp.value!.getBoundingClientRect();
+    const r = vp.value?.getBoundingClientRect();
+    if (r === undefined) return;
     view.value = firstLook(notes.value ?? [], r.width, r.height);
   }),
 );

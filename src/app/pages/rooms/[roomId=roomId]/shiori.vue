@@ -213,15 +213,17 @@ function nextStatus(n: Scheduled) {
 }
 /** A tick in the appendix: shared with the room, so the partner sees the bag is packed */
 function setChecked(n: Memo, e: Event) {
-  store.update(n.id, { checked: (e.target as HTMLInputElement).checked });
+  if (!(e.target instanceof HTMLInputElement)) return;
+  store.update(n.id, { checked: e.target.checked });
 }
 function setTime(n: Scheduled, e: Event) {
-  const time = fromHhmm((e.target as HTMLInputElement).value);
+  if (!(e.target instanceof HTMLInputElement)) return;
+  const time = fromHhmm(e.target.value);
   store.update(n.id, { schedule: { ...n.schedule, time } });
 }
 function onIntroChange(e: Event) {
   if (day.value === null) return;
-  setIntro(day.value, (e.target as HTMLTextAreaElement).value);
+  if (e.target instanceof HTMLTextAreaElement) setIntro(day.value, e.target.value);
 }
 
 const {

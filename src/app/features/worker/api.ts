@@ -1,8 +1,9 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import type { MemberId } from "../members/types";
-import type { ImageId, NoteId } from "../notes/types";
-import type { FoundPlace, LatLng } from "../place/types";
+import { isRecord } from "../../shared/record";
+
+import { isImageId } from "../notes/types";
+import type { FoundPlace } from "../place/types";
 import type { RoomId } from "../rooms/types";
 
 import type { WorkerApi } from "./types";
@@ -16,20 +17,12 @@ export class OverBudget extends Error {
 
 const headers = { "Content-Type": "application/json" };
 
-/** The draft as the Worker sends it: notes by id, times as HH:MM */
-interface WireDraft {
-  by: string;
-  reason: string;
-  intro: string;
-  items: { id: string; time: string | null }[];
-}
-
 /** A POST to one of the room's agent calls; a refusal by the budget is an OverBudget */
 async function call(
   room: RoomId,
   what: "draft" | "suggest" | "tags" | "candidates" | "places" | "where" | "find" | "expand",
   body: unknown,
-): Promise<Response> {
+): Promise<Record<string, unknown>> {
   const res = await fetch(`/api/rooms/${room}/${what}`, {
     method: "POST",
     headers,
@@ -38,7 +31,42 @@ async function call(
   if (res.status === 429)
     throw new OverBudget((await res.text()).endsWith("trip") ? "trip" : "day");
   if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
-  return res;
+  return answerOf(res);
+}
+
+/** The answer's JSON, whose fields are read one by one below; one that is not an object is an error */
+async function answerOf(res: Response): Promise<Record<string, unknown>> {
+  const answer: unknown = await res.json();
+  if (!isRecord(answer)) throw new Error(`${res.url} answered with no object`);
+  return answer;
+}
+
+/** The entries of a list in the answer that are what `of` reads; anything else is left out */
+const listOf = <T>(value: unknown, of: (raw: unknown) => T | null): T[] =>
+  (Array.isArray(value) ? value : []).flatMap((raw: unknown) => of(raw) ?? []);
+
+const text = (v: unknown): v is string => typeof v === "string";
+const number = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+/** A place as the Worker sends it: its point as `lat` and `lng` beside its name */
+const placeOf = (p: unknown): FoundPlace | null =>
+  isRecord(p) &&
+  text(p.name) &&
+  text(p.address) &&
+  number(p.lat) &&
+  number(p.lng) &&
+  (p.hours === null || text(p.hours))
+    ? { name: p.name, address: p.address, at: { lat: p.lat, lng: p.lng }, hours: p.hours }
+    : null;
+
+/** HH:MM as a time, or null when it is none or not one */
+function timeOf(v: unknown): Temporal.PlainTime | null {
+  if (!text(v)) return null;
+  try {
+    return Temporal.PlainTime.from(v);
+  } catch {
+    return null;
+  }
 }
 
 /** The room already keeps as many pictures as it may */
@@ -54,81 +82,57 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
     });
     if (res.status === 409) throw new RoomFull();
     if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
-    return ((await res.json()) as { id: string }).id as ImageId;
+    const { id } = await answerOf(res);
+    if (!isImageId(id)) throw new Error(`${res.url} answered without an image id`);
+    return id;
   },
   async suggestTags(memo) {
-    const res = await call(room, "tags", memo);
-    return ((await res.json()) as { tags: { tag: string; p: number; isNew: boolean }[] }).tags;
+    const { tags } = await call(room, "tags", memo);
+    return listOf(tags, (t) =>
+      isRecord(t) && text(t.tag) && number(t.p) && typeof t.isNew === "boolean"
+        ? { tag: t.tag, p: t.p, isNew: t.isNew }
+        : null,
+    );
   },
   async tagCandidates() {
-    const res = await call(room, "candidates", {});
-    return ((await res.json()) as { tags: string[] }).tags;
+    const { tags } = await call(room, "candidates", {});
+    return listOf(tags, (t) => (text(t) ? t : null));
   },
   async findPlaces(memo) {
-    const res = await call(room, "places", memo);
-    const { places } = (await res.json()) as {
-      places: { name: string; address: string; lat: number; lng: number; hours: string | null }[];
-    };
-    return places.map((p): FoundPlace => ({
-      name: p.name,
-      address: p.address,
-      at: { lat: p.lat, lng: p.lng },
-      hours: p.hours,
-    }));
+    const { places } = await call(room, "places", memo);
+    return listOf(places, placeOf);
   },
   async findByName(query, lang) {
-    const res = await call(room, "find", { query, lang });
-    const { places } = (await res.json()) as {
-      places: { name: string; address: string; lat: number; lng: number; hours: string | null }[];
-    };
-    return places.map((p): FoundPlace => ({
-      name: p.name,
-      address: p.address,
-      at: { lat: p.lat, lng: p.lng },
-      hours: p.hours,
-    }));
+    const { places } = await call(room, "find", { query, lang });
+    return listOf(places, placeOf);
   },
   async expandLink(url, lang) {
-    const res = await call(room, "expand", { url, lang });
-    return (await res.json()) as { url: string; at: LatLng | null };
+    const answer = await call(room, "expand", { url, lang });
+    const at = isRecord(answer.at) ? answer.at : null;
+    return {
+      // a link the Worker does not give back is the one asked about
+      url: text(answer.url) ? answer.url : url,
+      at: at !== null && number(at.lat) && number(at.lng) ? { lat: at.lat, lng: at.lng } : null,
+    };
   },
   async whereIs(at, lang) {
-    const res = await call(room, "where", { lat: at.lat, lng: at.lng, lang });
-    const { place } = (await res.json()) as {
-      place: {
-        name: string;
-        address: string;
-        lat: number;
-        lng: number;
-        hours: string | null;
-      } | null;
-    };
-    return place === null
-      ? null
-      : {
-          name: place.name,
-          address: place.address,
-          at: { lat: place.lat, lng: place.lng },
-          hours: place.hours,
-        };
+    const { place } = await call(room, "where", { lat: at.lat, lng: at.lng, lang });
+    return placeOf(place);
   },
   async suggest(at) {
-    const res = await call(room, "suggest", { at });
-    return ((await res.json()) as { added: number }).added;
+    const { added } = await call(room, "suggest", { at });
+    return number(added) ? added : 0;
   },
   async draftDay(date, notes) {
-    const res = await call(room, "draft", { date: date.toString() });
-    const d = (await res.json()) as WireDraft;
-    // the draft names the notes it was given; one that has since gone is left out
-    const byId = new Map(notes.map((n) => [n.id, n]));
+    const d = await call(room, "draft", { date: date.toString() });
     return {
-      by: d.by as MemberId,
-      reason: d.reason,
-      intro: d.intro,
-      items: d.items.flatMap((it) => {
-        const note = byId.get(it.id as NoteId);
-        if (note === undefined) return [];
-        return [{ note, time: it.time === null ? null : Temporal.PlainTime.from(it.time) }];
+      by: text(d.by) ? d.by : "",
+      reason: text(d.reason) ? d.reason : "",
+      intro: text(d.intro) ? d.intro : "",
+      // the draft names the notes it was given; one that has since gone is left out
+      items: listOf(d.items, (it) => {
+        const note = isRecord(it) ? notes.find((n) => n.id === it.id) : undefined;
+        return note === undefined || !isRecord(it) ? null : { note, time: timeOf(it.time) };
       }),
     };
   },

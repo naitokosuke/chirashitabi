@@ -2,6 +2,8 @@ import { computed } from "vue";
 
 import { useRouter, useRoute } from "vue-router";
 
+import { isRecord } from "../shared/record";
+
 import type { RoomId } from "../features/rooms/types";
 
 /**
@@ -24,7 +26,8 @@ export function useTrips() {
     open: (id: RoomId) => void router.push(placeOf(id)),
     create: () => void router.push("/new"),
     close() {
-      const back = (window.history.state as { back?: unknown } | null)?.back;
+      const state: unknown = window.history.state;
+      const back = isRecord(state) ? state.back : undefined;
       if (back === "/") router.back();
       else void router.replace("/");
     },

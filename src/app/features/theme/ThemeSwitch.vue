@@ -19,7 +19,7 @@ const night = computed(() => theme.theme === "dark");
 
 function toggle(e: MouseEvent) {
   // from the icon's middle, whether it was clicked, tapped or pressed with the keyboard
-  const item = (e.target as Element | null)?.closest("[data-dock-item]");
+  const item = e.target instanceof Element ? e.target.closest("[data-dock-item]") : null;
   const r = item?.getBoundingClientRect();
   theme.toggle(r === undefined ? undefined : { x: r.left + r.width / 2, y: r.top + r.height / 2 });
 }

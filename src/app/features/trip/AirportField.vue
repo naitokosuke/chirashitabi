@@ -27,7 +27,8 @@ const listId = computed(() => `${props.id}-airports`);
 const optionId = (i: number) => `${props.id}-airport-${i}`;
 
 function onInput(e: Event) {
-  emit("update:modelValue", (e.target as HTMLInputElement).value);
+  if (!(e.target instanceof HTMLInputElement)) return;
+  emit("update:modelValue", e.target.value);
   open.value = true;
   active.value = -1;
 }

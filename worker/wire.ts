@@ -11,6 +11,8 @@ import { isRecord } from "../src/app/shared/record";
 import type { MemberId } from "../src/app/features/members/types";
 import {
   COLORS,
+  isImageId,
+  isNoteId,
   type ImageId,
   type NoteColor,
   type NoteId,
@@ -222,10 +224,6 @@ export const MAX_SCALE = 3;
 const isScale = (v: unknown): v is number =>
   typeof v === "number" && Number.isFinite(v) && v >= MIN_SCALE && v <= MAX_SCALE;
 
-/** An image's id, as the room mints it (a UUID) */
-export const isImageId = (v: unknown): v is ImageId =>
-  typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v);
-
 /** What a picture may be, as uploaded: the formats every browser shows */
 export const IMAGE_TYPES = ["image/webp", "image/jpeg", "image/png"] as const;
 /** The largest picture, in bytes; the app shrinks one to well under this before sending it */
@@ -233,8 +231,6 @@ export const MAX_IMAGE_BYTES = 1024 * 1024;
 
 const isId = (v: unknown): v is string =>
   typeof v === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(v) && v.length <= ID;
-/** A note's id, as the client that made the note minted it */
-const isNoteId = (v: unknown): v is NoteId => isId(v);
 const isColor = (v: unknown): v is NoteColor => COLORS.some((c) => c === v);
 const STATUSES: readonly NoteStatus[] = ["idea", "fixed", "done"];
 const isStatus = (v: unknown): v is NoteStatus => STATUSES.some((s) => s === v);

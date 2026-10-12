@@ -100,8 +100,9 @@ export function stayOf(f: StayForm): Stay | undefined {
 export const sameStays = (a: Stay[], b: Stay[]) =>
   a.length === b.length &&
   a.every((s, i) => {
-    const t = b[i]!;
+    const t = b[i];
     return (
+      t !== undefined &&
       s.name === t.name &&
       s.checkIn.equals(t.checkIn) &&
       s.nights === t.nights &&

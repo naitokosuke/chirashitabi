@@ -44,7 +44,8 @@ watch(
     const staying = new Set(next.map((g) => g.id));
     for (const g of glyphEls()) {
       if (staying.has(Number(g.dataset.g))) continue;
-      const ghost = g.cloneNode(true) as HTMLElement;
+      const ghost = g.cloneNode(true);
+      if (!(ghost instanceof HTMLElement)) continue;
       ghost.removeAttribute("data-g");
       ghost.style.cssText = `position:absolute;left:${g.offsetLeft}px;top:${g.offsetTop}px`;
       exits.value?.append(ghost);

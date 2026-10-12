@@ -97,8 +97,9 @@ let map: MLMap | null = null;
 const markers = new Map<string, Marker>();
 
 onMounted(() => {
+  if (el.value === null) return;
   map = new MLMap({
-    container: el.value!,
+    container: el.value,
     // the trip's area; the whole world until the room says where we are going
     center: trip.value === undefined ? [0, 0] : [trip.value.center.lng, trip.value.center.lat],
     zoom: trip.value === undefined ? 1 : 11.5,
@@ -119,8 +120,8 @@ onMounted(() => {
     "bottom-right",
   );
   map.on("load", () => {
-    map!.addSource("route", { type: "geojson", data: routeLine([]) });
-    map!.addLayer({
+    map?.addSource("route", { type: "geojson", data: routeLine([]) });
+    map?.addLayer({
       id: "route",
       type: "line",
       source: "route",
@@ -219,7 +220,8 @@ function syncMarkers() {
     e.classList.toggle("on", selected.value?.id === n.id);
     // the pin is the note's own paper, so a card on the desk and its pin are told apart by nothing
     e.style.setProperty("--pin", PAPERS[n.color]);
-    e.querySelector(".lbl")!.textContent = n.title;
+    const label = e.querySelector(".lbl");
+    if (label !== null) label.textContent = n.title;
   }
   for (const [id, m] of markers)
     if (!seen.has(id)) {
@@ -228,8 +230,9 @@ function syncMarkers() {
     }
 }
 function syncRoute() {
-  if (map === null || map.getSource("route") === undefined) return;
-  const src = map.getSource("route") as maplibregl.GeoJSONSource;
+  if (map === null) return;
+  const src = map.getSource("route");
+  if (!(src instanceof maplibregl.GeoJSONSource)) return;
   const d = day.value;
   const stays = trip.value?.stays ?? [];
   // a day leaves from the night before's stay, or the airport it lands at on the way there; and

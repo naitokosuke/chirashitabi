@@ -3,6 +3,7 @@ import { initWorkersLogger, withEvlog } from "evlog/workers";
 
 import { isRecord } from "../src/app/shared/record";
 
+import { isImageId } from "../src/app/features/notes/types";
 import { isShortMapsLink, parseMapsUrl } from "../src/app/features/place/google-maps";
 
 import { AccessVerifier, Unauthenticated } from "./access";
@@ -15,7 +16,6 @@ import { RoomsIndex } from "./rooms-index";
 import {
   IMAGE_TYPES,
   isDate,
-  isImageId,
   MAX_IMAGE_BYTES,
   parseEmail,
   parsePoint,

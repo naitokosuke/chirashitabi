@@ -1,3 +1,5 @@
+import { isRecord } from "../../shared/record";
+
 import type { RoomId } from "../rooms/types";
 
 import type { MemberId } from "./types";
@@ -17,8 +19,7 @@ async function post(room: RoomId, action: string, body: unknown = {}): Promise<R
 
 /** `/invited` as the app holds it: the e-mails, and nothing that is not one */
 export function invitedOf(raw: unknown): string[] {
-  const list =
-    typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>).invited : null;
+  const list = isRecord(raw) ? raw.invited : null;
   return Array.isArray(list) ? list.filter((e): e is string => typeof e === "string") : [];
 }
 

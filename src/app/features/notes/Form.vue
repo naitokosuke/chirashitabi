@@ -131,7 +131,8 @@ const photoSrc = computed(() =>
   form.value.image === null ? null : imageSrc(sync.room.id, form.value.image),
 );
 async function onPhoto(e: Event) {
-  const input = e.target as HTMLInputElement;
+  const input = e.target;
+  if (!(input instanceof HTMLInputElement)) return;
   const file = input.files?.[0];
   input.value = ""; // the same photo can be picked again after a failure
   const api = worker.api;
