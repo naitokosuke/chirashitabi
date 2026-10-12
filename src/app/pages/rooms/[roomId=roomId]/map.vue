@@ -34,14 +34,17 @@ import { useI18n } from "../../../i18n/useI18n";
 
 import { PAPERS, type FormTarget, type Memo, type Note } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
+import { findAirport, type Airport } from "../../../features/place/airports";
 import { placeLink, safeUrl } from "../../../features/place/google-maps";
 import { lngLat, needsPin, pinnedOf, type Pinned } from "../../../features/place/pin";
 import { boundsOf, dayStops, routeLine } from "../../../features/place/route";
 import { guardMissingProperties } from "../../../features/place/style";
 import type { LatLng } from "../../../features/place/types";
+import { useAirports } from "../../../features/place/useAirports";
 import { useTags } from "../../../features/tags/useTags";
 import { hhmm, shortDate } from "../../../features/trip/format";
-import { stayOn, wakeAt } from "../../../features/trip/itinerary";
+import { flightDays, stayOn, wakeAt } from "../../../features/trip/itinerary";
+import type { Leg } from "../../../features/trip/types";
 import { useTrip } from "../../../features/trip/useTrip";
 import { useWorker } from "../../../features/worker/useWorker";
 import closeIcon from "../../../icons/close.svg";
@@ -127,6 +130,7 @@ onMounted(() => {
     });
     syncMarkers();
     syncStays();
+    syncAirports();
     syncRoute();
   });
   map.on("click", () => {
@@ -174,6 +178,7 @@ onActivated(() => map?.resize());
 onBeforeUnmount(() => {
   markers.forEach((m) => m.remove());
   stayMarkers.forEach((m) => m.remove());
+  airportMarkers.forEach((m) => m.remove());
   map?.remove();
   map = null;
 });
@@ -227,10 +232,16 @@ function syncRoute() {
   const src = map.getSource("route") as maplibregl.GeoJSONSource;
   const d = day.value;
   const stays = trip.value?.stays ?? [];
+  // a day leaves from the night before's stay, or the airport it lands at on the way there; and
+  // ends at its night's stay, or the airport it leaves from on the way home
   const stops =
     d === null
       ? []
-      : dayStops(forDay(d), wakeAt(stays, d)?.pin ?? null, stayOn(stays, d)?.pin ?? null);
+      : dayStops(
+          forDay(d),
+          wakeAt(stays, d)?.pin ?? airportOn(d, "out")?.at ?? null,
+          stayOn(stays, d)?.pin ?? airportOn(d, "back")?.at ?? null,
+        );
   src.setData(routeLine(stops));
   const b = boundsOf(stops);
   if (b !== null) {
@@ -282,6 +293,51 @@ function syncStays() {
   }
 }
 watch(() => trip.value?.stays, syncStays);
+
+// ---- the airports the flights name, found among the airports (airports.ts) ----
+const airports = useAirports();
+/**
+ * The airport a day touches on a flight: on the way there the one it lands at, on the way home
+ * the one it leaves from, when the flight is on that day
+ */
+function airportOn(d: Temporal.PlainDate, leg: Leg) {
+  const f = trip.value?.flights[leg] ?? null;
+  if (f === null) return undefined;
+  const days = flightDays(f, leg, trip.value?.days ?? []);
+  const on = leg === "out" ? days.at(-1) : days[0];
+  if (on === undefined || !on.equals(d)) return undefined;
+  return findAirport(airports.value, leg === "out" ? f.to : f.from);
+}
+/** Each airport a flight names, once, a plane-shaped badge of ink */
+const airportMarkers: Marker[] = [];
+function syncAirports() {
+  if (map === null) return;
+  for (const m of airportMarkers.splice(0)) m.remove();
+  const named = new Map<string, Airport>();
+  for (const f of [trip.value?.flights.out, trip.value?.flights.back])
+    for (const text of f == null ? [] : [f.from, f.to]) {
+      const a = findAirport(airports.value, text);
+      if (a !== undefined) named.set(a.code, a);
+    }
+  for (const a of named.values()) {
+    const d = document.createElement("div");
+    d.className = "pin airport";
+    const dot = document.createElement("span"),
+      lbl = document.createElement("span");
+    dot.className = "dot";
+    dot.textContent = "✈";
+    lbl.className = "lbl";
+    lbl.textContent = `${a.code} ${a.name}`;
+    d.append(dot, lbl);
+    airportMarkers.push(
+      new Marker({ element: d, anchor: "bottom" }).setLngLat(lngLat(a.at)).addTo(map),
+    );
+  }
+}
+watch([() => trip.value?.flights, airports], () => {
+  syncAirports();
+  syncRoute();
+});
 
 function fitAll() {
   const b = boundsOf(pinnedOf(notes.value ?? []).map((n) => lngLat(n.pin)));
@@ -401,6 +457,26 @@ section {
 
     &.on > .dot {
       transform: rotate(-45deg) scale(1.3);
+    }
+
+    /* an airport: a round badge of ink with a plane in it, and nothing to tap */
+    &.airport {
+      cursor: default;
+      pointer-events: none;
+
+      > .dot {
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        transform: none;
+        background: var(--paper-ink);
+        border-color: rgb(255 255 255 / 0.92);
+        color: #fff;
+        font-size: 12px;
+        line-height: 1;
+      }
     }
 
     /* a stay: a square of ink, not a note's paper, and nothing to tap */
