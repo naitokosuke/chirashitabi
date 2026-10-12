@@ -4,7 +4,7 @@ import { hexColor } from "../../shared/color";
 
 import type { ServerMessage } from "../../../../worker/wire";
 import type { MemberId } from "../members/types";
-import type { NoteId } from "../notes/types";
+import type { NoteId } from "../notes/id";
 
 import { createRoomSocket, type SocketLike, type SocketStatus } from "./socket";
 import type { Mutation } from "./types";

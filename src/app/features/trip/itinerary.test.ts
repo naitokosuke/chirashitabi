@@ -3,7 +3,8 @@ import { Temporal } from "temporal-polyfill-lite";
 import { describe, expect, test } from "vite-plus/test";
 
 import type { MemberId } from "../members/types";
-import type { Memo, NoteId, NoteStatus } from "../notes/types";
+import type { NoteId } from "../notes/id";
+import type { Memo, NoteStatus } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 
 import { flightDays, forDay, stayOn, wakeAt } from "./itinerary";

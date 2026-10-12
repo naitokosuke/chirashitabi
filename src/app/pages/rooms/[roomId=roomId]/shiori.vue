@@ -18,12 +18,12 @@ import { formatMoney } from "../../../shared/money";
 import { useI18n } from "../../../i18n/useI18n";
 
 import { useMembers } from "../../../features/members/useMembers";
+import type { NoteId } from "../../../features/notes/id";
 import {
   ARRIVAL_TAG,
   PACKING_TAG,
   PAPERS,
   type Memo,
-  type NoteId,
   type Scheduled,
 } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";

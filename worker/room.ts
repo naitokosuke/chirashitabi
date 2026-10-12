@@ -4,7 +4,8 @@ import type { HexColor } from "../src/app/shared/color";
 import type { CurrencyCode } from "../src/app/shared/money";
 
 import { SEATS, type MemberId } from "../src/app/features/members/types";
-import type { ImageId, NoteColor, NoteId, NoteStatus } from "../src/app/features/notes/types";
+import type { ImageId, NoteId } from "../src/app/features/notes/id";
+import type { NoteColor, NoteStatus } from "../src/app/features/notes/types";
 
 import { airportCodeOf, isAirportCode } from "./airports";
 import type { PlaceContext, SuggestContext, TagContext } from "./claude";

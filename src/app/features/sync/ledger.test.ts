@@ -3,7 +3,8 @@ import { Temporal } from "temporal-polyfill-lite";
 import { describe, expect, test } from "vite-plus/test";
 
 import type { MemberId } from "../members/types";
-import type { Memo, NoteId } from "../notes/types";
+import type { NoteId } from "../notes/id";
+import type { Memo } from "../notes/types";
 
 import { createLedger, type RoomState } from "./ledger";
 import type { Mutation } from "./types";

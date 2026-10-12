@@ -67,13 +67,13 @@ import {
   type PlaceHow,
 } from "../../../features/canvas/usePlace";
 import { useViewport } from "../../../features/canvas/useViewport";
+import type { NoteId } from "../../../features/notes/id";
 import {
   COLOR_NAMES,
   COLORS,
   PAPERS,
   type FormTarget,
   type NoteColor,
-  type NoteId,
   type NoteInput,
   type TextBox,
 } from "../../../features/notes/types";

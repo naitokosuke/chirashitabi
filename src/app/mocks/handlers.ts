@@ -15,7 +15,8 @@ import {
   type WireNote,
 } from "../../../worker/wire";
 import { SEATS, type Member } from "../features/members/types";
-import type { Note, NoteId } from "../features/notes/types";
+import type { NoteId } from "../features/notes/id";
+import type { Note } from "../features/notes/types";
 import { isShortMapsLink } from "../features/place/google-maps";
 import { roomId, type RoomId } from "../features/rooms/types";
 import { applyToRoom, type RoomState } from "../features/sync/ledger";

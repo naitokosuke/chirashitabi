@@ -2,7 +2,8 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import type { HexColor } from "../../shared/color";
 
-import type { MemoPatch, NewMemo, NewText, NoteColor, NoteId, Suggestion } from "../notes/types";
+import type { NoteId } from "../notes/id";
+import type { MemoPatch, NewMemo, NewText, NoteColor, Suggestion } from "../notes/types";
 import type { Flight, Leg, Stay } from "../trip/types";
 
 /**

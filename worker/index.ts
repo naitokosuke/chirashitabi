@@ -3,7 +3,7 @@ import { initWorkersLogger, withEvlog } from "evlog/workers";
 
 import { isRecord } from "../src/app/shared/record";
 
-import { isImageId } from "../src/app/features/notes/types";
+import { isImageId } from "../src/app/features/notes/id";
 import { isShortMapsLink, parseMapsUrl } from "../src/app/features/place/google-maps";
 
 import { AccessVerifier, Unauthenticated } from "./access";

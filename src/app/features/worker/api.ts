@@ -2,7 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { isRecord } from "../../shared/record";
 
-import { isImageId } from "../notes/types";
+import { isImageId } from "../notes/id";
 import type { FoundPlace } from "../place/types";
 import type { RoomId } from "../rooms/types";
 

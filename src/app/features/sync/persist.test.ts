@@ -6,7 +6,8 @@ import { hexColor } from "../../shared/color";
 import { currencyCode } from "../../shared/money";
 
 import type { MemberId } from "../members/types";
-import type { Memo, NoteId } from "../notes/types";
+import type { NoteId } from "../notes/id";
+import type { Memo } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 
 import type { RoomState } from "./ledger";

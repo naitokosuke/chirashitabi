@@ -9,15 +9,8 @@ import { currencyCode, type CurrencyCode } from "../src/app/shared/money";
 import { isRecord } from "../src/app/shared/record";
 
 import type { MemberId } from "../src/app/features/members/types";
-import {
-  COLORS,
-  isImageId,
-  isNoteId,
-  type ImageId,
-  type NoteColor,
-  type NoteId,
-  type NoteStatus,
-} from "../src/app/features/notes/types";
+import { isImageId, isNoteId, type ImageId, type NoteId } from "../src/app/features/notes/id";
+import { COLORS, type NoteColor, type NoteStatus } from "../src/app/features/notes/types";
 import type { AirportCode } from "../src/app/features/place/airports";
 
 import { isAirportCode } from "./airports";

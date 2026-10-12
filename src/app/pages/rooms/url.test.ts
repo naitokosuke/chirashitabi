@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import type { FormTarget, NoteId } from "../../features/notes/types";
+import type { NoteId } from "../../features/notes/id";
+import type { FormTarget } from "../../features/notes/types";
 
 import { queryOf, sheetOf, viewOf } from "./url";
 

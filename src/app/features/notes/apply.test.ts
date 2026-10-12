@@ -5,7 +5,8 @@ import { describe, expect, test } from "vite-plus/test";
 import type { MemberId } from "../members/types";
 
 import { applyToNotes } from "./apply";
-import type { Memo, Note, NoteId, Suggestion, TextBox } from "./types";
+import type { NoteId } from "./id";
+import type { Memo, Note, Suggestion, TextBox } from "./types";
 
 const YUKI = "yuki" as MemberId;
 const KEN = "ken" as MemberId;

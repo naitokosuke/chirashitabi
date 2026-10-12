@@ -1,6 +1,7 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { ImageId, Scheduled } from "../notes/types";
+import type { ImageId } from "../notes/id";
+import type { Scheduled } from "../notes/types";
 import type { FoundPlace, LatLng } from "../place/types";
 
 /** A suggested order and times for one day, from whichever member drafted it */

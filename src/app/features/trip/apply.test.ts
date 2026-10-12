@@ -4,7 +4,8 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { currencyCode } from "../../shared/money";
 
-import type { Memo, Note, NoteId } from "../notes/types";
+import type { NoteId } from "../notes/id";
+import type { Memo, Note } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 
 import { applyToDays, applyToTrip, moveSchedules } from "./apply";
