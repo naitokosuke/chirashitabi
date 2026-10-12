@@ -6,7 +6,8 @@ import { hexColor } from "../../shared/color";
 import { currencyCode } from "../../shared/money";
 
 import type { MemberId } from "../members/types";
-import type { Memo, NoteId } from "../notes/types";
+import type { NoteId } from "../notes/id";
+import type { Memo } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 
 import type { RoomState } from "./ledger";
@@ -115,7 +116,7 @@ describe("keep and kept", () => {
   test("unanswered changes kept before they were signed are this device's", () => {
     const storage = memoryStorage();
     keep(storage, "r1", { me: "yuki" as MemberId, confirmed: room, pending: [], savedAt: at });
-    const saved = JSON.parse(storage.getItem("chirashitabi:room:r1")!);
+    const saved = JSON.parse(storage.getItem("chirashitabi:room:r1")!) as Record<string, unknown>;
     saved.pending = [
       { cid: "c1", m: { type: "day:intro", date: "2026-11-03", intro: "x" }, at: at.toString() },
     ];

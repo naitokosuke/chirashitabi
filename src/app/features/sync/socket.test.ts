@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 
+import { hexColor } from "../../shared/color";
+
 import type { ServerMessage } from "../../../../worker/wire";
+import type { MemberId } from "../members/types";
+import type { NoteId } from "../notes/id";
 
 import { createRoomSocket, type SocketLike, type SocketStatus } from "./socket";
 import type { Mutation } from "./types";
@@ -36,7 +40,7 @@ class FakeSocket implements SocketLike {
 
 const snapshot: Extract<ServerMessage, { type: "snapshot" }> = {
   type: "snapshot",
-  me: "yuki",
+  me: "yuki" as MemberId,
   members: [],
   trip: {} as never,
   notes: [],
@@ -162,8 +166,8 @@ describe("createRoomSocket", () => {
     last().serve(snapshot);
     const msg: ServerMessage = {
       type: "mutation",
-      mutation: { type: "note:delete", id: "a" },
-      by: "ken",
+      mutation: { type: "note:delete", id: "a" as NoteId },
+      by: "ken" as MemberId,
       updatedAt: "2026-10-01T00:00:00Z",
     };
     last().serve(msg);
@@ -207,7 +211,13 @@ describe("createRoomSocket", () => {
     socket.connect("room-1");
     last().serve(snapshot);
     const members = [
-      { id: "ken", kind: "person" as const, role: "guest" as const, name: "Ken", color: "#d7263d" },
+      {
+        id: "ken" as MemberId,
+        kind: "person" as const,
+        role: "guest" as const,
+        name: "Ken",
+        color: hexColor("#d7263d")!,
+      },
     ];
     last().serve({ type: "members", members });
     expect(people).toEqual([members]);

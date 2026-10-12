@@ -4,6 +4,8 @@
  * A missing token is never "development": local runs sign their own token (see README).
  */
 
+import { isRecord } from "../src/app/shared/record";
+
 export interface AccessConfig {
   /** `<team>.cloudflareaccess.com`: the issuer, and where the signing keys are served */
   teamDomain: string;
@@ -24,10 +26,18 @@ const REFETCH_MIN_INTERVAL_MS = 60 * 1000;
 
 interface Jwk {
   kid: string;
-  kty: string;
+  kty: "RSA";
   n: string;
   e: string;
 }
+
+/** A signing key of the certs, as one Access signs with: RSA, with its id */
+const isRsaJwk = (v: unknown): v is Jwk =>
+  isRecord(v) &&
+  v.kty === "RSA" &&
+  typeof v.kid === "string" &&
+  typeof v.n === "string" &&
+  typeof v.e === "string";
 
 interface Keys {
   fetchedAt: number;
@@ -52,9 +62,9 @@ export class AccessVerifier {
   }
 
   async verify(token: string): Promise<string> {
-    const parts = token.split(".");
-    if (parts.length !== 3) throw new Unauthenticated("malformed token");
-    const [h, p, s] = parts as [string, string, string];
+    const [h, p, s, ...rest] = token.split(".");
+    if (h === undefined || p === undefined || s === undefined || rest.length > 0)
+      throw new Unauthenticated("malformed token");
 
     const header = json(h);
     if (header.alg !== "RS256" || typeof header.kid !== "string") {
@@ -104,10 +114,11 @@ export class AccessVerifier {
     const url = this.config.certsUrl ?? `https://${this.config.teamDomain}/cdn-cgi/access/certs`;
     const res = await this.fetchImpl(url);
     if (!res.ok) throw new Error(`certs ${res.status}`);
-    const { keys } = (await res.json()) as { keys: Jwk[] };
+    const body: unknown = await res.json();
+    const keys: unknown[] = isRecord(body) && Array.isArray(body.keys) ? body.keys : [];
     const byKid = new Map<string, CryptoKey>();
     for (const jwk of keys) {
-      if (jwk.kty !== "RSA") continue;
+      if (!isRsaJwk(jwk)) continue;
       const key = await crypto.subtle.importKey(
         "jwk",
         { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: "RS256", ext: true },
@@ -129,8 +140,8 @@ const bytes = (b64url: string): Uint8Array => {
 const json = (b64url: string): Record<string, unknown> => {
   try {
     const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes(b64url)));
-    if (typeof parsed !== "object" || parsed === null) throw new Error();
-    return parsed as Record<string, unknown>;
+    if (!isRecord(parsed)) throw new Error();
+    return parsed;
   } catch {
     throw new Unauthenticated("malformed token");
   }

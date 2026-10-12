@@ -1,14 +1,9 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { Brand } from "../../shared/brand";
-
 import type { MemberId } from "../members/types";
 import type { LatLng } from "../place/types";
 
-export type NoteId = Brand<string, "NoteId">;
-
-/** A picture kept by the room (its bytes in R2), as the room minted its id */
-export type ImageId = Brand<string, "ImageId">;
+import type { ImageId, NoteId } from "./id";
 
 export const COLORS = ["#fff1b8", "#ffd9de", "#d8f0e6", "#dbe7ff", "#ead9ff", "#ffffff"] as const;
 /** A card's paper: one of the palette, never a free CSS value */

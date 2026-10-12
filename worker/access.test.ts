@@ -133,8 +133,8 @@ describe("identify", () => {
     let now = NOW;
     let up = true;
     const c = certs([jwk]);
-    const fetchImpl = (async (...args: Parameters<typeof fetch>) =>
-      up ? c.fetchImpl(...args) : new Response("down", { status: 503 })) as unknown as typeof fetch;
+    const fetchImpl = async (...args: Parameters<typeof fetch>) =>
+      up ? c.fetchImpl(...args) : new Response("down", { status: 503 });
     const v = new AccessVerifier({ teamDomain: TEAM, aud: AUD }, fetchImpl, () => now);
     await v.verify(await sign(good()));
 

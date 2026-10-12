@@ -95,7 +95,7 @@ function key(e: KeyboardEvent) {
 /** Native and capturing, so the row's own links and buttons never see a click it takes */
 function click(e: MouseEvent) {
   const slid = e.timeStamp < slidUntil;
-  const onContent = content.value?.contains(e.target as Node) ?? false;
+  const onContent = e.target instanceof Node && (content.value?.contains(e.target) ?? false);
   if (!slid && !(props.open && onContent)) return;
   e.preventDefault();
   e.stopPropagation();
@@ -105,7 +105,8 @@ function click(e: MouseEvent) {
 
 /** A press outside the row while it is open */
 function outside(e: PointerEvent) {
-  if (!(root.value?.contains(e.target as Node) ?? false)) emit("toggle", false);
+  if (!(e.target instanceof Node && (root.value?.contains(e.target) ?? false)))
+    emit("toggle", false);
 }
 
 watch(

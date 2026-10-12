@@ -2,8 +2,20 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { http, HttpResponse, ws, type WebSocketHandlerConnection } from "msw";
 
-import type { ClientMessage, ServerMessage, WireNote, WireMutation } from "../../../worker/wire";
+import { isRecord } from "../shared/record";
+
+import {
+  parseCid,
+  parseMutation,
+  parsePoint,
+  parseProfile,
+  parseTrip,
+  type ServerMessage,
+  type WireMutation,
+  type WireNote,
+} from "../../../worker/wire";
 import { SEATS, type Member } from "../features/members/types";
+import type { NoteId } from "../features/notes/id";
 import type { Note } from "../features/notes/types";
 import { isShortMapsLink } from "../features/place/google-maps";
 import { roomId, type RoomId } from "../features/rooms/types";
@@ -29,7 +41,8 @@ interface MockRoom {
 }
 
 /** The seeded trip's room */
-export const MOCK_ROOM = roomId("7a1f2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d")!;
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+export const MOCK_ROOM = "7a1f2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d" as RoomId;
 
 const rooms = new Map<RoomId, MockRoom>([
   [
@@ -44,10 +57,12 @@ const rooms = new Map<RoomId, MockRoom>([
 ]);
 
 /** The app's values as they cross the wire: Temporal values as their ISO strings */
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the app's own values, as the wire writes them
 const wire = <T>(value: unknown): T => JSON.parse(JSON.stringify(value)) as T;
 
 const forbidden = () => new HttpResponse(null, { status: 403 });
 const notFound = () => new HttpResponse(null, { status: 404 });
+const badRequest = () => new HttpResponse(null, { status: 400 });
 const now = () => Temporal.Now.instant();
 
 /** The room a request names, if there is one and it is not deleted */
@@ -55,8 +70,20 @@ const now = () => Temporal.Now.instant();
 const CANDIDATES = ["Airport", "Souvenirs", "Night markets", "Temples", "Tea"];
 
 const open = (id: unknown) => {
-  const room = rooms.get(roomId(id) ?? ("" as RoomId));
+  const room = find(id);
   return room?.deletedAt === null ? room : undefined;
+};
+
+/** The room a request names, deleted or not */
+const find = (id: unknown) => {
+  const room = roomId(id);
+  return room === null ? undefined : rooms.get(room);
+};
+
+/** A field of a request's JSON body, when it is a string */
+const textOf = (body: unknown, field: string): string | null => {
+  const v = isRecord(body) ? body[field] : null;
+  return typeof v === "string" ? v : null;
 };
 
 const summary = (id: RoomId, { state }: MockRoom) => ({
@@ -104,18 +131,26 @@ const roomSocket = socket.addEventListener("connection", ({ client, params }) =>
 
   client.addEventListener("message", (e) => {
     if (typeof e.data !== "string") return;
-    const { cid, ...sent } = JSON.parse(e.data) as ClientMessage;
+    const sent: unknown = JSON.parse(e.data);
+    const cid = parseCid(sent);
     const at = now();
-    // the room stamps a new note with whose it is and when, as the Worker's does
-    const mutation: WireMutation =
-      sent.type === "note:add"
-        ? { ...sent, note: { ...sent.note, by: YUKI, updatedAt: at.toString() } }
-        : sent;
+    // checked, and a new note stamped with whose it is and when, as the Worker's room does
+    const mutation = parseMutation(sent, { by: YUKI, updatedAt: at.toString() });
+    if (mutation === null) {
+      send(client, {
+        type: "rejected",
+        reason: "not a mutation",
+        ...(cid === null ? {} : { cid }),
+      });
+      return;
+    }
     // one without a cid is a card on its way under a finger: relayed, not kept
-    if (cid !== undefined)
-      room.state = applyToRoom(room.state, reviveMutation(mutation), YUKI, at) as MockRoom["state"];
+    if (cid !== null) {
+      const next = applyToRoom(room.state, reviveMutation(mutation), YUKI, at);
+      if (next.trip !== null) room.state = { ...next, trip: next.trip };
+    }
     tell(id, { type: "mutation", mutation, by: YUKI, updatedAt: at.toString() }, client);
-    if (cid !== undefined) send(client, { type: "ack", cid, updatedAt: at.toString() });
+    if (cid !== null) send(client, { type: "ack", cid, updatedAt: at.toString() });
   });
 });
 
@@ -130,7 +165,8 @@ const agent = [
   http.post("/api/rooms/:roomId/draft", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const { date } = (await request.json()) as { date: string };
+    const date = textOf(await request.json(), "date");
+    if (date === null) return badRequest();
     await wait(THINKING_MS);
     const day = Temporal.PlainDate.from(date);
     const items = room.state.notes.flatMap((n: Note) =>
@@ -147,13 +183,16 @@ const agent = [
     const id = roomId(params.roomId);
     const room = open(params.roomId);
     if (id === null || room === undefined) return forbidden();
-    const { at } = (await request.json()) as { at: { x: number; y: number } };
+    const body: unknown = await request.json();
+    const at = parsePoint(isRecord(body) ? body.at : null);
+    if (at === null) return badRequest();
     await wait(THINKING_MS);
     const titles = ["Night view from Elephant Mountain", "Beef noodles at Yongkang Street"];
     const updatedAt = now().toString();
     titles.forEach((title, i) => {
       const note: WireNote = {
-        id: crypto.randomUUID(),
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+        id: crypto.randomUUID() as NoteId,
         kind: "suggestion",
         title,
         color: "#ffffff",
@@ -173,7 +212,8 @@ const agent = [
   http.post("/api/rooms/:roomId/tags", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const { chosen } = (await request.json()) as { chosen: string[] };
+    const body: unknown = await request.json();
+    const chosen = isRecord(body) && Array.isArray(body.chosen) ? body.chosen : [];
     const inUse = new Set(room.state.notes.flatMap((n) => (n.kind === "memo" ? n.tags : [])));
     // every tag judged, the likeliest first: the in-use ones, then the trip's candidates
     const tags = [...inUse, ...CANDIDATES.filter((t) => !inUse.has(t))].filter(
@@ -190,7 +230,8 @@ const agent = [
   http.post("/api/rooms/:roomId/find", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const { query } = (await request.json()) as { query: string };
+    const query = textOf(await request.json(), "query");
+    if (query === null) return badRequest();
     const { lat, lng } = room.state.trip.center;
     return HttpResponse.json({
       places: [{ name: query.trim(), address: "臺北市, 臺灣", lat, lng, hours: null }],
@@ -201,7 +242,8 @@ const agent = [
   http.post("/api/rooms/:roomId/expand", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const { url } = (await request.json()) as { url: string };
+    const url = textOf(await request.json(), "url");
+    if (url === null) return badRequest();
     if (!isShortMapsLink(url)) return HttpResponse.json({ url, at: null });
     const { lat, lng } = room.state.trip.center;
     return HttpResponse.json({
@@ -213,7 +255,8 @@ const agent = [
   http.post("/api/rooms/:roomId/places", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const { title } = (await request.json()) as { title: string };
+    const title = textOf(await request.json(), "title");
+    if (title === null) return badRequest();
     const { lat, lng } = room.state.trip.center;
     return HttpResponse.json({
       places: [{ name: title, address: "臺北市, 臺灣", lat, lng, hours: "Mo-Su 17:00-24:00" }],
@@ -245,7 +288,8 @@ const members = [
   http.post("/api/rooms/:roomId/invite", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const { email } = (await request.json()) as { email: string };
+    const email = textOf(await request.json(), "email");
+    if (email === null) return badRequest();
     const people = room.state.members.filter((m) => m.kind === "person").length;
     if (people + room.invited.length >= SEATS || room.invited.includes(email))
       return new HttpResponse(null, { status: 409 });
@@ -255,7 +299,8 @@ const members = [
   http.post("/api/rooms/:roomId/uninvite", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const { email } = (await request.json()) as { email: string };
+    const email = textOf(await request.json(), "email");
+    if (email === null) return badRequest();
     if (!room.invited.includes(email)) return notFound();
     room.invited = room.invited.filter((e) => e !== email);
     return HttpResponse.json({});
@@ -264,7 +309,8 @@ const members = [
     const id = roomId(params.roomId);
     const room = open(params.roomId);
     if (id === null || room === undefined) return forbidden();
-    const { member } = (await request.json()) as { member: string };
+    const member = textOf(await request.json(), "member");
+    if (member === null) return badRequest();
     const gone = room.state.members.find((m) => m.id === member);
     if (gone?.kind !== "person" || gone.role === "owner") return forbidden();
     const left: Member[] = room.state.members.filter((m) => m !== gone);
@@ -284,15 +330,15 @@ const members = [
     return HttpResponse.json({});
   }),
   http.post("/api/rooms/:roomId/restore", ({ params }) => {
-    const room = rooms.get(roomId(params.roomId) ?? ("" as RoomId));
+    const room = find(params.roomId);
     if (room?.deletedAt == null) return notFound();
     room.deletedAt = null;
     return HttpResponse.json({});
   }),
   // Yuki owns every room here, so she may have a deleted one gone for good
   http.post("/api/rooms/:roomId/purge", ({ params }) => {
-    const id = roomId(params.roomId) ?? ("" as RoomId);
-    if (rooms.get(id)?.deletedAt == null) return forbidden();
+    const id = roomId(params.roomId);
+    if (id === null || rooms.get(id)?.deletedAt == null) return forbidden();
     rooms.delete(id);
     return HttpResponse.json({});
   }),
@@ -314,27 +360,18 @@ const mine = [
     });
   }),
   http.post("/api/rooms", async ({ request }) => {
-    const { trip, me } = (await request.json()) as {
-      trip: {
-        name: string;
-        days: string[];
-        currency: string;
-        center: { lat: number; lng: number };
-      };
-      me: { name: string; color: string };
-    };
-    const id = roomId(crypto.randomUUID())!;
+    // checked as the Worker checks them
+    const body: unknown = await request.json();
+    const trip = parseTrip(isRecord(body) ? body.trip : null);
+    const me = parseProfile(isRecord(body) ? body.me : null);
+    const id = roomId(crypto.randomUUID());
+    if (trip === null || me === null || id === null) return badRequest();
     const creator = reviveMember({ id: YUKI, kind: "person", role: "owner", ...me });
     rooms.set(id, {
       state: {
         notes: [],
-        trip: reviveTrip({
-          ...trip,
-          days: trip.days.map((date) => ({ date, intro: "" })),
-          flights: { out: null, back: null },
-          stays: [],
-        }),
-        members: [creator, mockMembers().find((m) => m.id === CLAUDE)!],
+        trip: reviveTrip(trip),
+        members: [creator, ...mockMembers().filter((m) => m.id === CLAUDE)],
       },
       invited: [],
       deletedAt: null,

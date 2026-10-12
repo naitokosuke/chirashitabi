@@ -14,7 +14,7 @@ export function guardMissingProperties(style: StyleSpecification): StyleSpecific
     ...style,
     layers: style.layers.map((layer) =>
       "filter" in layer && layer.filter !== undefined
-        ? ({ ...layer, filter: guard(layer.filter) } as typeof layer)
+        ? { ...layer, filter: guard(layer.filter) }
         : layer,
     ),
   };
@@ -27,12 +27,16 @@ const gotten = (v: unknown): string | null =>
   Array.isArray(v) && v.length === 2 && v[0] === "get" && typeof v[1] === "string" ? v[1] : null;
 
 /** An expression with each ordering comparison of a property guarded by `has` */
-function guard<T>(expr: T): T {
+const guard = <T>(expr: T): T =>
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a guarded filter is still one, which MapLibre's types cannot follow through the rewrite
+  rewrite(expr) as T;
+
+function rewrite(expr: unknown): unknown {
   if (!Array.isArray(expr)) return expr;
-  const inner = expr.map((e: unknown) => guard(e));
+  const inner = expr.map(rewrite);
   if (typeof inner[0] === "string" && ORDERING.has(inner[0])) {
     const name = gotten(inner[1]) ?? gotten(inner[2]);
-    if (name !== null) return ["all", ["has", name], inner] as T;
+    if (name !== null) return ["all", ["has", name], inner];
   }
-  return inner as T;
+  return inner;
 }

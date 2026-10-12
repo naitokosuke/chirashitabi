@@ -118,7 +118,9 @@ const isMe = (m: MemberId) => sync.me === m;
           <small>{{ i18n.t("people.pending") }}</small>
         </span>
         <span class="acts">
-          <button type="button" @click="() => uninvite(address)">{{ i18n.t("people.uninvite") }}</button>
+          <button type="button" @click="() => uninvite(address)">{{
+            i18n.t("people.uninvite")
+          }}</button>
         </span>
       </li>
     </ul>
@@ -171,7 +173,9 @@ const isMe = (m: MemberId) => sync.me === m;
       </template>
       <template v-else>
         <template v-if="asked({ kind: 'leave' })">
-          <button class="danger" type="button" @click="leave">{{ i18n.t("people.leaveConfirm") }}</button>
+          <button class="danger" type="button" @click="leave">{{
+            i18n.t("people.leaveConfirm")
+          }}</button>
           <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
         </template>
         <button v-else type="button" @click="() => ask({ kind: 'leave' })">

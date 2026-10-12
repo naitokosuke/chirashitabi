@@ -1,6 +1,9 @@
 import type { RequestLogger } from "evlog";
 import { initWorkersLogger, withEvlog } from "evlog/workers";
 
+import { isRecord } from "../src/app/shared/record";
+
+import { isImageId } from "../src/app/features/notes/id";
 import { isShortMapsLink, parseMapsUrl } from "../src/app/features/place/google-maps";
 
 import { AccessVerifier, Unauthenticated } from "./access";
@@ -13,7 +16,6 @@ import { RoomsIndex } from "./rooms-index";
 import {
   IMAGE_TYPES,
   isDate,
-  isImageId,
   MAX_IMAGE_BYTES,
   parseEmail,
   parsePoint,
@@ -56,26 +58,28 @@ export default withEvlog<Env>(
 const booklet = () => new Response("Not Found", { status: 404 });
 
 const status = (code: number, text: string) => new Response(text, { status: code });
-type RoomAction =
-  | "ws"
-  | "draft"
-  | "suggest"
-  | "tags"
-  | "candidates"
-  | "places"
-  | "where"
-  | "find"
-  | "expand"
-  | "invited"
-  | "invite"
-  | "uninvite"
-  | "remove"
-  | "leave"
-  | "delete"
-  | "restore"
-  | "purge";
-const ROOM =
-  /^\/api\/rooms\/([0-9a-f-]{36})\/(ws|draft|suggest|tags|candidates|places|where|find|expand|invited|invite|uninvite|remove|leave|delete|restore|purge)$/;
+const ROOM_ACTIONS = [
+  "ws",
+  "draft",
+  "suggest",
+  "tags",
+  "candidates",
+  "places",
+  "where",
+  "find",
+  "expand",
+  "invited",
+  "invite",
+  "uninvite",
+  "remove",
+  "leave",
+  "delete",
+  "restore",
+  "purge",
+] as const;
+type RoomAction = (typeof ROOM_ACTIONS)[number];
+const isRoomAction = (v: unknown): v is RoomAction => ROOM_ACTIONS.some((a) => a === v);
+const ROOM = new RegExp(`^/api/rooms/([0-9a-f-]{36})/(${ROOM_ACTIONS.join("|")})$`);
 /** An invitation to a room, answered by the person invited */
 const INVITATION = /^\/api\/invitations\/([0-9a-f-]{36})\/(accept|decline)$/;
 /** A room's pictures: POST to upload one, GET `/images/<id>` to show it */
@@ -92,12 +96,12 @@ async function images(
   env: Env,
   url: URL,
   email: string,
-  [, roomId, imageId]: RegExpExecArray,
+  { roomId, imageId }: { roomId: string; imageId: string | undefined },
   log: RequestLogger,
 ): Promise<Response> {
-  const memberId = await env.ROOMS.getByName("index").resolve(email, roomId!);
+  const memberId = await env.ROOMS.getByName("index").resolve(email, roomId);
   if (memberId === null) return status(403, "Forbidden");
-  const room = env.ROOM.getByName(roomId!);
+  const room = env.ROOM.getByName(roomId);
   log.set({ room: roomId, member: memberId, action: "image" });
 
   // the room's own folder in the bucket: one room's ids never reach another's pictures
@@ -121,8 +125,7 @@ async function images(
   if (request.method !== "POST" || request.headers.get("Origin") !== url.origin)
     return status(403, "Forbidden");
   const type = request.headers.get("Content-Type") ?? "";
-  if (!(IMAGE_TYPES as readonly string[]).includes(type))
-    return status(415, "Unsupported Media Type");
+  if (!IMAGE_TYPES.some((t) => t === type)) return status(415, "Unsupported Media Type");
   if (Number(request.headers.get("Content-Length") ?? "0") > MAX_IMAGE_BYTES)
     return status(413, "Payload Too Large");
   const data = await request.arrayBuffer();
@@ -151,8 +154,9 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
     return status(401, "Unauthorized");
   }
 
-  const pictures = IMAGES.exec(url.pathname);
-  if (pictures !== null) return images(request, env, url, email, pictures, log);
+  const [, picturesOf, imageId] = IMAGES.exec(url.pathname) ?? [];
+  if (picturesOf !== undefined)
+    return images(request, env, url, email, { roomId: picturesOf, imageId }, log);
 
   // Access checks the cookie, not where the request came from. Every API call is a POST
   // with JSON (so the browser always sends Origin) or an upgrade; anything else is refused.
@@ -195,10 +199,10 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
     return Response.json({ rooms, invitations, deleted });
   }
 
-  const answer = INVITATION.exec(url.pathname);
-  if (answer !== null) {
+  const [, invitedTo, verb] = INVITATION.exec(url.pathname) ?? [];
+  if (invitedTo !== undefined) {
     if (upgrade) return status(403, "Forbidden");
-    const [, roomId, verb] = answer as unknown as [string, string, "accept" | "decline"];
+    const roomId = invitedTo;
     log.set({ room: roomId, action: verb });
     const room = env.ROOM.getByName(roomId);
     if (verb === "decline") {
@@ -235,9 +239,8 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
     return Response.json({ roomId, memberId });
   }
 
-  const m = ROOM.exec(url.pathname);
-  if (m === null) return status(404, "Not Found");
-  const [, roomId, action] = m as unknown as [string, string, RoomAction];
+  const [, roomId, action] = ROOM.exec(url.pathname) ?? [];
+  if (roomId === undefined || !isRoomAction(action)) return status(404, "Not Found");
 
   if (action === "restore" || action === "purge") {
     if (upgrade) return status(403, "Forbidden");
@@ -601,7 +604,7 @@ async function people(
 async function json(request: Request): Promise<Record<string, unknown> | null> {
   try {
     const v: unknown = await request.json();
-    return typeof v === "object" && v !== null ? (v as Record<string, unknown>) : null;
+    return isRecord(v) ? v : null;
   } catch {
     return null;
   }

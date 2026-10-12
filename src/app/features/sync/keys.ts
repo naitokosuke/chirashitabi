@@ -9,6 +9,7 @@ import type { TripSnapshot } from "../trip/types";
 const slice =
   <T>(name: string) =>
   (roomId: RoomId) =>
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Pinia Colada's tag is a type alone, with no value to make it from
     ["room", roomId, name] as unknown as EntryKeyTagged<T>;
 
 /**

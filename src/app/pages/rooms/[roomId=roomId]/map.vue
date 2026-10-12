@@ -97,8 +97,9 @@ let map: MLMap | null = null;
 const markers = new Map<string, Marker>();
 
 onMounted(() => {
+  if (el.value === null) return;
   map = new MLMap({
-    container: el.value!,
+    container: el.value,
     // the trip's area; the whole world until the room says where we are going
     center: trip.value === undefined ? [0, 0] : [trip.value.center.lng, trip.value.center.lat],
     zoom: trip.value === undefined ? 1 : 11.5,
@@ -119,8 +120,8 @@ onMounted(() => {
     "bottom-right",
   );
   map.on("load", () => {
-    map!.addSource("route", { type: "geojson", data: routeLine([]) });
-    map!.addLayer({
+    map?.addSource("route", { type: "geojson", data: routeLine([]) });
+    map?.addLayer({
       id: "route",
       type: "line",
       source: "route",
@@ -219,7 +220,8 @@ function syncMarkers() {
     e.classList.toggle("on", selected.value?.id === n.id);
     // the pin is the note's own paper, so a card on the desk and its pin are told apart by nothing
     e.style.setProperty("--pin", PAPERS[n.color]);
-    e.querySelector(".lbl")!.textContent = n.title;
+    const label = e.querySelector(".lbl");
+    if (label !== null) label.textContent = n.title;
   }
   for (const [id, m] of markers)
     if (!seen.has(id)) {
@@ -228,8 +230,9 @@ function syncMarkers() {
     }
 }
 function syncRoute() {
-  if (map === null || map.getSource("route") === undefined) return;
-  const src = map.getSource("route") as maplibregl.GeoJSONSource;
+  if (map === null) return;
+  const src = map.getSource("route");
+  if (!(src instanceof maplibregl.GeoJSONSource)) return;
   const d = day.value;
   const stays = trip.value?.stays ?? [];
   // a day leaves from the night before's stay, or the airport it lands at on the way there; and
@@ -365,7 +368,9 @@ function fitAll() {
         </div>
         <!-- the desk's filter follows the pins here, and can be cleared here -->
         <div v-if="tags.selected.size > 0">
-          <CtChip class="clear" @click="() => tags.selected.clear()">{{ i18n.t("filter.clear") }}</CtChip>
+          <CtChip class="clear" @click="() => tags.selected.clear()">{{
+            i18n.t("filter.clear")
+          }}</CtChip>
           <CtChip
             v-for="t in tags.tagList.filter((x) => tags.selected.has(x.name))"
             :key="t.name"
@@ -374,7 +379,9 @@ function fitAll() {
             @click="() => tags.toggleTag(t.name)"
           >#{{ t.name }}</CtChip>
         </div>
-        <p v-if="noPin > 0">{{ i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin }) }}</p>
+        <p v-if="noPin > 0">{{
+          i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin })
+        }}</p>
       </div>
 
       <!-- the press being held: a ring that fills, and the memo is written when it closes -->
@@ -388,7 +395,10 @@ function fitAll() {
       <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
 
       <!-- the same write button as the canvas: writing is never more than a tap away -->
-      <CtFab :label="i18n.t('canvas.write')" @click="() => write(null)"><Icon :size="24" :src="plusIcon" /></CtFab>
+      <CtFab :label="i18n.t('canvas.write')" @click="() => write(null)"><Icon
+          :size="24"
+          :src="plusIcon"
+        /></CtFab>
 
       <article v-if="selected !== null" :style="`--card:${PAPERS[selected.color]}`">
         <h2>{{ selected.title }}</h2>
@@ -399,9 +409,14 @@ function fitAll() {
           <span v-if="selected.schedule !== null">{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
         </footer>
         <div>
-          <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{ i18n.t("map.openInGoogleMaps") }}</a>
+          <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{
+            i18n.t("map.openInGoogleMaps")
+          }}</a>
           <button type="button" @click="editSelected">{{ i18n.t("common.edit") }}</button>
-          <button type="button" :aria-label="i18n.t('common.close')" @click="closeCard"><Icon :size="18" :src="closeIcon" /></button>
+          <button type="button" :aria-label="i18n.t('common.close')" @click="closeCard"><Icon
+              :size="18"
+              :src="closeIcon"
+            /></button>
         </div>
       </article>
     </div>

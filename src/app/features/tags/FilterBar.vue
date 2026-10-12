@@ -35,7 +35,9 @@ function toggleOnly() {
       appearing narrows the row, it never pushes a chip along.
     -->
     <div v-if="tags.selected.size > 0">
-      <CtChip toggle :selected="tags.mode === 'only'" @click="toggleOnly">{{ i18n.t("filter.only") }}</CtChip>
+      <CtChip toggle :selected="tags.mode === 'only'" @click="toggleOnly">{{
+        i18n.t("filter.only")
+      }}</CtChip>
       <CtChip class="clear" @click="clearTags">{{ i18n.t("filter.clear") }}</CtChip>
     </div>
   </div>

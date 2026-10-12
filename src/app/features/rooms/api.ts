@@ -1,6 +1,7 @@
 import { Temporal } from "temporal-polyfill-lite";
 
 import { hexColor } from "../../shared/color";
+import { isRecord } from "../../shared/record";
 
 import { toWire } from "./newRoom";
 import {
@@ -15,14 +16,13 @@ import {
 
 const headers = { "Content-Type": "application/json" };
 
-/** A response that is not 2xx, as an error the caller's state can hold */
-async function json<T>(res: Response): Promise<T> {
+/** The answer's JSON as a record, its fields still to check; a response that is not 2xx is an error the caller's state can hold */
+async function json(res: Response): Promise<Record<string, unknown>> {
   if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
-  return (await res.json()) as T;
+  return record(await res.json());
 }
 
-const record = (value: unknown): Record<string, unknown> =>
-  typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {});
 const count = (value: unknown) =>
   typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
 function date(value: unknown): Temporal.PlainDate | null {
@@ -88,7 +88,7 @@ const list = <T>(value: unknown, of: (raw: unknown) => T | null): T[] =>
  */
 export async function listMine(): Promise<Mine> {
   const res = await fetch("/api/me", { method: "POST", headers, body: "{}" });
-  const r = record(await json<unknown>(res));
+  const r = await json(res);
   return {
     rooms: list(r.rooms, summaryOf),
     invitations: list(r.invitations, summaryOf),
@@ -116,7 +116,7 @@ export const purgeRoom = (room: RoomId) => call(`/api/rooms/${room}/purge`);
 export async function createRoom(room: NewRoom): Promise<RoomId> {
   const body = JSON.stringify(toWire(room));
   const res = await fetch("/api/rooms", { method: "POST", headers, body });
-  const id = roomId((await json<{ roomId: unknown }>(res)).roomId);
+  const id = roomId((await json(res)).roomId);
   if (id === null) throw new Error("/api/rooms answered without a room id");
   return id;
 }

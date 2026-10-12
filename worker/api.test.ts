@@ -83,7 +83,7 @@ beforeAll(async () => {
     let raw = "";
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
-      const body = JSON.parse(raw);
+      const body = JSON.parse(raw) as Parameters<typeof answer>[0];
       asked.push(body);
       const { status, body: out } = answer(body);
       res.statusCode = status;
@@ -98,7 +98,7 @@ beforeAll(async () => {
     let raw = "";
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
-      const body = JSON.parse(raw);
+      const body = JSON.parse(raw) as (typeof judged)[number];
       judged.push(body);
       const { status, body: out } = judge(body);
       res.statusCode = status;
@@ -1451,7 +1451,7 @@ describe("the agent's suggestions", () => {
 
 describe("pictures", () => {
   /** A few bytes standing in for a WebP: the Worker checks the type it is told, not the bytes */
-  const BYTES = new Uint8Array([0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4]) as Uint8Array<ArrayBuffer>;
+  const BYTES = new Uint8Array([0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4]);
   const upload = async (
     roomId: string,
     email: string,

@@ -192,14 +192,18 @@ function save() {
         </div>
       </div>
     </div>
-    <p v-if="dropped > 0" class="note" role="status">{{ i18n.t("trip.dropped", { count: dropped }) }}</p>
+    <p v-if="dropped > 0" class="note" role="status">{{
+      i18n.t("trip.dropped", { count: dropped })
+    }}</p>
 
     <!-- the flights there and home: each a card of a few fields once added, said once what they need -->
     <p class="hint">{{ i18n.t("flight.localTime") }}</p>
     <fieldset v-for="leg in LEGS" :key="leg" :class="{ card: form.flights[leg].on }">
       <legend>{{ i18n.t(leg === "out" ? "flight.out" : "flight.back") }}</legend>
       <template v-if="form.flights[leg].on">
-        <button class="remove" type="button" @click="() => removeFlight(leg)">{{ i18n.t("flight.remove") }}</button>
+        <button class="remove" type="button" @click="() => removeFlight(leg)">{{
+          i18n.t("flight.remove")
+        }}</button>
         <!-- the airports, the one thing a flight needs -->
         <div class="row airports">
           <AirportField
@@ -246,7 +250,9 @@ function save() {
       <legend>{{ i18n.t("stay.title") }}</legend>
       <div v-for="(s, i) in form.stays" :key="i" class="stay card">
         <p class="head">{{ i18n.t("stay.nth", { n: i + 1 }) }}</p>
-        <button class="remove" type="button" @click="() => removeStay(i)">{{ i18n.t("stay.remove") }}</button>
+        <button class="remove" type="button" @click="() => removeStay(i)">{{
+          i18n.t("stay.remove")
+        }}</button>
         <div class="field">
           <label :for="`${id}-stay-${i}-name`">{{ i18n.t("stay.name") }}</label>
           <input :id="`${id}-stay-${i}-name`" v-model="s.name" :maxlength="MAX_NAME" required />
@@ -261,10 +267,14 @@ function save() {
           >{{ i18n.t(finding.has(s) ? "stay.finding" : "stay.find") }}</button>
           <ul v-if="(found.get(s)?.length ?? 0) > 0">
             <li v-for="p in found.get(s)" :key="`${p.at.lat},${p.at.lng}`">
-              <button type="button" @click="() => chooseStay(s, p)"><b>{{ p.name }}</b><small>{{ p.address }}</small></button>
+              <button type="button" @click="() => chooseStay(s, p)"><b>{{ p.name }}</b><small>{{
+                  p.address
+                }}</small></button>
             </li>
           </ul>
-          <p v-if="found.get(s)?.length === 0" aria-live="polite" class="hint">{{ i18n.t("stay.findNone") }}</p>
+          <p v-if="found.get(s)?.length === 0" aria-live="polite" class="hint">{{
+            i18n.t("stay.findNone")
+          }}</p>
           <p v-else-if="found.has(s)" class="hint">{{ i18n.t("form.placesCredit") }}</p>
         </div>
         <div class="row">
@@ -302,8 +312,12 @@ function save() {
     </fieldset>
 
     <footer>
-      <button class="primary" type="submit" :disabled="settings === null">{{ i18n.t("trip.save") }}</button>
-      <button class="quiet" type="button" @click="() => emit('close')">{{ i18n.t("people.cancel") }}</button>
+      <button class="primary" type="submit" :disabled="settings === null">{{
+        i18n.t("trip.save")
+      }}</button>
+      <button class="quiet" type="button" @click="() => emit('close')">{{
+        i18n.t("people.cancel")
+      }}</button>
     </footer>
   </form>
 </template>

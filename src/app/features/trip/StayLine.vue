@@ -25,10 +25,14 @@ const href = computed(() => {
   <div class="stay">
     <p class="head">
       <b>{{ label }}</b>
-      <small>{{ i18n.t("stay.when", { date: longDate(stay.checkIn, i18n.locale), count: stay.nights }) }}</small>
+      <small>{{
+        i18n.t("stay.when", { date: longDate(stay.checkIn, i18n.locale), count: stay.nights })
+      }}</small>
     </p>
     <p class="name">{{ stay.name }}</p>
-    <a v-if="href !== undefined" :href rel="noopener noreferrer" target="_blank">{{ i18n.t("stay.open") }}</a>
+    <a v-if="href !== undefined" :href rel="noopener noreferrer" target="_blank">{{
+      i18n.t("stay.open")
+    }}</a>
   </div>
 </template>
 

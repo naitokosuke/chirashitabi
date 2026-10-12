@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, watch } from "vue";
 
 import { RouterView, useRoute, useRouter } from "vue-router";
 
+import { isRecord } from "../../shared/record";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import { usePlace } from "../../features/canvas/usePlace";
@@ -85,7 +87,8 @@ const sheet = computed((): FormMode | null =>
  */
 function closeSheet() {
   const tabOnly = { name: route.name, params: { roomId: route.params.roomId } };
-  const back = (window.history.state as { back?: unknown } | null)?.back;
+  const state: unknown = window.history.state;
+  const back = isRecord(state) ? state.back : undefined;
   if (back === router.resolve(tabOnly).fullPath) router.back();
   else void router.replace(tabOnly);
 }

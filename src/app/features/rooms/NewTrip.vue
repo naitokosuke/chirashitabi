@@ -12,7 +12,7 @@ import {
   lengthOf,
 } from "../../../ui/index";
 
-import type { HexColor } from "../../shared/color";
+import { hexColor } from "../../shared/color";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -60,9 +60,9 @@ const filled = computed(() =>
 const preview = computed(() => {
   // the person, nameless, in their color; and the agent, in every trip from the start (worker/room.ts)
   const members: RoomSummary["members"] = [
-    { kind: "person", name: "", color: color.value as HexColor },
-    { kind: "agent", name: "Claude", color: "#d97757" as HexColor },
-  ];
+    { kind: "person" as const, name: "", color: hexColor(color.value) },
+    { kind: "agent" as const, name: "Claude", color: hexColor("#d97757") },
+  ].flatMap((m) => (m.color === null ? [] : [{ ...m, color: m.color }]));
   const typed = name.value.trim();
   return {
     name: typed === "" ? i18n.t("rooms.namePlaceholder") : typed,

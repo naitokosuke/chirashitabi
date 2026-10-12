@@ -9,7 +9,6 @@ import { type EntryKeyTagged, useQueryCache } from "@pinia/colada";
 import { useI18n } from "../../i18n/useI18n";
 
 import type { GoneReason } from "../../../../worker/wire";
-import type { MemberId } from "../members/types";
 import { roomId, type RoomId } from "../rooms/types";
 import { ROOMS_KEY } from "../rooms/useRooms";
 import { useToast } from "../toast/useToast";
@@ -103,14 +102,14 @@ export const useRoom = defineStore("room", () => {
           members: msg.members.map(reviveMember),
         }),
       );
-      sync.session = synced(sync.session, msg.me as MemberId, Temporal.Now.instant());
+      sync.session = synced(sync.session, msg.me, Temporal.Now.instant());
       remember();
       // ours the room has not answered go again: it may never have got them
       for (const p of ledger.pending) socket.send(p.m, p.cid);
     },
     onMutation(msg) {
       const m = reviveMutation(msg.mutation);
-      show(ledger.relayed(m, msg.by as MemberId, Temporal.Instant.from(msg.updatedAt)));
+      show(ledger.relayed(m, msg.by, Temporal.Instant.from(msg.updatedAt)));
     },
     onAck(cid, updatedAt) {
       show(ledger.ack(cid, Temporal.Instant.from(updatedAt)));

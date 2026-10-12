@@ -1,6 +1,6 @@
 import type { RoomId } from "../rooms/types";
 
-import type { ImageId } from "./types";
+import type { ImageId } from "./id";
 
 /** The longest side a picture is sent at: plenty for a card and a phone screen */
 const MAX_SIDE = 1600;
@@ -21,7 +21,9 @@ export async function shrinkImage(file: Blob): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const context = canvas.getContext("2d");
+  if (context === null) throw new Error("this browser cannot draw the picture");
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
   for (const quality of [0.82, 0.7, 0.55, 0.4]) {
     const blob = await encode(canvas, "image/webp", quality);

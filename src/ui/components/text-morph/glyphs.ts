@@ -44,23 +44,33 @@ export function align(
   const m = next.length;
   // lcs[i][j]: the longest common run of prev[i..] and next[j..]
   const lcs = Array.from({ length: n + 1 }, () => Array.from({ length: m + 1 }, () => 0));
-  for (let i = n - 1; i >= 0; i--)
-    for (let j = m - 1; j >= 0; j--)
-      lcs[i]![j] = same(prev[i]!, next[j]!)
-        ? lcs[i + 1]![j + 1]! + 1
-        : Math.max(lcs[i + 1]![j]!, lcs[i]![j + 1]!);
+  // past either end the run is empty
+  const run = (i: number, j: number) => lcs[i]?.[j] ?? 0;
+  for (let i = n - 1; i >= 0; i--) {
+    const a = prev[i];
+    const row = lcs[i];
+    if (a === undefined || row === undefined) continue;
+    for (let j = m - 1; j >= 0; j--) {
+      const b = next[j];
+      row[j] =
+        b !== undefined && same(a, b)
+          ? run(i + 1, j + 1) + 1
+          : Math.max(run(i + 1, j), run(i, j + 1));
+    }
+  }
   const out: Glyph[] = [];
   let i = 0;
   let j = 0;
-  while (j < m) {
-    if (i < n && same(prev[i]!, next[j]!)) {
-      out.push({ ...next[j]!, id: prev[i]!.id });
+  for (let b = next[j]; b !== undefined; b = next[j]) {
+    const a = prev[i];
+    if (a !== undefined && same(a, b)) {
+      out.push({ ...b, id: a.id });
       i++;
       j++;
-    } else if (i < n && lcs[i + 1]![j]! >= lcs[i]![j + 1]!) {
+    } else if (a !== undefined && run(i + 1, j) >= run(i, j + 1)) {
       i++;
     } else {
-      out.push({ ...next[j]!, id: mint() });
+      out.push({ ...b, id: mint() });
       j++;
     }
   }

@@ -18,12 +18,12 @@ import { formatMoney } from "../../../shared/money";
 import { useI18n } from "../../../i18n/useI18n";
 
 import { useMembers } from "../../../features/members/useMembers";
+import type { NoteId } from "../../../features/notes/id";
 import {
   ARRIVAL_TAG,
   PACKING_TAG,
   PAPERS,
   type Memo,
-  type NoteId,
   type Scheduled,
 } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
@@ -213,15 +213,17 @@ function nextStatus(n: Scheduled) {
 }
 /** A tick in the appendix: shared with the room, so the partner sees the bag is packed */
 function setChecked(n: Memo, e: Event) {
-  store.update(n.id, { checked: (e.target as HTMLInputElement).checked });
+  if (!(e.target instanceof HTMLInputElement)) return;
+  store.update(n.id, { checked: e.target.checked });
 }
 function setTime(n: Scheduled, e: Event) {
-  const time = fromHhmm((e.target as HTMLInputElement).value);
+  if (!(e.target instanceof HTMLInputElement)) return;
+  const time = fromHhmm(e.target.value);
   store.update(n.id, { schedule: { ...n.schedule, time } });
 }
 function onIntroChange(e: Event) {
   if (day.value === null) return;
-  setIntro(day.value, (e.target as HTMLTextAreaElement).value);
+  if (e.target instanceof HTMLTextAreaElement) setIntro(day.value, e.target.value);
 }
 
 const {
@@ -287,11 +289,15 @@ function adoptDraft() {
           totalAll > 0
             ? i18n.t("shiori.summary", { fixed: fixedCount, total: price(totalFixed) })
             : i18n.t("shiori.summaryCount", { fixed: fixedCount })
-        }}<small v-if="totalAll > totalFixed">{{ i18n.t("shiori.withMaybes", { total: price(totalAll) }) }}</small></p>
+        }}<small v-if="totalAll > totalFixed">{{
+          i18n.t("shiori.withMaybes", { total: price(totalAll) })
+        }}</small></p>
 
       <!-- tray: memos without a day (edit mode only) -->
       <section v-if="editing">
-        <div><span>{{ i18n.t("shiori.trayTitle", { count: unassigned.length }) }}</span><small>{{ i18n.t("shiori.trayHint") }}</small></div>
+        <div><span>{{ i18n.t("shiori.trayTitle", { count: unassigned.length }) }}</span><small>{{
+            i18n.t("shiori.trayHint")
+          }}</small></div>
         <p v-if="unassigned.length === 0">{{ i18n.t("shiori.trayEmpty") }}</p>
         <ul v-else>
           <li v-for="n in unassigned" :key="n.id">
@@ -314,7 +320,9 @@ function adoptDraft() {
             type="button"
             @click="() => putPickedOn(d.date)"
           >{{ short(d.date) }}</button>
-          <button type="button" @click="() => (pickingId = null)">{{ i18n.t("shiori.later") }}</button>
+          <button type="button" @click="() => (pickingId = null)">{{
+            i18n.t("shiori.later")
+          }}</button>
         </div>
       </section>
 
@@ -348,9 +356,13 @@ function adoptDraft() {
               @change="onIntroChange"
             ></textarea>
           </template>
-          <p v-else-if="(dayOf(day)?.intro ?? '') !== ''" class="intro" data-turn>{{ dayOf(day)?.intro }}</p>
+          <p v-else-if="(dayOf(day)?.intro ?? '') !== ''" class="intro" data-turn>{{
+            dayOf(day)?.intro
+          }}</p>
 
-          <p v-if="forDay(day).length === 0" class="empty" data-turn>{{ i18n.t("shiori.dayEmpty") }}</p>
+          <p v-if="forDay(day).length === 0" class="empty" data-turn>{{
+            i18n.t("shiori.dayEmpty")
+          }}</p>
 
           <!-- the day is a strip of the same stickies as the canvas, pinned in time order -->
           <ol>
@@ -371,7 +383,9 @@ function adoptDraft() {
                     :value="n.schedule.time ? hhmm(n.schedule.time) : ''"
                     @change="(e) => setTime(n, e)"
                   />
-                  <span v-else>{{ n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime") }}</span>
+                  <span v-else>{{
+                    n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime")
+                  }}</span>
                 </div>
                 <div>
                   <p>{{ n.title }}</p>
@@ -383,9 +397,13 @@ function adoptDraft() {
                       @click="() => nextStatus(n)"
                     >{{ i18n.t(`status.${n.schedule.status}`) }}</button>
                     <span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span>
-                    <button type="button" @click="() => assign(n, null)">{{ i18n.t("shiori.removeDay") }}</button>
+                    <button type="button" @click="() => assign(n, null)">{{
+                      i18n.t("shiori.removeDay")
+                    }}</button>
                   </div>
-                  <p v-else class="meta"><span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span><a
+                  <p v-else class="meta"><span v-if="n.budget !== null && n.budget > 0">{{
+                      price(n.budget)
+                    }}</span><a
                       v-if="safeUrl(n.mapsUrl) !== undefined"
                       :href="safeUrl(n.mapsUrl)"
                       rel="noopener noreferrer"
@@ -394,7 +412,9 @@ function adoptDraft() {
                 </div>
               </li>
             </template>
-            <li v-if="legs.toStay !== null" class="leg" data-turn>{{ `${i18n.t("shiori.toStay")} · ${far(legs.toStay)}` }}</li>
+            <li v-if="legs.toStay !== null" class="leg" data-turn>{{
+              `${i18n.t("shiori.toStay")} · ${far(legs.toStay)}`
+            }}</li>
           </ol>
 
           <!-- read mode: the maybes, faded, at the end of the strip -->
@@ -407,10 +427,14 @@ function adoptDraft() {
                 data-turn
                 :style="`--card:${PAPERS[n.color]}`"
               >
-                <div><span>{{ n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime") }}</span></div>
+                <div><span>{{
+                    n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime")
+                  }}</span></div>
                 <div>
                   <p>{{ n.title }}</p>
-                  <p v-if="n.budget !== null && n.budget > 0" class="meta"><span>{{ price(n.budget) }}</span></p>
+                  <p v-if="n.budget !== null && n.budget > 0" class="meta"><span>{{
+                      price(n.budget)
+                    }}</span></p>
                 </div>
               </li>
             </ol>
@@ -424,10 +448,16 @@ function adoptDraft() {
               data-turn
               :style="`--who: ${drafter?.color ?? 'var(--muted)'}`"
             >
-              <div><span aria-hidden="true"></span>{{ drafter?.name ?? i18n.t("member.someone") }}<small>{{ i18n.t("shiori.draft") }}</small></div>
+              <div><span aria-hidden="true"></span>{{ drafter?.name ?? i18n.t("member.someone") }}<small>{{
+                  i18n.t("shiori.draft")
+                }}</small></div>
               <p>{{ draft.reason }}</p>
               <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}</li></ol>
-              <div><button type="button" @click="adoptDraft">{{ i18n.t("shiori.adoptDraft") }}</button><button type="button" @click="() => (draft = null)">{{ i18n.t("common.dismiss") }}</button></div>
+              <div><button type="button" @click="adoptDraft">{{
+                  i18n.t("shiori.adoptDraft")
+                }}</button><button type="button" @click="() => (draft = null)">{{
+                  i18n.t("common.dismiss")
+                }}</button></div>
             </div>
             <template v-else>
               <button
@@ -437,11 +467,15 @@ function adoptDraft() {
                 :aria-busy="drafting && askedHere"
                 @click="askForDraft"
               >{{ i18n.t(drafting && askedHere ? "shiori.drafting" : "shiori.askDraft") }}</button>
-              <p v-if="draftError !== null && askedHere && !drafting" aria-live="polite">{{ i18n.t(draftFailure) }}</p>
+              <p v-if="draftError !== null && askedHere && !drafting" aria-live="polite">{{
+                i18n.t(draftFailure)
+              }}</p>
             </template>
           </template>
 
-          <p v-if="budgetOf(day) > 0" class="total" data-turn>{{ i18n.t("shiori.dayTotal", { total: price(budgetOf(day)) }) }}<small v-if="budgetOf(day, false) > budgetOf(day)">{{ i18n.t("shiori.withMaybes", { total: price(budgetOf(day, false)) }) }}</small></p>
+          <p v-if="budgetOf(day) > 0" class="total" data-turn>{{ i18n.t("shiori.dayTotal", { total: price(budgetOf(day)) }) }}<small
+              v-if="budgetOf(day, false) > budgetOf(day)"
+            >{{ i18n.t("shiori.withMaybes", { total: price(budgetOf(day, false)) }) }}</small></p>
         </template>
 
         <!-- ---------- appendix ---------- -->
@@ -454,7 +488,11 @@ function adoptDraft() {
                 data-turn
                 :data-checked="n.checked || undefined"
                 :style="`--card:${PAPERS[n.color]}`"
-              ><label><input type="checkbox" :checked="n.checked" @change="(e) => setChecked(n, e)" /><span>{{ n.title }}</span><small v-if="n.body !== ''"> —{{ n.body }}</small></label></li></ul>
+              ><label><input
+                    type="checkbox"
+                    :checked="n.checked"
+                    @change="(e) => setChecked(n, e)"
+                  /><span>{{ n.title }}</span><small v-if="n.body !== ''"> —{{ n.body }}</small></label></li></ul>
             <p v-if="byTag(t).length === 0" data-turn>{{ i18n.t("shiori.tagEmpty") }}</p>
           </section>
         </template>
@@ -462,7 +500,9 @@ function adoptDraft() {
     </div>
 
     <footer v-if="!editing && worker.api !== null && worker.api.exportBooklet !== null">
-      <p v-if="exportError !== null && !exporting" aria-live="polite">{{ i18n.t("shiori.exportFailed") }}</p>
+      <p v-if="exportError !== null && !exporting" aria-live="polite">{{
+        i18n.t("shiori.exportFailed")
+      }}</p>
       <button
         type="button"
         :disabled="exporting"

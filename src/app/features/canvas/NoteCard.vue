@@ -41,7 +41,9 @@ const day = computed(() => {
     :data-pop="pop || undefined"
     :data-selected="selected || undefined"
     :data-visibility="visibility"
-    :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}; --card: ${PAPERS[note.color]}; --who: ${author?.color ?? 'var(--muted)'}`"
+    :style="
+      `--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}; --card: ${PAPERS[note.color]}; --who: ${author?.color ?? 'var(--muted)'}`
+    "
     :data-id="note.id"
     :tabindex="note.kind !== 'suggestion' && visibility !== 'dimmed' ? 0 : undefined"
     :role="note.kind !== 'suggestion' ? 'button' : undefined"
@@ -53,7 +55,11 @@ const day = computed(() => {
         {{ author?.name ?? i18n.t("member.someone") }}<small>{{ i18n.t("note.suggestion") }}</small>
       </header>
       <p>{{ note.title }}</p>
-      <footer><button type="button" @click.stop="() => $emit('adopt')">{{ i18n.t("note.adopt") }}</button><button type="button" @click.stop="() => $emit('remove')">{{ i18n.t("common.dismiss") }}</button></footer>
+      <footer><button type="button" @click.stop="() => $emit('adopt')">{{
+          i18n.t("note.adopt")
+        }}</button><button type="button" @click.stop="() => $emit('remove')">{{
+          i18n.t("common.dismiss")
+        }}</button></footer>
     </template>
     <!-- words on the desk itself: no paper, no author's dot -->
     <p v-else-if="note.kind === 'text'">{{ note.title }}</p>

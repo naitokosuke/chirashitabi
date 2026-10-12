@@ -27,7 +27,8 @@ const listId = computed(() => `${props.id}-airports`);
 const optionId = (i: number) => `${props.id}-airport-${i}`;
 
 function onInput(e: Event) {
-  emit("update:modelValue", (e.target as HTMLInputElement).value);
+  if (!(e.target instanceof HTMLInputElement)) return;
+  emit("update:modelValue", e.target.value);
   open.value = true;
   active.value = -1;
 }
@@ -91,7 +92,9 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
       </li>
     </ul>
     <p v-if="named !== undefined" class="named">{{ `${named.name} · ${place(named)}` }}</p>
-    <p v-else-if="modelValue.trim() !== '' && airports.length > 0" class="named">{{ i18n.t("flight.unknownAirport") }}</p>
+    <p v-else-if="modelValue.trim() !== '' && airports.length > 0" class="named">{{
+      i18n.t("flight.unknownAirport")
+    }}</p>
   </div>
 </template>
 

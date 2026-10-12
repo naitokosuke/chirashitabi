@@ -111,7 +111,46 @@ export default defineConfig({
         "error",
         { allowString: false, allowNumber: false, allowNullableObject: false },
       ],
+      // a value is checked into its type, never asserted: `as` narrows only where a brand is
+      // minted (each such line says so), and `!` not at all
+      "typescript/no-unsafe-type-assertion": "error",
+      "typescript/no-non-null-assertion": "error",
+      "typescript/no-unnecessary-type-assertion": "error",
+      // nor does `any` leak in (src/util/reset.ts types JSON as `unknown`)
+      "typescript/no-explicit-any": "error",
+      "typescript/no-unsafe-argument": "error",
+      "typescript/no-unsafe-assignment": "error",
+      "typescript/no-unsafe-call": "error",
+      "typescript/no-unsafe-member-access": "error",
+      "typescript/no-unsafe-return": "error",
     },
+    overrides: [
+      {
+        // a test's fixtures stand for values the app would have checked
+        files: ["**/*.test.ts", "**/harness.ts"],
+        rules: {
+          "typescript/no-unsafe-type-assertion": "off",
+          "typescript/no-non-null-assertion": "off",
+          // and the test framework's own `any` (expect.any, getEnv) is theirs to use
+          "typescript/no-unsafe-argument": "off",
+          "typescript/no-unsafe-assignment": "off",
+          "typescript/no-unsafe-call": "off",
+          "typescript/no-unsafe-member-access": "off",
+          "typescript/no-unsafe-return": "off",
+        },
+      },
+      {
+        // plain JavaScript (the service worker, scripts/): nothing in it is typed to check
+        files: ["**/*.js", "**/*.mjs"],
+        rules: {
+          "typescript/no-unsafe-argument": "off",
+          "typescript/no-unsafe-assignment": "off",
+          "typescript/no-unsafe-call": "off",
+          "typescript/no-unsafe-member-access": "off",
+          "typescript/no-unsafe-return": "off",
+        },
+      },
+    ],
     options: { typeAware: true, typeCheck: true },
     vize: {
       preset: "opinionated",
@@ -122,6 +161,10 @@ export default defineConfig({
         "vue/prefer-props-shorthand": "error",
         // the oxlint rule above reads .ts only; this one reads .vue scripts and template conditions
         "type/strict-boolean-expressions": "error",
+        // props and emits are declared with types, and a promise is awaited or let go with `void`
+        "type/require-typed-props": "error",
+        "type/require-typed-emits": "error",
+        "type/no-floating-promises": "error",
       },
       ruleOptions: {
         "type/strict-boolean-expressions": {

@@ -71,6 +71,7 @@ export function createRoomSocket(options: RoomSocketOptions) {
     if (roomId === null) return;
     const socket = open(roomId);
     ws = socket;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the room's own messages, every field checked by it before it sent them
     socket.addEventListener("message", (e) => receive(JSON.parse(String(e.data)) as ServerMessage));
     socket.addEventListener("close", () => {
       if (ws !== socket) return; // superseded by leave() or a newer socket

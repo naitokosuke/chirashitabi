@@ -4,7 +4,7 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { currencyCode } from "../../shared/money";
 
-import { airportOf, type AirportRow } from "../place/airports";
+import { airportsOf } from "../place/airports";
 
 import {
   flightOf,
@@ -18,12 +18,10 @@ import {
 } from "./settings";
 import type { TripSnapshot } from "./types";
 
-const airports = (
-  [
-    ["HND", "Tokyo Haneda International Airport", "Tokyo", "JP", 35.5497, 139.787],
-    ["TSA", "Taipei Songshan International Airport", "Taipei (Songshan)", "TW", 25.0672, 121.5528],
-  ] satisfies AirportRow[]
-).map(airportOf);
+const airports = airportsOf([
+  ["HND", "Tokyo Haneda International Airport", "Tokyo", "JP", 35.5497, 139.787],
+  ["TSA", "Taipei Songshan International Airport", "Taipei (Songshan)", "TW", 25.0672, 121.5528],
+]);
 const [HND, TSA] = airports.map((a) => a.code);
 
 const first = Temporal.PlainDate.from("2026-11-03");

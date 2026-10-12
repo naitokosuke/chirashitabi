@@ -1,6 +1,7 @@
+// oxlint-disable typescript/no-unsafe-type-assertion -- the seed's ids and codes are minted here
 import { Temporal } from "temporal-polyfill-lite";
 
-import { currencyCode } from "../shared/money";
+import type { CurrencyCode } from "../shared/money";
 
 import type { AirportCode } from "../features/place/airports";
 import type { TripSnapshot } from "../features/trip/types";
@@ -10,7 +11,7 @@ const start = Temporal.PlainDate.from("2026-11-03");
 export const mockTrip = (): TripSnapshot => ({
   name: "Taiwan trip",
   days: Array.from({ length: 4 }, (_, i) => ({ date: start.add({ days: i }), intro: "" })),
-  currency: currencyCode("TWD")!,
+  currency: "TWD" as CurrencyCode,
   center: { lat: 25.05, lng: 121.54 }, // Taipei
   flights: {
     out: {

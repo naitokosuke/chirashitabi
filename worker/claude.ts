@@ -1,3 +1,5 @@
+import { isRecord } from "../src/app/shared/record";
+
 import type { WireMemo } from "./wire";
 
 /**
@@ -133,23 +135,22 @@ async function ask<T>(
   }
   if (!res.ok) {
     // the API's own words (type and message, never the request) say what it refused
-    const err = (await res.json().catch(() => null)) as {
-      error?: { type?: string; message?: string };
-    } | null;
-    const why =
-      err?.error !== undefined
-        ? `: ${err.error.type ?? ""} ${err.error.message ?? ""}`.trimEnd()
-        : "";
+    const err: unknown = await res.json().catch(() => null);
+    const error = isRecord(err) && isRecord(err.error) ? err.error : null;
+    const said = (v: unknown) => (typeof v === "string" ? v : "");
+    const why = error !== null ? `: ${said(error.type)} ${said(error.message)}`.trimEnd() : "";
     return { ok: false, refund: true, reason: `Claude answered ${res.status}${why}` };
   }
 
-  const body = (await res.json()) as {
-    content?: { type: string; name?: string; input?: unknown }[];
-    usage?: { input_tokens?: number; output_tokens?: number };
-  };
-  const usage = { input: body.usage?.input_tokens ?? 0, output: body.usage?.output_tokens ?? 0 };
-  const call = body.content?.find((c) => c.type === "tool_use" && c.name === tool.name);
-  const value = check(call?.input);
+  const body: unknown = await res.json();
+  const answer = isRecord(body) ? body : {};
+  const used = isRecord(answer.usage) ? answer.usage : {};
+  const tokens = (v: unknown) => (typeof v === "number" ? v : 0);
+  const usage = { input: tokens(used.input_tokens), output: tokens(used.output_tokens) };
+  const call = (Array.isArray(answer.content) ? answer.content : []).find(
+    (c: unknown) => isRecord(c) && c.type === "tool_use" && c.name === tool.name,
+  );
+  const value = check(isRecord(call) ? call.input : undefined);
   return value === null
     ? { ok: false, refund: false, reason: `Claude's answer was not ${what}` }
     : { ok: true, value, usage };
@@ -294,8 +295,6 @@ export function checkSuggestions(v: unknown, taken: ReadonlySet<string>): string
 }
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : null);
 
 /**

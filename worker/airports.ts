@@ -1,9 +1,8 @@
 import {
-  airportOf,
+  airportsOf,
   findAirport,
   type Airport,
   type AirportCode,
-  type AirportRow,
 } from "../src/app/features/place/airports";
 import rows from "../src/app/features/place/airports.json";
 
@@ -11,7 +10,7 @@ import rows from "../src/app/features/place/airports.json";
  * The airports the app suggests (airports.json, OurAirports), for the room to hold a flight to:
  * a flight's from and to are codes on this list, and nothing else
  */
-const AIRPORTS: Airport[] = (rows as unknown as AirportRow[]).map(airportOf);
+const AIRPORTS: Airport[] = airportsOf(rows);
 const CODES = new Set<string>(AIRPORTS.map((a) => a.code));
 
 /** A code on the list, exactly as the app writes it */
