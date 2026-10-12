@@ -9,8 +9,8 @@ defineArt("./CtSwatches.vue", {
   status: "ready",
 });
 
-const COLORS = ["#3c6ee0", "#d7263d", "#1b998b", "#f4a261", "#8e5bd8", "#2a9d3c"];
-const color = ref(COLORS[0]!);
+const COLORS = ["#3c6ee0", "#d7263d", "#1b998b", "#f4a261", "#8e5bd8", "#2a9d3c"] as const;
+const color = ref<string>(COLORS[0]);
 </script>
 
 <art>

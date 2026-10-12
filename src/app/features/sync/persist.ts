@@ -59,6 +59,7 @@ export function kept(storage: Storage, roomId: string): Kept | null {
     const raw = storage.getItem(keyOf(roomId));
     if (raw === null) return null;
     // what keep() wrote; one from another version is told by `v`, and one that is not even that throws below
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- this device's own copy, written by keep()
     const saved = JSON.parse(raw) as Saved;
     if (saved.v !== VERSION || saved.me === "") return null;
     return {

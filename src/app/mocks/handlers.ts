@@ -41,7 +41,8 @@ interface MockRoom {
 }
 
 /** The seeded trip's room */
-export const MOCK_ROOM = roomId("7a1f2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d")!;
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+export const MOCK_ROOM = "7a1f2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d" as RoomId;
 
 const rooms = new Map<RoomId, MockRoom>([
   [
@@ -56,6 +57,7 @@ const rooms = new Map<RoomId, MockRoom>([
 ]);
 
 /** The app's values as they cross the wire: Temporal values as their ISO strings */
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the app's own values, as the wire writes them
 const wire = <T>(value: unknown): T => JSON.parse(JSON.stringify(value)) as T;
 
 const forbidden = () => new HttpResponse(null, { status: 403 });
@@ -189,6 +191,7 @@ const agent = [
     const updatedAt = now().toString();
     titles.forEach((title, i) => {
       const note: WireNote = {
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
         id: crypto.randomUUID() as NoteId,
         kind: "suggestion",
         title,

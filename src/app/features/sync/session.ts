@@ -21,6 +21,7 @@ export type InRoom = Extract<Session, { kind: "in" }>;
 export const OUT: Session = { kind: "out" };
 
 /** No room: what the stores read out of one, whose cache entries are never written */
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here, for a sentinel no room has
 export const NO_ROOM = "none" as RoomId;
 
 /** Opening a room: in at once with what this device kept of it, joining otherwise */

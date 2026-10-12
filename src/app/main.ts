@@ -15,6 +15,7 @@ import "./style.css";
 // No plugins: in particular no retry, since some mutations are paid calls.
 // The router draws the pages (pages/, router.ts), its views being components of the classic
 // runtime, which the interop plugin lets a Vapor app mount.
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- tsc types a .vue as the classic DefineComponent; Vize compiles this one as Vapor
 const app = createVaporApp(App as VaporComponent)
   .use(createPinia())
   .use(PiniaColada)

@@ -122,7 +122,7 @@ describe("applyToNotes", () => {
   });
 
   test("a text box is rewritten; a memo takes no rewrite", () => {
-    const box: TextBox = { ...memo("t"), kind: "text", title: "Day 1" } as TextBox;
+    const box: TextBox = { ...memo("t"), kind: "text", title: "Day 1" };
     const notes: Note[] = [box, memo("m")];
     const next = apply(notes, { type: "text:edit", id: "t" as NoteId, text: "Day 2" }, KEN, t1);
     expect(next[0]).toMatchObject({ kind: "text", title: "Day 2", updatedAt: t1, by: YUKI });

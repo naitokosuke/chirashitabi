@@ -23,6 +23,7 @@ const pin = (lat: number, lng: number) => ({ lat, lng });
 
 let i = 0;
 const card = (): Pick<Memo, "id" | "color" | "rot" | "scale" | "by" | "updatedAt"> => ({
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
   id: ("s" + i++) as NoteId,
   color: "#fff1b8",
   rot: 0,

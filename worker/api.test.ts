@@ -1451,7 +1451,7 @@ describe("the agent's suggestions", () => {
 
 describe("pictures", () => {
   /** A few bytes standing in for a WebP: the Worker checks the type it is told, not the bytes */
-  const BYTES = new Uint8Array([0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4]) as Uint8Array<ArrayBuffer>;
+  const BYTES = new Uint8Array([0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4]);
   const upload = async (
     roomId: string,
     email: string,

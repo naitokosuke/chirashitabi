@@ -13,6 +13,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** The id, or null when it is not one the Worker could have made */
 export const roomId = (value: unknown): RoomId | null =>
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
   typeof value === "string" && UUID.test(value) ? (value as RoomId) : null;
 
 /**

@@ -72,7 +72,8 @@ type NoteRow = {
  */
 export class Room extends DurableObject<Env> {
   static readonly MAX_PEOPLE = SEATS;
-  // minted here, the one id that is the same in every room
+  // the one id that is the same in every room
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
   static readonly AGENT_ID = "agent:claude" as MemberId;
   static readonly MEMBER_HEADER = "X-Chirashitabi-Member";
 
@@ -569,6 +570,7 @@ export class Room extends DurableObject<Env> {
     let added = 0;
     titles.forEach((title, i) => {
       const note: WireNote = {
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
         id: crypto.randomUUID() as NoteId,
         kind: "suggestion",
         title,
