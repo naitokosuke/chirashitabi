@@ -107,7 +107,7 @@ one {{{$count} note}}
   "flight.arrives": "Arrives",
   "flight.airportHint": "Code or name",
   "flight.unknownAirport":
-    "Not an airport on the list: it will not show on the map. Pick one as you type.",
+    "Not an airport on the list, so the trip cannot be saved yet. Pick one as you type.",
   "flight.localTime":
     "Only the airports are needed. The flight and its times can wait for the ticket; each time is in its own airport's local time.",
   "flight.remove": "Remove this flight",

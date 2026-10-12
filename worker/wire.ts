@@ -8,6 +8,8 @@ import { currencyCode } from "../src/app/shared/money";
 
 import { COLORS, type NoteColor, type NoteStatus } from "../src/app/features/notes/types";
 
+import { isAirportCode } from "./airports";
+
 /** A person says whether they made the room; an agent has no say in who is in it */
 export type WireMember =
   | { id: string; kind: "person"; role: "owner" | "guest"; name: string; color: string }
@@ -44,10 +46,10 @@ export interface WireTrip {
 export type Leg = "out" | "back";
 
 /**
- * A flight as the travellers write it from their ticket: where it leaves from and lands (a code
- * or a name), and, when they know them, its number and when, in each airport's own local time
- * (YYYY-MM-DDTHH:MM; null for not known yet). The landing may read earlier than the leaving,
- * across time zones, so their order is not checked.
+ * A flight as the travellers write it from their ticket: where it leaves from and lands (each an
+ * airport's code on the list, airports.ts), and, when they know them, its number and when, in
+ * each airport's own local time (YYYY-MM-DDTHH:MM; null for not known yet). The landing may read
+ * earlier than the leaving, across time zones, so their order is not checked.
  */
 export interface WireFlight {
   number: string;
@@ -197,7 +199,6 @@ const ID = 64;
 const COORD = 1e6;
 const DAYS = 60;
 const FLIGHT_NO = 20;
-const PLACE = 60;
 /** Stays in a trip: one a night at most, for a trip as long as it may be */
 const STAYS = DAYS;
 
@@ -281,21 +282,21 @@ export const isDateTime = (v: unknown): v is string =>
   isTime(v.slice(11));
 
 /**
- * A flight as a member writes it, trimmed; its airports must be named, its number may be blank
+ * A flight as a member writes it, trimmed; its airports must be on the list, its number may be blank
  * and its times not known yet
  */
 const parseFlight = (v: unknown): WireFlight | null => {
   if (!isRecord(v)) return null;
   const { number, from, to, departs, arrives } = v;
-  if (!isText(number, FLIGHT_NO) || !isText(from, PLACE) || !isText(to, PLACE)) return null;
-  if (from.trim() === "" || to.trim() === "") return null;
+  // the airports are codes on the list the app suggests from, exactly as it writes them
+  if (!isText(number, FLIGHT_NO) || !isAirportCode(from) || !isAirportCode(to)) return null;
   if (!(departs === null || isDateTime(departs)) || !(arrives === null || isDateTime(arrives)))
     return null;
   // kept to the minute, as a ticket says it
   return {
     number: number.trim(),
-    from: from.trim(),
-    to: to.trim(),
+    from,
+    to,
     departs: departs?.slice(0, 16) ?? null,
     arrives: arrives?.slice(0, 16) ?? null,
   };

@@ -15,6 +15,7 @@ import type {
 } from "../../../../worker/wire";
 import type { Member, MemberId } from "../members/types";
 import type { ImageId, Memo, MemoPatch, Note, NoteId, Schedule, TextBox } from "../notes/types";
+import type { AirportCode } from "../place/airports";
 import type { Flight, Stay, TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
@@ -65,8 +66,10 @@ const reviveFlight = (f: WireFlight | null | undefined): Flight | null =>
     ? null
     : {
         number: f.number,
-        from: f.from,
-        to: f.to,
+        // the room checked them against the list (worker/airports.ts); one kept on a device from
+        // before may not be on it, and is only not found on the map until the room's snapshot
+        from: f.from as AirportCode,
+        to: f.to as AirportCode,
         departs: f.departs === null ? null : Temporal.PlainDateTime.from(f.departs),
         arrives: f.arrives === null ? null : Temporal.PlainDateTime.from(f.arrives),
       };

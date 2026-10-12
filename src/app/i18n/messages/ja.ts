@@ -93,7 +93,7 @@ export const ja: Messages = {
   "flight.arrives": "到着日時",
   "flight.airportHint": "コードか名前（羽田 など）",
   "flight.unknownAirport":
-    "一覧にない空港です。地図には出ません。入力中に出る候補から選んでください。",
+    "一覧にない空港なので、このままでは保存できません。入力中に出る候補から選んでください。",
   "flight.localTime":
     "必須は空港だけです。便名と時刻は決まってからで構いません。時刻は各空港の現地時刻で（航空券の表記どおりに）。",
   "flight.remove": "この便を消す",

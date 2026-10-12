@@ -11,6 +11,7 @@ import plusIcon from "../../icons/plus.svg";
 import { useNotes } from "../notes/useNotes";
 import { isShortMapsLink, placeSearchLink } from "../place/google-maps";
 import type { FoundPlace } from "../place/types";
+import { useAirports } from "../place/useAirports";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
 import { useWorker } from "../worker/useWorker";
 
@@ -47,7 +48,8 @@ const worker = useWorker();
 
 const LEGS: readonly Leg[] = ["out", "back"];
 const form = reactive<TripForm>(formOf(props.trip));
-const settings = computed(() => settingsOf(form));
+const airports = useAirports();
+const settings = computed(() => settingsOf(form, airports.value));
 const step = (by: number) => (form.days = Math.min(MAX_DAYS, Math.max(1, form.days + by)));
 
 /** How many planned notes the new dates would take off their day */

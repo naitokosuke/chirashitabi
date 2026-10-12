@@ -2,6 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { currencyCode } from "../shared/money";
 
+import type { AirportCode } from "../features/place/airports";
 import type { TripSnapshot } from "../features/trip/types";
 
 const start = Temporal.PlainDate.from("2026-11-03");
@@ -14,8 +15,9 @@ export const mockTrip = (): TripSnapshot => ({
   flights: {
     out: {
       number: "BR 191",
-      from: "HND",
-      to: "TSA",
+      // both on the list (airports.json), as the room would have checked
+      from: "HND" as AirportCode,
+      to: "TSA" as AirportCode,
       departs: Temporal.PlainDateTime.from("2026-11-03T08:50"),
       arrives: Temporal.PlainDateTime.from("2026-11-03T11:30"),
     },

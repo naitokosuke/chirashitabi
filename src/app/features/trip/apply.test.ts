@@ -5,6 +5,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { currencyCode } from "../../shared/money";
 
 import type { Memo, Note, NoteId } from "../notes/types";
+import type { AirportCode } from "../place/airports";
 
 import { applyToDays, applyToTrip, moveSchedules } from "./apply";
 import type { Day, TripSnapshot } from "./types";
@@ -68,8 +69,8 @@ describe("applyToTrip", () => {
   test("a flight is set and taken away, the other kept", () => {
     const out = {
       number: "BR 191",
-      from: "HND",
-      to: "TSA",
+      from: "HND" as AirportCode,
+      to: "TSA" as AirportCode,
       departs: Temporal.PlainDateTime.from("2026-11-03T08:50"),
       arrives: Temporal.PlainDateTime.from("2026-11-03T11:30"),
     };
