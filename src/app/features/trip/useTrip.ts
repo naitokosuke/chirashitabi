@@ -40,7 +40,7 @@ export const useTrip = defineQuery(() => {
   /** When the trip is: `days` days from `first`; what is planned moves with it (apply.ts) */
   function setDates(first: Temporal.PlainDate, days: number) {
     const was = trip.value?.days ?? [];
-    if (was.length === days && was[0]?.date.equals(first)) return;
+    if (was.length === days && was[0]?.date.equals(first) === true) return;
     sync.commit({ type: "trip:dates", first, days });
   }
   /** One of the trip's flights, or none */

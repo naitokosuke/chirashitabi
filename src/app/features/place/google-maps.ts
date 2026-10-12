@@ -11,8 +11,8 @@ export function parseMapsUrl(url: string): LatLng | null {
     /[?&](?:q|query|ll|center)=(-?\d+\.\d+),(-?\d+\.\d+)/,
   ];
   for (const p of pats) {
-    const m = url.match(p);
-    if (m !== null) return { lat: +m[1], lng: +m[2] };
+    const [, lat, lng] = url.match(p) ?? [];
+    if (lat !== undefined && lng !== undefined) return { lat: +lat, lng: +lng };
   }
   return null;
 }

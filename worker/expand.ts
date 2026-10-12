@@ -35,11 +35,11 @@ export function placeName(url: string): string | null {
   const u = new URL(url);
   const q = u.searchParams.get("q")?.trim() ?? "";
   if (q !== "") return q.slice(0, 200);
-  const m = /\/maps\/(?:place|search)\/([^/]+)/.exec(u.pathname);
-  if (m === null) return null;
+  const [, segment] = /\/maps\/(?:place|search)\/([^/]+)/.exec(u.pathname) ?? [];
+  if (segment === undefined) return null;
   let name: string;
   try {
-    name = decodeURIComponent(m[1]!.replace(/\+/g, " ")).trim();
+    name = decodeURIComponent(segment.replace(/\+/g, " ")).trim();
   } catch {
     return null;
   }

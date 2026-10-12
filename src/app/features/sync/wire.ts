@@ -1,8 +1,5 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { hexColor } from "../../shared/color";
-import { currencyCode } from "../../shared/money";
-
 import type {
   WireMember,
   WireMemoPatch,
@@ -13,16 +10,15 @@ import type {
   WireStay,
   WireTrip,
 } from "../../../../worker/wire";
-import type { Member, MemberId } from "../members/types";
-import type { ImageId, Memo, MemoPatch, Note, NoteId, Schedule, TextBox } from "../notes/types";
-import type { AirportCode } from "../place/airports";
+import type { Member } from "../members/types";
+import type { MemoPatch, Note, Schedule } from "../notes/types";
 import type { Flight, Stay, TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
 
 /**
  * The room's JSON back into the app's types. The room has checked every field,
- * so this only revives: ISO strings become Temporal values, codes become brands.
+ * and sent its ids and codes as brands, so this only revives: ISO strings become Temporal values.
  */
 
 const schedule = (s: WireSchedule): Schedule => ({
@@ -33,7 +29,7 @@ const schedule = (s: WireSchedule): Schedule => ({
 
 export function reviveNote(n: WireNote): Note {
   const card = {
-    id: n.id as NoteId,
+    id: n.id,
     title: n.title,
     color: n.color,
     x: n.x,
@@ -41,7 +37,7 @@ export function reviveNote(n: WireNote): Note {
     rot: n.rot,
     // a note kept on a device before cards could be resized is its own size
     scale: n.scale ?? 1,
-    by: n.by as MemberId,
+    by: n.by,
     updatedAt: Temporal.Instant.from(n.updatedAt),
   };
   if (n.kind === "suggestion") return { ...card, kind: "suggestion" };
@@ -57,7 +53,7 @@ export function reviveNote(n: WireNote): Note {
     budget: n.budget,
     checked: n.checked,
     // a note kept on a device before pictures has none
-    image: (n.image ?? null) as ImageId | null,
+    image: n.image ?? null,
   };
 }
 
@@ -68,8 +64,8 @@ const reviveFlight = (f: WireFlight | null | undefined): Flight | null =>
         number: f.number,
         // the room checked them against the list (worker/airports.ts); one kept on a device from
         // before may not be on it, and is only not found on the map until the room's snapshot
-        from: f.from as AirportCode,
-        to: f.to as AirportCode,
+        from: f.from,
+        to: f.to,
         departs: f.departs === null ? null : Temporal.PlainDateTime.from(f.departs),
         arrives: f.arrives === null ? null : Temporal.PlainDateTime.from(f.arrives),
       };
@@ -77,8 +73,7 @@ const reviveFlight = (f: WireFlight | null | undefined): Flight | null =>
 export const reviveTrip = (t: WireTrip): TripSnapshot => ({
   name: t.name,
   days: t.days.map((d) => ({ date: Temporal.PlainDate.from(d.date), intro: d.intro })),
-  // the room only stores codes Intl knows, so this cannot be null
-  currency: currencyCode(t.currency)!,
+  currency: t.currency,
   center: t.center,
   // a trip kept on a device before flights has none
   flights: { out: reviveFlight(t.flights?.out), back: reviveFlight(t.flights?.back) },
@@ -89,7 +84,7 @@ export const reviveTrip = (t: WireTrip): TripSnapshot => ({
 const reviveStay = (s: WireStay): Stay => ({ ...s, checkIn: Temporal.PlainDate.from(s.checkIn) });
 
 export const reviveMember = (m: WireMember): Member => {
-  const common = { id: m.id as MemberId, name: m.name, color: hexColor(m.color)! };
+  const common = { id: m.id, name: m.name, color: m.color };
   // a person kept on a device before roles were sent is a guest until the room's snapshot says
   return m.kind === "agent"
     ? { ...common, kind: "agent" }
@@ -98,41 +93,39 @@ export const reviveMember = (m: WireMember): Member => {
 
 const revivePatch = (p: WireMemoPatch): MemoPatch => {
   const { schedule: s, ...rest } = p;
-  // the room checked an image id is one of its own
-  const out = rest as MemoPatch;
-  if (Object.hasOwn(p, "schedule"))
-    out.schedule = s === null || s === undefined ? null : schedule(s);
-  return out;
+  return Object.hasOwn(p, "schedule")
+    ? { ...rest, schedule: s === null || s === undefined ? null : schedule(s) }
+    : rest;
 };
 
 /** A mutation from another member, as the app's `Mutation`; `by` and the stamp travel beside it */
 export function reviveMutation(m: WireMutation): Mutation {
   switch (m.type) {
     case "note:add":
-      return { type: "note:add", note: reviveNote(m.note) as Memo | TextBox };
+      return { type: "note:add", note: reviveNote(m.note) };
     case "note:update":
-      return { type: "note:update", id: m.id as NoteId, patch: revivePatch(m.patch) };
+      return { type: "note:update", id: m.id, patch: revivePatch(m.patch) };
     case "note:recolor":
-      return { type: "note:recolor", id: m.id as NoteId, color: m.color };
+      return { type: "note:recolor", id: m.id, color: m.color };
     case "note:adopt":
-      return { type: "note:adopt", id: m.id as NoteId };
+      return { type: "note:adopt", id: m.id };
     case "text:edit":
-      return { type: "text:edit", id: m.id as NoteId, text: m.text };
+      return { type: "text:edit", id: m.id, text: m.text };
     case "note:move":
       return {
         type: "note:move",
-        id: m.id as NoteId,
+        id: m.id,
         x: m.x,
         y: m.y,
         ...(m.rot === undefined ? {} : { rot: m.rot }),
         ...(m.scale === undefined ? {} : { scale: m.scale }),
       };
     case "note:delete":
-      return { type: "note:delete", id: m.id as NoteId };
+      return { type: "note:delete", id: m.id };
     case "day:intro":
       return { type: "day:intro", date: Temporal.PlainDate.from(m.date), intro: m.intro };
     case "member:profile":
-      return { type: "member:profile", name: m.name, color: hexColor(m.color)! };
+      return { type: "member:profile", name: m.name, color: m.color };
     case "trip:rename":
       return { type: "trip:rename", name: m.name };
     case "trip:dates":

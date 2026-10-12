@@ -20,10 +20,10 @@ const keyOf = (roomId: string) => `chirashitabi:room:${roomId}`;
 interface Saved {
   v: typeof VERSION;
   savedAt: string;
-  me: string;
+  me: MemberId;
   confirmed: { notes: WireNote[]; trip: WireTrip | null; members: WireMember[] };
   /** `by` since this device signed each one; kept before that, they are all `me`'s */
-  pending: { cid: string; m: WireMutation; at: string; by?: string }[];
+  pending: { cid: string; m: WireMutation; at: string; by?: MemberId }[];
 }
 
 /** A room as this device kept it; `me` is who this device is in it, so offline notes are signed */
@@ -58,10 +58,11 @@ export function kept(storage: Storage, roomId: string): Kept | null {
   try {
     const raw = storage.getItem(keyOf(roomId));
     if (raw === null) return null;
+    // what keep() wrote; one from another version is told by `v`, and one that is not even that throws below
     const saved = JSON.parse(raw) as Saved;
     if (saved.v !== VERSION || saved.me === "") return null;
     return {
-      me: saved.me as MemberId,
+      me: saved.me,
       confirmed: {
         notes: saved.confirmed.notes.map(reviveNote),
         trip: saved.confirmed.trip === null ? null : reviveTrip(saved.confirmed.trip),
@@ -71,7 +72,7 @@ export function kept(storage: Storage, roomId: string): Kept | null {
         cid: p.cid,
         m: reviveMutation(p.m),
         at: Temporal.Instant.from(p.at),
-        by: (p.by ?? saved.me) as MemberId,
+        by: p.by ?? saved.me,
       })),
       savedAt: Temporal.Instant.from(saved.savedAt),
     };

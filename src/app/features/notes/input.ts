@@ -67,8 +67,8 @@ export const normalizeTag = (raw: string) => raw.replace(/^#/, "").trim();
  */
 /** A `#tag` written in the text becomes a tag and leaves the text, title and body alike */
 export function parseNoteText(text: string): Pick<NoteInput, "title" | "body" | "tags"> {
-  const [first, ...rest] = text.trim().split("\n");
-  const tags = [...text.matchAll(/#([^\s#]+)/g)].map((m) => m[1]);
+  const [first = "", ...rest] = text.trim().split("\n");
+  const tags = [...text.matchAll(/#([^\s#]+)/g)].flatMap(([, tag]) => tag ?? []);
   const strip = (line: string) =>
     line
       .replace(/#[^\s#]+/g, "")

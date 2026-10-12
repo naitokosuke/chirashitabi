@@ -1,19 +1,29 @@
-import { hexColor } from "../src/app/shared/color";
+import { hexColor, type HexColor } from "../src/app/shared/color";
 /**
  * What crosses the socket, and the checks it must pass. Temporal values travel
- * as the ISO strings `JSON.stringify` makes of them; the app revives them.
+ * as the ISO strings `JSON.stringify` makes of them; the app revives them. Ids and codes
+ * travel as the brands they are checked into here, so the app takes them as they come.
  * Nothing from the client is trusted: every field is checked here before a room acts.
  */
-import { currencyCode } from "../src/app/shared/money";
+import { currencyCode, type CurrencyCode } from "../src/app/shared/money";
+import { isRecord } from "../src/app/shared/record";
 
-import { COLORS, type NoteColor, type NoteStatus } from "../src/app/features/notes/types";
+import type { MemberId } from "../src/app/features/members/types";
+import {
+  COLORS,
+  type ImageId,
+  type NoteColor,
+  type NoteId,
+  type NoteStatus,
+} from "../src/app/features/notes/types";
+import type { AirportCode } from "../src/app/features/place/airports";
 
 import { isAirportCode } from "./airports";
 
 /** A person says whether they made the room; an agent has no say in who is in it */
 export type WireMember =
-  | { id: string; kind: "person"; role: "owner" | "guest"; name: string; color: string }
-  | { id: string; kind: "agent"; name: string; color: string };
+  | { id: MemberId; kind: "person"; role: "owner" | "guest"; name: string; color: HexColor }
+  | { id: MemberId; kind: "agent"; name: string; color: HexColor };
 
 /** A room as `/api/me` lists it: the trip at a glance, without its notes */
 export interface WireRoomSummary {
@@ -34,7 +44,7 @@ export interface WireDay {
 export interface WireTrip {
   name: string;
   days: WireDay[];
-  currency: string;
+  currency: CurrencyCode;
   center: { lat: number; lng: number };
   /** The flight there and the flight home, each or both not known yet */
   flights: WireFlights;
@@ -53,8 +63,8 @@ export type Leg = "out" | "back";
  */
 export interface WireFlight {
   number: string;
-  from: string;
-  to: string;
+  from: AirportCode;
+  to: AirportCode;
   departs: string | null;
   arrives: string | null;
 }
@@ -80,7 +90,7 @@ export interface WireSchedule {
 }
 
 interface WireCard {
-  id: string;
+  id: NoteId;
   title: string;
   color: NoteColor;
   x: number;
@@ -88,7 +98,7 @@ interface WireCard {
   rot: number;
   /** How large the card is drawn, 1 being its own size (MIN_SCALE to MAX_SCALE) */
   scale: number;
-  by: string;
+  by: MemberId;
   updatedAt: string; // ISO instant
 }
 
@@ -103,7 +113,7 @@ export interface WireMemo extends WireCard {
   /** Ticked off on a list (the booklet's appendix); separate from a day's status */
   checked: boolean;
   /** A picture on the card: the id of an image stored in the room, or null */
-  image: string | null;
+  image: ImageId | null;
 }
 
 export interface WireSuggestion extends WireCard {
@@ -140,16 +150,16 @@ export type WireMemoPatch = Partial<
 /** The app's `Mutation`, as JSON */
 export type WireMutation =
   | { type: "note:add"; note: WireNote }
-  | { type: "note:update"; id: string; patch: WireMemoPatch }
-  | { type: "note:recolor"; id: string; color: NoteColor }
-  | { type: "note:adopt"; id: string }
+  | { type: "note:update"; id: NoteId; patch: WireMemoPatch }
+  | { type: "note:recolor"; id: NoteId; color: NoteColor }
+  | { type: "note:adopt"; id: NoteId }
   // what a text box says; empty, it is deleted instead
-  | { type: "text:edit"; id: string; text: string }
+  | { type: "text:edit"; id: NoteId; text: string }
   // where a card is; as it is turned or resized, how it is turned and how large
-  | { type: "note:move"; id: string; x: number; y: number; rot?: number; scale?: number }
-  | { type: "note:delete"; id: string }
+  | { type: "note:move"; id: NoteId; x: number; y: number; rot?: number; scale?: number }
+  | { type: "note:delete"; id: NoteId }
   | { type: "day:intro"; date: string; intro: string }
-  | { type: "member:profile"; name: string; color: string }
+  | { type: "member:profile"; name: string; color: HexColor }
   // the trip's name, as written on the desk
   | { type: "trip:rename"; name: string }
   // when the trip is: its first day and how many; everything planned moves with it
@@ -168,8 +178,8 @@ export type WireMutation =
 export type ClientMessage = WireMutation & { cid?: string };
 
 export type ServerMessage =
-  | { type: "snapshot"; me: string; members: WireMember[]; trip: WireTrip; notes: WireNote[] }
-  | { type: "mutation"; mutation: WireMutation; by: string; updatedAt: string }
+  | { type: "snapshot"; me: MemberId; members: WireMember[]; trip: WireTrip; notes: WireNote[] }
+  | { type: "mutation"; mutation: WireMutation; by: MemberId; updatedAt: string }
   | { type: "ack"; cid: string; updatedAt: string }
   | { type: "rejected"; reason: string; cid?: string }
   // someone joined, was removed or left: who is in the room now
@@ -203,7 +213,6 @@ const FLIGHT_NO = 20;
 const STAYS = DAYS;
 
 // ---- checks ----
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 const isText = (v: unknown, max: number): v is string => typeof v === "string" && v.length <= max;
 const isFinite_ = (v: unknown, max = COORD): v is number =>
   typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= max;
@@ -214,7 +223,7 @@ const isScale = (v: unknown): v is number =>
   typeof v === "number" && Number.isFinite(v) && v >= MIN_SCALE && v <= MAX_SCALE;
 
 /** An image's id, as the room mints it (a UUID) */
-export const isImageId = (v: unknown): v is string =>
+export const isImageId = (v: unknown): v is ImageId =>
   typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v);
 
 /** What a picture may be, as uploaded: the formats every browser shows */
@@ -224,9 +233,11 @@ export const MAX_IMAGE_BYTES = 1024 * 1024;
 
 const isId = (v: unknown): v is string =>
   typeof v === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(v) && v.length <= ID;
-const isColor = (v: unknown): v is NoteColor => (COLORS as readonly string[]).includes(v as string);
+/** A note's id, as the client that made the note minted it */
+const isNoteId = (v: unknown): v is NoteId => isId(v);
+const isColor = (v: unknown): v is NoteColor => COLORS.some((c) => c === v);
 const STATUSES: readonly NoteStatus[] = ["idea", "fixed", "done"];
-const isStatus = (v: unknown): v is NoteStatus => STATUSES.includes(v as NoteStatus);
+const isStatus = (v: unknown): v is NoteStatus => STATUSES.some((s) => s === v);
 
 export const isDate = (v: unknown): v is string => {
   if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
@@ -260,10 +271,11 @@ const isBudget = (v: unknown): v is number | null =>
   v === null || (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1e9);
 
 /** The profile a person sets for themselves; the name may be blank, people are told apart by color for now */
-export const parseProfile = (v: unknown): { name: string; color: string } | null =>
-  isRecord(v) && isText(v.name, NAME) && hexColor(String(v.color)) !== null
-    ? { name: v.name.trim(), color: String(v.color).toLowerCase() }
-    : null;
+export const parseProfile = (v: unknown): { name: string; color: HexColor } | null => {
+  if (!isRecord(v) || !isText(v.name, NAME)) return null;
+  const color = hexColor(String(v.color).toLowerCase());
+  return color === null ? null : { name: v.name.trim(), color };
+};
 
 /**
  * An e-mail address to invite, lowercased as the index keeps it, or null. Only its shape is
@@ -320,23 +332,24 @@ export const parseTrip = (v: unknown): WireTrip | null => {
   if (!Array.isArray(v.days) || v.days.length === 0 || v.days.length > DAYS) return null;
   if (!v.days.every(isDate)) return null;
   if (new Set(v.days).size !== v.days.length) return null;
-  if (typeof v.currency !== "string" || currencyCode(v.currency) === null) return null;
+  const currency = typeof v.currency === "string" ? currencyCode(v.currency) : null;
+  if (currency === null) return null;
   if (!isLatLng(v.center)) return null;
   return {
     name: v.name.trim(),
     days: v.days.map((date) => ({ date, intro: "" })),
-    currency: v.currency,
+    currency,
     center: v.center,
     flights: { out: null, back: null },
     stays: [],
   };
 };
 
-/** A note as the client may send it in `note:add`; `by` and `updatedAt` are the room's to set */
-const parseNote = (v: unknown): WireNote | null => {
+/** A note as the client may send it in `note:add`, stamped by the room */
+const parseNote = (v: unknown, stamp: Pick<WireNote, "by" | "updatedAt">): WireNote | null => {
   if (!isRecord(v)) return null;
   const max = v.kind === "text" ? TEXT : TITLE;
-  if (!isId(v.id) || !isText(v.title, max) || !isColor(v.color)) return null;
+  if (!isNoteId(v.id) || !isText(v.title, max) || !isColor(v.color)) return null;
   if (!isFinite_(v.x) || !isFinite_(v.y) || !isFinite_(v.rot, 360)) return null;
   // a client from before cards could be resized sends no scale: its own size
   if (!(v.scale === undefined || isScale(v.scale))) return null;
@@ -348,8 +361,7 @@ const parseNote = (v: unknown): WireNote | null => {
     y: v.y,
     rot: v.rot,
     scale: v.scale ?? 1,
-    by: "",
-    updatedAt: "",
+    ...stamp,
   };
   if (v.kind === "suggestion") return { ...card, kind: "suggestion" };
   if (v.kind === "text") return { ...card, kind: "text" };
@@ -439,29 +451,32 @@ const parsePatch = (v: unknown): WireMemoPatch | null => {
 };
 
 /** A client message as a mutation, or null when it is not one */
-export function parseMutation(v: unknown): WireMutation | null {
+export function parseMutation(
+  v: unknown,
+  stamp: Pick<WireNote, "by" | "updatedAt">,
+): WireMutation | null {
   if (!isRecord(v)) return null;
   switch (v.type) {
     case "note:add": {
-      const note = parseNote(v.note);
+      const note = parseNote(v.note, stamp);
       return note === null ? null : { type: "note:add", note };
     }
     case "note:update": {
       const patch = parsePatch(v.patch);
-      return isId(v.id) && patch !== null ? { type: "note:update", id: v.id, patch } : null;
+      return isNoteId(v.id) && patch !== null ? { type: "note:update", id: v.id, patch } : null;
     }
     case "note:recolor":
-      return isId(v.id) && isColor(v.color)
+      return isNoteId(v.id) && isColor(v.color)
         ? { type: "note:recolor", id: v.id, color: v.color }
         : null;
     case "note:adopt":
-      return isId(v.id) ? { type: "note:adopt", id: v.id } : null;
+      return isNoteId(v.id) ? { type: "note:adopt", id: v.id } : null;
     case "text:edit":
-      return isId(v.id) && isText(v.text, TEXT)
+      return isNoteId(v.id) && isText(v.text, TEXT)
         ? { type: "text:edit", id: v.id, text: v.text }
         : null;
     case "note:move": {
-      if (!isId(v.id) || !isFinite_(v.x) || !isFinite_(v.y)) return null;
+      if (!isNoteId(v.id) || !isFinite_(v.x) || !isFinite_(v.y)) return null;
       if (!(v.rot === undefined || isFinite_(v.rot, 360))) return null;
       if (!(v.scale === undefined || isScale(v.scale))) return null;
       return {
@@ -474,7 +489,7 @@ export function parseMutation(v: unknown): WireMutation | null {
       };
     }
     case "note:delete":
-      return isId(v.id) ? { type: "note:delete", id: v.id } : null;
+      return isNoteId(v.id) ? { type: "note:delete", id: v.id } : null;
     case "day:intro":
       return isDate(v.date) && isText(v.intro, INTRO)
         ? { type: "day:intro", date: v.date, intro: v.intro }
@@ -485,10 +500,11 @@ export function parseMutation(v: unknown): WireMutation | null {
     }
     case "trip:dates":
       return isDate(v.first) &&
+        typeof v.days === "number" &&
         Number.isInteger(v.days) &&
-        (v.days as number) >= 1 &&
-        (v.days as number) <= DAYS
-        ? { type: "trip:dates", first: v.first, days: v.days as number }
+        v.days >= 1 &&
+        v.days <= DAYS
+        ? { type: "trip:dates", first: v.first, days: v.days }
         : null;
     case "trip:flight": {
       if (v.leg !== "out" && v.leg !== "back") return null;

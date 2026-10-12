@@ -1,6 +1,6 @@
 import { shallowRef } from "vue";
 
-import { airportOf, type Airport, type AirportRow } from "./airports";
+import { airportsOf, type Airport } from "./airports";
 import url from "./airports.json?url";
 
 /** The airports, once fetched; shared by every view that asks */
@@ -14,9 +14,9 @@ let loading: Promise<void> | null = null;
  */
 export function useAirports() {
   loading ??= fetch(url)
-    .then((res) => res.json() as Promise<AirportRow[]>)
+    .then((res): Promise<unknown> => res.json())
     .then((rows) => {
-      airports.value = rows.map(airportOf);
+      airports.value = airportsOf(rows);
     })
     .catch(() => {
       // none: the flights keep their airports as written, and the map shows none of them

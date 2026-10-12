@@ -184,7 +184,8 @@ function onDown(e: PointerEvent) {
   // a second finger turns whatever was going on into a pinch; a third is ignored
   if (pointers.size >= 2) {
     const [a, b] = [...pointers.values()];
-    if (pointers.size === 2) setGesture({ kind: "pinch", start: startPinch(view.value, a, b) });
+    if (pointers.size === 2 && a !== undefined && b !== undefined)
+      setGesture({ kind: "pinch", start: startPinch(view.value, a, b) });
     return;
   }
   const note = noteAt(target);
@@ -247,7 +248,7 @@ function onMove(e: PointerEvent) {
   switch (g.kind) {
     case "pinch": {
       const [a, b] = [...pointers.values()];
-      view.value = pinchTo(g.start, a, b);
+      if (a !== undefined && b !== undefined) view.value = pinchTo(g.start, a, b);
       return;
     }
     case "drag":

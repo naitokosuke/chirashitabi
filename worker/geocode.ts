@@ -5,6 +5,8 @@
  * its second query (index.ts).
  */
 
+import { isRecord } from "../src/app/shared/record";
+
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 export const USER_AGENT = "chirashitabi/1.0 (+https://chirashitabi.app)";
 /** How many places one query offers to choose from */
@@ -53,8 +55,8 @@ export function placesFrom(raw: unknown): Place[] {
   if (!Array.isArray(raw)) return [];
   const out: Place[] = [];
   for (const r of raw) {
-    if (typeof r !== "object" || r === null) continue;
-    const { name, display_name: line, lat, lon, extratags } = r as Record<string, unknown>;
+    if (!isRecord(r)) continue;
+    const { name, display_name: line, lat, lon, extratags } = r;
     const la = Number(lat);
     const ln = Number(lon);
     if (typeof line !== "string" || !Number.isFinite(la) || !Number.isFinite(ln)) continue;
@@ -78,8 +80,8 @@ export function placesFrom(raw: unknown): Place[] {
 
 /** A place's `opening_hours` tag, on one line, or null when it has none */
 function hoursOf(tags: unknown): string | null {
-  if (typeof tags !== "object" || tags === null) return null;
-  const v = (tags as Record<string, unknown>).opening_hours;
+  if (!isRecord(tags)) return null;
+  const v = tags.opening_hours;
   if (typeof v !== "string") return null;
   const line = v.replace(/\s+/g, " ").trim();
   return line === "" ? null : line.slice(0, HOURS);
@@ -137,15 +139,11 @@ const NAMED = [
  * sight), else the most telling part of its address (a building, then the street); the point
  * stays the one pinned. Null when there is nothing there (the sea: `{ "error": … }`).
  */
-export function placeAt(raw: unknown, at: { lat: number; lng: number }): Place | null {
-  if (typeof raw !== "object" || raw === null) return null;
-  const r = raw as Record<string, unknown>;
+export function placeAt(r: unknown, at: { lat: number; lng: number }): Place | null {
+  if (!isRecord(r)) return null;
   const line = typeof r.display_name === "string" ? r.display_name : null;
   if (line === null) return null;
-  const address =
-    typeof r.address === "object" && r.address !== null
-      ? (r.address as Record<string, unknown>)
-      : {};
+  const address = isRecord(r.address) ? r.address : {};
   const own = typeof r.name === "string" ? r.name.trim() : "";
   const part = NAMED.map((k) => address[k]).find(
     (v): v is string => typeof v === "string" && v.trim() !== "",

@@ -6,6 +6,8 @@
  * person's budget first, like any paid call (docs/auth-and-security.md).
  */
 
+import { isRecord } from "../src/app/shared/record";
+
 export const CLEF_MODEL = "@cf/cloudflare/clef-flash";
 
 /**
@@ -29,7 +31,7 @@ export type ClefResult =
   | { ok: false; refund: boolean; reason: string };
 
 /** Clef's input, as the model's schema has it */
-interface ClefInput {
+type ClefInput = {
   model: "clef-flash";
   state: unknown;
   questions: Record<
@@ -37,7 +39,7 @@ interface ClefInput {
     { type: "noul"; instructions: string; criteria: { true: string; false: string } }
   >;
   images?: { content_type: string; base64: string }[];
-}
+};
 
 /**
  * How likely each tag fits the memo, its text and its picture; every tag Clef answered for,
@@ -76,11 +78,13 @@ export async function judgeTags(env: Env, memo: MemoToTag, tags: string[]): Prom
     // no answer: it may have run, so it counts
     return { ok: false, refund: false, reason: `Clef failed: ${String(e)}` };
   }
-  const answers = (output as { answers?: Record<string, { noul?: unknown }> } | null)?.answers;
-  if (answers === undefined)
-    return { ok: false, refund: false, reason: "Clef's answer had no answers" };
+  const answers = isRecord(output) && isRecord(output.answers) ? output.answers : null;
+  if (answers === null) return { ok: false, refund: false, reason: "Clef's answer had no answers" };
   const scored = names
-    .map((tag, i) => ({ tag, p: answers[`t${i}`]?.noul }))
+    .map((tag, i) => {
+      const answer = answers[`t${i}`];
+      return { tag, p: isRecord(answer) ? answer.noul : undefined };
+    })
     .filter((t): t is { tag: string; p: number } => typeof t.p === "number")
     .sort((a, b) => b.p - a.p);
   return { ok: true, tags: scored };
@@ -100,5 +104,5 @@ async function run(env: Env, input: ClefInput): Promise<unknown> {
     if (!res.ok) throw new Refused(`Clef answered ${res.status}`);
     return res.json();
   }
-  return env.AI.run(CLEF_MODEL as Parameters<Ai["run"]>[0], input as never);
+  return env.AI.run(CLEF_MODEL, input);
 }

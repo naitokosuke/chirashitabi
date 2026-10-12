@@ -1,7 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
 
-import { SEATS } from "../src/app/features/members/types";
-import type { NoteStatus } from "../src/app/features/notes/types";
+import type { HexColor } from "../src/app/shared/color";
+import type { CurrencyCode } from "../src/app/shared/money";
+
+import { SEATS, type MemberId } from "../src/app/features/members/types";
+import type { ImageId, NoteColor, NoteId, NoteStatus } from "../src/app/features/notes/types";
 
 import { airportCodeOf, isAirportCode } from "./airports";
 import type { PlaceContext, SuggestContext, TagContext } from "./claude";
@@ -33,15 +36,15 @@ interface Profile {
 const RATE = { window: 10_000, max: 200 };
 
 type NoteRow = {
-  id: string;
+  id: NoteId;
   kind: "memo" | "suggestion" | "text";
   title: string;
-  color: string;
+  color: NoteColor;
   x: number;
   y: number;
   rot: number;
   scale: number;
-  by: string;
+  by: MemberId;
   updated_at: string;
   body: string;
   tags: string;
@@ -50,10 +53,10 @@ type NoteRow = {
   pin_lng: number | null;
   sched_date: string | null;
   sched_time: string | null;
-  sched_status: string | null;
+  sched_status: NoteStatus | null;
   budget: number | null;
   checked: number;
-  image: string | null;
+  image: ImageId | null;
 };
 
 /**
@@ -68,7 +71,8 @@ type NoteRow = {
  */
 export class Room extends DurableObject<Env> {
   static readonly MAX_PEOPLE = SEATS;
-  static readonly AGENT_ID = "agent:claude";
+  // minted here, the one id that is the same in every room
+  static readonly AGENT_ID = "agent:claude" as MemberId;
   static readonly MEMBER_HEADER = "X-Chirashitabi-Member";
 
   #rate = new Map<string, { since: number; n: number }>();
@@ -564,7 +568,7 @@ export class Room extends DurableObject<Env> {
     let added = 0;
     titles.forEach((title, i) => {
       const note: WireNote = {
-        id: crypto.randomUUID(),
+        id: crypto.randomUUID() as NoteId,
         kind: "suggestion",
         title,
         color: "#ffffff",
@@ -639,7 +643,7 @@ export class Room extends DurableObject<Env> {
 
   webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
     const by = this.ctx.getTags(ws)[0];
-    if (by === undefined) return ws.close(1008, "no member");
+    if (by === undefined || !this.isPerson(by)) return ws.close(1008, "no member");
     // the client's id for this mutation, once it is known: an answer names it
     let cid: string | null = null;
     const reject = (reason: string) =>
@@ -662,10 +666,10 @@ export class Room extends DurableObject<Env> {
     }
     cid = parseCid(parsed);
     if (!this.withinRate(by)) return reject("too many messages");
-    const mutation = parseMutation(parsed);
+    const updatedAt = new Date().toISOString();
+    const mutation = parseMutation(parsed, { by, updatedAt });
     if (mutation === null) return reject("not a mutation");
 
-    const updatedAt = new Date().toISOString();
     // a card on its way under a finger is relayed, not kept; letting go sends the move with a cid
     const dragging = cid === null && mutation.type === "note:move";
     if (dragging && this.note(mutation.id) === undefined) return reject("no such note");
@@ -690,7 +694,7 @@ export class Room extends DurableObject<Env> {
 
   // ---- state ----
 
-  snapshot(me: string): ServerMessage {
+  snapshot(me: MemberId): ServerMessage {
     return {
       type: "snapshot",
       me,
@@ -702,7 +706,7 @@ export class Room extends DurableObject<Env> {
 
   private members(): WireMember[] {
     return this.ctx.storage.sql
-      .exec<{ id: string; kind: MemberKind; creator: number; name: string; color: string }>(
+      .exec<{ id: MemberId; kind: MemberKind; creator: number; name: string; color: HexColor }>(
         "SELECT id, kind, creator, name, color FROM members ORDER BY creator DESC, rowid",
       )
       .toArray()
@@ -716,7 +720,7 @@ export class Room extends DurableObject<Env> {
   private trip(): WireTrip {
     const sql = this.ctx.storage.sql;
     const t = sql
-      .exec<{ name: string; currency: string; center_lat: number; center_lng: number }>(
+      .exec<{ name: string; currency: CurrencyCode; center_lat: number; center_lng: number }>(
         "SELECT name, currency, center_lat, center_lng FROM trip WHERE id = 1",
       )
       .one();
@@ -733,17 +737,19 @@ export class Room extends DurableObject<Env> {
         departs: string;
         arrives: string;
       }>("SELECT * FROM flights")
-      .toArray()
+      .toArray()) {
+      const { from_place: from, to_place: to } = f;
       // only a flight between airports on the list (one kept from before stays out until set again)
-      .filter((f) => isAirportCode(f.from_place) && isAirportCode(f.to_place)))
+      if (!isAirportCode(from) || !isAirportCode(to)) continue;
       flights[f.leg] = {
         number: f.number,
-        from: f.from_place,
-        to: f.to_place,
+        from,
+        to,
         // a time not known yet is kept as "" (the columns were made NOT NULL before it could be)
         departs: f.departs === "" ? null : f.departs,
         arrives: f.arrives === "" ? null : f.arrives,
       };
+    }
     const stays = sql
       .exec<{
         name: string;
@@ -785,7 +791,7 @@ export class Room extends DurableObject<Env> {
   }
 
   /** Writes the mutation as `by` at `now`; returns what was written, or why it was not */
-  private apply(m: WireMutation, by: string, now: string): WireMutation | string {
+  private apply(m: WireMutation, by: MemberId, now: string): WireMutation | string {
     const sql = this.ctx.storage.sql;
     switch (m.type) {
       case "note:add": {
@@ -1033,7 +1039,7 @@ export class Room extends DurableObject<Env> {
     if (this.deletion() !== null) throw new Error("room deleted");
   }
 
-  private isPerson(id: string): boolean {
+  private isPerson(id: string): id is MemberId {
     const row = this.ctx.storage.sql
       .exec<{ kind: MemberKind }>("SELECT kind FROM members WHERE id = ?", id)
       .toArray()[0];
@@ -1095,11 +1101,17 @@ const notesTable = (name: string) => `
   )
 `;
 
+/** A note's tags as its column keeps them: a JSON array of strings */
+const tagsOf = (column: string): string[] => {
+  const tags: unknown = JSON.parse(column);
+  return Array.isArray(tags) ? tags.filter((t) => typeof t === "string") : [];
+};
+
 const fromRow = (r: NoteRow): WireNote => {
   const card = {
     id: r.id,
     title: r.title,
-    color: r.color as WireNote["color"],
+    color: r.color,
     x: r.x,
     y: r.y,
     rot: r.rot,
@@ -1113,13 +1125,13 @@ const fromRow = (r: NoteRow): WireNote => {
     ...card,
     kind: "memo",
     body: r.body,
-    tags: JSON.parse(r.tags) as string[],
+    tags: tagsOf(r.tags),
     mapsUrl: r.maps_url,
     pin: r.pin_lat === null || r.pin_lng === null ? null : { lat: r.pin_lat, lng: r.pin_lng },
     schedule:
       r.sched_date === null || r.sched_status === null
         ? null
-        : { date: r.sched_date, time: r.sched_time, status: r.sched_status as NoteStatus },
+        : { date: r.sched_date, time: r.sched_time, status: r.sched_status },
     budget: r.budget,
     checked: r.checked === 1,
     image: r.image ?? null,

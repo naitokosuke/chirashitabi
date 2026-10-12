@@ -4,7 +4,7 @@ import type { LatLng } from "./types";
 
 /**
  * An airport's IATA code that is on the list (airports.json): what a flight's from and to are.
- * Only the list mints one (airportOf), or the room, which checked it against the same list.
+ * Only the list mints one (airportsOf), or the room, which checked it against the same list.
  */
 export type AirportCode = Brand<string, "AirportCode">;
 
@@ -21,9 +21,9 @@ export interface Airport {
   at: LatLng;
 }
 
-/** airports.json as the script writes it */
-export type AirportRow = [
-  code: string,
+/** A row of airports.json as the script writes it, its code minted by being on the list */
+type AirportRow = [
+  code: AirportCode,
   name: string,
   city: string,
   country: string,
@@ -31,13 +31,28 @@ export type AirportRow = [
   lng: number,
 ];
 
-export const airportOf = ([code, name, city, country, lat, lng]: AirportRow): Airport => ({
-  code: code as AirportCode,
-  name,
-  city,
-  country,
-  at: { lat, lng },
-});
+const isAirportRow = (v: unknown): v is AirportRow =>
+  Array.isArray(v) &&
+  v.length === 6 &&
+  typeof v[0] === "string" &&
+  /^[A-Z]{3}$/.test(v[0]) &&
+  typeof v[1] === "string" &&
+  typeof v[2] === "string" &&
+  typeof v[3] === "string" &&
+  typeof v[4] === "number" &&
+  typeof v[5] === "number";
+
+/** airports.json as the airports; a row that is not one is left out */
+export const airportsOf = (rows: unknown): Airport[] =>
+  (Array.isArray(rows) ? rows : [])
+    .filter(isAirportRow)
+    .map(([code, name, city, country, lat, lng]) => ({
+      code,
+      name,
+      city,
+      country,
+      at: { lat, lng },
+    }));
 
 /**
  * Japanese names people type for the airports a trip from Japan most often uses, which

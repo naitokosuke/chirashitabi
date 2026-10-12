@@ -1,15 +1,14 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { airportOf, findAirport, suggestAirports, type AirportRow } from "./airports";
+import { airportsOf, findAirport, suggestAirports } from "./airports";
 
-const ROWS: AirportRow[] = [
+const airports = airportsOf([
   ["HND", "Tokyo Haneda International Airport", "Tokyo", "JP", 35.5497, 139.787],
   ["NRT", "Narita International Airport", "Narita", "JP", 35.7686, 140.3887],
   ["TPE", "Taiwan Taoyuan International Airport", "Taoyuan", "TW", 25.0777, 121.233],
   ["TSA", "Taipei Songshan International Airport", "Taipei (Songshan)", "TW", 25.0672, 121.5528],
   ["HNL", "Daniel K Inouye International Airport", "Honolulu", "US", 21.3187, -157.9225],
-];
-const airports = ROWS.map(airportOf);
+]);
 const codes = (list: { code: string }[]) => list.map((a) => a.code);
 
 describe("suggestAirports", () => {
@@ -27,8 +26,8 @@ describe("suggestAirports", () => {
 
   test("among equals, an airport a trip from Japan often uses comes first", () => {
     // both are named "Taipei…": the one with a Japanese name comes first, wherever it is listed
-    const other = airportOf(["XXT", "Taipei Heliport", "Taipei", "TW", 25.0, 121.5]);
-    expect(codes(suggestAirports([other, ...airports], "taipei"))).toEqual(["TSA", "XXT"]);
+    const other = airportsOf([["XXT", "Taipei Heliport", "Taipei", "TW", 25.0, 121.5]]);
+    expect(codes(suggestAirports([...other, ...airports], "taipei"))).toEqual(["TSA", "XXT"]);
   });
 
   test("nothing typed, or nothing that fits, suggests nothing", () => {
