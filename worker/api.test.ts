@@ -83,7 +83,7 @@ beforeAll(async () => {
     let raw = "";
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
-      const body = JSON.parse(raw);
+      const body = JSON.parse(raw) as Parameters<typeof answer>[0];
       asked.push(body);
       const { status, body: out } = answer(body);
       res.statusCode = status;
@@ -98,7 +98,7 @@ beforeAll(async () => {
     let raw = "";
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
-      const body = JSON.parse(raw);
+      const body = JSON.parse(raw) as (typeof judged)[number];
       judged.push(body);
       const { status, body: out } = judge(body);
       res.statusCode = status;
