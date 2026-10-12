@@ -27,7 +27,7 @@ interface WireDraft {
 /** A POST to one of the room's agent calls; a refusal by the budget is an OverBudget */
 async function call(
   room: RoomId,
-  what: "draft" | "suggest" | "tags" | "candidates" | "places" | "where" | "expand",
+  what: "draft" | "suggest" | "tags" | "candidates" | "places" | "where" | "find" | "expand",
   body: unknown,
 ): Promise<Response> {
   const res = await fetch(`/api/rooms/${room}/${what}`, {
@@ -66,6 +66,18 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
   },
   async findPlaces(memo) {
     const res = await call(room, "places", memo);
+    const { places } = (await res.json()) as {
+      places: { name: string; address: string; lat: number; lng: number; hours: string | null }[];
+    };
+    return places.map((p): FoundPlace => ({
+      name: p.name,
+      address: p.address,
+      at: { lat: p.lat, lng: p.lng },
+      hours: p.hours,
+    }));
+  },
+  async findByName(query, lang) {
+    const res = await call(room, "find", { query, lang });
     const { places } = (await res.json()) as {
       places: { name: string; address: string; lat: number; lng: number; hours: string | null }[];
     };

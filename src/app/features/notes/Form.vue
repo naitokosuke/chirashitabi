@@ -87,11 +87,14 @@ const form = ref<NoteInput>(startingInput());
 const mapsUrl = ref(form.value.mapsUrl ?? "");
 /** A short link is on its way to the Worker to be read */
 const expanding = ref(false);
+/** The short link last sent to be read: a paste reads it at once, and leaving the field after is the same one */
+let expandedFrom = "";
 function onMapsUrl() {
   Object.assign(form.value, placeFromUrl(mapsUrl.value, form.value.pin));
   const short = mapsUrl.value.trim();
   const api = worker.api;
-  if (api === null || !isShortMapsLink(short)) return;
+  if (api === null || !isShortMapsLink(short) || short === expandedFrom) return;
+  expandedFrom = short;
   // a shared short link hides its point: the Worker reads where it leads, and the link becomes
   // that one, unless something else was pasted meanwhile
   expanding.value = true;
@@ -107,6 +110,8 @@ function onMapsUrl() {
     })
     .finally(() => (expanding.value = false));
 }
+/** A paste is read at once, once the field holds it, without waiting for the field to be left */
+const onMapsPaste = () => setTimeout(onMapsUrl);
 const hasPin = () => form.value.pin !== null;
 const text = ref(noteText(form.value));
 const tagInput = ref("");
@@ -529,6 +534,7 @@ function submit() {
           type="url"
           :placeholder="i18n.t('form.mapsPlaceholder')"
           @change="onMapsUrl"
+          @paste="onMapsPaste"
         />
         <p aria-live="polite">{{
             i18n.t(

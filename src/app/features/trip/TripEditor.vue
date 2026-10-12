@@ -9,7 +9,8 @@ import Icon from "../../icons/Icon.vue";
 import minusIcon from "../../icons/minus.svg";
 import plusIcon from "../../icons/plus.svg";
 import { useNotes } from "../notes/useNotes";
-import { isShortMapsLink } from "../place/google-maps";
+import { isShortMapsLink, placeSearchLink } from "../place/google-maps";
+import type { FoundPlace } from "../place/types";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
 import { useWorker } from "../worker/useWorker";
 
@@ -87,13 +88,21 @@ const removeStay = (i: number) => form.stays.splice(i, 1);
 /** The stays whose short link is on its way to the Worker to be read */
 const expanding = reactive(new Set<StayForm>());
 /**
+ * The link each stay's point was last read from: a paste reads it at once, and leaving the
+ * field afterwards (its change) is the same link, not a new one to read again
+ */
+const readFrom = new WeakMap<StayForm, string>();
+for (const s of form.stays) readFrom.set(s, s.mapsUrl.trim());
+/**
  * A link changed: its point is read from it alone. A shared short link hides its point, so the
  * Worker reads where it leads, and the link becomes that
  */
 function onStayLink(s: StayForm) {
+  const short = s.mapsUrl.trim();
+  if (readFrom.get(s) === short) return;
+  readFrom.set(s, short);
   // a new link: the point the old one had is not this one's
   s.pin = null;
-  const short = s.mapsUrl.trim();
   const api = worker.api;
   if (api === null || !isShortMapsLink(short)) return;
   expanding.add(s);
@@ -102,6 +111,7 @@ function onStayLink(s: StayForm) {
     .then(({ url, at }) => {
       if (s.mapsUrl.trim() !== short) return;
       s.mapsUrl = url;
+      readFrom.set(s, url);
       // the link's own point when it has one (stayOf reads it), else where its name was found
       if (at !== null) s.pin = at;
     })
@@ -110,6 +120,32 @@ function onStayLink(s: StayForm) {
     })
     .finally(() => expanding.delete(s));
 }
+/** A paste is read at once, once the field holds it, without waiting for the field to be left */
+const onStayPaste = (s: StayForm) => setTimeout(() => onStayLink(s));
+
+/** The stays being looked up by their name, and the places each lookup found */
+const finding = reactive(new Set<StayForm>());
+const found = reactive(new Map<StayForm, FoundPlace[]>());
+/** Places by the stay's name, from OpenStreetMap: free, so a tap is all it takes */
+function findStay(s: StayForm) {
+  const name = s.name.trim();
+  const api = worker.api;
+  if (api === null || name === "") return;
+  finding.add(s);
+  api
+    .findByName(name, i18n.locale === "en" ? "en" : "ja")
+    .then((places) => found.set(s, places))
+    .catch(() => found.set(s, []))
+    .finally(() => finding.delete(s));
+}
+/** The chosen place is the stay's link and its point, as a pasted link would be */
+function chooseStay(s: StayForm, p: FoundPlace) {
+  s.mapsUrl = placeSearchLink(p.name, p.at);
+  readFrom.set(s, s.mapsUrl);
+  s.pin = p.at;
+  found.delete(s);
+}
+
 /** What the link under a stay does: nothing yet, being read, a place on the map, or no place */
 function stayLinkState(s: StayForm) {
   if (s.mapsUrl.trim() === "") return "stay.linkHint";
@@ -238,6 +274,22 @@ function save() {
           <label :for="`${id}-stay-${i}-name`">{{ i18n.t("stay.name") }}</label>
           <input :id="`${id}-stay-${i}-name`" v-model="s.name" :maxlength="MAX_NAME" required />
         </div>
+        <!-- or its place found by its name on OpenStreetMap, one chosen: no link needed -->
+        <div v-if="worker.api !== null" class="find">
+          <button
+            class="quiet"
+            type="button"
+            :disabled="s.name.trim() === '' || finding.has(s)"
+            @click="() => findStay(s)"
+          >{{ i18n.t(finding.has(s) ? "stay.finding" : "stay.find") }}</button>
+          <ul v-if="(found.get(s)?.length ?? 0) > 0">
+            <li v-for="p in found.get(s)" :key="`${p.at.lat},${p.at.lng}`">
+              <button type="button" @click="() => chooseStay(s, p)"><b>{{ p.name }}</b><small>{{ p.address }}</small></button>
+            </li>
+          </ul>
+          <p v-if="found.get(s)?.length === 0" aria-live="polite" class="hint">{{ i18n.t("stay.findNone") }}</p>
+          <p v-else-if="found.has(s)" class="hint">{{ i18n.t("form.placesCredit") }}</p>
+        </div>
         <div class="row">
           <div class="field">
             <label :for="`${id}-stay-${i}-in`">{{ i18n.t("stay.checkIn") }}</label>
@@ -264,6 +316,7 @@ function save() {
             inputmode="url"
             type="url"
             @change="() => onStayLink(s)"
+            @paste="() => onStayPaste(s)"
           />
         </div>
         <p aria-live="polite" class="hint">{{ i18n.t(stayLinkState(s)) }}</p>
@@ -386,6 +439,43 @@ fieldset {
   border-block-end: 1px dashed var(--line);
 }
 
+/* the stay's place found by its name: the ask, then the places to choose, each a line */
+.find {
+  display: grid;
+  gap: 8px;
+  > ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 6px;
+    > li > button {
+      display: grid;
+      gap: 2px;
+      width: 100%;
+      min-height: var(--tap);
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--ink);
+      font: inherit;
+      text-align: start;
+      > b {
+        font-size: var(--font-md);
+      }
+      > small {
+        font-size: var(--font-xs);
+        color: var(--muted);
+      }
+      &:focus-visible {
+        outline: 2px solid var(--ink);
+        outline-offset: 2px;
+      }
+    }
+  }
+}
+
 .note, .hint {
   margin: 0;
   font-size: var(--font-xs);
@@ -412,12 +502,10 @@ button.add, button.quiet, button.primary {
   font: inherit;
   font-size: var(--font-sm);
   font-weight: 700;
-
   &:focus-visible {
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
-
   &:disabled {
     opacity: 0.35;
   }

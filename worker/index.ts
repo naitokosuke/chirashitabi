@@ -64,6 +64,7 @@ type RoomAction =
   | "candidates"
   | "places"
   | "where"
+  | "find"
   | "expand"
   | "invited"
   | "invite"
@@ -74,7 +75,7 @@ type RoomAction =
   | "restore"
   | "purge";
 const ROOM =
-  /^\/api\/rooms\/([0-9a-f-]{36})\/(ws|draft|suggest|tags|candidates|places|where|expand|invited|invite|uninvite|remove|leave|delete|restore|purge)$/;
+  /^\/api\/rooms\/([0-9a-f-]{36})\/(ws|draft|suggest|tags|candidates|places|where|find|expand|invited|invite|uninvite|remove|leave|delete|restore|purge)$/;
 /** An invitation to a room, answered by the person invited */
 const INVITATION = /^\/api\/invitations\/([0-9a-f-]{36})\/(accept|decline)$/;
 /** A room's pictures: POST to upload one, GET `/images/<id>` to show it */
@@ -414,6 +415,16 @@ async function api(request: Request, env: Env, url: URL, log: RequestLogger): Pr
     return Response.json({ url: expanded ?? url, at });
   }
 
+  if (action === "find") {
+    // places by a name the asker typed (a stay's): OpenStreetMap only, free (no agent), so not budgeted
+    const query = typeof body?.query === "string" ? body.query.trim() : "";
+    if (query === "" || query.length > 200) return status(400, "Bad Request");
+    const found = await geocode(env, query, body?.lang === "en" ? "en" : "ja");
+    log.set({ geocoder: { ok: found !== null, found: found?.length ?? 0 } });
+    if (found === null) return status(502, "Bad Gateway");
+    return Response.json({ places: found });
+  }
+
   if (action === "where") {
     // what is at a point the asker pinned on the map: free (no agent), so not budgeted
     const lat = body?.lat;
@@ -523,6 +534,7 @@ async function people(
     | "candidates"
     | "places"
     | "where"
+    | "find"
     | "expand"
     | "restore"
     | "purge"
