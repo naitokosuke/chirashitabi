@@ -117,6 +117,10 @@ one {{{$count} note}}
   "stay.link": "Google Maps link",
   "stay.linkHint": "With a link, each day's route on the map starts and ends here.",
   "stay.linkExpanding": "Following the shared link to its place…",
+  "stay.find": "Find it by name",
+  "stay.finding": "Looking it up…",
+  "stay.findNone":
+    "Nothing by that name on OpenStreetMap. Try the name as the hotel writes it, or paste a link.",
   "stay.linkPinned":
     "Its place is read: it shows on the map, and each day's route starts and ends here.",
   "stay.linkNoPin":

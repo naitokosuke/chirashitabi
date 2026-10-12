@@ -57,6 +57,8 @@ export interface WorkerApi {
    * named in `lang`; null when it has nothing there. Free, so not budgeted
    */
   whereIs(at: LatLng, lang: "ja" | "en"): Promise<FoundPlace | null>;
+  /** Places by a name typed as it is (a stay's), from OpenStreetMap only. Free, so not budgeted */
+  findByName(query: string, lang: "ja" | "en"): Promise<FoundPlace[]>;
   /**
    * The Google Maps link a short one (`maps.app.goo.gl/…`) stands for, so its point can be
    * read; any other link, or one that does not say, comes back as it was. When it leads to a

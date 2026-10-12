@@ -1853,6 +1853,59 @@ describe("what is at a pinned point", () => {
   });
 });
 
+describe("places by a typed name", () => {
+  const findByName = (roomId: string, email: string, body: unknown) =>
+    post(`/api/rooms/${roomId}/find`, email, body);
+
+  test("OpenStreetMap is asked the name, in the asker's language; no paid call, no budget", async () => {
+    const email = "find@example.com";
+    const { roomId } = await createRoom(email);
+    find = (q) => ({
+      status: 200,
+      body:
+        q === "Hotel Proverbs Taipei"
+          ? [
+              {
+                name: "Hotel Proverbs",
+                display_name: "Hotel Proverbs, 大安路一段, 臺北市",
+                lat: "25.0416",
+                lon: "121.5489",
+              },
+            ]
+          : [],
+    });
+    const calls = asked.length;
+    const seen = looked.length;
+    for (let i = 0; i <= PER_DAY; i++) {
+      const res = await findByName(roomId, email, { query: " Hotel Proverbs Taipei ", lang: "en" });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        places: [
+          {
+            name: "Hotel Proverbs",
+            address: "大安路一段, 臺北市",
+            lat: 25.0416,
+            lng: 121.5489,
+            hours: null,
+          },
+        ],
+      });
+    }
+    expect(asked.length).toBe(calls);
+    expect(looked[seen]).toMatchObject({ q: "Hotel Proverbs Taipei", lang: "en" });
+  });
+
+  test("a blank or overlong name is refused; a geocoder that fails is a 502; a stranger is not let in", async () => {
+    const email = "find2@example.com";
+    const { roomId } = await createRoom(email);
+    expect((await findByName(roomId, email, { query: "  " })).status).toBe(400);
+    expect((await findByName(roomId, email, { query: "x".repeat(201) })).status).toBe(400);
+    find = () => ({ status: 503, body: {} });
+    expect((await findByName(roomId, email, { query: "Inn" })).status).toBe(502);
+    expect((await findByName(roomId, STRANGER, { query: "Inn" })).status).toBe(403);
+  });
+});
+
 describe("a short Google Maps link", () => {
   const expandLink = (roomId: string, email: string, body: unknown) =>
     post(`/api/rooms/${roomId}/expand`, email, body);

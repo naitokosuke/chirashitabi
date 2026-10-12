@@ -103,6 +103,10 @@ export const ja: Messages = {
   "stay.link": "Google マップのリンク",
   "stay.linkHint": "リンクがあると、地図の各日のルートがここから出てここに戻ります。",
   "stay.linkExpanding": "共有リンクの行き先を調べています…",
+  "stay.find": "名前で場所を探す",
+  "stay.finding": "探しています…",
+  "stay.findNone":
+    "OpenStreetMap にこの名前の場所が見つかりませんでした。宿の正式名（英語表記など）で試すか、リンクを貼ってください。",
   "stay.linkPinned": "場所を読み取りました。地図に出て、各日のルートがここから出てここに戻ります。",
   "stay.linkNoPin":
     "このリンクからは場所を読み取れませんでした。Google マップで宿を開いたときのアドレスバーの URL を貼ってください。",

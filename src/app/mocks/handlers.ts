@@ -186,6 +186,16 @@ const agent = [
   http.post("/api/rooms/:roomId/candidates", ({ params }) =>
     open(params.roomId) === undefined ? forbidden() : HttpResponse.json({ tags: CANDIDATES }),
   ),
+  // the typed name as one place near the trip's center, as OpenStreetMap would find it
+  http.post("/api/rooms/:roomId/find", async ({ params, request }) => {
+    const room = open(params.roomId);
+    if (room === undefined) return forbidden();
+    const { query } = (await request.json()) as { query: string };
+    const { lat, lng } = room.state.trip.center;
+    return HttpResponse.json({
+      places: [{ name: query.trim(), address: "臺北市, 臺灣", lat, lng, hours: null }],
+    });
+  }),
   // a short link leads to a point near the trip's center, as maps.app.goo.gl's redirect would;
   // any other link comes back as it was
   http.post("/api/rooms/:roomId/expand", async ({ params, request }) => {
