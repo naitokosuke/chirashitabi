@@ -131,6 +131,7 @@ one {{{$count} note}}
     "No place could be read from this link. Open the place in Google Maps and paste the address bar's URL.",
   "stay.add": "Add a stay",
   "stay.remove": "Remove this stay",
+  "stay.nth": "Stay {$n :integer}",
   "stay.when": `
 .input {$count :integer}
 .match $count
