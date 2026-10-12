@@ -101,6 +101,9 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
 /* not positioned itself: the airports it may mean float under the row it is in, as wide as it */
 .airport {
   display: grid;
+  /* packed at the top: beside a field whose airport's name takes two lines, the row is taller,
+     and its spare height must not stretch this one's input */
+  align-content: start;
   gap: 6px;
   min-width: 0;
   > label {

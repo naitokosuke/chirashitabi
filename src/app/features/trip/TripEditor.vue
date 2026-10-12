@@ -194,10 +194,12 @@ function save() {
     </div>
     <p v-if="dropped > 0" class="note" role="status">{{ i18n.t("trip.dropped", { count: dropped }) }}</p>
 
-    <!-- the flights there and home: each a few fields once added -->
-    <fieldset v-for="leg in LEGS" :key="leg">
+    <!-- the flights there and home: each a card of a few fields once added, said once what they need -->
+    <p class="hint">{{ i18n.t("flight.localTime") }}</p>
+    <fieldset v-for="leg in LEGS" :key="leg" :class="{ card: form.flights[leg].on }">
       <legend>{{ i18n.t(leg === "out" ? "flight.out" : "flight.back") }}</legend>
       <template v-if="form.flights[leg].on">
+        <button class="remove" type="button" @click="() => removeFlight(leg)">{{ i18n.t("flight.remove") }}</button>
         <!-- the airports, the one thing a flight needs -->
         <div class="row airports">
           <AirportField
@@ -233,8 +235,6 @@ function save() {
             <input :id="`${id}-${leg}-arr`" v-model="form.flights[leg].arrives" type="datetime-local" />
           </div>
         </div>
-        <p class="hint">{{ i18n.t("flight.localTime") }}</p>
-        <button class="quiet" type="button" @click="() => removeFlight(leg)">{{ i18n.t("flight.remove") }}</button>
       </template>
       <button v-else class="add" type="button" @click="() => addFlight(leg)">
         <Icon :size="16" :src="plusIcon" />{{ i18n.t(leg === "out" ? "flight.addOut" : "flight.addBack") }}
@@ -244,7 +244,9 @@ function save() {
     <!-- where the nights are spent: each a few fields, in the order they come -->
     <fieldset>
       <legend>{{ i18n.t("stay.title") }}</legend>
-      <div v-for="(s, i) in form.stays" :key="i" class="stay">
+      <div v-for="(s, i) in form.stays" :key="i" class="stay card">
+        <p class="head">{{ i18n.t("stay.nth", { n: i + 1 }) }}</p>
+        <button class="remove" type="button" @click="() => removeStay(i)">{{ i18n.t("stay.remove") }}</button>
         <div class="field">
           <label :for="`${id}-stay-${i}-name`">{{ i18n.t("stay.name") }}</label>
           <input :id="`${id}-stay-${i}-name`" v-model="s.name" :maxlength="MAX_NAME" required />
@@ -295,7 +297,6 @@ function save() {
           />
         </div>
         <p aria-live="polite" class="hint">{{ i18n.t(stayLinkState(s)) }}</p>
-        <button class="quiet" type="button" @click="() => removeStay(i)">{{ i18n.t("stay.remove") }}</button>
       </div>
       <button class="add" type="button" @click="addStay"><Icon :size="16" :src="plusIcon" />{{ i18n.t("stay.add") }}</button>
     </fieldset>
@@ -394,12 +395,12 @@ function save() {
 }
 
 fieldset {
+  position: relative;
   display: grid;
   gap: 12px;
   margin: 0;
-  padding: 14px 0 0;
+  padding: 0;
   border: 0;
-  border-block-start: 1px solid var(--line);
   > legend {
     float: left;
     padding: 0;
@@ -408,12 +409,55 @@ fieldset {
   }
 }
 
+/* a flight, or a stay: its fields on a card of their own, so each reads as one thing */
+.card {
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line);
+  /* inside a card the fields sit on the surface again, so they stand out from it */
+  :deep(input) {
+    background: var(--surface);
+  }
+}
+
+/* taking a flight or a stay away: quiet, in the card's corner, the danger's color only on intent */
+button.remove {
+  position: absolute;
+  inset-block-start: 8px;
+  inset-inline-end: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+  @media (--can-hover) {
+    &:hover {
+      color: var(--danger);
+      background: var(--wash);
+    }
+  }
+}
+
 /* one stay's fields, a dashed line under each */
+/* headed like a flight (which one it is), its remove button in the other corner of that row */
 .stay {
+  position: relative;
   display: grid;
   gap: 12px;
-  padding-block-end: 12px;
-  border-block-end: 1px dashed var(--line);
+  > .head {
+    margin: 0;
+    font-size: var(--font-md);
+    font-weight: 700;
+  }
 }
 
 /* the stay's place found by its name: the ask, then the places to choose, each a line */

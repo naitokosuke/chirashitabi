@@ -116,6 +116,7 @@ export const ja: Messages = {
     "このリンクからは場所を読み取れませんでした。Google マップで宿を開いたときのアドレスバーの URL を貼ってください。",
   "stay.add": "宿を追加",
   "stay.remove": "この宿を消す",
+  "stay.nth": "{$n :integer}軒目",
   "stay.when": "{$date}から{$count :integer}泊",
   "stay.tonight": "今夜の宿",
   "stay.open": "Google マップで開く",
