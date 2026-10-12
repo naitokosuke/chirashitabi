@@ -383,7 +383,7 @@ function openMenu(note: Note, { focus = true } = {}) {
     y: Math.max(card.bottom - r.top + CLEAR, 8),
   };
   // once it is drawn: measure it, keep it on screen (above the card near the bottom), and move focus in
-  nextTick(() => {
+  void nextTick(() => {
     const m = menuEl.value;
     if (m === null || menu.value === null) return;
     const w = m.offsetWidth;
@@ -534,7 +534,7 @@ function remove(note: Note) {
     undo: () => {
       pendingDelete.value.delete(note.id);
       // the card comes back where the keyboard left it
-      if (hadFocus) nextTick(() => cardEl(note)?.focus());
+      if (hadFocus) void nextTick(() => cardEl(note)?.focus());
     },
     settle: () => {
       if (pendingDelete.value.delete(note.id)) store.remove(note.id);
@@ -542,7 +542,7 @@ function remove(note: Note) {
   });
   // keyboard users land on the undo, not on the page
   if (hadFocus)
-    nextTick(() => document.querySelector<HTMLElement>('[role="status"] button')?.focus());
+    void nextTick(() => document.querySelector<HTMLElement>('[role="status"] button')?.focus());
 }
 const { mutateAsync: suggestAt, isLoading: thinking } = useWorkerCalls().suggest;
 /**
@@ -607,7 +607,7 @@ watch(
   () => (notes.value?.length ?? 0) > 0,
   (has, had) => {
     if (!has || had) return;
-    nextTick(() => {
+    void nextTick(() => {
       view.value = fitted(FIRST_LOOK_MIN_SCALE) ?? view.value;
     });
   },

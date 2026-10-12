@@ -371,7 +371,7 @@ function nameThePin() {
 nameThePin();
 
 const textEl = useTemplateRef<HTMLTextAreaElement>("textEl");
-const focusText = () => nextTick(() => textEl.value?.focus());
+const focusText = () => void nextTick(() => textEl.value?.focus());
 onMounted(() => {
   if (!docked.value || active.value) focusText();
 });

@@ -161,6 +161,10 @@ export default defineConfig({
         "vue/prefer-props-shorthand": "error",
         // the oxlint rule above reads .ts only; this one reads .vue scripts and template conditions
         "type/strict-boolean-expressions": "error",
+        // props and emits are declared with types, and a promise is awaited or let go with `void`
+        "type/require-typed-props": "error",
+        "type/require-typed-emits": "error",
+        "type/no-floating-promises": "error",
       },
       ruleOptions: {
         "type/strict-boolean-expressions": {

@@ -5,7 +5,8 @@ import url from "./airports.json?url";
 
 /** The airports, once fetched; shared by every view that asks */
 const airports = shallowRef<Airport[]>([]);
-let loading: Promise<void> | null = null;
+/** Whether they are being fetched or were; a failed fetch is tried again by the next view */
+let asked = false;
 
 /**
  * The airports (airports.ts), fetched the first time a view needs them (the trip's editor, the
@@ -13,14 +14,16 @@ let loading: Promise<void> | null = null;
  * on it, and the service worker keeps it for the trip with no connection
  */
 export function useAirports() {
-  loading ??= fetch(url)
+  if (asked) return airports;
+  asked = true;
+  void fetch(url)
     .then((res): Promise<unknown> => res.json())
     .then((rows) => {
       airports.value = airportsOf(rows);
     })
     .catch(() => {
       // none: the flights keep their airports as written, and the map shows none of them
-      loading = null;
+      asked = false;
     });
   return airports;
 }
