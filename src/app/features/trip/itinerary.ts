@@ -11,7 +11,7 @@ import {
 } from "../notes/types";
 import type { DayDraft } from "../worker/types";
 
-import type { Stay } from "./types";
+import type { Flight, Leg, Stay } from "./types";
 
 const NEXT_STATUS: Record<NoteStatus, NoteStatus> = { idea: "fixed", fixed: "done", done: "idea" };
 /** Maybe -> Confirmed -> Done -> Maybe */
@@ -58,6 +58,21 @@ export const fixedCount = (notes: Note[]) => notes.filter(isMemo).filter(isFixed
 /** "Day 1" is the first day of the trip */
 export const dayNumber = (days: { date: Temporal.PlainDate }[], date: Temporal.PlainDate) =>
   days.findIndex((d) => d.date.equals(date)) + 1;
+
+/**
+ * The days a flight leaves and lands on, as its times say; with no times yet, the way there is
+ * on the trip's first day and the way home on its last
+ */
+export function flightDays(
+  f: Flight,
+  leg: Leg,
+  days: { date: Temporal.PlainDate }[],
+): Temporal.PlainDate[] {
+  const known = [f.departs, f.arrives].flatMap((t) => (t === null ? [] : [t.toPlainDate()]));
+  if (known.length > 0) return known;
+  const day = leg === "out" ? days[0]?.date : days.at(-1)?.date;
+  return day === undefined ? [] : [day];
+}
 
 /** The night after its last: the day it is left */
 export const checkOut = (s: Stay) => s.checkIn.add({ days: s.nights });

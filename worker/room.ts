@@ -718,8 +718,9 @@ export class Room extends DurableObject<Env> {
         number: f.number,
         from: f.from_place,
         to: f.to_place,
-        departs: f.departs,
-        arrives: f.arrives,
+        // a time not known yet is kept as "" (the columns were made NOT NULL before it could be)
+        departs: f.departs === "" ? null : f.departs,
+        arrives: f.arrives === "" ? null : f.arrives,
       };
     const stays = sql
       .exec<{
@@ -950,8 +951,8 @@ export class Room extends DurableObject<Env> {
             m.flight.number,
             m.flight.from,
             m.flight.to,
-            m.flight.departs,
-            m.flight.arrives,
+            m.flight.departs ?? "",
+            m.flight.arrives ?? "",
           );
         return m;
       }

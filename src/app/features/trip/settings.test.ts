@@ -60,7 +60,7 @@ describe("formOf and settingsOf", () => {
     expect(settingsOf({ ...form, name: "  " })).toBeNull();
     expect(settingsOf({ ...form, firstDay: "" })).toBeNull();
     expect(settingsOf({ ...form, days: 0 })).toBeNull();
-    const half = { ...newFlight("back", first, 4), from: "TSA" };
+    const half = { ...newFlight(), from: "TSA" };
     expect(settingsOf({ ...form, flights: { ...form.flights, back: half } })).toBeNull();
   });
 });
@@ -82,19 +82,23 @@ describe("newStay and stayOf", () => {
 });
 
 describe("newFlight and flightOf", () => {
-  test("the way there leaves on the first day, the way home on the last", () => {
-    expect(newFlight("out", first, 4).departs).toBe("2026-11-03T09:00");
-    expect(newFlight("back", first, 4).departs).toBe("2026-11-06T17:00");
+  test("a new flight has only its airports to fill in", () => {
+    expect(newFlight()).toMatchObject({ on: true, number: "", departs: "", arrives: "" });
   });
 
-  test("a flight that is off is none; one with its places and times is taken, trimmed", () => {
-    expect(flightOf({ ...newFlight("out", first, 1), on: false })).toBeNull();
-    const f = flightOf({
-      ...newFlight("out", first, 1),
-      number: " CI 223 ",
-      from: " HND",
-      to: "TSA ",
-    });
-    expect(f).toMatchObject({ number: "CI 223", from: "HND", to: "TSA" });
+  test("a flight that is off is none; its airports are enough, trimmed, with no number or times", () => {
+    expect(flightOf({ ...newFlight(), on: false })).toBeNull();
+    const f = flightOf({ ...newFlight(), number: " CI 223 ", from: " HND", to: "TSA " });
+    expect(f).toEqual({ number: "CI 223", from: "HND", to: "TSA", departs: null, arrives: null });
+  });
+
+  test("an airport not named, or a time half typed, is not one yet", () => {
+    expect(flightOf({ ...newFlight(), from: "HND" })).toBeUndefined();
+    expect(
+      flightOf({ ...newFlight(), from: "HND", to: "TSA", departs: "2026-11-03T" }),
+    ).toBeUndefined();
+    const timed = flightOf({ ...newFlight(), from: "HND", to: "TSA", departs: "2026-11-03T08:50" });
+    expect(timed?.departs?.toString()).toBe("2026-11-03T08:50:00");
+    expect(timed?.arrives).toBeNull();
   });
 });

@@ -1130,7 +1130,23 @@ describe("the socket", () => {
         },
       },
     });
-    for (const s of [a, b, c]) s.ws.close(1000, "done");
+
+    // only the airports are needed: the number and the times may wait for the ticket
+    a.send({
+      type: "trip:flight",
+      leg: "out",
+      flight: { number: "", from: "HND", to: "TSA", departs: null, arrives: null },
+      cid: "bare",
+    });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "bare" });
+    await b.next();
+    const d = await connect(roomId, partner);
+    expect(d.snapshot).toMatchObject({
+      trip: {
+        flights: { out: { number: "", from: "HND", to: "TSA", departs: null, arrives: null } },
+      },
+    });
+    for (const s of [a, b, c, d]) s.ws.close(1000, "done");
   });
 
   test("the trip's name, written on the desk, reaches the other member and the list of trips", async () => {

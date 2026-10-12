@@ -44,16 +44,17 @@ export interface WireTrip {
 export type Leg = "out" | "back";
 
 /**
- * A flight as the travellers write it from their ticket: its number, where it leaves from and
- * lands (a code or a name), and when, in each airport's own local time (YYYY-MM-DDTHH:MM). The
- * landing may read earlier than the leaving, across time zones, so their order is not checked.
+ * A flight as the travellers write it from their ticket: where it leaves from and lands (a code
+ * or a name), and, when they know them, its number and when, in each airport's own local time
+ * (YYYY-MM-DDTHH:MM; null for not known yet). The landing may read earlier than the leaving,
+ * across time zones, so their order is not checked.
  */
 export interface WireFlight {
   number: string;
   from: string;
   to: string;
-  departs: string;
-  arrives: string;
+  departs: string | null;
+  arrives: string | null;
 }
 
 export type WireFlights = Record<Leg, WireFlight | null>;
@@ -279,20 +280,24 @@ export const isDateTime = (v: unknown): v is string =>
   isDate(v.slice(0, 10)) &&
   isTime(v.slice(11));
 
-/** A flight as a member writes it, trimmed; a place must be named, the number may be blank */
+/**
+ * A flight as a member writes it, trimmed; its airports must be named, its number may be blank
+ * and its times not known yet
+ */
 const parseFlight = (v: unknown): WireFlight | null => {
   if (!isRecord(v)) return null;
   const { number, from, to, departs, arrives } = v;
   if (!isText(number, FLIGHT_NO) || !isText(from, PLACE) || !isText(to, PLACE)) return null;
   if (from.trim() === "" || to.trim() === "") return null;
-  if (!isDateTime(departs) || !isDateTime(arrives)) return null;
+  if (!(departs === null || isDateTime(departs)) || !(arrives === null || isDateTime(arrives)))
+    return null;
   // kept to the minute, as a ticket says it
   return {
     number: number.trim(),
     from: from.trim(),
     to: to.trim(),
-    departs: departs.slice(0, 16),
-    arrives: arrives.slice(0, 16),
+    departs: departs?.slice(0, 16) ?? null,
+    arrives: arrives?.slice(0, 16) ?? null,
   };
 };
 

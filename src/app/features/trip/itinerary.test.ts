@@ -5,7 +5,7 @@ import { describe, expect, test } from "vite-plus/test";
 import type { MemberId } from "../members/types";
 import type { Memo, NoteId, NoteStatus } from "../notes/types";
 
-import { forDay, stayOn, wakeAt } from "./itinerary";
+import { flightDays, forDay, stayOn, wakeAt } from "./itinerary";
 import type { Stay } from "./types";
 
 const day = Temporal.PlainDate.from("2026-11-03");
@@ -80,5 +80,25 @@ describe("stayOn and wakeAt", () => {
     expect(wakeAt(stays, at("2026-11-03"))).toBeUndefined();
     expect(wakeAt(stays, at("2026-11-05"))?.name).toBe("Taipei");
     expect(wakeAt(stays, at("2026-11-06"))?.name).toBe("Jiufen");
+  });
+});
+
+describe("flightDays", () => {
+  const days = [0, 1, 2].map((i) => ({ date: day.add({ days: i }) }));
+  const flight = { number: "", from: "HND", to: "TSA", departs: null, arrives: null };
+
+  test("with no times, the way there is on the first day and the way home on the last", () => {
+    expect(flightDays(flight, "out", days).map(String)).toEqual(["2026-11-03"]);
+    expect(flightDays(flight, "back", days).map(String)).toEqual(["2026-11-05"]);
+    expect(flightDays(flight, "out", [])).toEqual([]);
+  });
+
+  test("with times, the days they say", () => {
+    const timed = {
+      ...flight,
+      departs: Temporal.PlainDateTime.from("2026-11-04T23:30"),
+      arrives: Temporal.PlainDateTime.from("2026-11-05T02:10"),
+    };
+    expect(flightDays(timed, "out", days).map(String)).toEqual(["2026-11-04", "2026-11-05"]);
   });
 });
