@@ -748,31 +748,36 @@ watch(
         >{{ i18n.t(thinking ? "canvas.thinking" : "canvas.askIdeas") }}</button>
       </div>
 
-      <!-- what to ask the agent for: a line of words, blank for anything, from a note or not -->
-      <form
-        v-if="asking !== null"
-        :id="askId"
-        class="ask"
-        :aria-label="i18n.t('canvas.askIdeas')"
-        @submit="onAskSubmit"
-      >
-        <p v-if="asking.about !== null">{{
-          i18n.t("canvas.askFrom", { title: asking.about.title })
-        }}</p>
-        <input
-          ref="askInput"
-          v-model="askWords"
-          enterkeyhint="send"
-          maxlength="100"
-          :aria-label="i18n.t('canvas.askWords')"
-          :placeholder="i18n.t('canvas.askWords')"
-          @keydown="onAskKey"
-        />
-        <div>
-          <button type="button" @click="toggleAsk">{{ i18n.t("common.close") }}</button>
-          <button type="submit">{{ i18n.t("canvas.ask") }}</button>
-        </div>
-      </form>
+      <!--
+        what to ask the agent for: a line of words, blank for anything, from a note or not; it
+        unfolds down from its button and folds back up into it
+      -->
+      <Transition name="ask">
+        <form
+          v-if="asking !== null"
+          :id="askId"
+          class="ask"
+          :aria-label="i18n.t('canvas.askIdeas')"
+          @submit="onAskSubmit"
+        >
+          <p v-if="asking.about !== null">{{
+            i18n.t("canvas.askFrom", { title: asking.about.title })
+          }}</p>
+          <input
+            ref="askInput"
+            v-model="askWords"
+            enterkeyhint="send"
+            maxlength="100"
+            :aria-label="i18n.t('canvas.askWords')"
+            :placeholder="i18n.t('canvas.askWords')"
+            @keydown="onAskKey"
+          />
+          <div>
+            <button type="button" @click="toggleAsk">{{ i18n.t("common.close") }}</button>
+            <button type="submit">{{ i18n.t("canvas.ask") }}</button>
+          </div>
+        </form>
+      </Transition>
 
       <div
         ref="vp"
@@ -985,6 +990,45 @@ section {
       border: 1px solid var(--line);
       border-radius: 14px;
       box-shadow: var(--shadow-float);
+      /* it grows out of its button, at the row's end above it */
+      transform-origin: 100% 0;
+
+      /* opening: the panel unfolds, then what is in it settles a beat later */
+      &.ask-enter-active {
+        transition:
+          opacity var(--duration-swap) ease,
+          transform var(--duration-morph) var(--ease-morph);
+
+        > * {
+          transition:
+            opacity var(--duration-swap) ease 60ms,
+            transform var(--duration-morph) var(--ease-morph) 60ms;
+
+          @media (--reduced-motion) {
+            transition: none;
+          }
+        }
+      }
+      &.ask-enter-from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.92);
+
+        > * {
+          opacity: 0;
+          transform: translateY(-4px);
+        }
+      }
+
+      /* closing: quicker, folding back up into the button */
+      &.ask-leave-active {
+        transition:
+          opacity calc(var(--duration-swap) * 0.6) ease-in,
+          transform calc(var(--duration-swap) * 0.6) ease-in;
+      }
+      &.ask-leave-to {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.96);
+      }
 
       /* the note it starts from, on one line */
       > p {
