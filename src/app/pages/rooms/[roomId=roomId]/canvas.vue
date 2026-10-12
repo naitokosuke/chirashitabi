@@ -41,6 +41,7 @@ import {
   onMounted,
   ref,
   shallowRef,
+  useId,
   useTemplateRef,
   watch,
 } from "vue";
@@ -549,16 +550,59 @@ function remove(note: Note) {
 }
 const { mutateAsync: suggestAt, isLoading: thinking } = useWorkerCalls().suggest;
 /**
- * The room's agent leaves a few ideas where the person is looking. They arrive as the room's
- * changes, like the partner's cards; the toast says how many, or why none came.
+ * The ask for ideas while it is open under its button: the note it starts from (picked from a
+ * card's toolbar), or none for the whole trip. The words being written are kept apart, so a
+ * failed ask keeps them for the next try.
+ */
+const asking = ref<{ about: Note | null } | null>(null);
+const askWords = ref("");
+const askInput = useTemplateRef<HTMLInputElement>("askInput");
+const askId = useId();
+function openAsk(about: Note | null) {
+  asking.value = { about };
+  void nextTick(() => askInput.value?.focus());
+}
+function toggleAsk() {
+  if (asking.value === null) openAsk(null);
+  else asking.value = null;
+}
+function askFromMenu() {
+  const n = menuNote.value;
+  closeMenu();
+  if (n !== null) openAsk(n);
+}
+function onAskKey(e: KeyboardEvent) {
+  if (e.key !== "Escape") return;
+  e.stopPropagation();
+  asking.value = null;
+}
+function onAskSubmit(e: Event) {
+  e.preventDefault();
+  void askForIdeas();
+}
+/**
+ * The room's agent leaves a few ideas where the person is looking, or in a column beside the
+ * note they asked from. They arrive as the room's changes, like the partner's cards; the toast
+ * says how many, or why none came.
  */
 async function askForIdeas() {
-  if (thinking.value) return;
+  const a = asking.value;
+  if (thinking.value || a === null) return;
   // the desk is always there while it asks; were it not, its corner
   const r = vp.value?.getBoundingClientRect() ?? { width: 0, height: 0 };
-  const c = toWorld(r.width / 2, r.height / 2);
+  // the column's middle: a card's width (164px) and a gap past the note's right edge
+  const at =
+    a.about === null
+      ? toWorld(r.width / 2, r.height / 2)
+      : { x: a.about.x + 164 * a.about.scale + 24 + 94, y: a.about.y + 40 };
+  asking.value = null;
   try {
-    const n = await suggestAt({ x: c.x, y: c.y });
+    const n = await suggestAt({
+      at: { x: at.x, y: at.y },
+      ask: askWords.value,
+      about: a.about?.id ?? null,
+    });
+    askWords.value = "";
     toast.show(n === 0 ? i18n.t("canvas.noIdeas") : i18n.t("canvas.ideasAdded", { count: n }));
   } catch (e) {
     const key = !(e instanceof OverBudget)
@@ -698,9 +742,37 @@ watch(
           type="button"
           :disabled="thinking"
           :aria-busy="thinking"
-          @click="askForIdeas"
+          :aria-expanded="asking !== null"
+          :aria-controls="askId"
+          @click="toggleAsk"
         >{{ i18n.t(thinking ? "canvas.thinking" : "canvas.askIdeas") }}</button>
       </div>
+
+      <!-- what to ask the agent for: a line of words, blank for anything, from a note or not -->
+      <form
+        v-if="asking !== null"
+        :id="askId"
+        class="ask"
+        :aria-label="i18n.t('canvas.askIdeas')"
+        @submit="onAskSubmit"
+      >
+        <p v-if="asking.about !== null">{{
+          i18n.t("canvas.askFrom", { title: asking.about.title })
+        }}</p>
+        <input
+          ref="askInput"
+          v-model="askWords"
+          enterkeyhint="send"
+          maxlength="100"
+          :aria-label="i18n.t('canvas.askWords')"
+          :placeholder="i18n.t('canvas.askWords')"
+          @keydown="onAskKey"
+        />
+        <div>
+          <button type="button" @click="toggleAsk">{{ i18n.t("common.close") }}</button>
+          <button type="submit">{{ i18n.t("canvas.ask") }}</button>
+        </div>
+      </form>
 
       <div
         ref="vp"
@@ -810,6 +882,13 @@ watch(
             @click="() => setMenuDay(null)"
           >{{ i18n.t("canvas.noDay") }}</button>
         </div>
+        <!-- the agent's ideas built on this note; a sticker has no words to build on -->
+        <button
+          v-if="worker.api !== null && menu.note.kind !== 'sticker'"
+          type="button"
+          :disabled="thinking"
+          @click="askFromMenu"
+        >{{ i18n.t("canvas.ideasFromHere") }}</button>
         <button type="button" @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</button>
         <button type="button" @click="removeFromMenu">{{ i18n.t("canvas.delete") }}</button>
       </div>
@@ -888,6 +967,64 @@ section {
           @media (--reduced-motion) {
             animation: none;
           }
+        }
+      }
+    }
+
+    /* The ask for ideas, open under its button: a panel with a line of words and the ask */
+    > .ask {
+      position: absolute;
+      inset-inline-end: 12px;
+      inset-block-start: var(--top-clear);
+      z-index: var(--z-menu);
+      width: min(360px, calc(100% - 24px));
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow-float);
+
+      /* the note it starts from, on one line */
+      > p {
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--muted);
+        font-size: var(--font-sm);
+        font-weight: 700;
+      }
+
+      > input {
+        width: 100%;
+        font: inherit;
+        font-size: var(--font-base);
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--ink);
+      }
+
+      > div {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+
+        > button {
+          min-height: var(--tap);
+          padding: 0 14px;
+          border-radius: 999px;
+          font-size: var(--font-sm);
+          font-weight: 700;
+          color: var(--muted);
+        }
+
+        > [type="submit"] {
+          background: var(--ink);
+          color: var(--on-ink);
         }
       }
     }

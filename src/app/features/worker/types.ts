@@ -1,6 +1,6 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { ImageId } from "../notes/id";
+import type { ImageId, NoteId } from "../notes/id";
 import type { Scheduled } from "../notes/types";
 import type { FoundPlace, LatLng } from "../place/types";
 
@@ -17,9 +17,14 @@ export interface DayDraft {
 export interface WorkerApi {
   /**
    * Have the room's agent leave a few ideas as suggestion cards around `at` on the desk; they
-   * reach the room like any change. Resolves with how many it left
+   * reach the room like any change. `ask` is what the member asked for in their words (blank
+   * for anything), `about` the note they asked from. Resolves with how many it left
    */
-  suggest(at: { x: number; y: number }): Promise<number>;
+  suggest(request: {
+    at: { x: number; y: number };
+    ask: string;
+    about: NoteId | null;
+  }): Promise<number>;
   /**
    * Keep a picture in the room (shrunk on the device first, notes/image.ts); resolves with its
    * id for a card to show

@@ -184,6 +184,10 @@ export const ja: Messages = {
   "canvas.ideasFailed": "提案が届きませんでした。もう一度頼んでください。",
   "canvas.ideasLimit": "今日 Claude に頼めるのはここまでです。また明日頼んでください。",
   "canvas.ideasTripLimit": "この旅で Claude に頼める回数はここまでです。",
+  "canvas.askWords": "どんな提案がほしい？（空欄ならおまかせ）",
+  "canvas.askFrom": "「{$title}」をもとに",
+  "canvas.ask": "頼む",
+  "canvas.ideasFromHere": "これをもとに提案",
 
   "note.suggestion": "提案",
   "note.adopt": "メモにする",

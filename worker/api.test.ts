@@ -1460,6 +1460,46 @@ describe("the agent's suggestions", () => {
     expect(asked.length).toBe(before);
   });
 
+  test("the asker's words and the note they asked from reach the agent", async () => {
+    const email = "askwords@example.com";
+    const { roomId } = await createRoom(email);
+    const a = await connect(roomId, email);
+    a.send({ type: "note:add", note: memo("n1", "Raohe night market"), cid: "c1" });
+    expect((await a.next()).type).toBe("ack");
+    a.ws.close(1000, "done");
+    answer = () => suggesting(["Shilin night market"]);
+
+    const words = `  something sweet ${"x".repeat(200)}`;
+    const res = await suggest(roomId, email, { at: { x: 400, y: 300 }, ask: words, about: "n1" });
+    expect(res.status).toBe(200);
+    const prompt = (asked.at(-1) as { messages: { content: string }[] }).messages[0]!.content;
+    // trimmed, and no longer than a line
+    expect(prompt).toContain(JSON.stringify(words.trim().slice(0, 100)));
+    expect(prompt).not.toContain("x".repeat(101));
+    expect(prompt).toContain('"title":"Raohe night market"');
+    expect(prompt).toContain("They are asking from this note");
+  });
+
+  test("blank words and no note ask for anything", async () => {
+    const email = "askblank@example.com";
+    const { roomId } = await createRoom(email);
+    answer = () => suggesting([]);
+    const res = await suggest(roomId, email, { at: { x: 0, y: 0 }, ask: "   " });
+    expect(res.status).toBe(200);
+    const prompt = (asked.at(-1) as { messages: { content: string }[] }).messages[0]!.content;
+    expect(prompt).not.toContain("What they asked for");
+    expect(prompt).not.toContain("They are asking from this note");
+  });
+
+  test("from a note no longer on the desk, nothing is called", async () => {
+    const email = "askgone@example.com";
+    const { roomId } = await createRoom(email);
+    const before = asked.length;
+    const res = await suggest(roomId, email, { at: { x: 0, y: 0 }, about: "gone" });
+    expect(res.status).toBe(404);
+    expect(asked.length).toBe(before);
+  });
+
   test("a provider error writes nothing and costs nothing", async () => {
     const email = "ideasdown@example.com";
     const { roomId } = await createRoom(email);
