@@ -90,6 +90,7 @@ import { useWorker } from "../../../features/worker/useWorker";
 import { useWorkerCalls } from "../../../features/worker/useWorkerCalls";
 import Icon from "../../../icons/Icon.vue";
 import plusIcon from "../../../icons/plus.svg";
+import stickerIcon from "../../../icons/sticker.svg";
 import { queryOf } from "../url";
 
 const route = useRoute("/rooms/[roomId=roomId]/canvas");
@@ -742,26 +743,32 @@ watch(
 
       <div class="jump">
         <button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button>
-        <!-- a sticker from the photos; on a computer one is also pasted or dropped on the desk -->
-        <button
-          v-if="worker.api !== null"
-          type="button"
-          :disabled="sticking"
-          :aria-busy="sticking"
-          @click="pickSticker"
-        >{{ i18n.t(sticking ? "canvas.stickerSending" : "canvas.sticker") }}</button>
-        <!--
-          PNG first and no HEIC: iOS then hands a photo over as PNG, which keeps a lifted
-          subject's see-through parts; handed over as HEIC it reached the page opaque
-        -->
-        <input
-          ref="stickerInput"
-          accept="image/png,image/webp"
-          hidden
-          type="file"
-          @change="onStickerPicked"
-        />
       </div>
+
+      <!--
+        a sticker from the photos, a tile over the write button's; on a computer one is also
+        pasted or dropped on the desk
+      -->
+      <button
+        v-if="worker.api !== null"
+        class="sticker"
+        type="button"
+        :aria-label="i18n.t(sticking ? 'canvas.stickerSending' : 'canvas.sticker')"
+        :disabled="sticking"
+        :aria-busy="sticking"
+        @click="pickSticker"
+      ><Icon :size="24" :src="stickerIcon" /></button>
+      <!--
+        PNG first and no HEIC: iOS then hands a photo over as PNG, which keeps a lifted
+        subject's see-through parts; handed over as HEIC it reached the page opaque
+      -->
+      <input
+        ref="stickerInput"
+        accept="image/png,image/webp"
+        hidden
+        type="file"
+        @change="onStickerPicked"
+      />
 
       <div
         v-if="menu !== null"
@@ -966,6 +973,38 @@ section {
           &:hover {
             color: var(--ink);
           }
+        }
+      }
+    }
+
+    /*
+     * The sticker: the write button's tile, stacked over it, but drawn as a tool (white on a
+     * hairline), since the write button is the one filled tool on the desk
+     */
+    > .sticker {
+      position: absolute;
+      inset-inline-end: 16px;
+      inset-block-end: calc(var(--dock-clear) + 16px + 56px + 12px);
+      z-index: var(--z-chrome);
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-float);
+      transition: box-shadow var(--duration-swap) ease;
+
+      &:disabled {
+        color: var(--muted);
+      }
+
+      @media (--can-hover) {
+        &:hover {
+          box-shadow: var(--shadow-lift);
         }
       }
     }
