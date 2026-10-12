@@ -8,7 +8,10 @@
     "lib": ["ES2022"],
     "types": ["../worker-configuration.d.ts"],
     "skipLibCheck": true,
-    "noEmit": true
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "rootDir": "..",
+    "outDir": "../.worker-types"
   },
   "include": [".", "../src/util/reset.ts"]
 }

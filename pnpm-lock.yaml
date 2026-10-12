@@ -184,6 +184,9 @@ importers:
 
   .:
     dependencies:
+      '@hono/standard-validator':
+        specifier: ^0.4.0
+        version: 0.4.0(@standard-schema/spec@1.1.0)(hono@5.0.0-rc.1)
       '@pinia/colada':
         specifier: ^1.4.6
         version: 1.4.6(pinia@4.0.3(@vue/devtools-api@8.2.1)(typescript@5.9.3)(vue@3.6.0-rc.10(typescript@5.9.3)))(vue@3.6.0-rc.10(typescript@5.9.3))
@@ -212,6 +215,9 @@ importers:
         specifier: ^5.3.1
         version: 5.3.1(@pinia/colada@1.4.6(pinia@4.0.3(@vue/devtools-api@8.2.1)(typescript@5.9.3)(vue@3.6.0-rc.10(typescript@5.9.3)))(vue@3.6.0-rc.10(typescript@5.9.3)))(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(esbuild@0.28.1)(typescript@5.9.3))(@vue/compiler-sfc@3.5.43)(esbuild@0.28.1)(pinia@4.0.3(@vue/devtools-api@8.2.1)(typescript@5.9.3)(vue@3.6.0-rc.10(typescript@5.9.3)))(vue@3.6.0-rc.10(typescript@5.9.3))
     devDependencies:
+      '@standard-schema/spec':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@types/geojson':
         specifier: ^7946.0.16
         version: 7946.0.16
@@ -487,6 +493,12 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@hono/standard-validator@0.4.0':
+    resolution: {integrity: sha512-MxOm1asDh9j7c1D0KiWwppSbFgAQxTRO4YEhjMrJn3lF1BIcXenPdgjSGKDRfQmZdaTaMA8slQLETgVOKyJxFw==}
+    peerDependencies:
+      '@standard-schema/spec': ^1.0.0
+      hono: '>=4.11.2'
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -1299,6 +1311,9 @@ packages:
 
   '@speed-highlight/core@1.2.24':
     resolution: {integrity: sha512-qeW2e1l78afw8VhRPfPQ1Gjj+KU5XFQ/OFV5ti6eTa9bruO7mJyZtA4vw0ofqmA3tKCkROE9xLk3VZoeRc98nw==}
+
+  '@standard-schema/spec@1.1.0':
+    resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
   '@testing-library/dom@10.4.2':
     resolution: {integrity: sha512-yzr2S9HyAIdhz2/6qHgbs665Q7PKVcDF05vsOlHPxG1mo36gKVesdYVeDLnXgfjJ03CrKRk08knc6+E/9m8v2Q==}
@@ -3015,6 +3030,11 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
+  '@hono/standard-validator@0.4.0(@standard-schema/spec@1.1.0)(hono@5.0.0-rc.1)':
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+      hono: 5.0.0-rc.1
+
   '@img/colour@1.1.0': {}
 
   '@img/sharp-darwin-arm64@0.35.4':
@@ -3501,6 +3521,8 @@ snapshots:
   '@sindresorhus/is@7.2.0': {}
 
   '@speed-highlight/core@1.2.24': {}
+
+  '@standard-schema/spec@1.1.0': {}
 
   '@testing-library/dom@10.4.2':
     dependencies:

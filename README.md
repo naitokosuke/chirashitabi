@@ -13,7 +13,7 @@ vp run check   # format + lint + type check (Vize)
 vp run fmt     # format the SFCs (Vize) and the rest
 vp run musea   # the component gallery (Vize Musea) at /__musea__
 vp build
-vp run check:worker                 # wrangler types + tsc on worker/
+vp run check:worker                 # wrangler types + tsc on worker/, writing .worker-types/ (before `vp run check`)
 vp run deploy                       # VITE_MOCK=false build, then wrangler deploy
 ```
 
@@ -133,7 +133,9 @@ scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop 
 .claude/skills/impeccable/   A text-only copy of the Impeccable design skill (SKILL.md + reference/, no scripts
                              or hooks); PROVENANCE.md says what is left out and why
 
-worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run check:worker` type-checks it)
+worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run check:worker` type-checks it
+                    and writes its declarations to .worker-types/, git-ignored, where the app's hc client
+                    reads the API's routes from)
   index.ts          A Hono app: branches on the hostname, then identify -> Origin check -> the room API;
                     one structured log event (evlog's Hono middleware) per API request, read with `wrangler tail`
   access.ts         AccessVerifier: the Access JWT -> a verified e-mail (signature, aud, iss, exp, nbf)

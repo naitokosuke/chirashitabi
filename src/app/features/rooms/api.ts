@@ -1,7 +1,11 @@
 import { Temporal } from "temporal-polyfill-lite";
 
+import { hc, type ClientResponse } from "hono/client";
+
 import { hexColor } from "../../shared/color";
 import { isRecord } from "../../shared/record";
+
+import type { Api } from "../../../../.worker-types/worker";
 
 import { toWire } from "./newRoom";
 import {
@@ -14,10 +18,11 @@ import {
   type RoomSummary,
 } from "./types";
 
-const headers = { "Content-Type": "application/json" };
+/** The Worker's API; every call says JSON, as the Worker's gate wants, even one with no body */
+const { api } = hc<Api>("/", { headers: { "Content-Type": "application/json" } });
 
 /** The answer's JSON as a record, its fields still to check; a response that is not 2xx is an error the caller's state can hold */
-async function json(res: Response): Promise<Record<string, unknown>> {
+async function json(res: ClientResponse<unknown>): Promise<Record<string, unknown>> {
   if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
   return record(await res.json());
 }
@@ -87,8 +92,7 @@ const list = <T>(value: unknown, of: (raw: unknown) => T | null): T[] =>
  * answers with none of the other two.
  */
 export async function listMine(): Promise<Mine> {
-  const res = await fetch("/api/me", { method: "POST", headers, body: "{}" });
-  const r = await json(res);
+  const r = await json(await api.me.$post());
   return {
     rooms: list(r.rooms, summaryOf),
     invitations: list(r.invitations, summaryOf),
@@ -96,27 +100,28 @@ export async function listMine(): Promise<Mine> {
   };
 }
 
-/** A POST to the API whose answer is only whether it went */
-async function call(path: string, body: unknown = {}): Promise<void> {
-  const res = await fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
+/** A call to the API whose answer is only whether it went */
+async function call(request: Promise<ClientResponse<unknown>>): Promise<void> {
+  const res = await request;
   if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
 }
 
 /** Into a trip one is invited to, as `me`; resolves once one is a member */
 export const acceptInvitation = ({ room, me }: { room: RoomId; me: Profile }) =>
-  call(`/api/invitations/${room}/accept`, me);
+  call(api.invitations[":roomId"].accept.$post({ param: { roomId: room }, json: me }));
 /** Not going: the invitation is gone, and its seat is the owner's again */
-export const declineInvitation = (room: RoomId) => call(`/api/invitations/${room}/decline`);
+export const declineInvitation = (room: RoomId) =>
+  call(api.invitations[":roomId"].decline.$post({ param: { roomId: room } }));
 /** A deleted trip back, for everyone who was in it */
-export const restoreRoom = (room: RoomId) => call(`/api/rooms/${room}/restore`);
+export const restoreRoom = (room: RoomId) =>
+  call(api.rooms[":roomId"].restore.$post({ param: { roomId: room } }));
 /** A deleted trip gone for good now, by its owner; nobody can restore it after */
-export const purgeRoom = (room: RoomId) => call(`/api/rooms/${room}/purge`);
+export const purgeRoom = (room: RoomId) =>
+  call(api.rooms[":roomId"].purge.$post({ param: { roomId: room } }));
 
 /** Creates a room with its trip and its first member; resolves with the new room's id */
 export async function createRoom(room: NewRoom): Promise<RoomId> {
-  const body = JSON.stringify(toWire(room));
-  const res = await fetch("/api/rooms", { method: "POST", headers, body });
-  const id = roomId((await json(res)).roomId);
+  const id = roomId((await json(await api.rooms.$post({ json: toWire(room) }))).roomId);
   if (id === null) throw new Error("/api/rooms answered without a room id");
   return id;
 }
