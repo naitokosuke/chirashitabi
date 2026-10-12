@@ -8,6 +8,7 @@
     "musea": "MUSEA=true vp dev --open /__musea__"
   },
   "dependencies": {
+    "@hono/standard-validator": "^0.4.0",
     "@pinia/colada": "^1.4.6",
     "evlog": "^2.29.0",
     "hono": "5.0.0-rc.1",
@@ -19,6 +20,7 @@
     "vue-router": "^5.3.1"
   },
   "devDependencies": {
+    "@standard-schema/spec": "^1.1.0",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^26.6.3",
     "@vitest/browser-playwright": "catalog:",

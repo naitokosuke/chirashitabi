@@ -1,7 +1,10 @@
 import { Temporal } from "temporal-polyfill-lite";
 
+import { hc, type ClientResponse } from "hono/client";
+
 import { isRecord } from "../../shared/record";
 
+import type { Api } from "../../../../.worker-types/worker";
 import { isImageId } from "../notes/id";
 import type { FoundPlace } from "../place/types";
 import type { RoomId } from "../rooms/types";
@@ -15,19 +18,14 @@ export class OverBudget extends Error {
   }
 }
 
-const headers = { "Content-Type": "application/json" };
+/** A room's calls; every one says JSON, as the Worker's gate wants, even one with no body */
+const inRoom = hc<Api>("/", { headers: { "Content-Type": "application/json" } }).api.rooms[
+  ":roomId"
+];
 
-/** A POST to one of the room's agent calls; a refusal by the budget is an OverBudget */
-async function call(
-  room: RoomId,
-  what: "draft" | "suggest" | "tags" | "candidates" | "places" | "where" | "find" | "expand",
-  body: unknown,
-): Promise<Record<string, unknown>> {
-  const res = await fetch(`/api/rooms/${room}/${what}`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
+/** One of the room's agent calls; a refusal by the budget is an OverBudget */
+async function call(request: Promise<ClientResponse<unknown>>): Promise<Record<string, unknown>> {
+  const res = await request;
   if (res.status === 429)
     throw new OverBudget((await res.text()).endsWith("trip") ? "trip" : "day");
   if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
@@ -35,7 +33,10 @@ async function call(
 }
 
 /** The answer's JSON, whose fields are read one by one below; one that is not an object is an error */
-async function answerOf(res: Response): Promise<Record<string, unknown>> {
+async function answerOf(res: {
+  url: string;
+  json(): Promise<unknown>;
+}): Promise<Record<string, unknown>> {
   const answer: unknown = await res.json();
   if (!isRecord(answer)) throw new Error(`${res.url} answered with no object`);
   return answer;
@@ -87,7 +88,7 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
     return id;
   },
   async suggestTags(memo) {
-    const { tags } = await call(room, "tags", memo);
+    const { tags } = await call(inRoom.tags.$post({ param: { roomId: room }, json: memo }));
     return listOf(tags, (t) =>
       isRecord(t) && text(t.tag) && number(t.p) && typeof t.isNew === "boolean"
         ? { tag: t.tag, p: t.p, isNew: t.isNew }
@@ -95,19 +96,23 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
     );
   },
   async tagCandidates() {
-    const { tags } = await call(room, "candidates", {});
+    const { tags } = await call(inRoom.candidates.$post({ param: { roomId: room } }));
     return listOf(tags, (t) => (text(t) ? t : null));
   },
   async findPlaces(memo) {
-    const { places } = await call(room, "places", memo);
+    const { places } = await call(inRoom.places.$post({ param: { roomId: room }, json: memo }));
     return listOf(places, placeOf);
   },
   async findByName(query, lang) {
-    const { places } = await call(room, "find", { query, lang });
+    const { places } = await call(
+      inRoom.find.$post({ param: { roomId: room }, json: { query, lang } }),
+    );
     return listOf(places, placeOf);
   },
   async expandLink(url, lang) {
-    const answer = await call(room, "expand", { url, lang });
+    const answer = await call(
+      inRoom.expand.$post({ param: { roomId: room }, json: { url, lang } }),
+    );
     const at = isRecord(answer.at) ? answer.at : null;
     return {
       // a link the Worker does not give back is the one asked about
@@ -116,15 +121,19 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
     };
   },
   async whereIs(at, lang) {
-    const { place } = await call(room, "where", { lat: at.lat, lng: at.lng, lang });
+    const { place } = await call(
+      inRoom.where.$post({ param: { roomId: room }, json: { lat: at.lat, lng: at.lng, lang } }),
+    );
     return placeOf(place);
   },
   async suggest(at) {
-    const { added } = await call(room, "suggest", { at });
+    const { added } = await call(inRoom.suggest.$post({ param: { roomId: room }, json: { at } }));
     return number(added) ? added : 0;
   },
   async draftDay(date, notes) {
-    const d = await call(room, "draft", { date: date.toString() });
+    const d = await call(
+      inRoom.draft.$post({ param: { roomId: room }, json: { date: date.toString() } }),
+    );
     return {
       by: text(d.by) ? d.by : "",
       reason: text(d.reason) ? d.reason : "",

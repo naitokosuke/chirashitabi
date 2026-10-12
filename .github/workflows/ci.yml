@@ -19,7 +19,8 @@ jobs:
         with:
           cache: true
       # check:worker first: it generates worker-configuration.d.ts, which worker/tsconfig.json
-      # names in `types`, and the type-aware lint in `check` reads that tsconfig
+      # names in `types`, and the type-aware lint in `check` reads that tsconfig; and it writes
+      # .worker-types/, the Worker's declarations the app's hc client is typed by
       - run: vp run check:worker
       - run: vp run check
       # build before test: the Worker's integration tests start it with its assets directory

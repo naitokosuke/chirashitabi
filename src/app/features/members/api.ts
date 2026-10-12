@@ -1,18 +1,20 @@
+import { hc, type ClientResponse } from "hono/client";
+
 import { isRecord } from "../../shared/record";
 
+import type { Api } from "../../../../.worker-types/worker";
 import type { RoomId } from "../rooms/types";
 
 import type { MemberId } from "./types";
 
-const headers = { "Content-Type": "application/json" };
+/** A room's calls; every one says JSON, as the Worker's gate wants, even one with no body */
+const inRoom = hc<Api>("/", { headers: { "Content-Type": "application/json" } }).api.rooms[
+  ":roomId"
+];
 
-/** A POST to a room's API; a response that is not 2xx is an error the caller's state can hold */
-async function post(room: RoomId, action: string, body: unknown = {}): Promise<Response> {
-  const res = await fetch(`/api/rooms/${room}/${action}`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
+/** A call to a room's API; a response that is not 2xx is an error the caller's state can hold */
+async function call<R extends ClientResponse<unknown>>(request: Promise<R>): Promise<R> {
+  const res = await request;
   if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
   return res;
 }
@@ -24,12 +26,15 @@ export function invitedOf(raw: unknown): string[] {
 }
 
 /** Whom the owner has invited and is waiting on; the room answers its owner only */
-export const fetchInvited = async (room: RoomId): Promise<string[]> =>
-  invitedOf(await (await post(room, "invited")).json());
+export const fetchInvited = async (roomId: RoomId): Promise<string[]> =>
+  invitedOf(await (await call(inRoom.invited.$post({ param: { roomId } }))).json());
 
-export const invite = (room: RoomId, email: string) => post(room, "invite", { email });
-export const uninvite = (room: RoomId, email: string) => post(room, "uninvite", { email });
-export const removeMember = (room: RoomId, member: MemberId) => post(room, "remove", { member });
-export const leaveRoom = (room: RoomId) => post(room, "leave");
+export const invite = (roomId: RoomId, email: string) =>
+  call(inRoom.invite.$post({ param: { roomId }, json: { email } }));
+export const uninvite = (roomId: RoomId, email: string) =>
+  call(inRoom.uninvite.$post({ param: { roomId }, json: { email } }));
+export const removeMember = (roomId: RoomId, member: MemberId) =>
+  call(inRoom.remove.$post({ param: { roomId }, json: { member } }));
+export const leaveRoom = (roomId: RoomId) => call(inRoom.leave.$post({ param: { roomId } }));
 /** Deleted for everyone; its owner can restore it from the list of trips for a while */
-export const deleteRoom = (room: RoomId) => post(room, "delete");
+export const deleteRoom = (roomId: RoomId) => call(inRoom.delete.$post({ param: { roomId } }));

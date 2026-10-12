@@ -1,12 +1,16 @@
+import { sValidator } from "@hono/standard-validator";
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { evlog, type EvlogVariables } from "evlog/hono";
 import { initWorkersLogger } from "evlog/workers";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 
+import type { HexColor } from "../src/app/shared/color";
 import { isRecord } from "../src/app/shared/record";
 
-import { isImageId } from "../src/app/features/notes/id";
+import { isImageId, type ImageId } from "../src/app/features/notes/id";
 import { isShortMapsLink, parseMapsUrl } from "../src/app/features/place/google-maps";
+import { roomId as toRoomId } from "../src/app/features/rooms/types";
 
 import { AccessVerifier, Unauthenticated } from "./access";
 import { draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
@@ -23,6 +27,7 @@ import {
   parsePoint,
   parseProfile,
   parseTrip,
+  type WireTrip,
 } from "./wire";
 
 export { Room, RoomsIndex };
@@ -44,22 +49,22 @@ const access = (env: Env) =>
   }));
 
 /** What the API's handlers have: the bindings, the request's log, and who Access says is asking */
-type Api = { Bindings: Env; Variables: EvlogVariables["Variables"] & { email: string } };
+type ApiEnv = { Bindings: Env; Variables: EvlogVariables["Variables"] & { email: string } };
 /** And, in a room, which one and who the asker is in it */
 type InRoom = {
   Bindings: Env;
-  Variables: Api["Variables"] & {
+  Variables: ApiEnv["Variables"] & {
     roomId: string;
     memberId: string;
     room: DurableObjectStub<Room>;
   };
 };
 
-/** A room's path; its id is a UUID, and anything else is not a room */
-const ROOM = "/rooms/:roomId{[0-9a-f-]{36}}";
+/** A room's path; an id that is not a UUID is no room (`member` answers 404) */
+const ROOM = "/rooms/:roomId";
 
 /** Who Access says is asking; without a valid token nothing past here runs */
-const identify = createMiddleware<Api>(async (c, next) => {
+const identify = createMiddleware<ApiEnv>(async (c, next) => {
   try {
     c.set("email", await access(c.env).identify(c.req.raw));
   } catch (e) {
@@ -76,8 +81,8 @@ const identify = createMiddleware<Api>(async (c, next) => {
  */
 const member = (action: string, deleted = false) =>
   createMiddleware<InRoom>(async (c, next) => {
-    const roomId = c.req.param("roomId");
-    if (roomId === undefined) return c.text("Not Found", 404);
+    const roomId = toRoomId(c.req.param("roomId"));
+    if (roomId === null) return c.text("Not Found", 404);
     const memberId = await c.env.ROOMS.getByName("index").resolve(c.var.email, roomId, deleted);
     if (memberId === null) return c.text("Forbidden", 403);
     c.var.log.set({ room: roomId, member: memberId, action });
@@ -93,16 +98,17 @@ const member = (action: string, deleted = false) =>
  * Everything after the gate below is a POST with JSON from the app's origin, or the socket's
  * upgrade.
  */
-const api = new Hono<Api>()
+const api = new Hono<ApiEnv>()
   .basePath("/api")
   // the app's files are not logged, only what the API decides
   .use(evlog({ redact: true }))
   .use(identify)
 
-  .get(`${ROOM}/images/:imageId{[0-9a-f-]{36}}`, member("image"), async (c) => {
+  .get(`${ROOM}/images/:imageId`, member("image"), async (c) => {
     const { roomId, memberId, room } = c.var;
     const imageId = c.req.param("imageId");
-    if (!(await room.hasImageFor(memberId, imageId))) return c.text("Not Found", 404);
+    if (!isImageId(imageId) || !(await room.hasImageFor(memberId, imageId)))
+      return c.text("Not Found", 404);
     const object = await c.env.IMAGES.get(imageKey(roomId, imageId));
     if (object === null) return c.text("Not Found", 404);
     return c.body(object.body, {
@@ -192,46 +198,67 @@ const api = new Hono<Api>()
   })
 
   // An invitation to a room, answered by the person invited
-  .post("/invitations/:roomId{[0-9a-f-]{36}}/decline", async (c) => {
-    const roomId = c.req.param("roomId");
+  .post("/invitations/:roomId/decline", async (c) => {
+    const roomId = toRoomId(c.req.param("roomId"));
+    if (roomId === null) return c.text("Not Found", 404);
     c.var.log.set({ room: roomId, action: "decline" });
     const seat = await c.env.ROOMS.getByName("index").take(c.var.email, roomId);
     if (seat === null) return c.text("Not Found", 404);
     await c.env.ROOM.getByName(roomId).closeSeat(seat);
     return c.json({});
   })
-  .post("/invitations/:roomId{[0-9a-f-]{36}}/accept", async (c) => {
-    const roomId = c.req.param("roomId");
-    c.var.log.set({ room: roomId, action: "accept" });
-    // who they will be in the room is theirs to say, checked before the seat is taken
-    const me = parseProfile(await json(c.req.raw));
-    if (me === null) return c.text("Bad Request", 400);
-    const index = c.env.ROOMS.getByName("index");
-    const seat = await index.take(c.var.email, roomId);
-    if (seat === null) return c.text("Not Found", 404);
-    const room = c.env.ROOM.getByName(roomId);
-    const memberId = await room.accept(seat, me);
-    if (memberId === null) return c.text("Conflict", 409);
-    if (!(await index.add(c.var.email, roomId, memberId))) {
-      // at the cap of rooms: the seat is lost, as a declined one would be
-      await room.unaccept(memberId);
-      return c.text("Conflict", 409);
-    }
-    c.var.log.set({ member: memberId });
-    return c.json({ memberId });
-  })
+  // who they will be in the room is theirs to say, checked before the seat is taken
+  .post(
+    "/invitations/:roomId/accept",
+    body<{ name: string; color: string }, { name: string; color: HexColor }>(parseProfile),
+    async (c) => {
+      const roomId = toRoomId(c.req.param("roomId"));
+      if (roomId === null) return c.text("Not Found", 404);
+      c.var.log.set({ room: roomId, action: "accept" });
+      const me = c.req.valid("json");
+      const index = c.env.ROOMS.getByName("index");
+      const seat = await index.take(c.var.email, roomId);
+      if (seat === null) return c.text("Not Found", 404);
+      const room = c.env.ROOM.getByName(roomId);
+      const memberId = await room.accept(seat, me);
+      if (memberId === null) return c.text("Conflict", 409);
+      if (!(await index.add(c.var.email, roomId, memberId))) {
+        // at the cap of rooms: the seat is lost, as a declined one would be
+        await room.unaccept(memberId);
+        return c.text("Conflict", 409);
+      }
+      c.var.log.set({ member: memberId });
+      return c.json({ memberId });
+    },
+  )
 
-  .post("/rooms", async (c) => {
-    const body = await json(c.req.raw);
-    const trip = parseTrip(body?.trip);
-    const me = parseProfile(body?.me);
-    if (trip === null || me === null) return c.text("Bad Request", 400);
-    const roomId = crypto.randomUUID();
-    const memberId = await c.env.ROOM.getByName(roomId).create(trip, me);
-    if (!(await c.env.ROOMS.getByName("index").add(c.var.email, roomId, memberId)))
-      return c.text("Conflict", 409);
-    return c.json({ roomId, memberId });
-  })
+  .post(
+    "/rooms",
+    body<
+      {
+        trip: {
+          name: string;
+          days: string[];
+          currency: string;
+          center: { lat: number; lng: number };
+        };
+        me: { name: string; color: string };
+      },
+      { trip: WireTrip; me: { name: string; color: HexColor } }
+    >((v) => {
+      const trip = parseTrip(isRecord(v) ? v.trip : null);
+      const me = parseProfile(isRecord(v) ? v.me : null);
+      return trip === null || me === null ? null : { trip, me };
+    }),
+    async (c) => {
+      const { trip, me } = c.req.valid("json");
+      const roomId = crypto.randomUUID();
+      const memberId = await c.env.ROOM.getByName(roomId).create(trip, me);
+      if (!(await c.env.ROOMS.getByName("index").add(c.var.email, roomId, memberId)))
+        return c.text("Conflict", 409);
+      return c.json({ roomId, memberId });
+    },
+  )
 
   // a deleted room resolves nobody, but the people who were in it may take the deletion
   // back, and its owner may have it gone for good at once (the room drops itself from the index)
@@ -256,114 +283,130 @@ const api = new Hono<Api>()
     );
   })
 
-  .post(`${ROOM}/draft`, member("draft"), async (c) => {
-    const { email, log, roomId, memberId, room } = c.var;
-    const date = (await json(c.req.raw))?.date;
-    if (!isDate(date)) return c.text("Bad Request", 400);
-    const day = await room.dayForDraft(memberId, date);
-    if (day === null) return c.text("Bad Request", 400);
-    log.set({ draft: { date, notes: day.notes.length } });
-    // reserve, call, settle (docs/auth-and-security.md): nothing is called past the budget
-    const index = c.env.ROOMS.getByName("index");
-    const reserved = await index.reserve(email, roomId);
-    if ("refused" in reserved) {
-      log.set({ budget: { refused: reserved.refused } });
-      return c.text(`Budget: ${reserved.refused}`, 429);
-    }
-    const result = await draftDay(c.env, { ...day, date });
-    if (!result.ok) {
-      if (result.refund) await index.refund(reserved.id);
-      log.set({
-        claude: { model: MODEL, ok: false, refunded: result.refund, reason: result.reason },
-      });
-      return c.text("Bad Gateway", 502);
-    }
-    await room.recordAgentCall(memberId, "draft", result.usage);
-    log.set({
-      claude: { model: MODEL, ok: true, tokens: result.usage, items: result.value.items.length },
-    });
-    return c.json({ by: Room.AGENT_ID, ...result.value });
-  })
-
-  .post(`${ROOM}/tags`, member("tags"), async (c) => {
-    const { email, log, roomId, memberId, room } = c.var;
-    const body = await json(c.req.raw);
-    // the memo as it is being written: its words, the tags it has, and its picture
-    const title = typeof body?.title === "string" ? body.title.slice(0, 200) : null;
-    const text = typeof body?.body === "string" ? body.body.slice(0, 4000) : "";
-    const chosen = Array.isArray(body?.chosen)
-      ? body.chosen.filter((t): t is string => typeof t === "string")
-      : [];
-    const imageId = body?.image ?? null;
-    if (title === null || !(imageId === null || isImageId(imageId)))
-      return c.text("Bad Request", 400);
-
-    const index = c.env.ROOMS.getByName("index");
-    const context = await room.tagContext(memberId);
-    let candidates = context.candidates;
-    // the trip's candidates, once: Claude proposes them the first time anyone asks
-    if (candidates.length === 0) {
+  .post(
+    `${ROOM}/draft`,
+    member("draft"),
+    body<{ date: string }, string>((v) => (isRecord(v) && isDate(v.date) ? v.date : null)),
+    async (c) => {
+      const { email, log, roomId, memberId, room } = c.var;
+      const date = c.req.valid("json");
+      const day = await room.dayForDraft(memberId, date);
+      if (day === null) return c.text("Bad Request", 400);
+      log.set({ draft: { date, notes: day.notes.length } });
+      // reserve, call, settle (docs/auth-and-security.md): nothing is called past the budget
+      const index = c.env.ROOMS.getByName("index");
       const reserved = await index.reserve(email, roomId);
       if ("refused" in reserved) {
         log.set({ budget: { refused: reserved.refused } });
         return c.text(`Budget: ${reserved.refused}`, 429);
       }
-      const proposed = await proposeTags(c.env, context);
-      if (proposed.ok) {
-        await room.recordAgentCall(memberId, "tags", proposed.usage);
-        await room.saveCandidates(memberId, proposed.value);
-        candidates = proposed.value;
-      } else if (proposed.refund) await index.refund(reserved.id);
-      // without candidates Clef still judges the tags in use
-      log.set({ claude: { model: MODEL, ok: proposed.ok, candidates: candidates.length } });
-    }
-
-    const taken = new Set(chosen.map((t) => t.toLowerCase()));
-    const vocabulary = [...new Set([...context.tags, ...candidates])]
-      .filter((t) => !taken.has(t.toLowerCase()))
-      .slice(0, MAX_TAGS);
-    if (vocabulary.length === 0) return c.json({ tags: [] });
-
-    // the picture goes along: Clef looks at it with the words
-    let image: { type: string; base64: string } | null = null;
-    if (imageId !== null && (await room.hasImageFor(memberId, imageId))) {
-      const object = await c.env.IMAGES.get(imageKey(roomId, imageId));
-      if (object !== null)
-        image = {
-          type: object.httpMetadata?.contentType ?? "image/webp",
-          base64: toBase64(await object.arrayBuffer()),
-        };
-    }
-
-    const reserved = await index.reserve(email, roomId);
-    if ("refused" in reserved) {
-      log.set({ budget: { refused: reserved.refused } });
-      return c.text(`Budget: ${reserved.refused}`, 429);
-    }
-    const judged = await judgeTags(c.env, { title, body: text, image }, vocabulary);
-    if (!judged.ok) {
-      if (judged.refund) await index.refund(reserved.id);
+      const result = await draftDay(c.env, { ...day, date });
+      if (!result.ok) {
+        if (result.refund) await index.refund(reserved.id);
+        log.set({
+          claude: { model: MODEL, ok: false, refunded: result.refund, reason: result.reason },
+        });
+        return c.text("Bad Gateway", 502);
+      }
+      await room.recordAgentCall(memberId, "draft", result.usage);
       log.set({
-        clef: { model: CLEF_MODEL, ok: false, refunded: judged.refund, reason: judged.reason },
+        claude: { model: MODEL, ok: true, tokens: result.usage, items: result.value.items.length },
       });
-      return c.text("Bad Gateway", 502);
-    }
-    await room.recordAgentCall(memberId, "tag", { input: 0, output: 0 });
-    // how likely the likeliest were, numbers only: what the threshold should be is read here
-    log.set({
-      clef: {
-        model: CLEF_MODEL,
-        ok: true,
-        asked: vocabulary.length,
-        fitting: judged.tags.filter((t) => t.p >= FITS_AT).length,
-        top: judged.tags.slice(0, 3).map((t) => Math.round(t.p * 100) / 100),
-      },
-    });
-    const inUse = new Set(context.tags);
-    return c.json({
-      tags: judged.tags.map((t) => ({ tag: t.tag, p: t.p, isNew: !inUse.has(t.tag) })),
-    });
-  })
+      return c.json({ by: Room.AGENT_ID, ...result.value });
+    },
+  )
+
+  // the memo as it is being written: its words, the tags it has, and its picture
+  .post(
+    `${ROOM}/tags`,
+    member("tags"),
+    body<
+      { title: string; body: string; chosen: string[]; image: string | null },
+      { title: string; text: string; chosen: string[]; imageId: ImageId | null }
+    >((v) => {
+      if (!isRecord(v) || typeof v.title !== "string") return null;
+      const imageId = v.image ?? null;
+      if (!(imageId === null || isImageId(imageId))) return null;
+      return {
+        title: v.title.slice(0, 200),
+        text: typeof v.body === "string" ? v.body.slice(0, 4000) : "",
+        chosen: Array.isArray(v.chosen)
+          ? v.chosen.filter((t): t is string => typeof t === "string")
+          : [],
+        imageId,
+      };
+    }),
+    async (c) => {
+      const { email, log, roomId, memberId, room } = c.var;
+      const { title, text, chosen, imageId } = c.req.valid("json");
+
+      const index = c.env.ROOMS.getByName("index");
+      const context = await room.tagContext(memberId);
+      let candidates = context.candidates;
+      // the trip's candidates, once: Claude proposes them the first time anyone asks
+      if (candidates.length === 0) {
+        const reserved = await index.reserve(email, roomId);
+        if ("refused" in reserved) {
+          log.set({ budget: { refused: reserved.refused } });
+          return c.text(`Budget: ${reserved.refused}`, 429);
+        }
+        const proposed = await proposeTags(c.env, context);
+        if (proposed.ok) {
+          await room.recordAgentCall(memberId, "tags", proposed.usage);
+          await room.saveCandidates(memberId, proposed.value);
+          candidates = proposed.value;
+        } else if (proposed.refund) await index.refund(reserved.id);
+        // without candidates Clef still judges the tags in use
+        log.set({ claude: { model: MODEL, ok: proposed.ok, candidates: candidates.length } });
+      }
+
+      const taken = new Set(chosen.map((t) => t.toLowerCase()));
+      const vocabulary = [...new Set([...context.tags, ...candidates])]
+        .filter((t) => !taken.has(t.toLowerCase()))
+        .slice(0, MAX_TAGS);
+      if (vocabulary.length === 0) return c.json({ tags: [] });
+
+      // the picture goes along: Clef looks at it with the words
+      let image: { type: string; base64: string } | null = null;
+      if (imageId !== null && (await room.hasImageFor(memberId, imageId))) {
+        const object = await c.env.IMAGES.get(imageKey(roomId, imageId));
+        if (object !== null)
+          image = {
+            type: object.httpMetadata?.contentType ?? "image/webp",
+            base64: toBase64(await object.arrayBuffer()),
+          };
+      }
+
+      const reserved = await index.reserve(email, roomId);
+      if ("refused" in reserved) {
+        log.set({ budget: { refused: reserved.refused } });
+        return c.text(`Budget: ${reserved.refused}`, 429);
+      }
+      const judged = await judgeTags(c.env, { title, body: text, image }, vocabulary);
+      if (!judged.ok) {
+        if (judged.refund) await index.refund(reserved.id);
+        log.set({
+          clef: { model: CLEF_MODEL, ok: false, refunded: judged.refund, reason: judged.reason },
+        });
+        return c.text("Bad Gateway", 502);
+      }
+      await room.recordAgentCall(memberId, "tag", { input: 0, output: 0 });
+      // how likely the likeliest were, numbers only: what the threshold should be is read here
+      log.set({
+        clef: {
+          model: CLEF_MODEL,
+          ok: true,
+          asked: vocabulary.length,
+          fitting: judged.tags.filter((t) => t.p >= FITS_AT).length,
+          top: judged.tags.slice(0, 3).map((t) => Math.round(t.p * 100) / 100),
+        },
+      });
+      const inUse = new Set(context.tags);
+      return c.json({
+        tags: judged.tags.map((t) => ({ tag: t.tag, p: t.p, isNew: !inUse.has(t.tag) })),
+      });
+    },
+  )
 
   // the trip's candidate tags, for the form to rank as the words are typed: free, so not budgeted
   .post(`${ROOM}/candidates`, member("candidates"), async (c) => {
@@ -373,145 +416,186 @@ const api = new Hono<Api>()
 
   // a short Google Maps link, expanded by reading its one redirect; anything else is answered
   // as it came, without a fetch. A fetch of a URL a person typed counts against their budget
-  .post(`${ROOM}/expand`, member("expand"), async (c) => {
-    const { email, log, roomId } = c.var;
-    const body = await json(c.req.raw);
-    const url = body?.url;
-    if (typeof url !== "string" || url.length > 2000) return c.text("Bad Request", 400);
-    if (!isShortMapsLink(url)) return c.json({ url, at: null });
-    const reserved = await c.env.ROOMS.getByName("index").reserve(email, roomId);
-    if ("refused" in reserved) {
-      log.set({ budget: { refused: reserved.refused } });
-      return c.text(`Budget: ${reserved.refused}`, 429);
-    }
-    const expanded = await expand(url, c.env.SHORTLINK_BASE_URL);
-    // a short link most often leads to the place's name (`/maps/place/<name>/data=…`, or
-    // `?q=<name>`), not its point: then OpenStreetMap finds the name, free, and its point is the link's
-    let at: { lat: number; lng: number } | null = null;
-    const point = expanded === null ? null : parseMapsUrl(expanded);
-    const name = expanded === null || point !== null ? null : placeName(expanded);
-    if (name !== null) {
-      const found = await geocode(c.env, name, body?.lang === "en" ? "en" : "ja");
-      const first = found?.[0];
-      if (first !== undefined) at = { lat: first.lat, lng: first.lng };
-    }
-    // the shape it led to, not the place: enough to tell which way a link that found nothing went
-    const shape =
-      expanded === null ? null : (/\/maps\/(\w+)/.exec(new URL(expanded).pathname)?.[1] ?? "root");
-    log.set({
-      expand: { ok: expanded !== null, shape, point: point !== null, named: name !== null },
-      geocoder: { ok: name === null || at !== null },
-    });
-    return c.json({ url: expanded ?? url, at });
-  })
+  .post(
+    `${ROOM}/expand`,
+    member("expand"),
+    body<{ url: string; lang: "ja" | "en" }, { url: string; lang: "ja" | "en" }>((v) =>
+      isRecord(v) && typeof v.url === "string" && v.url.length <= 2000
+        ? { url: v.url, lang: v.lang === "en" ? "en" : "ja" }
+        : null,
+    ),
+    async (c) => {
+      const { email, log, roomId } = c.var;
+      const { url, lang } = c.req.valid("json");
+      if (!isShortMapsLink(url)) return c.json({ url, at: null });
+      const reserved = await c.env.ROOMS.getByName("index").reserve(email, roomId);
+      if ("refused" in reserved) {
+        log.set({ budget: { refused: reserved.refused } });
+        return c.text(`Budget: ${reserved.refused}`, 429);
+      }
+      const expanded = await expand(url, c.env.SHORTLINK_BASE_URL);
+      // a short link most often leads to the place's name (`/maps/place/<name>/data=…`, or
+      // `?q=<name>`), not its point: then OpenStreetMap finds the name, free, and its point is the link's
+      let at: { lat: number; lng: number } | null = null;
+      const point = expanded === null ? null : parseMapsUrl(expanded);
+      const name = expanded === null || point !== null ? null : placeName(expanded);
+      if (name !== null) {
+        const found = await geocode(c.env, name, lang);
+        const first = found?.[0];
+        if (first !== undefined) at = { lat: first.lat, lng: first.lng };
+      }
+      // the shape it led to, not the place: enough to tell which way a link that found nothing went
+      const shape =
+        expanded === null
+          ? null
+          : (/\/maps\/(\w+)/.exec(new URL(expanded).pathname)?.[1] ?? "root");
+      log.set({
+        expand: { ok: expanded !== null, shape, point: point !== null, named: name !== null },
+        geocoder: { ok: name === null || at !== null },
+      });
+      return c.json({ url: expanded ?? url, at });
+    },
+  )
 
   // places by a name the asker typed (a stay's): OpenStreetMap only, free (no agent), so not budgeted
-  .post(`${ROOM}/find`, member("find"), async (c) => {
-    const body = await json(c.req.raw);
-    const query = typeof body?.query === "string" ? body.query.trim() : "";
-    if (query === "" || query.length > 200) return c.text("Bad Request", 400);
-    const found = await geocode(c.env, query, body?.lang === "en" ? "en" : "ja");
-    c.var.log.set({ geocoder: { ok: found !== null, found: found?.length ?? 0 } });
-    if (found === null) return c.text("Bad Gateway", 502);
-    return c.json({ places: found });
-  })
+  .post(
+    `${ROOM}/find`,
+    member("find"),
+    body<{ query: string; lang: "ja" | "en" }, { query: string; lang: "ja" | "en" }>((v) => {
+      const query = isRecord(v) && typeof v.query === "string" ? v.query.trim() : "";
+      return query === "" || query.length > 200 || !isRecord(v)
+        ? null
+        : { query, lang: v.lang === "en" ? "en" : "ja" };
+    }),
+    async (c) => {
+      const { query, lang } = c.req.valid("json");
+      const found = await geocode(c.env, query, lang);
+      c.var.log.set({ geocoder: { ok: found !== null, found: found?.length ?? 0 } });
+      if (found === null) return c.text("Bad Gateway", 502);
+      return c.json({ places: found });
+    },
+  )
 
   // what is at a point the asker pinned on the map: free (no agent), so not budgeted
-  .post(`${ROOM}/where`, member("where"), async (c) => {
-    const body = await json(c.req.raw);
-    const lat = body?.lat;
-    const lng = body?.lng;
-    if (
-      typeof lat !== "number" ||
-      typeof lng !== "number" ||
-      Math.abs(lat) > 90 ||
-      Math.abs(lng) > 180
-    )
-      return c.text("Bad Request", 400);
-    const lang = body?.lang === "en" ? "en" : "ja";
-    const found = await reverseGeocode(c.env, { lat, lng }, lang);
-    c.var.log.set({ geocoder: { reverse: true, ok: found !== null, found: found?.place != null } });
-    if (found === null) return c.text("Bad Gateway", 502);
-    return c.json(found);
-  })
+  .post(
+    `${ROOM}/where`,
+    member("where"),
+    body<
+      { lat: number; lng: number; lang: "ja" | "en" },
+      { lat: number; lng: number; lang: "ja" | "en" }
+    >((v) =>
+      isRecord(v) &&
+      typeof v.lat === "number" &&
+      typeof v.lng === "number" &&
+      Math.abs(v.lat) <= 90 &&
+      Math.abs(v.lng) <= 180
+        ? { lat: v.lat, lng: v.lng, lang: v.lang === "en" ? "en" : "ja" }
+        : null,
+    ),
+    async (c) => {
+      const { lat, lng, lang } = c.req.valid("json");
+      const found = await reverseGeocode(c.env, { lat, lng }, lang);
+      c.var.log.set({
+        geocoder: { reverse: true, ok: found !== null, found: found?.place != null },
+      });
+      if (found === null) return c.text("Bad Gateway", 502);
+      return c.json(found);
+    },
+  )
 
   // the memo as it is being written; the places are named in the asker's language
-  .post(`${ROOM}/places`, member("places"), async (c) => {
-    const { email, log, roomId, memberId, room } = c.var;
-    const body = await json(c.req.raw);
-    const title = typeof body?.title === "string" ? body.title.trim().slice(0, 200) : "";
-    const text = typeof body?.body === "string" ? body.body.trim().slice(0, 4000) : "";
-    const tags = Array.isArray(body?.tags)
-      ? body.tags.filter((t): t is string => typeof t === "string").slice(0, 20)
-      : [];
-    const lang = body?.lang === "en" ? "en" : "ja";
-    if (title === "" && text === "") return c.text("Bad Request", 400);
+  .post(
+    `${ROOM}/places`,
+    member("places"),
+    body<
+      { title: string; body: string; tags: string[]; lang: "ja" | "en" },
+      { title: string; text: string; tags: string[]; lang: "ja" | "en" }
+    >((v) => {
+      if (!isRecord(v)) return null;
+      const title = typeof v.title === "string" ? v.title.trim().slice(0, 200) : "";
+      const text = typeof v.body === "string" ? v.body.trim().slice(0, 4000) : "";
+      if (title === "" && text === "") return null;
+      const tags = Array.isArray(v.tags)
+        ? v.tags.filter((t): t is string => typeof t === "string").slice(0, 20)
+        : [];
+      return { title, text, tags, lang: v.lang === "en" ? "en" : "ja" };
+    }),
+    async (c) => {
+      const { email, log, roomId, memberId, room } = c.var;
+      const { title, text, tags, lang } = c.req.valid("json");
 
-    const index = c.env.ROOMS.getByName("index");
-    const context = await room.placeContext(memberId);
-    const reserved = await index.reserve(email, roomId);
-    if ("refused" in reserved) {
-      log.set({ budget: { refused: reserved.refused } });
-      return c.text(`Budget: ${reserved.refused}`, 429);
-    }
-    const named = await namePlace(c.env, context, { title, body: text, tags });
-    if (!named.ok) {
-      if (named.refund) await index.refund(reserved.id);
-      log.set({
-        claude: { model: MODEL, ok: false, refunded: named.refund, reason: named.reason },
-      });
-      return c.text("Bad Gateway", 502);
-    }
-    await room.recordAgentCall(memberId, "places", named.usage);
-
-    // the best query first; the other only when the first finds nothing, a second later
-    let places: Place[] = [];
-    for (const [i, query] of named.value.entries()) {
-      if (i > 0) await new Promise((r) => setTimeout(r, SPACING_MS));
-      const found = await geocode(c.env, query, lang);
-      if (found === null) {
+      const index = c.env.ROOMS.getByName("index");
+      const context = await room.placeContext(memberId);
+      const reserved = await index.reserve(email, roomId);
+      if ("refused" in reserved) {
+        log.set({ budget: { refused: reserved.refused } });
+        return c.text(`Budget: ${reserved.refused}`, 429);
+      }
+      const named = await namePlace(c.env, context, { title, body: text, tags });
+      if (!named.ok) {
+        if (named.refund) await index.refund(reserved.id);
         log.set({
-          claude: { model: MODEL, ok: true, tokens: named.usage },
-          geocoder: { ok: false },
+          claude: { model: MODEL, ok: false, refunded: named.refund, reason: named.reason },
         });
         return c.text("Bad Gateway", 502);
       }
-      places = found;
-      if (places.length > 0) break;
-    }
-    log.set({
-      claude: { model: MODEL, ok: true, tokens: named.usage, queries: named.value.length },
-      geocoder: { ok: true, found: places.length },
-    });
-    return c.json({ places });
-  })
+      await room.recordAgentCall(memberId, "places", named.usage);
+
+      // the best query first; the other only when the first finds nothing, a second later
+      let places: Place[] = [];
+      for (const [i, query] of named.value.entries()) {
+        if (i > 0) await new Promise((r) => setTimeout(r, SPACING_MS));
+        const found = await geocode(c.env, query, lang);
+        if (found === null) {
+          log.set({
+            claude: { model: MODEL, ok: true, tokens: named.usage },
+            geocoder: { ok: false },
+          });
+          return c.text("Bad Gateway", 502);
+        }
+        places = found;
+        if (places.length > 0) break;
+      }
+      log.set({
+        claude: { model: MODEL, ok: true, tokens: named.usage, queries: named.value.length },
+        geocoder: { ok: true, found: places.length },
+      });
+      return c.json({ places });
+    },
+  )
 
   // where the asker is looking on the desk: the cards land there
-  .post(`${ROOM}/suggest`, member("suggest"), async (c) => {
-    const { email, log, roomId, memberId, room } = c.var;
-    const at = parsePoint((await json(c.req.raw))?.at);
-    if (at === null) return c.text("Bad Request", 400);
-    const context = await room.contextForSuggest(memberId);
-    log.set({ suggest: { notes: context.notes.length } });
-    const index = c.env.ROOMS.getByName("index");
-    const reserved = await index.reserve(email, roomId);
-    if ("refused" in reserved) {
-      log.set({ budget: { refused: reserved.refused } });
-      return c.text(`Budget: ${reserved.refused}`, 429);
-    }
-    const result = await suggestNotes(c.env, context);
-    if (!result.ok) {
-      if (result.refund) await index.refund(reserved.id);
-      log.set({
-        claude: { model: MODEL, ok: false, refunded: result.refund, reason: result.reason },
-      });
-      return c.text("Bad Gateway", 502);
-    }
-    await room.recordAgentCall(memberId, "suggest", result.usage);
-    const added = await room.addSuggestions(memberId, result.value, at);
-    log.set({ claude: { model: MODEL, ok: true, tokens: result.usage, items: added } });
-    return c.json({ added });
-  })
+  .post(
+    `${ROOM}/suggest`,
+    member("suggest"),
+    body<{ at: { x: number; y: number } }, { x: number; y: number }>((v) =>
+      parsePoint(isRecord(v) ? v.at : null),
+    ),
+    async (c) => {
+      const { email, log, roomId, memberId, room } = c.var;
+      const at = c.req.valid("json");
+      const context = await room.contextForSuggest(memberId);
+      log.set({ suggest: { notes: context.notes.length } });
+      const index = c.env.ROOMS.getByName("index");
+      const reserved = await index.reserve(email, roomId);
+      if ("refused" in reserved) {
+        log.set({ budget: { refused: reserved.refused } });
+        return c.text(`Budget: ${reserved.refused}`, 429);
+      }
+      const result = await suggestNotes(c.env, context);
+      if (!result.ok) {
+        if (result.refund) await index.refund(reserved.id);
+        log.set({
+          claude: { model: MODEL, ok: false, refunded: result.refund, reason: result.reason },
+        });
+        return c.text("Bad Gateway", 502);
+      }
+      await room.recordAgentCall(memberId, "suggest", result.usage);
+      const added = await room.addSuggestions(memberId, result.value, at);
+      log.set({ claude: { model: MODEL, ok: true, tokens: result.usage, items: added } });
+      return c.json({ added });
+    },
+  )
 
   // Who is in a room, and who is asked in: the owner invites, takes an invitation back, removes
   // someone and deletes the room; anyone else may leave. The room decides who may; the index
@@ -524,37 +608,51 @@ const api = new Hono<Api>()
     if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
     return c.json({ invited: await c.env.ROOMS.getByName("index").invited(roomId) });
   })
-  .post(`${ROOM}/invite`, member("invite"), async (c) => {
-    const { roomId, memberId, room } = c.var;
-    const invitee = parseEmail((await json(c.req.raw))?.email);
-    if (invitee === null) return c.text("Bad Request", 400);
-    if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
-    const seat = await room.openSeat(memberId);
-    if (seat === null) return c.text("Conflict", 409); // every seat taken or held
-    if (!(await c.env.ROOMS.getByName("index").invite(invitee, roomId, seat))) {
+  .post(
+    `${ROOM}/invite`,
+    member("invite"),
+    body<{ email: string }, string>((v) => parseEmail(isRecord(v) ? v.email : null)),
+    async (c) => {
+      const { roomId, memberId, room } = c.var;
+      const invitee = c.req.valid("json");
+      if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
+      const seat = await room.openSeat(memberId);
+      if (seat === null) return c.text("Conflict", 409); // every seat taken or held
+      if (!(await c.env.ROOMS.getByName("index").invite(invitee, roomId, seat))) {
+        await room.closeSeat(seat);
+        return c.text("Conflict", 409); // already in, or already invited
+      }
+      return c.json({ invited: invitee });
+    },
+  )
+  .post(
+    `${ROOM}/uninvite`,
+    member("uninvite"),
+    body<{ email: string }, string>((v) => parseEmail(isRecord(v) ? v.email : null)),
+    async (c) => {
+      const { roomId, memberId, room } = c.var;
+      const invitee = c.req.valid("json");
+      if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
+      const seat = await c.env.ROOMS.getByName("index").take(invitee, roomId);
+      if (seat === null) return c.text("Not Found", 404);
       await room.closeSeat(seat);
-      return c.text("Conflict", 409); // already in, or already invited
-    }
-    return c.json({ invited: invitee });
-  })
-  .post(`${ROOM}/uninvite`, member("uninvite"), async (c) => {
-    const { roomId, memberId, room } = c.var;
-    const invitee = parseEmail((await json(c.req.raw))?.email);
-    if (invitee === null) return c.text("Bad Request", 400);
-    if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
-    const seat = await c.env.ROOMS.getByName("index").take(invitee, roomId);
-    if (seat === null) return c.text("Not Found", 404);
-    await room.closeSeat(seat);
-    return c.json({});
-  })
-  .post(`${ROOM}/remove`, member("remove"), async (c) => {
-    const { roomId, memberId, room } = c.var;
-    const removed = (await json(c.req.raw))?.member;
-    if (typeof removed !== "string" || removed === "") return c.text("Bad Request", 400);
-    if (!(await room.remove(memberId, removed))) return c.text("Forbidden", 403);
-    await c.env.ROOMS.getByName("index").forget(roomId, removed);
-    return c.json({});
-  })
+      return c.json({});
+    },
+  )
+  .post(
+    `${ROOM}/remove`,
+    member("remove"),
+    body<{ member: string }, string>((v) =>
+      isRecord(v) && typeof v.member === "string" && v.member !== "" ? v.member : null,
+    ),
+    async (c) => {
+      const { roomId, memberId, room } = c.var;
+      const removed = c.req.valid("json");
+      if (!(await room.remove(memberId, removed))) return c.text("Forbidden", 403);
+      await c.env.ROOMS.getByName("index").forget(roomId, removed);
+      return c.json({});
+    },
+  )
   .post(`${ROOM}/leave`, member("leave"), async (c) => {
     const { roomId, memberId, room } = c.var;
     if (!(await room.remove(memberId, memberId))) return c.text("Forbidden", 403);
@@ -570,6 +668,9 @@ const api = new Hono<Api>()
 
   // anything else under /api is no call, and never the app's files
   .all("*", (c) => c.text("Not Found", 404));
+
+/** The API's routes, for the app's client (hc) */
+export type Api = typeof api;
 
 export default new Hono<{ Bindings: Env }>()
   .use(async (c, next) => {
@@ -588,14 +689,25 @@ const booklet = () => new Response("Not Found", { status: 404 });
 /** The room's own folder in the bucket: one room's ids never reach another's pictures */
 const imageKey = (roomId: string, id: string) => `rooms/${roomId}/images/${id}`;
 
-/** The JSON body as a record, or null when it is not one */
-async function json(request: Request): Promise<Record<string, unknown> | null> {
-  try {
-    const v: unknown = await request.json();
-    return isRecord(v) ? v : null;
-  } catch {
-    return null;
-  }
+/**
+ * The JSON body as `parse` reads it, or 400. `In` is what the app sends, for its client (hc);
+ * the handler has `Out`, what `parse` made of it. A Standard Schema keeps the two apart: the
+ * app's branded types never have to match a copy of themselves in the Worker's declarations
+ */
+function body<In, Out>(parse: (v: unknown) => Out | null) {
+  const schema: StandardSchemaV1<In, Out> = {
+    "~standard": {
+      version: 1,
+      vendor: "chirashitabi",
+      validate: (v) => {
+        const value = parse(v);
+        return value === null ? { issues: [{ message: "Bad Request" }] } : { value };
+      },
+    },
+  };
+  return sValidator("json", schema, (result, c) =>
+    result.success ? undefined : c.text("Bad Request", 400),
+  );
 }
 
 /** Bytes as base64, in slices: a spread of a whole picture would overflow the call stack */
