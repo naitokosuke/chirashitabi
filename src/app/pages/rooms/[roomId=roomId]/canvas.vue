@@ -1115,8 +1115,8 @@ section {
     }
 
     /*
-     * The sticker: the write button's tile, stacked over it, but drawn as a tool (white on a
-     * hairline), since the write button is the one filled tool on the desk
+     * The sticker: the write button's ink tile, stacked over it, the two ways to put something
+     * new on the desk in the thumb's reach
      */
     > .sticker {
       position: absolute;
@@ -1126,17 +1126,17 @@ section {
       width: 56px;
       height: 56px;
       border-radius: 18px;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      color: var(--ink);
+      background: var(--ink);
+      color: var(--on-ink);
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: var(--shadow-float);
-      transition: box-shadow var(--duration-swap) ease;
+      transition: box-shadow var(--duration-swap) ease, opacity var(--duration-swap) ease;
 
+      /* sending: the tile fades while it waits */
       &:disabled {
-        color: var(--muted);
+        opacity: 0.5;
       }
 
       @media (--can-hover) {

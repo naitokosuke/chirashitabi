@@ -1,6 +1,6 @@
 <script setup lang="ts" vapor>
 /**
- * The one filled tool on a view: an ink tile at the bottom end, in the thumb's reach.
+ * The filled tool on a view: an ink tile at the bottom end, in the thumb's reach.
  * `label` names it for screen readers; the slot is its glyph.
  */
 defineProps<{ label: string }>();

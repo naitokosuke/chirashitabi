@@ -133,7 +133,7 @@ components:
 
 **Creative North Star: "Graphite on Paper" (紙と鉛筆)**
 
-The screen is a desk, and the desk is neutral: a cool, almost colorless gray with the faint dot grid of graph paper. On it, paper. Ideas are sticky notes in six tinted stocks, scattered at slight angles, each with a small dot saying whose hand it came from. Everything that is not paper is a tool drawn in one ink: white chips and panels on a hairline, and a single filled ink tile for writing. Color belongs to the paper and to nobody else; the tools stay graphite so the notes are what you see.
+The screen is a desk, and the desk is neutral: a cool, almost colorless gray with the faint dot grid of graph paper. On it, paper. Ideas are sticky notes in six tinted stocks, scattered at slight angles, each with a small dot saying whose hand it came from. Everything that is not paper is a tool drawn in one ink: white chips and panels on a hairline, and filled ink tiles for putting something new down (writing, and on the canvas a sticker). Color belongs to the paper and to nobody else; the tools stay graphite so the notes are what you see.
 
 The voice is quiet. One ink, one neutral desk, one family of paper, and one moment of play when a new note pops onto the desk. This is an Operate surface, two people getting a trip planned, and the tool should disappear into the task. Density is relaxed on the canvas and tighter in the booklet; the memo tab is the note form and nothing else, always open for the next thought.
 
@@ -253,7 +253,7 @@ Words set straight on the desk, where a note would be too much: a heading over a
 
 ### Stickers
 
-A picture stuck straight on the desk, for the fun of it: a subject lifted from a photo on the iPhone, a cut-out. The sticker's tile picks one from the photos: the write button's 56px tile, stacked over it, but drawn as a tool (white on a hairline, a peeling sticker in ink) since the write button is the one filled tool; on a computer one is also pasted onto the desk (not into words being written) or dropped where it should go. It lands in the middle of the desk (or where it was dropped) a few degrees askew, with the pop and the toast's undo; meanwhile the tile turns Muted and is named "Sticking…". It is the picture alone, 160px wide at its own size (`--sticker-size`), its see-through parts kept: no paper and no author's dot, its outline traced by a 2px white edge (`--sticker-edge`, the white paper's color) and a soft shadow that follows the cut, lifting further while it is dragged. A picture with no see-through parts is stuck as the rectangle it is. Otherwise it is a card, as a text box is: picked and framed in ink, moved, resized and turned with the same handles, duplicated or deleted from its toolbar, which has no paper colors. The tag filter leaves it be; the map, the booklet, the counts and Claude's ideas never see it.
+A picture stuck straight on the desk, for the fun of it: a subject lifted from a photo on the iPhone, a cut-out. The sticker's tile picks one from the photos: the write button's 56px ink tile, stacked over it, with a peeling sticker in `--on-ink`; on a computer one is also pasted onto the desk (not into words being written) or dropped where it should go. It lands in the middle of the desk (or where it was dropped) a few degrees askew, with the pop and the toast's undo; meanwhile the tile fades to half and is named "Sticking…". It is the picture alone, 160px wide at its own size (`--sticker-size`), its see-through parts kept: no paper and no author's dot, its outline traced by a 2px white edge (`--sticker-edge`, the white paper's color) and a soft shadow that follows the cut, lifting further while it is dragged. A picture with no see-through parts is stuck as the rectangle it is. Otherwise it is a card, as a text box is: picked and framed in ink, moved, resized and turned with the same handles, duplicated or deleted from its toolbar, which has no paper colors. The tag filter leaves it be; the map, the booklet, the counts and Claude's ideas never see it.
 
 ### Home
 
@@ -271,7 +271,7 @@ While the list loads, two wash-colored tag shapes hold its place. With no trips,
 
 ### Write button (`CtFab`)
 
-An ink tile, 56px, 18px radius, a 24px plus in `--on-ink`, `--shadow-float`, lifting to `--shadow-lift` on hover. On the canvas and the map. It is the only filled tool on a view.
+An ink tile, 56px, 18px radius, a 24px plus in `--on-ink`, `--shadow-float`, lifting to `--shadow-lift` on hover. On the canvas and the map. On the canvas the sticker's tile, the same ink tile with a peeling sticker for its glyph, sits 12px over it; otherwise it is the only filled tool on a view.
 
 ### Buttons
 
