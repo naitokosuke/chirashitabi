@@ -3,9 +3,9 @@ import { defineQuery, useQueryState } from "@pinia/colada";
 import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
-import type { NoteId } from "./id";
+import type { ImageId, NoteId } from "./id";
 import { duplicateInput } from "./input";
-import type { MemoPatch, NewMemo, NewText, NoteColor, NoteInput } from "./types";
+import type { MemoPatch, NewMemo, NewSticker, NewText, NoteColor, NoteInput } from "./types";
 
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
 const uid = () => Math.random().toString(36).slice(2, 10) as NoteId;
@@ -56,6 +56,20 @@ export const useNotes = defineQuery(() => {
     sync.commit({ type: "note:add", note: n });
     return n;
   }
+  /** A sticker showing `image` with its top-left at `at`, a little askew like one stuck by hand */
+  function addSticker(image: ImageId, at: { x: number; y: number }, shape?: Shape) {
+    const n: NewSticker = {
+      id: uid(),
+      kind: "sticker",
+      title: "",
+      color: "#ffffff",
+      image,
+      ...at,
+      ...(shape ?? { rot: Math.random() * 8 - 4, scale: 1 }),
+    };
+    sync.commit({ type: "note:add", note: n });
+    return n;
+  }
   /** What a text box says; blank, the box goes */
   function editText(id: NoteId, text: string) {
     const n = byId(id);
@@ -95,6 +109,7 @@ export const useNotes = defineQuery(() => {
     if (n === undefined) return;
     const at = { x: n.x + 24, y: n.y + 24 };
     if (n.kind === "text") return addText(n.title, at, { rot: n.rot, scale: n.scale });
+    if (n.kind === "sticker") return addSticker(n.image, at, { rot: n.rot, scale: n.scale });
     return add(duplicateInput(n), at);
   }
   /** A suggestion becomes an ordinary memo; `by` still says whose idea it was */
@@ -107,6 +122,7 @@ export const useNotes = defineQuery(() => {
     notes,
     add,
     addText,
+    addSticker,
     editText,
     update,
     recolor,

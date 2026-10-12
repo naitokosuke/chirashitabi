@@ -120,7 +120,13 @@ export interface WireText extends WireCard {
   kind: "text";
 }
 
-export type WireNote = WireMemo | WireSuggestion | WireText;
+/** A picture stuck straight on the desk: `image` is what it shows; it has no words */
+export interface WireSticker extends WireCard {
+  kind: "sticker";
+  image: ImageId;
+}
+
+export type WireNote = WireMemo | WireSuggestion | WireText | WireSticker;
 
 /** What a memo's `note:update` may change */
 export type WireMemoPatch = Partial<
@@ -354,6 +360,8 @@ const parseNote = (v: unknown, stamp: Pick<WireNote, "by" | "updatedAt">): WireN
   };
   if (v.kind === "suggestion") return { ...card, kind: "suggestion" };
   if (v.kind === "text") return { ...card, kind: "text" };
+  if (v.kind === "sticker")
+    return isImageId(v.image) ? { ...card, kind: "sticker", image: v.image } : null;
   if (v.kind !== "memo") return null;
   if (!isText(v.body, BODY) || !isTags(v.tags)) return null;
   if (!(v.mapsUrl === null || isUrl(v.mapsUrl))) return null;

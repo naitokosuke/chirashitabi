@@ -841,6 +841,31 @@ describe("the socket", () => {
     for (const s of [a, b, c, d]) s.ws.close(1000, "done");
   });
 
+  test("a room from before stickers takes them once its notes are copied over", async () => {
+    const owner = "old-sticker-room@example.com";
+    const { roomId } = await createRoom(owner);
+    const worker = server.getWorker();
+    const room = await worker.getDurableObjectStorage("Room", { name: roomId });
+    // the notes table as it was: a CHECK without 'sticker', with a text box in it
+    await room.exec("DROP TABLE notes");
+    await room.exec(`CREATE TABLE notes (
+      id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('memo', 'suggestion', 'text')),
+      title TEXT NOT NULL, color TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL, rot REAL NOT NULL,
+      by TEXT NOT NULL, updated_at TEXT NOT NULL, body TEXT NOT NULL DEFAULT '',
+      tags TEXT NOT NULL DEFAULT '[]', maps_url TEXT, pin_lat REAL, pin_lng REAL, sched_date TEXT,
+      sched_time TEXT, sched_status TEXT, budget REAL, deleted_at TEXT,
+      checked INTEGER NOT NULL DEFAULT 0, image TEXT, scale REAL NOT NULL DEFAULT 1)`);
+    await room.exec(
+      `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at)
+       VALUES ('old', 'text', 'Kept', '#ffffff', 1, 2, 3, 'someone', '2026-01-01T00:00:00Z')`,
+    );
+    await worker.evictDurableObject("Room", { name: roomId });
+
+    const a = await connect(roomId, owner);
+    expect(a.snapshot).toMatchObject({ notes: [{ id: "old", kind: "text", title: "Kept" }] });
+    a.ws.close(1000, "done");
+  });
+
   test("a room from before text boxes takes them once its notes are copied over", async () => {
     const owner = "old-room@example.com";
     const { roomId } = await createRoom(owner);
@@ -1526,6 +1551,48 @@ describe("pictures", () => {
       b.snapshot.type === "snapshot" ? b.snapshot.notes.find((n) => n.id === "n1") : undefined;
     expect(n1).toMatchObject({ kind: "memo", image: null });
     b.ws.close(1000, "done");
+  });
+
+  test("a sticker is a picture the room has, stuck on the desk, moved and taken away", async () => {
+    const email = "stickers@example.com";
+    const { roomId } = await createRoom(email);
+    const { id } = (await (await upload(roomId, email)).json()) as { id: string };
+    const a = await connect(roomId, email);
+    const sticker = (image: unknown) => ({
+      id: "s1",
+      kind: "sticker",
+      title: "",
+      color: "#ffffff",
+      x: 5,
+      y: 6,
+      rot: -3,
+      scale: 1,
+      image,
+    });
+
+    a.send({ type: "note:add", note: sticker(null), cid: "c1" });
+    expect(await a.next()).toMatchObject({ type: "rejected", reason: "not a mutation", cid: "c1" });
+    a.send({ type: "note:add", note: sticker(crypto.randomUUID()), cid: "c2" });
+    expect(await a.next()).toMatchObject({ type: "rejected", reason: "no such image", cid: "c2" });
+    a.send({ type: "note:add", note: sticker(id), cid: "c3" });
+    expect((await a.next()).type).toBe("ack");
+    a.send({ type: "note:move", id: "s1", x: 50, y: 60, rot: 10, scale: 2, cid: "c4" });
+    expect((await a.next()).type).toBe("ack");
+    // it has no fields of a memo's to change
+    a.send({ type: "note:update", id: "s1", patch: { title: "x" }, cid: "c5" });
+    expect(await a.next()).toMatchObject({ type: "rejected", reason: "not a memo", cid: "c5" });
+
+    const b = await connect(roomId, email);
+    expect(b.snapshot).toMatchObject({
+      notes: [{ id: "s1", kind: "sticker", image: id, x: 50, y: 60, rot: 10, scale: 2 }],
+    });
+    // the room's list counts memos, not stickers
+    expect((await me(email)).rooms).toMatchObject([{ memos: 0 }]);
+    a.send({ type: "note:delete", id: "s1", cid: "c6" });
+    expect((await a.next()).type).toBe("ack");
+    const c = await connect(roomId, email);
+    expect(c.snapshot).toMatchObject({ notes: [] });
+    for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
 });
 

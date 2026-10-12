@@ -3,7 +3,14 @@ import type { Temporal } from "temporal-polyfill-lite";
 import type { HexColor } from "../../shared/color";
 
 import type { NoteId } from "../notes/id";
-import type { MemoPatch, NewMemo, NewText, NoteColor, Suggestion } from "../notes/types";
+import type {
+  MemoPatch,
+  NewMemo,
+  NewSticker,
+  NewText,
+  NoteColor,
+  Suggestion,
+} from "../notes/types";
 import type { Flight, Leg, Stay } from "../trip/types";
 
 /**
@@ -18,7 +25,10 @@ export interface Transport {
 }
 export type Mutation =
   // stamped with `by` and `updatedAt` when applied; a suggestion only ever comes from the room's agent
-  | { type: "note:add"; note: NewMemo | NewText | Omit<Suggestion, "by" | "updatedAt"> }
+  | {
+      type: "note:add";
+      note: NewMemo | NewText | NewSticker | Omit<Suggestion, "by" | "updatedAt">;
+    }
   | { type: "note:update"; id: NoteId; patch: MemoPatch } // memos only
   | { type: "note:recolor"; id: NoteId; color: NoteColor }
   | { type: "note:adopt"; id: NoteId } // a suggestion becomes a memo

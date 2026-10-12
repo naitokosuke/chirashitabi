@@ -68,8 +68,8 @@ src/app/            The app
              an invitation, restoring); when (days to go, under way, over); TripTag (a trip as a luggage
              tag); NewTrip (the sheet that makes one, with its tag drawn live); Invitation (one to answer);
              Rooms (the list itself, each trip a luggage tag, coming up then been)
-    notes/   Notes: store, types; input (the form's text -> title, body, tags); image (a photo shrunk
-             on the device, and where a room's picture is shown from); Form (the note form, new or
+    notes/   Notes: store, types; input (the form's text -> title, body, tags); image (a photo or sticker
+             shrunk on the device, and where a room's picture is shown from); Form (the note form, new or
              edit, Google Maps link -> coordinates: the memo tab, and a sheet over anything)
     sync/    useSync (the session: which room, who this device is in it, where changes go); keys
              (the room's cache keys); useRoom (the socket to a room, written into the cache); ledger
@@ -85,7 +85,7 @@ src/app/            The app
     place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON, from and back to
              the stays (or the airports on a flight's day); how far apart two points are, and a walk's minutes;
              airports (airports.json from OurAirports, fetched when first needed; suggestions as typed)
-    canvas/  Sticky note card (a text box too); TextField (words being written on the desk); transform
+    canvas/  Sticky note card (a text box and a sticker too); TextField (words being written on the desk); transform
              (screen <-> world, zoom, pinch, fit); useViewport (the animated view); usePlace (adding
              a note on the canvas, placed even before the canvas is opened)
     worker/  WorkerApi: by the room's agent, drafting a day (POST /api/rooms/<id>/draft) and leaving ideas
