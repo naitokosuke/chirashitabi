@@ -59,8 +59,8 @@ const id = useId();
 const docked = computed(() => props.mode.kind === "tab");
 const active = computed(() => props.mode.kind === "tab" && props.mode.active);
 const onMap = computed(() => props.mode.kind === "sheet" && props.mode.onMap);
-const target = computed(
-  (): FormTarget => (props.mode.kind === "sheet" ? props.mode.target : { kind: "new", pin: null }),
+const target = computed((): FormTarget =>
+  props.mode.kind === "sheet" ? props.mode.target : { kind: "new", pin: null },
 );
 /** The memo being edited, as it is now; undefined for a new one, or once it is gone */
 const editingNote = computed(() => {
@@ -493,7 +493,10 @@ function submit() {
       <div>
         <label :for="`${id}-tag`">{{ i18n.t("form.tags") }}</label>
         <div class="tagbox">
-          <CtChip v-for="t in form.tags" :key="t" selected @click="() => removeTag(t)">#{{ t }} <Icon :size="12" :src="closeIcon" /></CtChip>
+          <CtChip v-for="t in form.tags" :key="t" selected @click="() => removeTag(t)">#{{ t }} <Icon
+              :size="12"
+              :src="closeIcon"
+            /></CtChip>
           <input
             :id="`${id}-tag`"
             v-model="tagInput"
@@ -538,22 +541,22 @@ function submit() {
           @paste="onMapsPaste"
         />
         <p aria-live="polite">{{
-            i18n.t(
-              naming
-                ? "form.placeNaming"
-                : expanding
-                  ? "form.placeExpanding"
-                  : hasPin()
-                    ? "form.pinned"
-                    : mapsUrl.trim()
-                      ? worker.api
-                        ? "form.urlNoPinFind"
-                        : "form.urlNoPin"
-                      : worker.api
-                        ? "form.unpinnedFind"
-                        : "form.unpinned",
-            )
-          }}</p>
+          i18n.t(
+            naming
+              ? "form.placeNaming"
+              : expanding
+                ? "form.placeExpanding"
+                : hasPin()
+                  ? "form.pinned"
+                  : mapsUrl.trim()
+                    ? worker.api
+                      ? "form.urlNoPinFind"
+                      : "form.urlNoPin"
+                    : worker.api
+                      ? "form.unpinnedFind"
+                      : "form.unpinned",
+          )
+        }}</p>
         <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
         <div v-if="worker.api !== null" class="places">
           <button
@@ -570,8 +573,12 @@ function submit() {
               </button>
             </li>
           </ul>
-          <p v-if="found.length > 0 || namedByOsm" class="credit">{{ i18n.t("form.placesCredit") }}</p>
-          <p v-if="placeState !== 'idle'" aria-live="polite">{{ i18n.t(PLACE_STATE[placeState]) }}</p>
+          <p v-if="found.length > 0 || namedByOsm" class="credit">{{
+            i18n.t("form.placesCredit")
+          }}</p>
+          <p v-if="placeState !== 'idle'" aria-live="polite">{{
+            i18n.t(PLACE_STATE[placeState])
+          }}</p>
         </div>
       </div>
       <div v-if="worker.api !== null">
@@ -606,7 +613,9 @@ function submit() {
     </div>
     <footer>
       <label v-if="!docked && !editing" class="again"><input v-model="keepOpen" type="checkbox" />{{ i18n.t("form.addAnother") }}</label>
-      <button type="submit" :disabled="!text.trim() || photo === 'sending'">{{ i18n.t(saveLabel) }}</button>
+      <button type="submit" :disabled="!text.trim() || photo === 'sending'">{{
+        i18n.t(saveLabel)
+      }}</button>
       <p v-if="!editing">{{ i18n.t(hintKey) }}</p>
     </footer>
   </form>

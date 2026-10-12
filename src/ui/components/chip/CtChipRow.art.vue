@@ -18,7 +18,9 @@ const picked = ref("Food");
   <variant default name="Overflowing">
     <div style="display: flex; max-width: 360px">
       <CtChipRow>
-        <CtChip v-for="t in TAGS" :key="t" :selected="t === picked" @click="() => (picked = t)">{{ t }}</CtChip>
+        <CtChip v-for="t in TAGS" :key="t" :selected="t === picked" @click="() => (picked = t)">{{
+          t
+        }}</CtChip>
       </CtChipRow>
     </div>
   </variant>

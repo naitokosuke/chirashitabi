@@ -92,7 +92,9 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
       </li>
     </ul>
     <p v-if="named !== undefined" class="named">{{ `${named.name} · ${place(named)}` }}</p>
-    <p v-else-if="modelValue.trim() !== '' && airports.length > 0" class="named">{{ i18n.t("flight.unknownAirport") }}</p>
+    <p v-else-if="modelValue.trim() !== '' && airports.length > 0" class="named">{{
+      i18n.t("flight.unknownAirport")
+    }}</p>
   </div>
 </template>
 

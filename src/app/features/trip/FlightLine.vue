@@ -36,9 +36,13 @@ const days = computed(() => {
       <small>{{ days }}</small>
     </p>
     <p class="route">
-      <span><b>{{ flight.from }}</b><time v-if="flight.departs !== null">{{ time(flight.departs) }}</time></span>
+      <span><b>{{ flight.from }}</b><time v-if="flight.departs !== null">{{
+          time(flight.departs)
+        }}</time></span>
       <span aria-hidden="true" class="arrow">→</span>
-      <span><b>{{ flight.to }}</b><time v-if="flight.arrives !== null">{{ time(flight.arrives) }}</time></span>
+      <span><b>{{ flight.to }}</b><time v-if="flight.arrives !== null">{{
+          time(flight.arrives)
+        }}</time></span>
     </p>
   </div>
 </template>

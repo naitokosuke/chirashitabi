@@ -91,7 +91,9 @@ watch(
   <span ref="root">
     <!-- the whole text, once, for screen readers; the characters are hidden from them -->
     <span>{{ text }}</span>
-    <span v-for="g in glyphs" :key="g.id" aria-hidden="true" :class="g.tone" :data-g="g.id">{{ g.ch }}</span>
+    <span v-for="g in glyphs" :key="g.id" aria-hidden="true" :class="g.tone" :data-g="g.id">{{
+      g.ch
+    }}</span>
     <!-- the leaving characters' copies, over the row and out of its flow -->
     <span ref="exits" aria-hidden="true"></span>
   </span>

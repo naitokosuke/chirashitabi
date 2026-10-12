@@ -241,7 +241,9 @@ function retry() {
           <!-- trips their owner deleted, kept a while in case it was a slip; either person brings one back -->
           <section v-if="mine !== undefined && mine.deleted.length > 0">
             <h2>{{ i18n.t("rooms.deleted") }}</h2>
-            <p v-if="restoreFailed" class="notice" role="alert">{{ i18n.t("rooms.restoreFailed") }}</p>
+            <p v-if="restoreFailed" class="notice" role="alert">{{
+              i18n.t("rooms.restoreFailed")
+            }}</p>
             <p v-if="purgeFailed" class="notice" role="alert">{{ i18n.t("rooms.purgeFailed") }}</p>
             <ul class="gone">
               <li v-for="d in mine?.deleted" :key="d.id">

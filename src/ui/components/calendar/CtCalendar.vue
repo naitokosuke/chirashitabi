@@ -139,12 +139,14 @@ async function walk(e: KeyboardEvent, day: Temporal.PlainDate) {
               :tabindex="day.equals(focused) ? 0 : -1"
               :aria-pressed="stateOf(day).start || stateOf(day).end || stateOf(day).within"
               :aria-current="day.equals(today) ? 'date' : undefined"
-              :aria-label="day.toLocaleString(locale, {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                weekday: 'short',
-              })"
+              :aria-label="
+                day.toLocaleString(locale, {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  weekday: 'short',
+                })
+              "
               @click="() => choose(day)"
               @pointerenter="() => (hovered = day)"
               @focus="() => (hovered = day)"

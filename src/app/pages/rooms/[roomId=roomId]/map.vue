@@ -368,7 +368,9 @@ function fitAll() {
         </div>
         <!-- the desk's filter follows the pins here, and can be cleared here -->
         <div v-if="tags.selected.size > 0">
-          <CtChip class="clear" @click="() => tags.selected.clear()">{{ i18n.t("filter.clear") }}</CtChip>
+          <CtChip class="clear" @click="() => tags.selected.clear()">{{
+            i18n.t("filter.clear")
+          }}</CtChip>
           <CtChip
             v-for="t in tags.tagList.filter((x) => tags.selected.has(x.name))"
             :key="t.name"
@@ -377,7 +379,9 @@ function fitAll() {
             @click="() => tags.toggleTag(t.name)"
           >#{{ t.name }}</CtChip>
         </div>
-        <p v-if="noPin > 0">{{ i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin }) }}</p>
+        <p v-if="noPin > 0">{{
+          i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin })
+        }}</p>
       </div>
 
       <!-- the press being held: a ring that fills, and the memo is written when it closes -->
@@ -391,7 +395,10 @@ function fitAll() {
       <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
 
       <!-- the same write button as the canvas: writing is never more than a tap away -->
-      <CtFab :label="i18n.t('canvas.write')" @click="() => write(null)"><Icon :size="24" :src="plusIcon" /></CtFab>
+      <CtFab :label="i18n.t('canvas.write')" @click="() => write(null)"><Icon
+          :size="24"
+          :src="plusIcon"
+        /></CtFab>
 
       <article v-if="selected !== null" :style="`--card:${PAPERS[selected.color]}`">
         <h2>{{ selected.title }}</h2>
@@ -402,9 +409,14 @@ function fitAll() {
           <span v-if="selected.schedule !== null">{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
         </footer>
         <div>
-          <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{ i18n.t("map.openInGoogleMaps") }}</a>
+          <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{
+            i18n.t("map.openInGoogleMaps")
+          }}</a>
           <button type="button" @click="editSelected">{{ i18n.t("common.edit") }}</button>
-          <button type="button" :aria-label="i18n.t('common.close')" @click="closeCard"><Icon :size="18" :src="closeIcon" /></button>
+          <button type="button" :aria-label="i18n.t('common.close')" @click="closeCard"><Icon
+              :size="18"
+              :src="closeIcon"
+            /></button>
         </div>
       </article>
     </div>

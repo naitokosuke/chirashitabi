@@ -679,7 +679,9 @@ watch(
         @pointerdown.stop
         @keydown="onMenuKey"
       >
-        <button v-if="menu.note.kind === 'text'" type="button" @click="rewriteFromMenu">{{ i18n.t("common.edit") }}</button>
+        <button v-if="menu.note.kind === 'text'" type="button" @click="rewriteFromMenu">{{
+          i18n.t("common.edit")
+        }}</button>
         <button
           v-for="c in menu.note.kind === 'text' ? [] : COLORS"
           :key="c"

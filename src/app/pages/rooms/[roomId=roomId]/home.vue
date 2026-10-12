@@ -103,7 +103,9 @@ const allTotal = computed(() => budgetOf(undefined, false));
               :style="`background: ${PAPERS[n.color]}`"
             ></span>
           </div>
-          <time aria-hidden="true" :datetime="d.date.toString()">{{ short(d.date) }}<small>{{ weekday(d.date, i18n.locale) }}</small></time>
+          <time aria-hidden="true" :datetime="d.date.toString()">{{ short(d.date) }}<small>{{
+              weekday(d.date, i18n.locale)
+            }}</small></time>
         </li>
       </ol>
 
@@ -115,13 +117,21 @@ const allTotal = computed(() => budgetOf(undefined, false));
           <span class="loose" :style="`flex-grow: ${share(piles.loose)}`"></span>
         </div>
         <ul>
-          <li class="confirmed"><span aria-hidden="true"></span>{{ i18n.t("home.fixed") }}<b>{{ piles.fixed }}</b></li>
-          <li class="maybe"><span aria-hidden="true"></span>{{ i18n.t("home.maybe") }}<b>{{ piles.maybe }}</b></li>
-          <li class="loose"><span aria-hidden="true"></span>{{ i18n.t("home.loose") }}<b>{{ piles.loose }}</b></li>
+          <li class="confirmed"><span aria-hidden="true"></span>{{ i18n.t("home.fixed") }}<b>{{
+              piles.fixed
+            }}</b></li>
+          <li class="maybe"><span aria-hidden="true"></span>{{ i18n.t("home.maybe") }}<b>{{
+              piles.maybe
+            }}</b></li>
+          <li class="loose"><span aria-hidden="true"></span>{{ i18n.t("home.loose") }}<b>{{
+              piles.loose
+            }}</b></li>
         </ul>
       </figure>
 
-      <p><small>{{ i18n.t("home.budget") }}</small>{{ price(fixedTotal) }}<small v-if="allTotal > fixedTotal">{{ i18n.t("shiori.withMaybes", { total: price(allTotal) }) }}</small></p>
+      <p><small>{{ i18n.t("home.budget") }}</small>{{ price(fixedTotal) }}<small
+          v-if="allTotal > fixedTotal"
+        >{{ i18n.t("shiori.withMaybes", { total: price(allTotal) }) }}</small></p>
 
       <People @out="toTrips" />
     </div>
