@@ -47,7 +47,11 @@ const day = computed(() => {
     :data-id="note.id"
     :tabindex="note.kind !== 'suggestion' && visibility !== 'dimmed' ? 0 : undefined"
     :role="note.kind !== 'suggestion' ? 'button' : undefined"
-    :aria-label="note.kind !== 'suggestion' ? note.title : undefined"
+    :aria-label="note.kind === 'sticker'
+      ? i18n.t('canvas.sticker')
+      : note.kind !== 'suggestion'
+        ? note.title
+        : undefined"
   >
     <template v-if="note.kind === 'suggestion'">
       <header>
@@ -63,6 +67,13 @@ const day = computed(() => {
     </template>
     <!-- words on the desk itself: no paper, no author's dot -->
     <p v-else-if="note.kind === 'text'">{{ note.title }}</p>
+    <!-- a cut-out picture on the desk itself: edged in white, no paper -->
+    <img
+      v-else-if="note.kind === 'sticker'"
+      alt=""
+      draggable="false"
+      :src="imageSrc(sync.room.id, note.image)"
+    />
     <template v-else>
       <!-- the card's picture, across its top; the card is still what a finger holds -->
       <img
@@ -268,6 +279,41 @@ div {
       letter-spacing: 0.02em;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
+    }
+  }
+
+  /*
+   * A sticker: the picture alone, its outline traced in white like a die-cut sticker and lifted
+   * off the desk by a soft shadow that follows the cut. Picked, it is framed like a card.
+   */
+  &[data-kind="sticker"] {
+    width: var(--sticker-size);
+    padding: 0;
+    border-radius: 4px;
+    background: transparent;
+    box-shadow: none;
+
+    &[data-dragging] {
+      box-shadow: none;
+
+      > img {
+        filter: var(--sticker-edge) drop-shadow(0 8px 10px rgb(0 0 0 / .22));
+      }
+    }
+
+    &[data-selected] {
+      box-shadow: 0 0 0 2px var(--ink);
+    }
+
+    /* the whole picture, its own shape: none of a memo's picture band across the top */
+    > img {
+      width: 100%;
+      height: auto;
+      margin: 0;
+      border-radius: 0;
+      background: none;
+      object-fit: contain;
+      filter: var(--sticker-edge) drop-shadow(0 2px 3px rgb(0 0 0 / .2));
     }
   }
 

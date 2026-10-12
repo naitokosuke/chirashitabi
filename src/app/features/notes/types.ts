@@ -83,10 +83,21 @@ export interface TextBox extends CardBase {
   kind: "text";
 }
 
-export type Note = Memo | Suggestion | TextBox;
+/**
+ * A picture cut out and stuck straight on the desk: no paper and no words, only what it shows,
+ * edged in white like a sticker. Its title and color are not shown.
+ */
+export interface Sticker extends CardBase {
+  kind: "sticker";
+  image: ImageId;
+}
+
+export type Note = Memo | Suggestion | TextBox | Sticker;
 
 /** A text box as it is written; who and when are the room's to stamp, as for a memo */
 export type NewText = Omit<TextBox, "by" | "updatedAt">;
+/** A sticker as it is stuck; who and when are the room's to stamp */
+export type NewSticker = Omit<Sticker, "by" | "updatedAt">;
 
 /** A memo that is on a day */
 export type Scheduled = Memo & { schedule: Schedule };

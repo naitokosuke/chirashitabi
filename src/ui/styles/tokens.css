@@ -57,6 +57,14 @@
   --text-box-size: 24px;
   --text-box-pad: 2px 6px;
 
+  /*
+   * A sticker on the desk, at its own size, and its white die-cut edge: each shadow grows the
+   * picture's outline by a step, so together they trace it all round
+   */
+  --sticker-size: 160px;
+  --sticker-edge: drop-shadow(2px 0 0 var(--paper-white)) drop-shadow(-2px 0 0 var(--paper-white))
+    drop-shadow(0 2px 0 var(--paper-white)) drop-shadow(0 -2px 0 var(--paper-white));
+
   --font-2xs: 12px; /* the floor: nothing on a phone is set smaller */
   --font-xs: 12px;
   --font-sm: 13px;

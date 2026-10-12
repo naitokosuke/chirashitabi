@@ -181,6 +181,10 @@ one {{From {$date} · {$count} night}}
 
   "canvas.undo": "Undo",
   "canvas.text": "Text on the desk",
+  "canvas.sticker": "Sticker",
+  "canvas.stickerSending": "Sticking…",
+  "canvas.stickerAdded": "Stuck a sticker",
+  "canvas.stickerFailed": "The sticker did not go through. Try it again.",
   "canvas.duplicate": "Duplicate",
   "canvas.delete": "Delete",
   "canvas.day": "Day",

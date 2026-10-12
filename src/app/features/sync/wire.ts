@@ -42,6 +42,7 @@ export function reviveNote(n: WireNote): Note {
   };
   if (n.kind === "suggestion") return { ...card, kind: "suggestion" };
   if (n.kind === "text") return { ...card, kind: "text" };
+  if (n.kind === "sticker") return { ...card, kind: "sticker", image: n.image };
   return {
     ...card,
     kind: "memo",

@@ -46,7 +46,7 @@ Working today:
 - The map (MapLibre + OpenFreeMap, no key): pins, a day's route, long-press to write a note at a place.
 - The booklet: days with intros, notes placed on days with times and statuses, between two with places how far apart they are (minutes on foot when walkable, else kilometres, as the crow flies; from and back to the stay), an appendix by tag, a per-day budget, a tray of notes still without a day.
 - Suggestions: a card anyone (including the agent) can leave, adopted into an ordinary note or dismissed.
-- Pictures: a note can carry one photo, shrunk on the phone and kept privately for the room.
+- Pictures: a note can carry one photo, shrunk on the phone and kept privately for the room; a cut-out picture (a subject lifted on the iPhone) can also be stuck on the canvas by itself as a sticker, its see-through parts kept.
 - Rooms: create, remember on the device, reconnect; both members see each other's changes live.
 - People: the owner (who made the trip) invites the other person by e-mail, takes an invitation back, removes them, and deletes the trip; the invited person joins with their own name and color or declines; anyone but the owner may leave; either person can restore a deleted trip for 30 days. Deleting and leaving are offered on the trip's home and on the list of trips.
 

@@ -68,6 +68,7 @@ import {
 } from "../../../features/canvas/usePlace";
 import { useViewport } from "../../../features/canvas/useViewport";
 import type { NoteId } from "../../../features/notes/id";
+import { shrinkImage, STICKER_SIDE } from "../../../features/notes/image";
 import {
   COLOR_NAMES,
   COLORS,
@@ -84,7 +85,7 @@ import { useToast } from "../../../features/toast/useToast";
 import { shortDate } from "../../../features/trip/format";
 import { assignTo } from "../../../features/trip/itinerary";
 import { useTrip } from "../../../features/trip/useTrip";
-import { OverBudget } from "../../../features/worker/api";
+import { OverBudget, RoomFull } from "../../../features/worker/api";
 import { useWorker } from "../../../features/worker/useWorker";
 import { useWorkerCalls } from "../../../features/worker/useWorkerCalls";
 import Icon from "../../../icons/Icon.vue";
@@ -351,7 +352,7 @@ function onKey(e: KeyboardEvent) {
   if (e.key === "Enter") {
     e.preventDefault();
     if (note.kind === "memo") void openSheet({ kind: "edit", id: note.id });
-    else rewrite(note);
+    else if (note.kind === "text") rewrite(note);
   } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
     e.preventDefault();
     select(note);
@@ -530,7 +531,8 @@ function remove(note: Note) {
     menuEl.value?.contains(document.activeElement) === true;
   menu.value = null;
   pendingDelete.value.add(note.id);
-  toast.show(i18n.t("canvas.deleted", { title: note.title }), {
+  const title = note.kind === "sticker" ? i18n.t("canvas.sticker") : note.title;
+  toast.show(i18n.t("canvas.deleted", { title }), {
     undo: () => {
       pendingDelete.value.delete(note.id);
       // the card comes back where the keyboard left it
@@ -588,6 +590,74 @@ function placeAtCenter(input: NoteInput, how: PlaceHow) {
 }
 useCanvasPlace(placeAtCenter);
 
+// ---- stickers: a picture picked from the photos, pasted or dropped, stuck where it is put ----
+const stickerInput = useTemplateRef<HTMLInputElement>("stickerInput");
+/** A sticker on its way to the room: one at a time */
+const sticking = ref(false);
+function pickSticker() {
+  stickerInput.value?.click();
+}
+function onStickerPicked(e: Event) {
+  const input = e.target;
+  if (!(input instanceof HTMLInputElement)) return;
+  const file = input.files?.[0];
+  input.value = ""; // the same picture can be picked again after a failure
+  if (file !== undefined) void stick(file);
+}
+/** The first picture among what was pasted or dropped */
+const pictureIn = (files: FileList | undefined) =>
+  [...(files ?? [])].find((f) => f.type.startsWith("image/"));
+/**
+ * A picture pasted on a computer becomes a sticker in the middle of the desk; pasted into words
+ * being written (a form, a text box), it is theirs
+ */
+function onPaste(e: ClipboardEvent) {
+  const target = e.target;
+  if (target instanceof Element && target.closest("input, textarea, [contenteditable]") !== null)
+    return;
+  const file = pictureIn(e.clipboardData?.files);
+  if (file === undefined) return;
+  e.preventDefault();
+  void stick(file);
+}
+/** Only a dragged file is taken; a picture dropped on the desk is stuck where it lands */
+function onDragOver(e: DragEvent) {
+  if (!(e.dataTransfer?.types.includes("Files") ?? false)) return;
+  e.preventDefault();
+  if (e.dataTransfer !== null) e.dataTransfer.dropEffect = "copy";
+}
+function onDrop(e: DragEvent) {
+  const file = pictureIn(e.dataTransfer?.files);
+  if (file === undefined) return;
+  e.preventDefault();
+  void stick(file, { x: e.clientX, y: e.clientY });
+}
+/**
+ * Keep the picture in the room, then stick it with its middle at `at` (a point on the screen;
+ * the desk's middle by default). It lands with the pop, and the toast can take it back.
+ */
+async function stick(file: Blob, at?: Pt) {
+  const api = worker.api;
+  if (api === null || sticking.value) return;
+  sticking.value = true;
+  try {
+    const image = await api.uploadImage(await shrinkImage(file, STICKER_SIDE));
+    // the desk is always there while it sticks; were it not, its corner
+    const r = vp.value?.getBoundingClientRect() ?? { width: 0, height: 0 };
+    const c = toWorld(at?.x ?? r.width / 2, at?.y ?? r.height / 2);
+    const n = store.addSticker(image, { x: c.x - 80, y: c.y - 80 });
+    pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
+    window.setTimeout(() => (pop.value = null), 900);
+    toast.show(i18n.t("canvas.stickerAdded"), undoAdd(n.id));
+  } catch (err) {
+    toast.show(i18n.t(err instanceof RoomFull ? "form.photoFull" : "canvas.stickerFailed"));
+  } finally {
+    sticking.value = false;
+  }
+}
+onMounted(() => document.addEventListener("paste", onPaste));
+onBeforeUnmount(() => document.removeEventListener("paste", onPaste));
+
 // The wheel is listened to on the desk itself, not with @wheel: Vapor delegates a template's
 // handlers to the document, where Chrome makes a wheel listener passive, so preventDefault is
 // ignored and a trackpad pinch zooms the whole page instead of the desk
@@ -641,6 +711,8 @@ watch(
         @pointerup="onUp"
         @pointercancel="onUp"
         @keydown="onKey"
+        @dragover="onDragOver"
+        @drop="onDrop"
       >
         <div :style="worldStyle">
           <NoteCard
@@ -668,13 +740,30 @@ watch(
         </div>
       </div>
 
-      <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
+      <div class="jump">
+        <button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button>
+        <!-- a sticker from the photos; on a computer one is also pasted or dropped on the desk -->
+        <button
+          v-if="worker.api !== null"
+          type="button"
+          :disabled="sticking"
+          :aria-busy="sticking"
+          @click="pickSticker"
+        >{{ i18n.t(sticking ? "canvas.stickerSending" : "canvas.sticker") }}</button>
+        <input
+          ref="stickerInput"
+          accept="image/png,image/webp,image/heic,image/heif"
+          hidden
+          type="file"
+          @change="onStickerPicked"
+        />
+      </div>
 
       <div
         v-if="menu !== null"
         ref="menuEl"
         role="toolbar"
-        :aria-label="menu.note.title"
+        :aria-label="menu.note.kind === 'sticker' ? i18n.t('canvas.sticker') : menu.note.title"
         :style="`inset-inline-start:${menu.x}px; inset-block-start:${menu.y}px`"
         @pointerdown.stop
         @keydown="onMenuKey"
@@ -683,7 +772,7 @@ watch(
           i18n.t("common.edit")
         }}</button>
         <button
-          v-for="c in menu.note.kind === 'text' ? [] : COLORS"
+          v-for="c in menu.note.kind === 'text' || menu.note.kind === 'sticker' ? [] : COLORS"
           :key="c"
           type="button"
           :style="`background:${PAPERS[c]}`"
@@ -855,6 +944,8 @@ section {
       inset-inline-start: 16px;
       inset-block-end: calc(var(--dock-clear) + 24px);
       z-index: var(--z-chrome);
+      display: flex;
+      gap: 8px;
 
       > button {
         min-height: 40px;

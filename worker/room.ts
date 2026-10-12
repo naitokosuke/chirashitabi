@@ -38,7 +38,7 @@ const RATE = { window: 10_000, max: 200 };
 
 type NoteRow = {
   id: NoteId;
-  kind: "memo" | "suggestion" | "text";
+  kind: "memo" | "suggestion" | "text" | "sticker";
   title: string;
   color: NoteColor;
   x: number;
@@ -116,14 +116,14 @@ export class Room extends DurableObject<Env> {
     if (!cols.some((c) => c.name === "scale")) {
       ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN scale REAL NOT NULL DEFAULT 1");
     }
-    // and text boxes, once there were any: a CHECK cannot be altered, so the table is copied
-    // once into one whose CHECK lets them in, every column by name
+    // and text boxes and stickers, once there were any: a CHECK cannot be altered, so the table
+    // is copied once into one whose CHECK lets them in, every column by name
     const { sql: ddl } = ctx.storage.sql
       .exec<{ sql: string }>(
         "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'notes'",
       )
       .one();
-    if (!ddl.includes("'text'")) {
+    if (!ddl.includes("'sticker'")) {
       ctx.storage.transactionSync(() => {
         const sql = ctx.storage.sql;
         sql.exec(notesTable("notes_next"));
@@ -551,11 +551,14 @@ export class Room extends DurableObject<Env> {
     return {
       trip: trip.name,
       days: trip.days.map((d) => d.date),
-      notes: this.notes().map((n) => ({
-        title: n.title,
-        tags: n.kind === "memo" ? n.tags : [],
-        date: n.kind === "memo" ? (n.schedule?.date ?? null) : null,
-      })),
+      // a sticker has no words to read
+      notes: this.notes()
+        .filter((n) => n.kind !== "sticker")
+        .map((n) => ({
+          title: n.title,
+          tags: n.kind === "memo" ? n.tags : [],
+          date: n.kind === "memo" ? (n.schedule?.date ?? null) : null,
+        })),
     };
   }
 
@@ -813,7 +816,8 @@ export class Room extends DurableObject<Env> {
                 schedule: null,
                 budget: null,
                 checked: false,
-                image: null,
+                // a sticker is its picture
+                image: note.kind === "sticker" ? note.image : null,
               };
         // a card shows only a picture the room has
         if (memo.image !== null && !this.hasImage(memo.image)) return "no such image";
@@ -1076,11 +1080,11 @@ const NOTE_COLUMNS = [
   "scale",
 ].join(", ");
 
-/** The notes table as it is now, under `name`: memos, suggestions and text boxes */
+/** The notes table as it is now, under `name`: memos, suggestions, text boxes and stickers */
 const notesTable = (name: string) => `
   CREATE TABLE IF NOT EXISTS ${name} (
     id TEXT PRIMARY KEY,
-    kind TEXT NOT NULL CHECK (kind IN ('memo', 'suggestion', 'text')),
+    kind TEXT NOT NULL CHECK (kind IN ('memo', 'suggestion', 'text', 'sticker')),
     title TEXT NOT NULL,
     color TEXT NOT NULL,
     x REAL NOT NULL,
@@ -1124,6 +1128,8 @@ const fromRow = (r: NoteRow): WireNote => {
   };
   if (r.kind === "suggestion") return { ...card, kind: "suggestion" };
   if (r.kind === "text") return { ...card, kind: "text" };
+  // a sticker is never written without its picture
+  if (r.kind === "sticker" && r.image !== null) return { ...card, kind: "sticker", image: r.image };
   return {
     ...card,
     kind: "memo",
