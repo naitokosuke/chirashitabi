@@ -13,7 +13,7 @@ import { isShortMapsLink, parseMapsUrl } from "../src/app/features/place/google-
 import { roomId as toRoomId } from "../src/app/features/rooms/types";
 
 import { AccessVerifier, Unauthenticated } from "./access";
-import { draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
+import { ASK_LENGTH, draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
 import { CLEF_MODEL, FITS_AT, judgeTags, MAX_TAGS } from "./clef";
 import { expand, placeName } from "./expand";
 import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
@@ -564,25 +564,41 @@ const api = new Hono<ApiEnv>()
     },
   )
 
-  // where the asker is looking on the desk: the cards land there
+  // where the cards land on the desk (where the asker is looking, or beside the note asked
+  // from), and what the asker asked for: their words, the note they started from, or neither
   .post(
     `${ROOM}/suggest`,
     member("suggest"),
-    body<{ at: { x: number; y: number } }, { x: number; y: number }>((v) =>
-      parsePoint(isRecord(v) ? v.at : null),
-    ),
+    body<
+      { at: { x: number; y: number }; ask?: string; about?: string },
+      { at: { x: number; y: number }; ask: string | null; about: string | null }
+    >((v) => {
+      if (!isRecord(v)) return null;
+      const at = parsePoint(v.at);
+      if (at === null) return null;
+      const ask = typeof v.ask === "string" ? v.ask.trim().slice(0, ASK_LENGTH) : "";
+      return {
+        at,
+        ask: ask === "" ? null : ask,
+        about: typeof v.about === "string" && v.about !== "" ? v.about : null,
+      };
+    }),
     async (c) => {
       const { email, log, roomId, memberId, room } = c.var;
-      const at = c.req.valid("json");
-      const context = await room.contextForSuggest(memberId);
-      log.set({ suggest: { notes: context.notes.length } });
+      const { at, ask, about } = c.req.valid("json");
+      const context = await room.contextForSuggest(memberId, about);
+      // the note asked from is gone (deleted on the other phone): nothing is called
+      if (context === null) return c.text("Not Found", 404);
+      log.set({
+        suggest: { notes: context.notes.length, ask: ask !== null, about: about !== null },
+      });
       const index = c.env.ROOMS.getByName("index");
       const reserved = await index.reserve(email, roomId);
       if ("refused" in reserved) {
         log.set({ budget: { refused: reserved.refused } });
         return c.text(`Budget: ${reserved.refused}`, 429);
       }
-      const result = await suggestNotes(c.env, context);
+      const result = await suggestNotes(c.env, context, ask);
       if (!result.ok) {
         if (result.refund) await index.refund(reserved.id);
         log.set({

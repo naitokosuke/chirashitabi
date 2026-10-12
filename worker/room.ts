@@ -544,21 +544,34 @@ export class Room extends DurableObject<Env> {
     this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS tag_candidates (tag TEXT PRIMARY KEY)");
   }
 
-  /** What the agent reads to suggest ideas, asked by member `by` */
-  contextForSuggest(by: string): SuggestContext {
+  /**
+   * What the agent reads to suggest ideas, asked by member `by` from the note `about` (or from
+   * none); null when that note is not on the desk, or has no words to start from
+   */
+  contextForSuggest(by: string, about: string | null): SuggestContext | null {
     this.assertMember(by);
     const trip = this.trip();
+    // a sticker has no words to read
+    const notes = this.notes().filter((n) => n.kind !== "sticker");
+    const from = about === null ? null : notes.find((n) => n.id === about);
+    if (from === undefined) return null;
     return {
       trip: trip.name,
       days: trip.days.map((d) => d.date),
-      // a sticker has no words to read
-      notes: this.notes()
-        .filter((n) => n.kind !== "sticker")
-        .map((n) => ({
-          title: n.title,
-          tags: n.kind === "memo" ? n.tags : [],
-          date: n.kind === "memo" ? (n.schedule?.date ?? null) : null,
-        })),
+      notes: notes.map((n) => ({
+        title: n.title,
+        tags: n.kind === "memo" ? n.tags : [],
+        date: n.kind === "memo" ? (n.schedule?.date ?? null) : null,
+      })),
+      about:
+        from === null
+          ? null
+          : {
+              title: from.title,
+              body: from.kind === "memo" ? from.body : "",
+              tags: from.kind === "memo" ? from.tags : [],
+              pin: from.kind === "memo" ? from.pin : null,
+            },
     };
   }
 

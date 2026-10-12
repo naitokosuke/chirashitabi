@@ -251,23 +251,49 @@ const SUGGEST_TOOL = {
   },
 } as const;
 
-/** What the agent reads to suggest: the trip, and every note as a line */
+/**
+ * What the agent reads to suggest: the trip, every note as a line, and the note the asker
+ * started from, if any
+ */
 export interface SuggestContext {
   trip: string;
   days: string[];
   notes: { title: string; tags: string[]; date: string | null }[];
+  about: {
+    title: string;
+    body: string;
+    tags: string[];
+    pin: { lat: number; lng: number } | null;
+  } | null;
 }
 
-/** Asks Claude for a few ideas the notes do not have; the titles are checked */
+/** The most a member's words to the agent may run to: a line, not a letter */
+export const ASK_LENGTH = 100;
+
+/**
+ * Asks Claude for a few ideas the notes do not have, along what the member asked for in
+ * `words` when they wrote any; the titles are checked
+ */
 export async function suggestNotes(
   env: Env,
   room: SuggestContext,
+  words: string | null,
 ): Promise<ClaudeResult<string[]>> {
   const prompt = [
     `Trip: ${room.trip}, ${room.days[0] ?? "?"} to ${room.days.at(-1) ?? "?"}.`,
     "The notes so far (JSON):",
     JSON.stringify(room.notes),
     "",
+    ...(room.about === null
+      ? []
+      : [
+          "They are asking from this note (JSON); build on it: near it, like it, or what goes with it.",
+          JSON.stringify(room.about),
+          "",
+        ]),
+    ...(words === null
+      ? []
+      : ["What they asked for, in their words (JSON):", JSON.stringify(words), ""]),
     `Suggest up to ${MAX_SUGGESTIONS} places, foods or things to do that would suit this trip and`,
     "that the notes do not have yet. Each is a short card title, concrete enough to look up.",
     "Write them in the language the notes are written in.",

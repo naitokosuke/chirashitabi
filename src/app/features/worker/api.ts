@@ -126,8 +126,13 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
     );
     return placeOf(place);
   },
-  async suggest(at) {
-    const { added } = await call(inRoom.suggest.$post({ param: { roomId: room }, json: { at } }));
+  async suggest({ at, ask, about }) {
+    const { added } = await call(
+      inRoom.suggest.$post({
+        param: { roomId: room },
+        json: { at, ask, ...(about === null ? {} : { about }) },
+      }),
+    );
     return number(added) ? added : 0;
   },
   async draftDay(date, notes) {

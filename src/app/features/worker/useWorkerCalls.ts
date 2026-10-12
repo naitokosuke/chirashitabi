@@ -4,6 +4,7 @@ import { defineQuery, useMutation } from "@pinia/colada";
 
 import type { Scheduled } from "../notes/types";
 
+import type { WorkerApi } from "./types";
 import { useWorker } from "./useWorker";
 
 /**
@@ -32,9 +33,9 @@ export const useWorkerCalls = defineQuery(() => {
         return publish();
       },
     }),
-    /** The room's agent leaves a few ideas on the desk around `at` */
+    /** The room's agent leaves a few ideas on the desk around `at`, along what was asked */
     suggest: useMutation({
-      mutation: (at: { x: number; y: number }) => api().suggest(at),
+      mutation: (request: Parameters<WorkerApi["suggest"]>[0]) => api().suggest(request),
     }),
   };
 });

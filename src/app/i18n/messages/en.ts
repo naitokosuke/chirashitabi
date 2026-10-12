@@ -208,6 +208,10 @@ one {{Claude left {$count} idea here}}
   "canvas.ideasFailed": "The ideas did not come back. Ask again.",
   "canvas.ideasLimit": "That is all Claude can do today. Ask again tomorrow.",
   "canvas.ideasTripLimit": "This trip has used all it can ask Claude for.",
+  "canvas.askWords": "What kind of ideas? (blank for anything)",
+  "canvas.askFrom": "From “{$title}”",
+  "canvas.ask": "Ask",
+  "canvas.ideasFromHere": "Ideas from this",
 
   "note.suggestion": "suggestion",
   "note.adopt": "Make it a note",

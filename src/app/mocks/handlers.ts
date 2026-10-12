@@ -186,6 +186,11 @@ const agent = [
     const body: unknown = await request.json();
     const at = parsePoint(isRecord(body) ? body.at : null);
     if (at === null) return badRequest();
+    // the note asked from must still be on the desk, as the Worker checks
+    const about = isRecord(body) ? body.about : undefined;
+    if (about !== undefined && !room.state.notes.some((n) => n.id === about)) {
+      return new HttpResponse("Not Found", { status: 404 });
+    }
     await wait(THINKING_MS);
     const titles = ["Night view from Elephant Mountain", "Beef noodles at Yongkang Street"];
     const updatedAt = now().toString();
