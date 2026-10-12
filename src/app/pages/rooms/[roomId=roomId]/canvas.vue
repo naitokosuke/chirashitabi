@@ -750,9 +750,13 @@ watch(
           :aria-busy="sticking"
           @click="pickSticker"
         >{{ i18n.t(sticking ? "canvas.stickerSending" : "canvas.sticker") }}</button>
+        <!--
+          PNG first and no HEIC: iOS then hands a photo over as PNG, which keeps a lifted
+          subject's see-through parts; handed over as HEIC it reached the page opaque
+        -->
         <input
           ref="stickerInput"
-          accept="image/png,image/webp,image/heic,image/heif"
+          accept="image/png,image/webp"
           hidden
           type="file"
           @change="onStickerPicked"
