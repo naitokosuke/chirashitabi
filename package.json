@@ -10,6 +10,7 @@
   "dependencies": {
     "@pinia/colada": "^1.4.6",
     "evlog": "^2.29.0",
+    "hono": "5.0.0-rc.1",
     "maplibre-gl": "^6.11.2",
     "messageformat": "^4.0.0",
     "pinia": "^4.0.3",

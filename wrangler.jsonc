@@ -4,6 +4,9 @@
   "name": "chirashitabi",
   "main": "worker/index.ts",
   "compatibility_date": "2026-09-30",
+  // AsyncLocalStorage alone (node:async_hooks), which evlog's Hono middleware keeps the
+  // request's log in; not the whole of nodejs_compat
+  "compatibility_flags": ["nodejs_als"],
 
   // The one hostname behind Access, and the public booklet host. Nothing else:
   // workers.dev and preview URLs would sit outside the Access application.
