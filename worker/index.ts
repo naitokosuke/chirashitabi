@@ -5,17 +5,6 @@ import { initWorkersLogger } from "evlog/workers";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 
-// the API's type carries brands (who is asking is an `Email`): its declaration names their key
-// oxlint-disable-next-line no-unused-vars -- in scope for the declaration, not the code
-import type { brand } from "../src/app/shared/brand";
-import type { HexColor } from "../src/app/shared/color";
-import { isRecord } from "../src/app/shared/record";
-
-import { isMemberId, type Email, type MemberId } from "../src/app/features/members/types";
-import { isImageId, isNoteId, type ImageId, type NoteId } from "../src/app/features/notes/id";
-import { isShortMapsLink, parseMapsUrl } from "../src/app/features/place/google-maps";
-import { roomId as toRoomId, type RoomId } from "../src/app/features/rooms/types";
-
 import { AccessVerifier, Unauthenticated } from "./access";
 import { ASK_LENGTH, draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
 import { CLEF_MODEL, FITS_AT, judgeTags, MAX_TAGS } from "./clef";
@@ -23,6 +12,24 @@ import { expand, placeName } from "./expand";
 import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
 import { Room } from "./room";
 import { RoomsIndex } from "./rooms-index";
+// the API's type carries brands (who is asking is an `Email`): its declaration names their key
+// oxlint-disable-next-line no-unused-vars -- in scope for the declaration, not the code
+import type { brand } from "./types";
+import {
+  type HexColor,
+  isMemberId,
+  type Email,
+  type MemberId,
+  isImageId,
+  isNoteId,
+  type ImageId,
+  type NoteId,
+  roomId as toRoomId,
+  type RoomId,
+  isShortMapsLink,
+  parseMapsUrl,
+  isRecord,
+} from "./types";
 import {
   IMAGE_TYPES,
   isDate,

@@ -9,12 +9,23 @@ import type {
   WireSchedule,
   WireStay,
   WireTrip,
-} from "../../../../worker/wire";
+} from "../../../contract/wire";
 import type { Member } from "../members/types";
 import type { MemoPatch, Note, Schedule } from "../notes/types";
 import type { Flight, Stay, TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
+
+// what crosses the socket, as the app takes it from the contract: types only, so the checks
+// (and the airports list they load) stay out of the app
+export type {
+  GoneReason,
+  ServerMessage,
+  WireMember,
+  WireMutation,
+  WireNote,
+  WireTrip,
+} from "../../../contract/wire";
 
 /**
  * The room's JSON back into the app's types. The room has checked every field,

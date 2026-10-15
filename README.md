@@ -91,7 +91,8 @@ src/app/            The app
     worker/  WorkerApi: by the room's agent, drafting a day (POST /api/rooms/<id>/draft) and leaving ideas
              on the canvas (POST /api/rooms/<id>/suggest); booklet export
 
-  shared/  Types every feature can use: Brand; CurrencyCode and formatMoney; HexColor
+  shared/  Types every feature can use: Brand; CurrencyCode and formatMoney; HexColor (the types from
+           src/contract)
 
   i18n/    UI messages in MessageFormat 2 (messages/en.ts is the source, ja.ts follows it);
            format (messageformat, cut at markup); useI18n (the locale: picked here or the
@@ -102,6 +103,17 @@ src/app/            The app
 
   mocks/   The Worker and its rooms in the page, for `vp dev` (MSW): seed data (members, trip,
            notes) and handlers for `/api` and the room's socket, started at boot
+
+src/contract/       What the app and the Worker both hold to; each takes it through its own modules
+                    (the app's types where they were defined, the Worker's wire.ts, airports.ts, types.ts)
+  wire.ts        What crosses the socket and the API (Temporal values as ISO strings), and the checks it must pass
+  room.ts        The values both sides name: seats in a room, a card's papers, a schedule's statuses
+  ids.ts         RoomId, MemberId, NoteId, ImageId, Email: brands, and the checks that make them
+  brand.ts, color.ts, money.ts, record.ts   Brand; HexColor; CurrencyCode; isRecord
+  place.ts       LatLng; a Google Maps link's point, and whether it is a short link
+  airports.ts    The airports (airports.json, from OurAirports): codes, matching a name, suggestions as typed
+  airport-codes.ts   The list itself, loaded: a flight's code is checked against it, and one kept from before
+                 codes were required is given one by the name it had
 
 src/ui/             The design system: props, slots and events only, no app imports
   styles/        Tokens (colors, type, z-index, motion), base, transitions (ct-morph / ct-fade / ct-slide),
@@ -128,7 +140,7 @@ src/ui/             The design system: props, slots and events only, no app impo
 
 public/             favicon.svg: three notes scattered on a red tile, served as they are
 scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop (see "Running against the Worker");
-                    airports.mjs: rebuilds src/app/features/place/airports.json from OurAirports (public domain)
+                    airports.mjs: rebuilds src/contract/airports.json from OurAirports (public domain)
 
 .claude/skills/impeccable/   A text-only copy of the Impeccable design skill (SKILL.md + reference/, no scripts
                              or hooks); PROVENANCE.md says what is left out and why
@@ -148,12 +160,12 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
   geocode.ts        OpenStreetMap's geocoder (Nominatim): the places a name finds, with real coordinates,
                     and what is at a pinned point (its name, else its street's)
   expand.ts         A short Google Maps link (maps.app.goo.gl) read as the link its redirect names
-  airports.ts       The airports a flight may name (the app's airports.json): a code is checked against them,
-                    and a flight kept from before codes were required is given one by the name it had
+  airports.ts       The airports a flight may name (src/contract's airport-codes.ts)
   room.ts           Room: the trip, its notes and members in SQLite, and which pictures it has (their bytes
                     in the R2 bucket chirashitabi-images); the socket: snapshot on connect,
                     mutations checked, stamped (by, updatedAt), written and sent to the other sockets
-  wire.ts           What crosses the socket (Temporal values as ISO strings) and the checks it must pass
+  wire.ts           What crosses the socket and the checks it must pass (src/contract's wire.ts and room.ts)
+  types.ts          Ids, colors, money, places and isRecord (the rest of src/contract)
   api.test.ts       The Worker in workerd via wrangler's test harness, Access stood in for by a throwaway key
   env.d.ts          ANTHROPIC_API_KEY (a secret), and ACCESS_CERTS_URL and ANTHROPIC_BASE_URL, which only
                     the tests set

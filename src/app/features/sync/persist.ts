@@ -1,10 +1,18 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import type { WireMember, WireMutation, WireNote, WireTrip } from "../../../../worker/wire";
 import type { MemberId } from "../members/types";
 
 import type { Pending, RoomState } from "./ledger";
-import { reviveMember, reviveMutation, reviveNote, reviveTrip } from "./wire";
+import {
+  type WireMember,
+  type WireMutation,
+  type WireNote,
+  type WireTrip,
+  reviveMember,
+  reviveMutation,
+  reviveNote,
+  reviveTrip,
+} from "./wire";
 
 /**
  * A room kept on this device, so the booklet opens with no connection on the trip

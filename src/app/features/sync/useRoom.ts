@@ -8,7 +8,6 @@ import { type EntryKeyTagged, useQueryCache } from "@pinia/colada";
 
 import { useI18n } from "../../i18n/useI18n";
 
-import type { GoneReason } from "../../../../worker/wire";
 import { roomId, type RoomId } from "../rooms/types";
 import { ROOMS_KEY } from "../rooms/useRooms";
 import { useToast } from "../toast/useToast";
@@ -22,7 +21,7 @@ import { linked, opened, OUT, synced } from "./session";
 import { createRoomSocket } from "./socket";
 import type { Mutation } from "./types";
 import { NOWHERE, useSync } from "./useSync";
-import { reviveMember, reviveMutation, reviveNote, reviveTrip } from "./wire";
+import { type GoneReason, reviveMember, reviveMutation, reviveNote, reviveTrip } from "./wire";
 
 const STORAGE_KEY = "chirashitabi:room";
 

@@ -4,16 +4,6 @@ import { http, HttpResponse, ws, type WebSocketHandlerConnection } from "msw";
 
 import { isRecord } from "../shared/record";
 
-import {
-  parseCid,
-  parseMutation,
-  parsePoint,
-  parseProfile,
-  parseTrip,
-  type ServerMessage,
-  type WireMutation,
-  type WireNote,
-} from "../../../worker/wire";
 import { SEATS, type Member } from "../features/members/types";
 import type { NoteId } from "../features/notes/id";
 import type { Note } from "../features/notes/types";
@@ -26,6 +16,16 @@ import type { TripSnapshot } from "../features/trip/types";
 import { CLAUDE, mockMembers, YUKI } from "./members";
 import { mockNotes } from "./notes";
 import { mockTrip } from "./trip";
+import {
+  parseCid,
+  parseMutation,
+  parsePoint,
+  parseProfile,
+  parseTrip,
+  type ServerMessage,
+  type WireMutation,
+  type WireNote,
+} from "./wire";
 
 /**
  * The Worker and its rooms, in the page: what `/api` answers and what a room's socket says,

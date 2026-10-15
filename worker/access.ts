@@ -4,10 +4,7 @@
  * A missing token is never "development": local runs sign their own token (see README).
  */
 
-import { isRecord } from "../src/app/shared/record";
-
-import type { Email } from "../src/app/features/members/types";
-
+import { type Email, isRecord } from "./types";
 import { parseEmail } from "./wire";
 
 export interface AccessConfig {

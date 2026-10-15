@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/tes
 
 import { hexColor } from "../../shared/color";
 
-import type { ServerMessage } from "../../../../worker/wire";
 import type { MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
 
 import { createRoomSocket, type SocketLike, type SocketStatus } from "./socket";
 import type { Mutation } from "./types";
+import type { ServerMessage } from "./wire";
 
 /** A socket the test drives: it opens when told, and records what is sent */
 class FakeSocket implements SocketLike {

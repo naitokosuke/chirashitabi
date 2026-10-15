@@ -1,9 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 
-import type { Email, MemberId } from "../src/app/features/members/types";
-import type { RoomId } from "../src/app/features/rooms/types";
-
 import type { SeatId } from "./room";
+import type { Email, MemberId, RoomId } from "./types";
 
 /** Why a paid call was not reserved */
 export type Refusal = "day" | "trip";

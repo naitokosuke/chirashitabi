@@ -1,5 +1,4 @@
-import { isRecord } from "../src/app/shared/record";
-
+import { isRecord } from "./types";
 import type { WireMemo } from "./wire";
 
 /**
