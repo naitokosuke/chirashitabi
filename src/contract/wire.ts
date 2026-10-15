@@ -203,11 +203,29 @@ export type ServerMessage =
   | { type: "snapshot"; me: MemberId; members: WireMember[]; trip: WireTrip; notes: WireNote[] }
   | { type: "mutation"; mutation: WireMutation; by: MemberId; updatedAt: IsoInstant }
   | { type: "ack"; cid: Cid; updatedAt: IsoInstant }
-  | { type: "rejected"; reason: string; cid?: Cid }
+  // a message the room could not read: it cannot say which of ours it was
+  | { type: "rejected"; reason: UnreadReason }
+  // a mutation it read and refused; the cid when the message had one
+  | { type: "rejected"; reason: RejectReason; cid?: Cid }
   // someone joined, was removed or left: who is in the room now
   | { type: "members"; members: WireMember[] }
   // this socket's person is out of the room, or the room was deleted; the socket closes after
   | { type: "gone"; reason: GoneReason };
+
+/** Why the room could not read a message at all */
+export type UnreadReason = "text only" | "too large" | "not JSON";
+
+/** Why the room refused a mutation it read */
+export type RejectReason =
+  | "too many messages"
+  | "not a mutation"
+  | "duplicate id"
+  | "no such note"
+  | "no such day"
+  | "no such image"
+  | "not a memo"
+  | "not a text box"
+  | "not a suggestion";
 
 /** Why a member's socket was closed by the room: removed by the owner, left on their own, or the room deleted */
 export type GoneReason = "removed" | "left" | "deleted";

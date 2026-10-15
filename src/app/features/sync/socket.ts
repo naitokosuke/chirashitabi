@@ -4,6 +4,7 @@ import {
   type Cid,
   type ClientMessage,
   type GoneReason,
+  type RejectReason,
   type ServerMessage,
 } from "./wire";
 
@@ -33,7 +34,7 @@ export interface RoomSocketOptions {
   /** The room applied one of ours, sent with this `cid`, at `updatedAt` */
   onAck(cid: Cid, updatedAt: string): void;
   /** The room refused one of ours */
-  onRejected(cid: Cid, reason: string): void;
+  onRejected(cid: Cid, reason: RejectReason): void;
   /** Someone joined, was removed or left: who is in the room now */
   onMembers(members: Extract<ServerMessage, { type: "members" }>["members"]): void;
   /**
@@ -109,7 +110,7 @@ export function createRoomSocket(options: RoomSocketOptions) {
         options.onAck(msg.cid, msg.updatedAt);
         return;
       case "rejected":
-        if (msg.cid !== undefined) {
+        if ("cid" in msg && msg.cid !== undefined) {
           options.onRejected(msg.cid, msg.reason);
           return;
         }
