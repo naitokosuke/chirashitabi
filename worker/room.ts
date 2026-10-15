@@ -5,6 +5,11 @@ import type { PlaceContext, SuggestContext, TagContext } from "./claude";
 import type { Brand, HexColor, MemberId, ImageId, NoteId, RoomId, CurrencyCode } from "./types";
 import {
   SEATS,
+  type Cid,
+  type IsoDate,
+  type IsoDateTime,
+  type IsoInstant,
+  type IsoTime,
   type NoteColor,
   type NoteStatus,
   MAX_MESSAGE_BYTES,
@@ -46,14 +51,14 @@ type NoteRow = {
   rot: number;
   scale: number;
   by: MemberId;
-  updated_at: string;
+  updated_at: IsoInstant;
   body: string;
   tags: string;
   maps_url: string | null;
   pin_lat: number | null;
   pin_lng: number | null;
-  sched_date: string | null;
-  sched_time: string | null;
+  sched_date: IsoDate | null;
+  sched_time: IsoTime | null;
   sched_status: NoteStatus | null;
   budget: number | null;
   checked: number;
@@ -472,7 +477,7 @@ export class Room extends DurableObject<Env> {
     const sql = this.ctx.storage.sql;
     const { name } = sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one();
     const days = sql
-      .exec<{ date: string }>("SELECT date FROM days ORDER BY position")
+      .exec<{ date: IsoDate }>("SELECT date FROM days ORDER BY position")
       .toArray()
       .map((d) => d.date);
     // the people first, the creator leading; the agent after them
@@ -586,7 +591,7 @@ export class Room extends DurableObject<Env> {
    */
   addSuggestions(by: MemberId, titles: string[], at: { x: number; y: number }): number {
     this.assertMember(by);
-    const now = new Date().toISOString();
+    const now = stamp();
     let added = 0;
     titles.forEach((title, i) => {
       const note: WireNote = {
@@ -668,7 +673,7 @@ export class Room extends DurableObject<Env> {
     const by = this.ctx.getTags(ws)[0];
     if (by === undefined || !this.isPerson(by)) return ws.close(1008, "no member");
     // the client's id for this mutation, once it is known: an answer names it
-    let cid: string | null = null;
+    let cid: Cid | null = null;
     const reject = (reason: string) =>
       ws.send(
         JSON.stringify({
@@ -689,7 +694,7 @@ export class Room extends DurableObject<Env> {
     }
     cid = parseCid(parsed);
     if (!this.withinRate(by)) return reject("too many messages");
-    const updatedAt = new Date().toISOString();
+    const updatedAt = stamp();
     const mutation = parseMutation(parsed, { by, updatedAt });
     if (mutation === null) return reject("not a mutation");
 
@@ -748,7 +753,7 @@ export class Room extends DurableObject<Env> {
       )
       .one();
     const days = sql
-      .exec<{ date: string; intro: string }>("SELECT date, intro FROM days ORDER BY position")
+      .exec<{ date: IsoDate; intro: string }>("SELECT date, intro FROM days ORDER BY position")
       .toArray();
     const flights: WireFlights = { out: null, back: null };
     for (const f of sql
@@ -757,8 +762,8 @@ export class Room extends DurableObject<Env> {
         number: string;
         from_place: string;
         to_place: string;
-        departs: string;
-        arrives: string;
+        departs: IsoDateTime | "";
+        arrives: IsoDateTime | "";
       }>("SELECT * FROM flights")
       .toArray()) {
       const { from_place: from, to_place: to } = f;
@@ -776,7 +781,7 @@ export class Room extends DurableObject<Env> {
     const stays = sql
       .exec<{
         name: string;
-        check_in: string;
+        check_in: IsoDate;
         nights: number;
         maps_url: string | null;
         pin_lat: number | null;
@@ -814,7 +819,7 @@ export class Room extends DurableObject<Env> {
   }
 
   /** Writes the mutation as `by` at `now`; returns what was written, or why it was not */
-  private apply(m: WireMutation, by: MemberId, now: string): WireMutation | string {
+  private apply(m: WireMutation, by: MemberId, now: IsoInstant): WireMutation | string {
     const sql = this.ctx.storage.sql;
     switch (m.type) {
       case "note:add": {
@@ -959,7 +964,7 @@ export class Room extends DurableObject<Env> {
         // each day keeps its place in the trip (day 2's intro is day 2's), each planned note
         // moves with the trip, and one that falls past the new last day loses its day
         const old = sql
-          .exec<{ date: string; intro: string }>("SELECT date, intro FROM days ORDER BY position")
+          .exec<{ date: IsoDate; intro: string }>("SELECT date, intro FROM days ORDER BY position")
           .toArray();
         const was = old[0]?.date ?? m.first;
         const shift = (Date.parse(`${m.first}T00:00Z`) - Date.parse(`${was}T00:00Z`)) / 86_400_000;
@@ -1163,3 +1168,7 @@ const fromRow = (r: NoteRow): WireNote => {
     image: r.image ?? null,
   };
 };
+
+/** Now, as the room stamps what it applies */
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+const stamp = (): IsoInstant => new Date().toISOString() as IsoInstant;

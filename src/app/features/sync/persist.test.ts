@@ -12,6 +12,7 @@ import type { AirportCode } from "../place/airports";
 
 import type { RoomState } from "./ledger";
 import { keep, kept } from "./persist";
+import type { Cid } from "./wire";
 
 /** A Storage that lives in a Map */
 function memoryStorage(): Storage {
@@ -96,7 +97,7 @@ describe("keep and kept", () => {
     const storage = memoryStorage();
     const pending = [
       {
-        cid: "c1",
+        cid: "c1" as Cid,
         m: { type: "day:intro" as const, date: Temporal.PlainDate.from("2026-11-03"), intro: "x" },
         at,
         by: "yuki" as MemberId,

@@ -6,6 +6,7 @@ export {
   parsePoint,
   parseProfile,
   parseTrip,
+  type IsoInstant,
   type ServerMessage,
   type WireMutation,
   type WireNote,

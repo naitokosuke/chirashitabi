@@ -21,7 +21,14 @@ import { linked, opened, OUT, synced } from "./session";
 import { createRoomSocket } from "./socket";
 import type { Mutation } from "./types";
 import { NOWHERE, useSync } from "./useSync";
-import { type GoneReason, reviveMember, reviveMutation, reviveNote, reviveTrip } from "./wire";
+import {
+  newCid,
+  reviveMember,
+  reviveMutation,
+  reviveNote,
+  reviveTrip,
+  type GoneReason,
+} from "./wire";
 
 const STORAGE_KEY = "chirashitabi:room";
 
@@ -165,7 +172,7 @@ export const useRoom = defineStore("room", () => {
   function commit(m: Mutation) {
     const s = sync.session;
     if (s.kind !== "in") return;
-    const cid = crypto.randomUUID();
+    const cid = newCid();
     show(ledger.commit(m, cid, Temporal.Now.instant(), s.me));
     socket.send(m, cid);
   }

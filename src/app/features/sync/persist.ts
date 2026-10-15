@@ -5,6 +5,7 @@ import type { MemberId } from "../members/types";
 import type { Pending, RoomState } from "./ledger";
 import {
   type WireMember,
+  type Cid,
   type WireMutation,
   type WireNote,
   type WireTrip,
@@ -31,7 +32,7 @@ interface Saved {
   me: MemberId;
   confirmed: { notes: WireNote[]; trip: WireTrip | null; members: WireMember[] };
   /** `by` since this device signed each one; kept before that, they are all `me`'s */
-  pending: { cid: string; m: WireMutation; at: string; by?: MemberId }[];
+  pending: { cid: Cid; m: WireMutation; at: string; by?: MemberId }[];
 }
 
 /** A room as this device kept it; `me` is who this device is in it, so offline notes are signed */

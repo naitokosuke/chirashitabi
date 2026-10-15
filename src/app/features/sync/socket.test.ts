@@ -7,7 +7,11 @@ import type { NoteId } from "../notes/id";
 
 import { createRoomSocket, type SocketLike, type SocketStatus } from "./socket";
 import type { Mutation } from "./types";
-import type { ServerMessage } from "./wire";
+import type { Cid, IsoInstant, ServerMessage } from "./wire";
+
+const C1 = "c1" as Cid;
+const C2 = "c2" as Cid;
+const AT = "2026-10-01T00:00:00Z" as IsoInstant;
 
 /** A socket the test drives: it opens when told, and records what is sent */
 class FakeSocket implements SocketLike {
@@ -90,8 +94,8 @@ describe("createRoomSocket", () => {
     socket.connect("room-1");
     last().serve(snapshot);
     expect(socket.send(intro)).toBe(true);
-    expect(socket.send(intro, "c1")).toBe(true);
-    expect(last().sent).toEqual([intro, { ...intro, cid: "c1" }]);
+    expect(socket.send(intro, C1)).toBe(true);
+    expect(last().sent).toEqual([intro, { ...intro, cid: C1 }]);
   });
 
   test("while down nothing is sent, and the snapshot finds the socket connected so the caller can send again", () => {
@@ -100,7 +104,7 @@ describe("createRoomSocket", () => {
     last().serve(snapshot);
     last().drop();
     expect(socket.status).toBe("reconnecting");
-    expect(socket.send(intro, "c1")).toBe(false);
+    expect(socket.send(intro, C1)).toBe(false);
     expect(sockets[0]!.sent).toEqual([]);
 
     vi.advanceTimersByTime(1000);
@@ -112,8 +116,8 @@ describe("createRoomSocket", () => {
     const { socket, answers, last } = setup();
     socket.connect("room-1");
     last().serve(snapshot);
-    last().serve({ type: "ack", cid: "c1", updatedAt: "2026-10-01T00:00:00Z" });
-    last().serve({ type: "rejected", cid: "c2", reason: "no such note" });
+    last().serve({ type: "ack", cid: C1, updatedAt: AT });
+    last().serve({ type: "rejected", cid: C2, reason: "no such note" });
     expect(answers).toEqual(["ack c1 2026-10-01T00:00:00Z", "rejected c2 no such note"]);
     expect(last().closed).toBeNull();
   });
@@ -168,7 +172,7 @@ describe("createRoomSocket", () => {
       type: "mutation",
       mutation: { type: "note:delete", id: "a" as NoteId },
       by: "ken" as MemberId,
-      updatedAt: "2026-10-01T00:00:00Z",
+      updatedAt: AT,
     };
     last().serve(msg);
     expect(mutations).toEqual([msg]);
