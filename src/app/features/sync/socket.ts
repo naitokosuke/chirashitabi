@@ -1,5 +1,5 @@
 import type { Mutation } from "./types";
-import type { GoneReason, ServerMessage } from "./wire";
+import { wireMutation, type ClientMessage, type GoneReason, type ServerMessage } from "./wire";
 
 export type SocketStatus =
   | "idle" // no room chosen
@@ -124,7 +124,8 @@ export function createRoomSocket(options: RoomSocketOptions) {
   /** Sends now if connected; `cid` asks the room to answer. Returns whether it went */
   function send(m: Mutation, cid?: string): boolean {
     if (ws?.readyState !== OPEN || status !== "connected") return false;
-    ws.send(JSON.stringify(cid === undefined ? m : { ...m, cid }));
+    const out = wireMutation(m);
+    ws.send(JSON.stringify((cid === undefined ? out : { ...out, cid }) satisfies ClientMessage));
     return true;
   }
 
