@@ -1,4 +1,4 @@
-import type { GoneReason, ServerMessage } from "../../../../worker/wire";
+import type { GoneReason, ServerMessage } from "../../../contract/wire";
 
 import type { Mutation } from "./types";
 

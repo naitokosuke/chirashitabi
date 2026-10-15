@@ -1,6 +1,5 @@
-import type { Brand } from "../../shared/brand";
-
-import type { LatLng } from "./types";
+import type { Brand } from "./brand";
+import type { LatLng } from "./place";
 
 /**
  * An airport's IATA code that is on the list (airports.json): what a flight's from and to are.

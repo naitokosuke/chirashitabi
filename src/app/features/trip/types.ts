@@ -1,9 +1,8 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { CurrencyCode } from "../../shared/money";
-
-import type { AirportCode } from "../place/airports";
-import type { LatLng } from "../place/types";
+import type { AirportCode } from "../../../contract/airports";
+import type { CurrencyCode } from "../../../contract/money";
+import type { LatLng } from "../../../contract/place";
 
 export interface Day {
   date: Temporal.PlainDate;

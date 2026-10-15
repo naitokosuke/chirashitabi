@@ -1,13 +1,8 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { MemberId } from "../members/types";
-import type { LatLng } from "../place/types";
-
-import type { ImageId, NoteId } from "./id";
-
-export const COLORS = ["#fff1b8", "#ffd9de", "#d8f0e6", "#dbe7ff", "#ead9ff", "#ffffff"] as const;
-/** A card's paper: one of the palette, never a free CSS value */
-export type NoteColor = (typeof COLORS)[number];
+import type { MemberId, ImageId, NoteId } from "../../../contract/ids";
+import type { LatLng } from "../../../contract/place";
+import type { NoteColor, NoteStatus } from "../../../contract/room";
 
 /** How each paper is called, for a swatch's label (message ids) */
 export const COLOR_NAMES = {
@@ -31,8 +26,6 @@ export const PAPERS = {
   "#ead9ff": "var(--paper-lilac)",
   "#ffffff": "var(--paper-white)",
 } as const satisfies Record<NoteColor, string>;
-
-export type NoteStatus = "idea" | "fixed" | "done";
 
 /** Where a note sits on a day. Off the itinerary there is no time or status to speak of */
 export interface Schedule {

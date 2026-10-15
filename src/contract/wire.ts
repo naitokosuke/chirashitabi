@@ -1,19 +1,16 @@
-import { hexColor, type HexColor } from "../src/app/shared/color";
 /**
  * What crosses the socket, and the checks it must pass. Temporal values travel
  * as the ISO strings `JSON.stringify` makes of them; the app revives them. Ids and codes
  * travel as the brands they are checked into here, so the app takes them as they come.
  * Nothing from the client is trusted: every field is checked here before a room acts.
  */
-import { currencyCode, type CurrencyCode } from "../src/app/shared/money";
-import { isRecord } from "../src/app/shared/record";
-
-import type { Email, MemberId } from "../src/app/features/members/types";
-import { isImageId, isNoteId, type ImageId, type NoteId } from "../src/app/features/notes/id";
-import { COLORS, type NoteColor, type NoteStatus } from "../src/app/features/notes/types";
-import type { AirportCode } from "../src/app/features/place/airports";
-
-import { isAirportCode } from "./airports";
+import { isAirportCode } from "./airport-codes";
+import type { AirportCode } from "./airports";
+import { hexColor, type HexColor } from "./color";
+import { isImageId, isNoteId, type Email, type ImageId, type MemberId, type NoteId } from "./ids";
+import { currencyCode, type CurrencyCode } from "./money";
+import { isRecord } from "./record";
+import { COLORS, type NoteColor, type NoteStatus } from "./room";
 
 /** A person says whether they made the room; an agent has no say in who is in it */
 export type WireMember =

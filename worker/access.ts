@@ -4,11 +4,9 @@
  * A missing token is never "development": local runs sign their own token (see README).
  */
 
-import { isRecord } from "../src/app/shared/record";
-
-import type { Email } from "../src/app/features/members/types";
-
-import { parseEmail } from "./wire";
+import type { Email } from "../src/contract/ids";
+import { isRecord } from "../src/contract/record";
+import { parseEmail } from "../src/contract/wire";
 
 export interface AccessConfig {
   /** `<team>.cloudflareaccess.com`: the issuer, and where the signing keys are served */

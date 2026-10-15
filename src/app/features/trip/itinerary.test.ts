@@ -2,10 +2,10 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import type { MemberId } from "../members/types";
-import type { NoteId } from "../notes/id";
-import type { Memo, NoteStatus } from "../notes/types";
-import type { AirportCode } from "../place/airports";
+import type { AirportCode } from "../../../contract/airports";
+import type { MemberId, NoteId } from "../../../contract/ids";
+import type { NoteStatus } from "../../../contract/room";
+import type { Memo } from "../notes/types";
 
 import { flightDays, forDay, stayOn, wakeAt } from "./itinerary";
 import type { Stay } from "./types";

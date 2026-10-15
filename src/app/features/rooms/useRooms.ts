@@ -1,5 +1,6 @@
 import { defineQuery, useMutation, useQuery, useQueryCache } from "@pinia/colada";
 
+import type { RoomId } from "../../../contract/ids";
 import { deleteRoom, leaveRoom } from "../members/api";
 import { forget } from "../sync/persist";
 
@@ -11,7 +12,6 @@ import {
   purgeRoom,
   restoreRoom,
 } from "./api";
-import type { RoomId } from "./types";
 
 /** The person's rooms, invitations and deleted trips, as `/api/me` lists them (docs/data-fetching.md) */
 export const ROOMS_KEY = ["me", "rooms"];

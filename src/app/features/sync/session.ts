@@ -1,7 +1,6 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { MemberId } from "../members/types";
-import type { RoomId } from "../rooms/types";
+import type { MemberId, RoomId } from "../../../contract/ids";
 
 /** How the socket to the chosen room is doing (socket.ts) */
 export type Link = "connecting" | "connected" | "reconnecting" | "failed";

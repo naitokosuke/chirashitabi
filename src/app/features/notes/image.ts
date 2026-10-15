@@ -1,12 +1,10 @@
-import type { RoomId } from "../rooms/types";
-
-import type { ImageId } from "./id";
+import type { RoomId, ImageId } from "../../../contract/ids";
 
 /** The longest side a picture is sent at: plenty for a card and a phone screen */
 const MAX_SIDE = 1600;
 /** A sticker's: it is drawn smaller than a photo, and may have to go as PNG */
 export const STICKER_SIDE = 800;
-/** The Worker takes at most 1 MB (worker/wire.ts); this leaves room */
+/** The Worker takes at most 1 MB (contract/wire.ts); this leaves room */
 const MAX_BYTES = 900 * 1024;
 
 /** Where a room's picture is shown from; the Worker checks the viewer is a member */

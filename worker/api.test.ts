@@ -12,7 +12,7 @@ import {
   type Unstable_RawConfig,
 } from "wrangler";
 
-import type { ServerMessage } from "./wire";
+import type { ServerMessage } from "../src/contract/wire";
 
 // The Worker runs in workerd through wrangler's test harness. Access is stood in for by
 // signing tokens with a throwaway key and serving its public half from a local stub.

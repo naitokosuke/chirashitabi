@@ -2,7 +2,9 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import type { RoomId, RoomSummary } from "./types";
+import type { RoomId } from "../../../contract/ids";
+
+import type { RoomSummary } from "./types";
 import { lastDay, shelve, whenOf } from "./when";
 
 const TODAY = Temporal.PlainDate.from("2026-10-03");

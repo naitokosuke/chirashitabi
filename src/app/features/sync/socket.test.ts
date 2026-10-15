@@ -1,10 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 
-import { hexColor } from "../../shared/color";
-
-import type { ServerMessage } from "../../../../worker/wire";
-import type { MemberId } from "../members/types";
-import type { NoteId } from "../notes/id";
+import { hexColor } from "../../../contract/color";
+import type { MemberId, NoteId } from "../../../contract/ids";
+import type { ServerMessage } from "../../../contract/wire";
 
 import { createRoomSocket, type SocketLike, type SocketStatus } from "./socket";
 import type { Mutation } from "./types";

@@ -12,10 +12,10 @@ import {
   lengthOf,
 } from "../../../ui/index";
 
-import { hexColor } from "../../shared/color";
-
 import { useI18n } from "../../i18n/useI18n";
 
+import { hexColor } from "../../../contract/color";
+import type { RoomId } from "../../../contract/ids";
 import backIcon from "../../icons/back.svg";
 import Icon from "../../icons/Icon.vue";
 import { longDate } from "../trip/format";
@@ -23,7 +23,7 @@ import { longDate } from "../trip/format";
 import { datesLabel, whenLabel } from "./label";
 import { CURRENCIES, DEFAULT_CENTER, MAX_DAYS, MAX_NAME, MEMBER_COLORS, newRoom } from "./newRoom";
 import TripTag from "./TripTag.vue";
-import type { RoomId, RoomSummary } from "./types";
+import type { RoomSummary } from "./types";
 import { useRooms } from "./useRooms";
 import { whenOf } from "./when";
 

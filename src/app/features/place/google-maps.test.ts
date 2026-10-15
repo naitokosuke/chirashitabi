@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { isShortMapsLink, parseMapsUrl, placeSearchLink, safeUrl } from "./google-maps";
+import { isShortMapsLink, parseMapsUrl } from "../../../contract/place";
+
+import { placeSearchLink, safeUrl } from "./google-maps";
 
 describe("placeSearchLink", () => {
   test("searches the name at the point, and the point reads back as the pin", () => {

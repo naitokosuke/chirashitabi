@@ -2,8 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import type { MemberId } from "../members/types";
-import type { RoomId } from "../rooms/types";
+import type { MemberId, RoomId } from "../../../contract/ids";
 
 import { linked, NO_ROOM, opened, OUT, roomOf, synced } from "./session";
 

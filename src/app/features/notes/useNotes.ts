@@ -1,11 +1,12 @@
 import { defineQuery, useQueryState } from "@pinia/colada";
 
+import type { ImageId, NoteId } from "../../../contract/ids";
+import type { NoteColor } from "../../../contract/room";
 import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
-import type { ImageId, NoteId } from "./id";
 import { duplicateInput } from "./input";
-import type { MemoPatch, NewMemo, NewSticker, NewText, NoteColor, NoteInput } from "./types";
+import type { MemoPatch, NewMemo, NewSticker, NewText, NoteInput } from "./types";
 
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
 const uid = () => Math.random().toString(36).slice(2, 10) as NoteId;

@@ -1,10 +1,5 @@
-import {
-  airportsOf,
-  findAirport,
-  type Airport,
-  type AirportCode,
-} from "../src/app/features/place/airports";
-import rows from "../src/app/features/place/airports.json";
+import { airportsOf, findAirport, type Airport, type AirportCode } from "./airports";
+import rows from "./airports.json";
 
 /**
  * The airports the app suggests (airports.json, OurAirports), for the room to hold a flight to:

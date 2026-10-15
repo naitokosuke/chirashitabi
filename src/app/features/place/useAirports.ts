@@ -1,7 +1,7 @@
 import { shallowRef } from "vue";
 
-import { airportsOf, type Airport } from "./airports";
-import url from "./airports.json?url";
+import { airportsOf, type Airport } from "../../../contract/airports";
+import url from "../../../contract/airports.json?url";
 
 /** The airports, once fetched; shared by every view that asks */
 const airports = shallowRef<Airport[]>([]);

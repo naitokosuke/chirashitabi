@@ -1,7 +1,7 @@
 import type { RouteParams } from "vue-router";
 
-import { isNoteId } from "../../features/notes/id";
-import { type FormTarget } from "../../features/notes/types";
+import { isNoteId } from "../../../contract/ids";
+import type { FormTarget } from "../../features/notes/types";
 
 /** A room's tabs, each a page under `pages/rooms/[roomId=roomId]/` */
 export type View = "home" | "canvas" | "memo" | "map" | "shiori";

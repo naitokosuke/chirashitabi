@@ -1,6 +1,5 @@
-import { isRecord } from "../src/app/shared/record";
-
-import type { WireMemo } from "./wire";
+import { isRecord } from "../src/contract/record";
+import type { WireMemo } from "../src/contract/wire";
 
 /**
  * Claude, called from the Worker with the key held as a secret (docs/auth-and-security.md).

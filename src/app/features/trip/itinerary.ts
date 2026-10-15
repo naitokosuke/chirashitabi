@@ -1,11 +1,11 @@
 import { Temporal } from "temporal-polyfill-lite";
 
+import type { NoteStatus } from "../../../contract/room";
 import {
   PACKING_TAG,
   type Memo,
   type MemoPatch,
   type Note,
-  type NoteStatus,
   type Schedule,
   type Scheduled,
 } from "../notes/types";

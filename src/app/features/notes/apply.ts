@@ -1,6 +1,6 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { MemberId } from "../members/types";
+import type { MemberId } from "../../../contract/ids";
 import type { Mutation } from "../sync/types";
 
 import { adopted } from "./input";

@@ -1,7 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-import type { Email, MemberId } from "../src/app/features/members/types";
-import type { RoomId } from "../src/app/features/rooms/types";
+import type { Email, MemberId, RoomId } from "../src/contract/ids";
 
 import type { SeatId } from "./room";
 

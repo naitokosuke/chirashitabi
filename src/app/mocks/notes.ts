@@ -1,12 +1,12 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import type { NoteId } from "../features/notes/id";
+import type { NoteId } from "../../contract/ids";
+import type { NoteStatus } from "../../contract/room";
 import {
   ARRIVAL_TAG,
   PACKING_TAG,
   type Memo,
   type Note,
-  type NoteStatus,
   type Schedule,
   type Suggestion,
 } from "../features/notes/types";

@@ -1,6 +1,7 @@
-import type { LatLng } from "../place/types";
+import type { LatLng } from "../../../contract/place";
+import { COLORS } from "../../../contract/room";
 
-import { COLORS, type Memo, type Note, type NoteInput, type Suggestion } from "./types";
+import type { Memo, Note, NoteInput, Suggestion } from "./types";
 
 /** The form's starting point when editing an existing memo */
 export const inputFromNote = (note: Memo): NoteInput => ({

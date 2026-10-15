@@ -1,13 +1,13 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { findAirport, type Airport } from "../place/airports";
-import { parseMapsUrl, safeUrl } from "../place/google-maps";
-import type { LatLng } from "../place/types";
+import { findAirport, type Airport } from "../../../contract/airports";
+import { parseMapsUrl, type LatLng } from "../../../contract/place";
+import { safeUrl } from "../place/google-maps";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
 
 import type { Flight, Flights, Leg, Stay, TripSnapshot } from "./types";
 
-/** The Worker's limit on a flight's number (worker/wire.ts) */
+/** The Worker's limit on a flight's number (contract/wire.ts) */
 export const MAX_FLIGHT_NO = 20;
 
 /** A flight as its inputs hold it; `on` is whether the trip has this flight at all */

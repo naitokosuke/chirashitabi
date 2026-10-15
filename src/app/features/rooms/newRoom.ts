@@ -1,13 +1,12 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { hexColor } from "../../shared/color";
-import { currencyCode } from "../../shared/money";
-
-import type { LatLng } from "../place/types";
+import { hexColor } from "../../../contract/color";
+import { currencyCode } from "../../../contract/money";
+import type { LatLng } from "../../../contract/place";
 
 import type { NewRoom, Profile } from "./types";
 
-/** The Worker's limits on a new room (worker/wire.ts) */
+/** The Worker's limits on a new room (contract/wire.ts) */
 export const MAX_NAME = 60;
 export const MAX_DAYS = 60;
 

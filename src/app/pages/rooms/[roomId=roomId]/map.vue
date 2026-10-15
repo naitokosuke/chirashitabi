@@ -21,10 +21,10 @@ import {
   useTemplateRef,
 } from "vue";
 
+import "maplibre-gl/dist/maplibre-gl.css";
 import * as maplibregl from "maplibre-gl";
 import { Map as MLMap, Marker } from "maplibre-gl";
 import { useRoute, useRouter } from "vue-router";
-import "maplibre-gl/dist/maplibre-gl.css";
 
 import { CtChip, CtChipRow, CtFab } from "../../../../ui/index";
 
@@ -32,14 +32,14 @@ import { formatMoney } from "../../../shared/money";
 
 import { useI18n } from "../../../i18n/useI18n";
 
+import { findAirport, type Airport } from "../../../../contract/airports";
+import type { LatLng } from "../../../../contract/place";
 import { PAPERS, type FormTarget, type Memo, type Note } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
-import { findAirport, type Airport } from "../../../features/place/airports";
 import { placeLink, safeUrl } from "../../../features/place/google-maps";
 import { lngLat, needsPin, pinnedOf, type Pinned } from "../../../features/place/pin";
 import { boundsOf, dayStops, routeLine } from "../../../features/place/route";
 import { guardMissingProperties } from "../../../features/place/style";
-import type { LatLng } from "../../../features/place/types";
 import { useAirports } from "../../../features/place/useAirports";
 import { useTags } from "../../../features/tags/useTags";
 import { hhmm, shortDate } from "../../../features/trip/format";

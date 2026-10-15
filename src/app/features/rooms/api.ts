@@ -2,21 +2,13 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { hc, type ClientResponse } from "hono/client";
 
-import { hexColor } from "../../shared/color";
-import { isRecord } from "../../shared/record";
-
 import type { Api } from "../../../../.worker-types/worker";
+import { hexColor } from "../../../contract/color";
+import { roomId, type RoomId } from "../../../contract/ids";
+import { isRecord } from "../../../contract/record";
 
 import { toWire } from "./newRoom";
-import {
-  roomId,
-  type DeletedRoom,
-  type Mine,
-  type NewRoom,
-  type Profile,
-  type RoomId,
-  type RoomSummary,
-} from "./types";
+import type { DeletedRoom, Mine, NewRoom, Profile, RoomSummary } from "./types";
 
 /** The Worker's API; every call says JSON, as the Worker's gate wants, even one with no body */
 const { api } = hc<Api>("/", { headers: { "Content-Type": "application/json" } });

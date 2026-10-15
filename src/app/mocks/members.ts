@@ -1,7 +1,7 @@
 // oxlint-disable typescript/no-unsafe-type-assertion -- the seed's ids and codes are minted here
-import type { HexColor } from "../shared/color";
-
-import type { Member, MemberId } from "../features/members/types";
+import type { HexColor } from "../../contract/color";
+import type { MemberId } from "../../contract/ids";
+import type { Member } from "../features/members/types";
 
 export const YUKI = "yuki" as MemberId;
 export const KEN = "ken" as MemberId;

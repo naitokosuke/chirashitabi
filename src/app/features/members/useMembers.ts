@@ -2,13 +2,13 @@ import { computed } from "vue";
 
 import { defineQuery, useMutation, useQuery, useQueryCache, useQueryState } from "@pinia/colada";
 
-import type { RoomId } from "../rooms/types";
+import type { RoomId, MemberId } from "../../../contract/ids";
 import { ROOMS_KEY } from "../rooms/useRooms";
 import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
 import { deleteRoom, fetchInvited, invite, leaveRoom, removeMember, uninvite } from "./api";
-import type { MemberId, Person } from "./types";
+import type { Person } from "./types";
 
 /**
  * Who is in the room of the session, and the changes to it over HTTP beside the socket. The

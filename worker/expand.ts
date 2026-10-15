@@ -1,4 +1,4 @@
-import { isShortMapsLink } from "../src/app/features/place/google-maps";
+import { isShortMapsLink } from "../src/contract/place";
 
 /**
  * A short Google Maps link, expanded: the one redirect it answers with is read, never followed,

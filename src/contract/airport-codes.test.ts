@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { airportCodeOf, isAirportCode } from "./airports";
+import { airportCodeOf, isAirportCode } from "./airport-codes";
 
 describe("the airports a room holds a flight to", () => {
   test("a code on the list, exactly as the app writes it", () => {

@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 
 import { useI18n } from "../../i18n/useI18n";
 
-import { findAirport, suggestAirports, type Airport } from "../place/airports";
+import { findAirport, suggestAirports, type Airport } from "../../../contract/airports";
 import { useAirports } from "../place/useAirports";
 
 /**

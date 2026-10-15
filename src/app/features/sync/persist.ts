@@ -1,7 +1,7 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import type { WireMember, WireMutation, WireNote, WireTrip } from "../../../../worker/wire";
-import type { MemberId } from "../members/types";
+import type { MemberId } from "../../../contract/ids";
+import type { WireMember, WireMutation, WireNote, WireTrip } from "../../../contract/wire";
 
 import type { Pending, RoomState } from "./ledger";
 import { reviveMember, reviveMutation, reviveNote, reviveTrip } from "./wire";

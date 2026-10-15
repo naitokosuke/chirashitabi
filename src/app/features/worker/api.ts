@@ -2,12 +2,10 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { hc, type ClientResponse } from "hono/client";
 
-import { isRecord } from "../../shared/record";
-
 import type { Api } from "../../../../.worker-types/worker";
-import { isImageId } from "../notes/id";
+import { isImageId, type RoomId } from "../../../contract/ids";
+import { isRecord } from "../../../contract/record";
 import type { FoundPlace } from "../place/types";
-import type { RoomId } from "../rooms/types";
 
 import type { WorkerApi } from "./types";
 

@@ -1,16 +1,9 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { HexColor } from "../../shared/color";
-
-import type { NoteId } from "../notes/id";
-import type {
-  MemoPatch,
-  NewMemo,
-  NewSticker,
-  NewText,
-  NoteColor,
-  Suggestion,
-} from "../notes/types";
+import type { HexColor } from "../../../contract/color";
+import type { NoteId } from "../../../contract/ids";
+import type { NoteColor } from "../../../contract/room";
+import type { MemoPatch, NewMemo, NewSticker, NewText, Suggestion } from "../notes/types";
 import type { Flight, Leg, Stay } from "../trip/types";
 
 /**

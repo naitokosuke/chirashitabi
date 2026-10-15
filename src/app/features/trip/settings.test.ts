@@ -2,9 +2,8 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import { currencyCode } from "../../shared/money";
-
-import { airportsOf } from "../place/airports";
+import { airportsOf } from "../../../contract/airports";
+import { currencyCode } from "../../../contract/money";
 
 import {
   flightOf,

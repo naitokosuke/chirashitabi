@@ -2,13 +2,11 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import { hexColor } from "../../shared/color";
-import { currencyCode } from "../../shared/money";
-
-import type { MemberId } from "../members/types";
-import type { NoteId } from "../notes/id";
+import type { AirportCode } from "../../../contract/airports";
+import { hexColor } from "../../../contract/color";
+import type { MemberId, NoteId } from "../../../contract/ids";
+import { currencyCode } from "../../../contract/money";
 import type { Memo } from "../notes/types";
-import type { AirportCode } from "../place/airports";
 
 import type { RoomState } from "./ledger";
 import { keep, kept } from "./persist";

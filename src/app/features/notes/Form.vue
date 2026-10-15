@@ -28,15 +28,12 @@ import { CtChip, useFlip } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
+import { isShortMapsLink } from "../../../contract/place";
+import { COLORS, type NoteColor } from "../../../contract/room";
 import backIcon from "../../icons/back.svg";
 import closeIcon from "../../icons/close.svg";
 import Icon from "../../icons/Icon.vue";
-import {
-  googleMapsLink,
-  isShortMapsLink,
-  placeFromUrl,
-  placeSearchLink,
-} from "../place/google-maps";
+import { googleMapsLink, placeFromUrl, placeSearchLink } from "../place/google-maps";
 import type { FoundPlace } from "../place/types";
 import { useSync } from "../sync/useSync";
 import { FITS_AT, fits, likeness, rankTags, type TagOption } from "../tags/rank";
@@ -46,7 +43,7 @@ import { useWorker } from "../worker/useWorker";
 
 import { imageSrc, shrinkImage } from "./image";
 import { blankInput, inputFromNote, normalizeTag, noteText, parseNoteText } from "./input";
-import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteInput } from "./types";
+import { COLOR_NAMES, PAPERS, type NoteInput } from "./types";
 import { useNotes } from "./useNotes";
 
 const props = defineProps<{ mode: FormMode }>();

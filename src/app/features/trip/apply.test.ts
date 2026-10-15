@@ -2,11 +2,10 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import { currencyCode } from "../../shared/money";
-
-import type { NoteId } from "../notes/id";
+import type { AirportCode } from "../../../contract/airports";
+import type { NoteId } from "../../../contract/ids";
+import { currencyCode } from "../../../contract/money";
 import type { Memo, Note } from "../notes/types";
-import type { AirportCode } from "../place/airports";
 
 import { applyToDays, applyToTrip, moveSchedules } from "./apply";
 import type { Day, TripSnapshot } from "./types";

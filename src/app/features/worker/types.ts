@@ -1,8 +1,9 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { ImageId, NoteId } from "../notes/id";
+import type { ImageId, NoteId } from "../../../contract/ids";
+import type { LatLng } from "../../../contract/place";
 import type { Scheduled } from "../notes/types";
-import type { FoundPlace, LatLng } from "../place/types";
+import type { FoundPlace } from "../place/types";
 
 /** A suggested order and times for one day, from whichever member drafted it */
 export interface DayDraft {
