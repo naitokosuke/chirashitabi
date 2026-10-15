@@ -149,6 +149,10 @@ one {{From {$date} · {$count} night}}
   "people.inviting": "Inviting…",
   "people.inviteHint":
     "They log in with this address; add it to the Cloudflare Access allow list too.",
+  "people.qr": "Show a QR code",
+  "people.qrLabel": "QR code of this app's address",
+  "people.qrHint":
+    "Scanned with their phone's camera, it opens this app; logging in with the address invited above lets them answer.",
   "people.inviteFailed": "Could not invite: already invited, already in, or the trip is full.",
   "people.pending": "Waiting for an answer",
   "people.uninvite": "Withdraw",

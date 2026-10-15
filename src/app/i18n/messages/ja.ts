@@ -129,6 +129,10 @@ export const ja: Messages = {
   "people.inviting": "招待しています…",
   "people.inviteHint":
     "相手はこのアドレスでログインします。Cloudflare Access の許可リストにも追加してください。",
+  "people.qr": "QR コードを見せる",
+  "people.qrLabel": "このアプリのアドレスの QR コード",
+  "people.qrHint":
+    "相手のスマホのカメラで読み取ると、このアプリが開きます。上で招待したアドレスでログインすれば、招待に返事できます。",
   "people.inviteFailed": "招待できませんでした。招待済みか、すでにメンバーか、旅が満員です。",
   "people.pending": "返事待ち",
   "people.uninvite": "取り消す",

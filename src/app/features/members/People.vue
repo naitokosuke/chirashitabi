@@ -1,6 +1,8 @@
 <script setup lang="ts" vapor>
 import { computed, ref, shallowRef, useId } from "vue";
 
+import { encode } from "uqr";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import { KEPT_DAYS } from "../rooms/api";
@@ -13,7 +15,9 @@ import { useMembers } from "./useMembers";
  * Who is on the trip, and the way in and out of it, at the foot of the trip's home. The owner
  * (who made the trip) invites by e-mail, takes an invitation back, removes the other person and
  * deletes the trip; a guest may leave. Anything that takes someone out asks twice. Once this
- * person is out of it (left, or the trip deleted), `out` says so.
+ * person is out of it (left, or the trip deleted), `out` says so. Beside the invitation, a QR
+ * code of the app's address opens it on the other person's phone; it carries nothing else, since
+ * the invitation is tied to their e-mail.
  */
 const emit = defineEmits<{ out: [] }>();
 const i18n = useI18n();
@@ -77,6 +81,12 @@ const leave = () => run(() => membership.leave.mutateAsync(), out);
 const deleteTrip = () => run(() => membership.deleteRoom.mutateAsync(), out);
 
 const isMe = (m: MemberId) => sync.me === m;
+
+// one square per dark module, inside the quiet zone of four the QR spec asks for
+const qr = encode(location.origin, { border: 4 });
+const qrPath = qr.data
+  .flatMap((row, y) => row.map((dark, x) => (dark ? `M${x} ${y}h1v1h-1z` : "")))
+  .join("");
 </script>
 
 <template>
@@ -149,6 +159,19 @@ const isMe = (m: MemberId) => sync.me === m;
         </button>
       </div>
       <p class="hint">{{ i18n.t("people.inviteHint") }}</p>
+      <details class="qr">
+        <summary>{{ i18n.t("people.qr") }}</summary>
+        <svg
+          role="img"
+          :aria-label="i18n.t('people.qrLabel')"
+          :viewBox="`0 0 ${qr.size} ${qr.size}`"
+          shape-rendering="crispEdges"
+        >
+          <rect fill="#fff" :width="qr.size" :height="qr.size" />
+          <path fill="#000" :d="qrPath" />
+        </svg>
+        <p class="hint">{{ i18n.t("people.qrHint") }}</p>
+      </details>
     </form>
     <p v-else-if="me.role === 'owner'" class="hint">
       {{ i18n.t("people.full", { count: SEATS }) }}
@@ -352,6 +375,32 @@ button.primary {
     > button {
       min-height: 46px;
     }
+  }
+}
+
+/* black on white whatever the theme: what a camera reads best */
+.qr {
+  > summary {
+    width: fit-content;
+    min-height: var(--tap);
+    display: flex;
+    align-items: center;
+    font-size: var(--font-sm);
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 2px;
+    }
+  }
+
+  > svg {
+    display: block;
+    width: min(240px, 100%);
+    margin-block: 4px 8px;
+    border-radius: 10px;
   }
 }
 
