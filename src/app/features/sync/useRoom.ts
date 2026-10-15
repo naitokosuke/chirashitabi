@@ -21,8 +21,7 @@ import { linked, opened, OUT, synced } from "./session";
 import { createRoomSocket } from "./socket";
 import type { Mutation } from "./types";
 import { NOWHERE, useSync } from "./useSync";
-import type { GoneReason } from "./wire";
-import { reviveMember, reviveMutation, reviveNote, reviveTrip } from "./wire";
+import { type GoneReason, reviveMember, reviveMutation, reviveNote, reviveTrip } from "./wire";
 
 const STORAGE_KEY = "chirashitabi:room";
 

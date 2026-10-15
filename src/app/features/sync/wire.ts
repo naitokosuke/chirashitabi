@@ -74,7 +74,7 @@ const reviveFlight = (f: WireFlight | null | undefined): Flight | null =>
     ? null
     : {
         number: f.number,
-        // the room checked them against the list (contract/airport-codes.ts); one kept on a device from
+        // the room checked them against the list (worker/airports.ts); one kept on a device from
         // before may not be on it, and is only not found on the map until the room's snapshot
         from: f.from,
         to: f.to,

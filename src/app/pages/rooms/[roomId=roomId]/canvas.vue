@@ -161,7 +161,7 @@ function select(note: Note | null) {
 let lastTap: { id: NoteId; at: number } | null = null;
 const DOUBLE_TAP_MS = 350;
 
-/** Sizes a card may be drawn at; the room takes 0.5 to 3 (contract/wire.ts) */
+/** Sizes a card may be drawn at; the room takes 0.5 to 3 (worker/wire.ts) */
 const MIN_SCALE = 0.6;
 const MAX_SCALE = 2.5;
 /** Holding Shift while turning snaps to this many degrees */

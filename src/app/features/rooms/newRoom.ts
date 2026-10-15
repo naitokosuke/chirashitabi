@@ -7,7 +7,7 @@ import type { LatLng } from "../place/types";
 
 import type { NewRoom, Profile } from "./types";
 
-/** The Worker's limits on a new room (contract/wire.ts) */
+/** The Worker's limits on a new room (worker/wire.ts) */
 export const MAX_NAME = 60;
 export const MAX_DAYS = 60;
 
