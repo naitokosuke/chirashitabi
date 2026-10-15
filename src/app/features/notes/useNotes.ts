@@ -25,7 +25,7 @@ export interface Shape {
  */
 export const useNotes = defineQuery(() => {
   const sync = useSync();
-  const { data: notes } = useQueryState(() => roomKeys.notes(sync.room.id));
+  const { data: notes } = useQueryState(() => roomKeys.notes(sync.room));
   const byId = (id: NoteId) => notes.value?.find((n) => n.id === id);
 
   /** A new memo near `at`; whose it is and when is stamped as it is applied */

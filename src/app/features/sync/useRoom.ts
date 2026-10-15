@@ -11,8 +11,6 @@ import { useI18n } from "../../i18n/useI18n";
 import { roomId, type RoomId } from "../rooms/types";
 import { ROOMS_KEY } from "../rooms/useRooms";
 import { useToast } from "../toast/useToast";
-import { roomWorkerApi } from "../worker/api";
-import { useWorker } from "../worker/useWorker";
 
 import { roomKeys } from "./keys";
 import { createLedger, EMPTY_ROOM, type RoomState } from "./ledger";
@@ -20,7 +18,7 @@ import { forget, keep, kept } from "./persist";
 import { linked, opened, OUT, synced } from "./session";
 import { createRoomSocket } from "./socket";
 import type { Mutation } from "./types";
-import { NOWHERE, useSync } from "./useSync";
+import { useSync } from "./useSync";
 import {
   newCid,
   reviveMember,
@@ -43,7 +41,6 @@ export const useRoom = defineStore("room", () => {
   const sync = useSync();
   const queryCache = useQueryCache();
   const toast = useToast();
-  const worker = useWorker();
   const i18n = useI18n();
 
   const ledger = createLedger();
@@ -54,7 +51,7 @@ export const useRoom = defineStore("room", () => {
   }
   /** The ledger's view into the cache */
   function show(state: RoomState) {
-    const id = sync.room.id;
+    const id = sync.room;
     put(roomKeys.notes(id), state.notes);
     put(roomKeys.members(id), state.members);
     if (state.trip !== null) put(roomKeys.trip(id), state.trip);
@@ -180,6 +177,9 @@ export const useRoom = defineStore("room", () => {
   // The network is back: try the room now instead of waiting out the back-off (a live socket ignores this)
   window.addEventListener("online", () => socket.reconnect());
 
+  // the stores commit through the room from now on; out of a room, commit and send do nothing
+  sync.transport = { commit, send: (m) => void socket.send(m) };
+
   /** Remembered on this device so the next visit opens the same room */
   function remembered(): RoomId | null {
     try {
@@ -201,9 +201,6 @@ export const useRoom = defineStore("room", () => {
     // in at once when this device kept the room; otherwise once the room answers (onSnapshot)
     remember();
     socket.connect(id);
-    sync.transport = { commit, send: (m) => void socket.send(m) };
-    // what the room's agent does for its members goes through the Worker, for this room
-    worker.api = roomWorkerApi(id);
   }
 
   /**
@@ -219,8 +216,6 @@ export const useRoom = defineStore("room", () => {
     }
     socket.leave();
     sync.session = OUT;
-    sync.transport = NOWHERE;
-    worker.api = null;
   }
 
   return {

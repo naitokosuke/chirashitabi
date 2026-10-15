@@ -62,44 +62,59 @@ function openOnThisOrigin(roomId: string): SocketLike {
  */
 export function createRoomSocket(options: RoomSocketOptions) {
   const open = options.open ?? openOnThisOrigin;
-  let status: SocketStatus = "idle";
-  let roomId: string | null = null;
-  let ws: SocketLike | null = null;
-  let attempt = 0;
-  let timer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * No room chosen, or one: the socket to it while there is one (null between tries), how many
+   * tries the back-off has made, and the next try's timer. One object per room chosen, so a
+   * socket's listener can tell it was left behind.
+   */
+  type Line =
+    | { status: "idle" }
+    | {
+        status: Exclude<SocketStatus, "idle">;
+        roomId: string;
+        ws: SocketLike | null;
+        attempt: number;
+        timer: ReturnType<typeof setTimeout> | null;
+      };
+  let line: Line = { status: "idle" };
 
-  function setStatus(next: SocketStatus) {
-    status = next;
+  function setStatus(next: Exclude<SocketStatus, "idle">) {
+    if (line.status === "idle") return;
+    line.status = next;
     options.onStatus(next);
   }
 
   function dial() {
-    if (roomId === null) return;
-    const socket = open(roomId);
-    ws = socket;
+    const room = line;
+    if (room.status === "idle") return;
+    const socket = open(room.roomId);
+    room.ws = socket;
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the room's own messages, every field checked by it before it sent them
     socket.addEventListener("message", (e) => receive(JSON.parse(String(e.data)) as ServerMessage));
     socket.addEventListener("close", () => {
-      if (ws !== socket) return; // superseded by leave() or a newer socket
-      ws = null;
+      // superseded by leave(), another room, or a newer socket
+      if (line !== room || room.ws !== socket) return;
+      room.ws = null;
       retry();
     });
   }
 
   function retry() {
-    if (attempt >= MAX_ATTEMPTS) {
+    const room = line;
+    if (room.status === "idle") return;
+    if (room.attempt >= MAX_ATTEMPTS) {
       setStatus("failed");
       return;
     }
-    setStatus(status === "connecting" ? "connecting" : "reconnecting");
-    const delay = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** attempt++);
-    timer = setTimeout(dial, delay);
+    setStatus(room.status === "connecting" ? "connecting" : "reconnecting");
+    const delay = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** room.attempt++);
+    room.timer = setTimeout(dial, delay);
   }
 
   function receive(msg: ServerMessage) {
     switch (msg.type) {
       case "snapshot":
-        attempt = 0;
+        if (line.status !== "idle") line.attempt = 0;
         setStatus("connected");
         options.onSnapshot(msg);
         return;
@@ -116,7 +131,7 @@ export function createRoomSocket(options: RoomSocketOptions) {
         }
         // refused without saying which (it could not read ours): the next snapshot is the truth
         console.warn(`room: ${msg.reason}`);
-        ws?.close(4000, "resync");
+        if (line.status !== "idle") line.ws?.close(4000, "resync");
         return;
       case "members":
         options.onMembers(msg.members);
@@ -130,35 +145,39 @@ export function createRoomSocket(options: RoomSocketOptions) {
 
   /** Sends now if connected; `cid` asks the room to answer. Returns whether it went */
   function send(m: Mutation, cid?: Cid): boolean {
-    if (ws?.readyState !== OPEN || status !== "connected") return false;
+    if (line.status !== "connected" || line.ws?.readyState !== OPEN) return false;
     const out = wireMutation(m);
-    ws.send(JSON.stringify((cid === undefined ? out : { ...out, cid }) satisfies ClientMessage));
+    line.ws.send(
+      JSON.stringify((cid === undefined ? out : { ...out, cid }) satisfies ClientMessage),
+    );
     return true;
   }
 
   function leave() {
-    if (timer !== null) clearTimeout(timer);
-    timer = null;
-    attempt = 0;
-    ws?.close(1000, "left");
-    ws = null;
-    roomId = null;
-    setStatus("idle");
+    const room = line;
+    line = { status: "idle" };
+    if (room.status !== "idle") {
+      if (room.timer !== null) clearTimeout(room.timer);
+      room.ws?.close(1000, "left");
+    }
+    options.onStatus("idle");
   }
 
   function connect(id: string) {
     leave();
-    roomId = id;
-    setStatus("connecting");
+    line = { status: "connecting", roomId: id, ws: null, attempt: 0, timer: null };
+    options.onStatus("connecting");
     dial();
   }
 
   /** Try again now, after giving up or while waiting to */
   function reconnect() {
-    attempt = 0;
-    if (ws !== null || roomId === null) return;
-    if (timer !== null) clearTimeout(timer);
-    timer = null;
+    const room = line;
+    if (room.status === "idle") return;
+    room.attempt = 0;
+    if (room.ws !== null) return;
+    if (room.timer !== null) clearTimeout(room.timer);
+    room.timer = null;
     setStatus("connecting");
     dial();
   }
@@ -168,11 +187,11 @@ export function createRoomSocket(options: RoomSocketOptions) {
     leave,
     reconnect,
     send,
-    get status() {
-      return status;
+    get status(): SocketStatus {
+      return line.status;
     },
     get roomId() {
-      return roomId;
+      return line.status === "idle" ? null : line.roomId;
     },
   };
 }

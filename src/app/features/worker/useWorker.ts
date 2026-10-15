@@ -1,11 +1,18 @@
-import { shallowRef } from "vue";
+import { computed } from "vue";
 
 import { defineStore } from "pinia";
 
-import type { WorkerApi } from "./types";
+import { useSync } from "../sync/useSync";
 
-/** Null until a Worker is connected; the UI hides what needs it. */
+import { roomWorkerApi } from "./api";
+
+/**
+ * What the room's agent does for its members, through the Worker, for the room of the session;
+ * null out of a room, and the UI hides what needs it.
+ */
 export const useWorker = defineStore("worker", () => {
-  const api = shallowRef<WorkerApi | null>(null);
+  const sync = useSync();
+  // made again only when the room changes, not when the socket's link does
+  const api = computed(() => (sync.room === null ? null : roomWorkerApi(sync.room)));
   return { api };
 });

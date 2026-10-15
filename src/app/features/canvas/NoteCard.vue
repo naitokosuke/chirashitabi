@@ -72,7 +72,7 @@ const day = computed(() => {
       v-else-if="note.kind === 'sticker'"
       alt=""
       draggable="false"
-      :src="imageSrc(sync.room.id, note.image)"
+      :src="sync.room === null ? undefined : imageSrc(sync.room, note.image)"
     />
     <template v-else>
       <!-- the card's picture, across its top; the card is still what a finger holds -->
@@ -81,7 +81,7 @@ const day = computed(() => {
         alt=""
         draggable="false"
         loading="lazy"
-        :src="imageSrc(sync.room.id, note.image)"
+        :src="sync.room === null ? undefined : imageSrc(sync.room, note.image)"
       />
       <p>{{ note.title }}</p>
       <p v-if="note.body !== ''">{{ note.body }}</p>

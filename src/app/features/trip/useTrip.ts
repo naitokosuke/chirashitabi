@@ -21,7 +21,7 @@ import type { Flight, Leg, Stay } from "./types";
 export const useTrip = defineQuery(() => {
   const { notes } = useNotes();
   const sync = useSync();
-  const { data: trip } = useQueryState(() => roomKeys.trip(sync.room.id));
+  const { data: trip } = useQueryState(() => roomKeys.trip(sync.room));
 
   const unassigned = computed(() => itinerary.unassigned(notes.value ?? []));
   const forDay = (date: Temporal.PlainDate, status?: NoteStatus) =>
