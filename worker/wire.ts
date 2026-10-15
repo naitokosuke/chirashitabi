@@ -1,0 +1,25 @@
+// What crosses the socket and the API, and its checks, as the Worker takes them from the contract
+export {
+  IMAGE_TYPES,
+  MAX_IMAGE_BYTES,
+  MAX_MESSAGE_BYTES,
+  isDate,
+  parseCid,
+  parseEmail,
+  parseMutation,
+  parsePoint,
+  parseProfile,
+  parseTrip,
+  type GoneReason,
+  type Leg,
+  type ServerMessage,
+  type WireFlights,
+  type WireMember,
+  type WireMemo,
+  type WireMutation,
+  type WireNote,
+  type WireRoomSummary,
+  type WireStay,
+  type WireTrip,
+} from "../src/contract/wire";
+export { SEATS, type NoteColor, type NoteStatus } from "../src/contract/room";

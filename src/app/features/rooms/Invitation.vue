@@ -7,12 +7,10 @@ import { CtSwatches } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
-import type { RoomId } from "../../../contract/ids";
-
 import { datesLabel, whenLabel } from "./label";
 import { MEMBER_COLORS, profileOf } from "./newRoom";
 import TripTag from "./TripTag.vue";
-import type { RoomSummary } from "./types";
+import type { RoomId, RoomSummary } from "./types";
 import { useRooms } from "./useRooms";
 import { whenOf } from "./when";
 

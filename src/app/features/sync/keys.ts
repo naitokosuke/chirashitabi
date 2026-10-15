@@ -1,8 +1,8 @@
 import type { EntryKeyTagged } from "@pinia/colada";
 
-import type { RoomId } from "../../../contract/ids";
 import type { Member } from "../members/types";
 import type { Note } from "../notes/types";
+import type { RoomId } from "../rooms/types";
 import type { TripSnapshot } from "../trip/types";
 
 /** A slice's key, tagged with what the slice holds: reading or writing it is typed */

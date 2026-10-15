@@ -6,7 +6,7 @@
  * person's budget first, like any paid call (docs/auth-and-security.md).
  */
 
-import { isRecord } from "../src/contract/record";
+import { isRecord } from "./types";
 
 export const CLEF_MODEL = "@cf/cloudflare/clef-flash";
 

@@ -1,8 +1,13 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { MemberId, ImageId, NoteId } from "../../../contract/ids";
-import type { LatLng } from "../../../contract/place";
 import type { NoteColor, NoteStatus } from "../../../contract/room";
+import type { MemberId } from "../members/types";
+import type { LatLng } from "../place/types";
+
+import type { ImageId, NoteId } from "./id";
+
+// a card's papers and a schedule's statuses, as the app takes them from the contract
+export { COLORS, type NoteColor, type NoteStatus } from "../../../contract/room";
 
 /** How each paper is called, for a swatch's label (message ids) */
 export const COLOR_NAMES = {

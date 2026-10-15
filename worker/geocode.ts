@@ -5,7 +5,7 @@
  * its second query (index.ts).
  */
 
-import { isRecord } from "../src/contract/record";
+import { isRecord } from "./types";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 export const USER_AGENT = "chirashitabi/1.0 (+https://chirashitabi.app)";

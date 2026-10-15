@@ -1,9 +1,13 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { HexColor } from "../../../contract/color";
+import type { HexColor } from "../../shared/color";
+import type { CurrencyCode } from "../../shared/money";
+
 import type { RoomId } from "../../../contract/ids";
-import type { CurrencyCode } from "../../../contract/money";
-import type { LatLng } from "../../../contract/place";
+import type { LatLng } from "../place/types";
+
+// a room's id, as the app takes it from the contract
+export { roomId, type RoomId } from "../../../contract/ids";
 
 /**
  * A room as the list of a person's trips shows it: the trip at a glance. `first` is null while

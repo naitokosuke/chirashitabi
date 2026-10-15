@@ -16,6 +16,17 @@ import type { Flight, Stay, TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
 
+// what crosses the socket, as the app takes it from the contract: types only, so the checks
+// (and the airports list they load) stay out of the app
+export type {
+  GoneReason,
+  ServerMessage,
+  WireMember,
+  WireMutation,
+  WireNote,
+  WireTrip,
+} from "../../../contract/wire";
+
 /**
  * The room's JSON back into the app's types. The room has checked every field,
  * and sent its ids and codes as brands, so this only revives: ISO strings become Temporal values.

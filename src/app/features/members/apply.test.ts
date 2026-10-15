@@ -1,10 +1,9 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { hexColor } from "../../../contract/color";
-import type { MemberId } from "../../../contract/ids";
+import { hexColor } from "../../shared/color";
 
 import { applyToMembers } from "./apply";
-import type { Member } from "./types";
+import type { Member, MemberId } from "./types";
 
 const YUKI = "yuki" as MemberId;
 const KEN = "ken" as MemberId;

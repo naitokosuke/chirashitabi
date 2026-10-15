@@ -1,12 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 
-import { airportCodeOf, isAirportCode } from "../src/contract/airport-codes";
-import type { Brand } from "../src/contract/brand";
-import type { HexColor } from "../src/contract/color";
-import type { MemberId, ImageId, NoteId, RoomId } from "../src/contract/ids";
-import type { CurrencyCode } from "../src/contract/money";
-import { SEATS, type NoteColor, type NoteStatus } from "../src/contract/room";
+import { airportCodeOf, isAirportCode } from "./airports";
+import type { PlaceContext, SuggestContext, TagContext } from "./claude";
+import type { Brand, HexColor, MemberId, ImageId, NoteId, RoomId, CurrencyCode } from "./types";
 import {
+  SEATS,
+  type NoteColor,
+  type NoteStatus,
   MAX_MESSAGE_BYTES,
   parseCid,
   parseMutation,
@@ -21,9 +21,7 @@ import {
   type Leg,
   type WireFlights,
   type WireStay,
-} from "../src/contract/wire";
-
-import type { PlaceContext, SuggestContext, TagContext } from "./claude";
+} from "./wire";
 
 export type MemberKind = "person" | "agent";
 

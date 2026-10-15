@@ -1,7 +1,6 @@
-import type { LatLng } from "../../../contract/place";
 import { PACKING_TAG, type Memo, type Note } from "../notes/types";
 
-import type { LngLat } from "./types";
+import type { LatLng, LngLat } from "./types";
 
 export type Pinned<T extends Memo = Memo> = T & { pin: LatLng };
 

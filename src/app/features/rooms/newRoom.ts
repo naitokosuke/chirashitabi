@@ -1,8 +1,9 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { hexColor } from "../../../contract/color";
-import { currencyCode } from "../../../contract/money";
-import type { LatLng } from "../../../contract/place";
+import { hexColor } from "../../shared/color";
+import { currencyCode } from "../../shared/money";
+
+import type { LatLng } from "../place/types";
 
 import type { NewRoom, Profile } from "./types";
 

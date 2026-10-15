@@ -1,8 +1,7 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { MemberId } from "../../../contract/ids";
 import { applyToMembers } from "../members/apply";
-import type { Member } from "../members/types";
+import type { Member, MemberId } from "../members/types";
 import { applyToNotes } from "../notes/apply";
 import type { Note } from "../notes/types";
 import { applyToTrip, moveSchedules } from "../trip/apply";

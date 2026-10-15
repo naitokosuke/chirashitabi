@@ -1,10 +1,9 @@
 import type { FeatureCollection } from "geojson";
 
-import type { LatLng } from "../../../contract/place";
 import type { Scheduled } from "../notes/types";
 
 import { isPinned, lngLat } from "./pin";
-import type { LngLat } from "./types";
+import type { LatLng, LngLat } from "./types";
 
 /** The stops of a day's route, in order: everything with a place except the maybes */
 export const routeStops = (notes: Scheduled[]): LngLat[] =>

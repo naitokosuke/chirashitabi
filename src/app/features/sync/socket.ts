@@ -1,6 +1,5 @@
-import type { GoneReason, ServerMessage } from "../../../contract/wire";
-
 import type { Mutation } from "./types";
+import type { GoneReason, ServerMessage } from "./wire";
 
 export type SocketStatus =
   | "idle" // no room chosen

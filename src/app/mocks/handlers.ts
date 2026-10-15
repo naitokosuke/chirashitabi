@@ -2,10 +2,20 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { http, HttpResponse, ws, type WebSocketHandlerConnection } from "msw";
 
-import { type NoteId, roomId, type RoomId } from "../../contract/ids";
-import { isShortMapsLink } from "../../contract/place";
-import { isRecord } from "../../contract/record";
-import { SEATS } from "../../contract/room";
+import { isRecord } from "../shared/record";
+
+import { SEATS, type Member } from "../features/members/types";
+import type { NoteId } from "../features/notes/id";
+import type { Note } from "../features/notes/types";
+import { isShortMapsLink } from "../features/place/google-maps";
+import { roomId, type RoomId } from "../features/rooms/types";
+import { applyToRoom, type RoomState } from "../features/sync/ledger";
+import { reviveMember, reviveMutation, reviveNote, reviveTrip } from "../features/sync/wire";
+import type { TripSnapshot } from "../features/trip/types";
+
+import { CLAUDE, mockMembers, YUKI } from "./members";
+import { mockNotes } from "./notes";
+import { mockTrip } from "./trip";
 import {
   parseCid,
   parseMutation,
@@ -15,16 +25,7 @@ import {
   type ServerMessage,
   type WireMutation,
   type WireNote,
-} from "../../contract/wire";
-import type { Member } from "../features/members/types";
-import type { Note } from "../features/notes/types";
-import { applyToRoom, type RoomState } from "../features/sync/ledger";
-import { reviveMember, reviveMutation, reviveNote, reviveTrip } from "../features/sync/wire";
-import type { TripSnapshot } from "../features/trip/types";
-
-import { CLAUDE, mockMembers, YUKI } from "./members";
-import { mockNotes } from "./notes";
-import { mockTrip } from "./trip";
+} from "./wire";
 
 /**
  * The Worker and its rooms, in the page: what `/api` answers and what a room's socket says,

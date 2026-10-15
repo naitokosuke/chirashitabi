@@ -1,6 +1,10 @@
-import { parseMapsUrl, type LatLng } from "../../../contract/place";
+import { parseMapsUrl } from "../../../contract/place";
 
 import type { Pinned } from "./pin";
+import type { LatLng } from "./types";
+
+// reading a link's point, as the app takes it from the contract
+export { isShortMapsLink, parseMapsUrl } from "../../../contract/place";
 
 export const googleMapsLink = ({ lat, lng }: LatLng) =>
   `https://www.google.com/maps?q=${lat},${lng}`;

@@ -1,8 +1,11 @@
 import { hc, type ClientResponse } from "hono/client";
 
+import { isRecord } from "../../shared/record";
+
 import type { Api } from "../../../../.worker-types/worker";
-import type { RoomId, MemberId } from "../../../contract/ids";
-import { isRecord } from "../../../contract/record";
+import type { RoomId } from "../rooms/types";
+
+import type { MemberId } from "./types";
 
 /** A room's calls; every one says JSON, as the Worker's gate wants, even one with no body */
 const inRoom = hc<Api>("/", { headers: { "Content-Type": "application/json" } }).api.rooms[

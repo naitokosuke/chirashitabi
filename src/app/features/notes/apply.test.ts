@@ -2,9 +2,10 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import type { MemberId, NoteId } from "../../../contract/ids";
+import type { MemberId } from "../members/types";
 
 import { applyToNotes } from "./apply";
+import type { NoteId } from "./id";
 import type { Memo, Note, Suggestion, TextBox } from "./types";
 
 const YUKI = "yuki" as MemberId;

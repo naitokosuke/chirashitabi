@@ -1,4 +1,6 @@
-import type { RoomId, ImageId } from "../../../contract/ids";
+import type { RoomId } from "../rooms/types";
+
+import type { ImageId } from "./id";
 
 /** The longest side a picture is sent at: plenty for a card and a phone screen */
 const MAX_SIDE = 1600;

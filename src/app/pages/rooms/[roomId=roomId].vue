@@ -3,9 +3,10 @@ import { computed, onBeforeUnmount, watch } from "vue";
 
 import { RouterView, useRoute, useRouter } from "vue-router";
 
+import { isRecord } from "../../shared/record";
+
 import { useI18n } from "../../i18n/useI18n";
 
-import { isRecord } from "../../../contract/record";
 import { usePlace } from "../../features/canvas/usePlace";
 import Form, { type FormMode } from "../../features/notes/Form.vue";
 import type { NoteInput } from "../../features/notes/types";

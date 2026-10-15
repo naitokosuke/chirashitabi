@@ -1,8 +1,8 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { findAirport, type Airport } from "../../../contract/airports";
-import { parseMapsUrl, type LatLng } from "../../../contract/place";
-import { safeUrl } from "../place/google-maps";
+import { findAirport, type Airport } from "../place/airports";
+import { parseMapsUrl, safeUrl } from "../place/google-maps";
+import type { LatLng } from "../place/types";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
 
 import type { Flight, Flights, Leg, Stay, TripSnapshot } from "./types";

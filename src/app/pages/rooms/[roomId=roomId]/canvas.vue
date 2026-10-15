@@ -52,8 +52,6 @@ import { CtFab } from "../../../../ui/index";
 
 import { useI18n } from "../../../i18n/useI18n";
 
-import type { NoteId } from "../../../../contract/ids";
-import { COLORS, type NoteColor } from "../../../../contract/room";
 import NoteCard from "../../../features/canvas/NoteCard.vue";
 import TextField from "../../../features/canvas/TextField.vue";
 import {
@@ -70,11 +68,14 @@ import {
   type PlaceHow,
 } from "../../../features/canvas/usePlace";
 import { useViewport } from "../../../features/canvas/useViewport";
+import type { NoteId } from "../../../features/notes/id";
 import { shrinkImage, STICKER_SIDE } from "../../../features/notes/image";
 import {
   COLOR_NAMES,
+  COLORS,
   PAPERS,
   type FormTarget,
+  type NoteColor,
   type NoteInput,
   type TextBox,
 } from "../../../features/notes/types";

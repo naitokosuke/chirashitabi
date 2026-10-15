@@ -1,8 +1,9 @@
 // oxlint-disable typescript/no-unsafe-type-assertion -- the seed's ids and codes are minted here
 import { Temporal } from "temporal-polyfill-lite";
 
-import type { AirportCode } from "../../contract/airports";
-import type { CurrencyCode } from "../../contract/money";
+import type { CurrencyCode } from "../shared/money";
+
+import type { AirportCode } from "../features/place/airports";
 import type { TripSnapshot } from "../features/trip/types";
 
 const start = Temporal.PlainDate.from("2026-11-03");

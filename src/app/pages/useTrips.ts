@@ -2,8 +2,9 @@ import { computed } from "vue";
 
 import { useRouter, useRoute } from "vue-router";
 
-import type { RoomId } from "../../contract/ids";
-import { isRecord } from "../../contract/record";
+import { isRecord } from "../shared/record";
+
+import type { RoomId } from "../features/rooms/types";
 
 /**
  * Where the trips (`<Rooms>`) lead, for the pages that show them: into a trip, on its canvas,

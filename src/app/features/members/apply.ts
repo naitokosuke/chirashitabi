@@ -1,7 +1,6 @@
-import type { MemberId } from "../../../contract/ids";
 import type { Mutation } from "../sync/types";
 
-import type { Member } from "./types";
+import type { Member, MemberId } from "./types";
 
 /** The members after a mutation from `by`; a changed member is a new object, nothing changes in place */
 export function applyToMembers(members: Member[], m: Mutation, by: MemberId): Member[] {

@@ -7,7 +7,6 @@ import { CtHoldButton, CtSwipeRow } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
-import type { RoomId } from "../../../contract/ids";
 import Icon from "../../icons/Icon.vue";
 import plusIcon from "../../icons/plus.svg";
 import { useRoom } from "../sync/useRoom";
@@ -18,7 +17,7 @@ import Invitation from "./Invitation.vue";
 import { datesLabel, whenLabel } from "./label";
 import NewTrip from "./NewTrip.vue";
 import TripTag from "./TripTag.vue";
-import type { RoomSummary } from "./types";
+import type { RoomId, RoomSummary } from "./types";
 import { useRooms } from "./useRooms";
 import { shelve, whenOf } from "./when";
 

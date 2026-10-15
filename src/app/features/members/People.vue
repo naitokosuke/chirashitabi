@@ -5,12 +5,10 @@ import { encode } from "uqr";
 
 import { useI18n } from "../../i18n/useI18n";
 
-import type { MemberId } from "../../../contract/ids";
-import { SEATS } from "../../../contract/room";
 import { KEPT_DAYS } from "../rooms/api";
 import { useSync } from "../sync/useSync";
 
-import type { Person } from "./types";
+import { SEATS, type MemberId, type Person } from "./types";
 import { useMembers } from "./useMembers";
 
 /**
