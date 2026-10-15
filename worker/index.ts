@@ -5,12 +5,16 @@ import { initWorkersLogger } from "evlog/workers";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 
+// the API's type carries brands (who is asking is an `Email`): its declaration names their key
+// oxlint-disable-next-line no-unused-vars -- in scope for the declaration, not the code
+import type { brand } from "../src/app/shared/brand";
 import type { HexColor } from "../src/app/shared/color";
 import { isRecord } from "../src/app/shared/record";
 
-import { isImageId, type ImageId } from "../src/app/features/notes/id";
+import { isMemberId, type Email, type MemberId } from "../src/app/features/members/types";
+import { isImageId, isNoteId, type ImageId, type NoteId } from "../src/app/features/notes/id";
 import { isShortMapsLink, parseMapsUrl } from "../src/app/features/place/google-maps";
-import { roomId as toRoomId } from "../src/app/features/rooms/types";
+import { roomId as toRoomId, type RoomId } from "../src/app/features/rooms/types";
 
 import { AccessVerifier, Unauthenticated } from "./access";
 import { ASK_LENGTH, draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
@@ -49,13 +53,13 @@ const access = (env: Env) =>
   }));
 
 /** What the API's handlers have: the bindings, the request's log, and who Access says is asking */
-type ApiEnv = { Bindings: Env; Variables: EvlogVariables["Variables"] & { email: string } };
+type ApiEnv = { Bindings: Env; Variables: EvlogVariables["Variables"] & { email: Email } };
 /** And, in a room, which one and who the asker is in it */
 type InRoom = {
   Bindings: Env;
   Variables: ApiEnv["Variables"] & {
-    roomId: string;
-    memberId: string;
+    roomId: RoomId;
+    memberId: MemberId;
     room: DurableObjectStub<Room>;
   };
 };
@@ -177,7 +181,7 @@ const api = new Hono<ApiEnv>()
       index.rooms(email, true),
     ]);
     // each at a glance, and whether the asker made it (and so may delete it from the list)
-    const glance = async (id: string, by: string | null = null) => ({
+    const glance = async (id: RoomId, by: MemberId | null = null) => ({
       id,
       ...(await c.env.ROOM.getByName(id).summary(by)),
     });
@@ -252,7 +256,8 @@ const api = new Hono<ApiEnv>()
     }),
     async (c) => {
       const { trip, me } = c.req.valid("json");
-      const roomId = crypto.randomUUID();
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+      const roomId = crypto.randomUUID() as RoomId;
       const memberId = await c.env.ROOM.getByName(roomId).create(trip, me);
       if (!(await c.env.ROOMS.getByName("index").add(c.var.email, roomId, memberId)))
         return c.text("Conflict", 409);
@@ -571,17 +576,15 @@ const api = new Hono<ApiEnv>()
     member("suggest"),
     body<
       { at: { x: number; y: number }; ask?: string; about?: string },
-      { at: { x: number; y: number }; ask: string | null; about: string | null }
+      { at: { x: number; y: number }; ask: string | null; about: NoteId | null }
     >((v) => {
       if (!isRecord(v)) return null;
       const at = parsePoint(v.at);
       if (at === null) return null;
       const ask = typeof v.ask === "string" ? v.ask.trim().slice(0, ASK_LENGTH) : "";
-      return {
-        at,
-        ask: ask === "" ? null : ask,
-        about: typeof v.about === "string" && v.about !== "" ? v.about : null,
-      };
+      const about = v.about ?? null;
+      if (!(about === null || isNoteId(about))) return null;
+      return { at, ask: ask === "" ? null : ask, about };
     }),
     async (c) => {
       const { email, log, roomId, memberId, room } = c.var;
@@ -627,7 +630,7 @@ const api = new Hono<ApiEnv>()
   .post(
     `${ROOM}/invite`,
     member("invite"),
-    body<{ email: string }, string>((v) => parseEmail(isRecord(v) ? v.email : null)),
+    body<{ email: string }, Email>((v) => parseEmail(isRecord(v) ? v.email : null)),
     async (c) => {
       const { roomId, memberId, room } = c.var;
       const invitee = c.req.valid("json");
@@ -644,7 +647,7 @@ const api = new Hono<ApiEnv>()
   .post(
     `${ROOM}/uninvite`,
     member("uninvite"),
-    body<{ email: string }, string>((v) => parseEmail(isRecord(v) ? v.email : null)),
+    body<{ email: string }, Email>((v) => parseEmail(isRecord(v) ? v.email : null)),
     async (c) => {
       const { roomId, memberId, room } = c.var;
       const invitee = c.req.valid("json");
@@ -658,8 +661,8 @@ const api = new Hono<ApiEnv>()
   .post(
     `${ROOM}/remove`,
     member("remove"),
-    body<{ member: string }, string>((v) =>
-      isRecord(v) && typeof v.member === "string" && v.member !== "" ? v.member : null,
+    body<{ member: string }, MemberId>((v) =>
+      isRecord(v) && isMemberId(v.member) ? v.member : null,
     ),
     async (c) => {
       const { roomId, memberId, room } = c.var;
@@ -703,7 +706,7 @@ export default new Hono<{ Bindings: Env }>()
 const booklet = () => new Response("Not Found", { status: 404 });
 
 /** The room's own folder in the bucket: one room's ids never reach another's pictures */
-const imageKey = (roomId: string, id: string) => `rooms/${roomId}/images/${id}`;
+const imageKey = (roomId: RoomId, id: ImageId) => `rooms/${roomId}/images/${id}`;
 
 /**
  * The JSON body as `parse` reads it, or 400. `In` is what the app sends, for its client (hc);

@@ -78,6 +78,13 @@ describe("identify", () => {
     expect(await v.identify(request(await sign(good())))).toBe("me@example.com");
   });
 
+  test("one person is one e-mail, in whatever case Access writes it", async () => {
+    const v = new AccessVerifier({ teamDomain: TEAM, aud: AUD }, certs([jwk]).fetchImpl, () => NOW);
+    expect(await v.verify(await sign({ ...good(), email: "Me@Example.com" }))).toBe(
+      "me@example.com",
+    );
+  });
+
   test("a missing header is not development", async () => {
     const v = new AccessVerifier({ teamDomain: TEAM, aud: AUD }, certs([jwk]).fetchImpl, () => NOW);
     await expect(v.identify(request())).rejects.toBeInstanceOf(Unauthenticated);
@@ -89,6 +96,7 @@ describe("identify", () => {
     ["expired past the skew", { exp: seconds(NOW) - 61 }],
     ["not yet valid past the skew", { nbf: seconds(NOW) + 61 }],
     ["no email", { email: "" }],
+    ["an email that is not one", { email: "me" }],
   ])("rejects %s", async (_, override) => {
     const v = new AccessVerifier({ teamDomain: TEAM, aud: AUD }, certs([jwk]).fetchImpl, () => NOW);
     await expect(v.verify(await sign({ ...good(), ...override }))).rejects.toBeInstanceOf(

@@ -583,6 +583,7 @@ describe("removing and leaving", () => {
     expect((await remove(guest, yuki)).status).toBe(403); // nobody removes the owner
     expect((await remove(owner, yuki)).status).toBe(403);
     expect((await remove(owner, "agent:claude")).status).toBe(403);
+    expect((await remove(owner, "yuki")).status).toBe(400); // not a member id at all
     expect((await remove(owner, ken)).status).toBe(200);
 
     expect(await b.next()).toEqual({ type: "gone", reason: "removed" });

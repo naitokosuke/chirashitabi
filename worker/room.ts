@@ -1,11 +1,13 @@
 import { DurableObject } from "cloudflare:workers";
 
+import type { Brand } from "../src/app/shared/brand";
 import type { HexColor } from "../src/app/shared/color";
 import type { CurrencyCode } from "../src/app/shared/money";
 
 import { SEATS, type MemberId } from "../src/app/features/members/types";
 import type { ImageId, NoteId } from "../src/app/features/notes/id";
 import type { NoteColor, NoteStatus } from "../src/app/features/notes/types";
+import type { RoomId } from "../src/app/features/rooms/types";
 
 import { airportCodeOf, isAirportCode } from "./airports";
 import type { PlaceContext, SuggestContext, TagContext } from "./claude";
@@ -28,9 +30,12 @@ import {
 
 export type MemberKind = "person" | "agent";
 
+/** A seat the room holds for an invitation, as it minted it; the index keeps whom it is for */
+export type SeatId = Brand<string, "SeatId">;
+
 interface Profile {
   name: string;
-  color: string;
+  color: HexColor;
 }
 
 /** Messages a member may send in a window; dragging a card sends one every 80ms */
@@ -77,7 +82,7 @@ export class Room extends DurableObject<Env> {
   static readonly AGENT_ID = "agent:claude" as MemberId;
   static readonly MEMBER_HEADER = "X-Chirashitabi-Member";
 
-  #rate = new Map<string, { since: number; n: number }>();
+  #rate = new Map<MemberId, { since: number; n: number }>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -198,12 +203,13 @@ export class Room extends DurableObject<Env> {
    * written; the Worker has checked its type and size. Returns its id, or null when the room
    * already holds as many as it may.
    */
-  addImage(by: string, type: string, bytes: number): string | null {
+  addImage(by: MemberId, type: string, bytes: number): ImageId | null {
     this.assertMember(by);
     const sql = this.ctx.storage.sql;
     if (sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM pictures").one().n >= Room.MAX_IMAGES)
       return null;
-    const id = crypto.randomUUID();
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+    const id = crypto.randomUUID() as ImageId;
     sql.exec(
       "INSERT INTO pictures (id, by, type, bytes, created_at) VALUES (?, ?, ?, ?, ?)",
       id,
@@ -216,17 +222,17 @@ export class Room extends DurableObject<Env> {
   }
 
   /** Its bytes could not be written: the room does not have it after all */
-  dropImage(id: string): void {
+  dropImage(id: ImageId): void {
     this.ctx.storage.sql.exec("DELETE FROM pictures WHERE id = ?", id);
   }
 
   /** Whether the room has a picture by that id, asked for member `by` */
-  hasImageFor(by: string, id: string): boolean {
+  hasImageFor(by: MemberId, id: ImageId): boolean {
     this.assertMember(by);
     return this.hasImage(id);
   }
 
-  private hasImage(id: string): boolean {
+  private hasImage(id: ImageId): boolean {
     return (
       this.ctx.storage.sql.exec("SELECT 1 FROM pictures WHERE id = ?", id).toArray().length > 0
     );
@@ -235,10 +241,11 @@ export class Room extends DurableObject<Env> {
   // ---- membership (RPC from the Worker) ----
 
   /** Sets the trip up, mints the creator and the room's agent; returns the creator's id */
-  create(trip: WireTrip, me: Profile): string {
+  create(trip: WireTrip, me: Profile): MemberId {
     if (this.count() > 0) throw new Error("room already created");
     const sql = this.ctx.storage.sql;
-    const creator = crypto.randomUUID();
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+    const creator = crypto.randomUUID() as MemberId;
     sql.exec(
       "INSERT INTO members (id, kind, creator, name, color) VALUES (?, 'person', 1, ?, ?)",
       creator,
@@ -263,7 +270,7 @@ export class Room extends DurableObject<Env> {
   }
 
   /** Who made the room and so may invite, remove and delete; asked by member `by` */
-  owner(by: string): string {
+  owner(by: MemberId): MemberId {
     this.assertMember(by);
     return this.ownerId();
   }
@@ -273,13 +280,14 @@ export class Room extends DurableObject<Env> {
    * back; null when `by` is not the owner or every seat is taken or held. The index keeps who
    * the seat is for; the room keeps no e-mail.
    */
-  openSeat(by: string): string | null {
+  openSeat(by: MemberId): SeatId | null {
     this.assertMember(by);
     if (by !== this.ownerId()) return null;
     const sql = this.ctx.storage.sql;
     const held = sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM invitations").one().n;
     if (this.count("person") + held >= Room.MAX_PEOPLE) return null;
-    const id = crypto.randomUUID();
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+    const id = crypto.randomUUID() as SeatId;
     sql.exec(
       "INSERT INTO invitations (id, created_at) VALUES (?, ?)",
       id,
@@ -289,7 +297,7 @@ export class Room extends DurableObject<Env> {
   }
 
   /** The seat is given back: declined, withdrawn, or not recorded in the index after all */
-  closeSeat(id: string): void {
+  closeSeat(id: SeatId): void {
     this.ctx.storage.sql.exec("DELETE FROM invitations WHERE id = ?", id);
   }
 
@@ -297,12 +305,13 @@ export class Room extends DurableObject<Env> {
    * The invited person takes their seat as who they say they are; returns their new member id,
    * or null when the seat is gone (withdrawn, or the room deleted). Everyone in is told.
    */
-  accept(seat: string, me: Profile): string | null {
+  accept(seat: SeatId, me: Profile): MemberId | null {
     if (this.deletion() !== null) return null;
     const sql = this.ctx.storage.sql;
     if (sql.exec("DELETE FROM invitations WHERE id = ? RETURNING id", seat).toArray().length === 0)
       return null;
-    const id = crypto.randomUUID();
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+    const id = crypto.randomUUID() as MemberId;
     sql.exec(
       "INSERT INTO members (id, kind, name, color) VALUES (?, 'person', ?, ?)",
       id,
@@ -314,7 +323,7 @@ export class Room extends DurableObject<Env> {
   }
 
   /** The index could not record a member `accept` just let in: they are not in after all */
-  unaccept(member: string): void {
+  unaccept(member: MemberId): void {
     this.ctx.storage.sql.exec("DELETE FROM members WHERE id = ? AND creator = 0", member);
     this.tellMembers();
   }
@@ -324,7 +333,7 @@ export class Room extends DurableObject<Env> {
    * is not deleted. Only the owner deletes, but either person can take it back, so one member
    * cannot destroy the room beyond recovery (docs/auth-and-security.md).
    */
-  deletedFor(by: string): { name: string; deletedAt: string } | null {
+  deletedFor(by: MemberId): { name: string; deletedAt: string } | null {
     const deletion = this.deletion();
     if (deletion === null || !this.isPerson(by)) return null;
     const { name } = this.ctx.storage.sql
@@ -338,7 +347,7 @@ export class Room extends DurableObject<Env> {
    * leaving (`by` is `member`). False for anything else; the owner never leaves their own
    * room, they delete it. Their notes stay; their socket is told and closed.
    */
-  remove(by: string, member: string): boolean {
+  remove(by: MemberId, member: MemberId): boolean {
     this.assertMember(by);
     const owner = this.ownerId();
     if (member === owner || (by !== owner && by !== member)) return false;
@@ -358,7 +367,7 @@ export class Room extends DurableObject<Env> {
    * gone for good unless the owner restores it. `roomId` is kept for that day, when its pictures
    * go too. False when `by` is not the owner.
    */
-  delete(by: string, roomId: string): boolean {
+  delete(by: MemberId, roomId: RoomId): boolean {
     this.assertMember(by);
     if (by !== this.ownerId()) return false;
     const at = new Date();
@@ -379,7 +388,7 @@ export class Room extends DurableObject<Env> {
   }
 
   /** A person in the room, `by`, takes the deletion back; false when it is not deleted */
-  restore(by: string): boolean {
+  restore(by: MemberId): boolean {
     if (this.deletion() === null) return false;
     this.assertPerson(by);
     this.ctx.storage.sql.exec("DELETE FROM deletion");
@@ -412,7 +421,7 @@ export class Room extends DurableObject<Env> {
    * alarm would take it. False unless the room is deleted and `by` owns it; the other person
    * could still have restored it, so only the one who deleted it may end that.
    */
-  async purge(by: string): Promise<boolean> {
+  async purge(by: MemberId): Promise<boolean> {
     const deletion = this.deletion();
     if (deletion === null || by !== this.ownerId()) return false;
     await this.erase(deletion);
@@ -420,9 +429,9 @@ export class Room extends DurableObject<Env> {
   }
 
   /** The room goes for good: its pictures, its place in the index, its storage */
-  private async erase(deletion: { room_id: string; at: string }): Promise<void> {
+  private async erase(deletion: { room_id: RoomId; at: string }): Promise<void> {
     const keys = this.ctx.storage.sql
-      .exec<{ id: string }>("SELECT id FROM pictures")
+      .exec<{ id: ImageId }>("SELECT id FROM pictures")
       .toArray()
       .map((p) => `rooms/${deletion.room_id}/images/${p.id}`);
     // R2 deletes up to 1000 keys a call; a room holds at most MAX_IMAGES
@@ -431,17 +440,17 @@ export class Room extends DurableObject<Env> {
     await this.ctx.storage.deleteAll();
   }
 
-  private deletion(): { room_id: string; at: string } | null {
+  private deletion(): { room_id: RoomId; at: string } | null {
     return (
       this.ctx.storage.sql
-        .exec<{ room_id: string; at: string }>("SELECT room_id, at FROM deletion")
+        .exec<{ room_id: RoomId; at: string }>("SELECT room_id, at FROM deletion")
         .toArray()[0] ?? null
     );
   }
 
-  private ownerId(): string {
+  private ownerId(): MemberId {
     return this.ctx.storage.sql
-      .exec<{ id: string }>("SELECT id FROM members WHERE creator = 1")
+      .exec<{ id: MemberId }>("SELECT id FROM members WHERE creator = 1")
       .one().id;
   }
 
@@ -464,7 +473,7 @@ export class Room extends DurableObject<Env> {
   }
 
   /** The trip at a glance, for a member's list of rooms: its name, days, members and memo count */
-  summary(by: string | null = null): WireRoomSummary {
+  summary(by: MemberId | null = null): WireRoomSummary {
     const sql = this.ctx.storage.sql;
     const { name } = sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one();
     const days = sql
@@ -486,7 +495,7 @@ export class Room extends DurableObject<Env> {
 
   /** What the agent needs to draft `date`, asked by member `by`; null when the trip has no such day */
   dayForDraft(
-    by: string,
+    by: MemberId,
     date: string,
   ): { trip: string; currency: string; notes: WireMemo[] } | null {
     this.assertMember(by);
@@ -501,7 +510,7 @@ export class Room extends DurableObject<Env> {
   // ---- places: where a memo is ----
 
   /** What naming a memo's place needs, asked by member `by`: which trip, and when */
-  placeContext(by: string): PlaceContext {
+  placeContext(by: MemberId): PlaceContext {
     this.assertMember(by);
     const trip = this.trip();
     return { trip: trip.name, days: trip.days.map((d) => d.date) };
@@ -510,7 +519,7 @@ export class Room extends DurableObject<Env> {
   // ---- tags: the ones in use, and the agent's candidates for the trip ----
 
   /** What tagging a memo needs, asked by member `by`: the trip, the tags in use, the candidates */
-  tagContext(by: string): TagContext & { candidates: string[] } {
+  tagContext(by: MemberId): TagContext & { candidates: string[] } {
     this.assertMember(by);
     const trip = this.trip();
     const notes = this.notes();
@@ -525,7 +534,7 @@ export class Room extends DurableObject<Env> {
   }
 
   /** The agent's candidate tags, kept so they are proposed once a trip, not on every ask */
-  saveCandidates(by: string, tags: string[]): void {
+  saveCandidates(by: MemberId, tags: string[]): void {
     this.assertMember(by);
     const sql = this.ctx.storage.sql;
     this.candidateTable();
@@ -548,7 +557,7 @@ export class Room extends DurableObject<Env> {
    * What the agent reads to suggest ideas, asked by member `by` from the note `about` (or from
    * none); null when that note is not on the desk, or has no words to start from
    */
-  contextForSuggest(by: string, about: string | null): SuggestContext | null {
+  contextForSuggest(by: MemberId, about: NoteId | null): SuggestContext | null {
     this.assertMember(by);
     const trip = this.trip();
     // a sticker has no words to read
@@ -580,7 +589,7 @@ export class Room extends DurableObject<Env> {
    * asked) around `at` on the desk, and sent to every socket, the asker's too: nobody made
    * them on their own device. Returns how many were written.
    */
-  addSuggestions(by: string, titles: string[], at: { x: number; y: number }): number {
+  addSuggestions(by: MemberId, titles: string[], at: { x: number; y: number }): number {
     this.assertMember(by);
     const now = new Date().toISOString();
     let added = 0;
@@ -617,7 +626,7 @@ export class Room extends DurableObject<Env> {
    * The ledger of the agent's paid calls: who asked, when, for what and how many tokens, for
    * tracing a surprising bill. Member ids only, never an e-mail.
    */
-  recordAgentCall(by: string, what: string, tokens: { input: number; output: number }): void {
+  recordAgentCall(by: MemberId, what: string, tokens: { input: number; output: number }): void {
     const sql = this.ctx.storage.sql;
     sql.exec(`
       CREATE TABLE IF NOT EXISTS agent_calls (
@@ -803,7 +812,7 @@ export class Room extends DurableObject<Env> {
       .map(fromRow);
   }
 
-  private note(id: string): NoteRow | undefined {
+  private note(id: NoteId): NoteRow | undefined {
     return this.ctx.storage.sql
       .exec<NoteRow>("SELECT * FROM notes WHERE id = ? AND deleted_at IS NULL", id)
       .toArray()[0];
@@ -1028,7 +1037,7 @@ export class Room extends DurableObject<Env> {
     }
   }
 
-  private withinRate(member: string): boolean {
+  private withinRate(member: MemberId): boolean {
     const now = Date.now();
     const r = this.#rate.get(member);
     if (r === undefined || now - r.since > RATE.window) {
@@ -1049,12 +1058,12 @@ export class Room extends DurableObject<Env> {
   }
 
   /** A person in the room's table, the room deleted or not */
-  private assertPerson(id: string): void {
+  private assertPerson(id: MemberId): void {
     if (!this.isPerson(id)) throw new Error("not a member");
   }
 
   /** A person in a room that is not deleted: the only one the room acts for */
-  private assertMember(id: string): void {
+  private assertMember(id: MemberId): void {
     this.assertPerson(id);
     if (this.deletion() !== null) throw new Error("room deleted");
   }
