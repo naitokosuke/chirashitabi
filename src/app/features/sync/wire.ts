@@ -1,10 +1,12 @@
 import { Temporal } from "temporal-polyfill-lite";
 
 import type {
+  ClientMutation,
   WireMember,
   WireMemoPatch,
   WireMutation,
   WireFlight,
+  WireNewNote,
   WireNote,
   WireSchedule,
   WireStay,
@@ -19,6 +21,7 @@ import type { Mutation } from "./types";
 // what crosses the socket, as the app takes it from the contract: types only, so the checks
 // (and the airports list they load) stay out of the app
 export type {
+  ClientMessage,
   GoneReason,
   ServerMessage,
   WireMember,
@@ -146,5 +149,65 @@ export function reviveMutation(m: WireMutation): Mutation {
       return { type: "trip:flight", leg: m.leg, flight: reviveFlight(m.flight) };
     case "trip:stays":
       return { type: "trip:stays", stays: m.stays.map(reviveStay) };
+  }
+}
+
+/*
+ * The app's types out to the room's JSON: Temporal values become the ISO strings their toJSON
+ * writes, so what is sent is what JSON.stringify made of a `Mutation` before, now checked
+ * against what the room reads.
+ */
+
+const wireSchedule = (s: Schedule): WireSchedule => ({
+  date: s.date.toString(),
+  time: s.time === null ? null : s.time.toString(),
+  status: s.status,
+});
+
+const wireFlight = (f: Flight | null): WireFlight | null =>
+  f === null
+    ? null
+    : {
+        number: f.number,
+        from: f.from,
+        to: f.to,
+        departs: f.departs === null ? null : f.departs.toString(),
+        arrives: f.arrives === null ? null : f.arrives.toString(),
+      };
+
+const wireStay = (s: Stay): WireStay => ({ ...s, checkIn: s.checkIn.toString() });
+
+const wireNewNote = (n: Extract<Mutation, { type: "note:add" }>["note"]): WireNewNote =>
+  n.kind === "memo" ? { ...n, schedule: n.schedule === null ? null : wireSchedule(n.schedule) } : n;
+
+const wirePatch = (p: MemoPatch): WireMemoPatch => {
+  const { schedule: s, ...rest } = p;
+  return s === undefined ? rest : { ...rest, schedule: s === null ? null : wireSchedule(s) };
+};
+
+/** One of ours, as the room reads it */
+export function wireMutation(m: Mutation): ClientMutation {
+  switch (m.type) {
+    case "note:add":
+      return { type: "note:add", note: wireNewNote(m.note) };
+    case "note:update":
+      return { type: "note:update", id: m.id, patch: wirePatch(m.patch) };
+    case "day:intro":
+      return { type: "day:intro", date: m.date.toString(), intro: m.intro };
+    case "trip:dates":
+      return { type: "trip:dates", first: m.first.toString(), days: m.days };
+    case "trip:flight":
+      return { type: "trip:flight", leg: m.leg, flight: wireFlight(m.flight) };
+    case "trip:stays":
+      return { type: "trip:stays", stays: m.stays.map(wireStay) };
+    // nothing in these is not JSON already
+    case "note:recolor":
+    case "note:adopt":
+    case "text:edit":
+    case "note:move":
+    case "note:delete":
+    case "member:profile":
+    case "trip:rename":
+      return m;
   }
 }

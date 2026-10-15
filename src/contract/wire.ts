@@ -173,7 +173,19 @@ export type WireMutation =
  * (with the room's `updatedAt`), or `rejected` with that `cid`. A `note:move` without one
  * (a card's position while it is being dragged) is relayed, not kept, and not answered.
  */
-export type ClientMessage = WireMutation & { cid?: string };
+export type ClientMessage = ClientMutation & { cid?: string };
+
+/** A note as its writer sends it in `note:add`: who and when are the room's to stamp */
+export type WireNewNote = WireNote extends infer N
+  ? N extends WireNote
+    ? Omit<N, "by" | "updatedAt">
+    : never
+  : never;
+
+/** A mutation as a client sends it: as the room relays it, but a new note unstamped */
+export type ClientMutation =
+  | Exclude<WireMutation, { type: "note:add" }>
+  | { type: "note:add"; note: WireNewNote };
 
 export type ServerMessage =
   | { type: "snapshot"; me: MemberId; members: WireMember[]; trip: WireTrip; notes: WireNote[] }
