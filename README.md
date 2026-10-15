@@ -17,7 +17,7 @@ vp run check:worker                 # wrangler types + tsc on worker/, writing .
 vp run deploy                       # VITE_MOCK=false build, then wrangler deploy
 ```
 
-CI (`.github/workflows/ci.yml`) runs the checks on every pull request and push, and deploys `main` with `vp run deploy` once they pass, using the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; "Run workflow" in the Actions tab does the same by hand.
+CI (`.github/workflows/ci.yml`) runs the checks on every pull request and push, and deploys `main` once they pass, as `vp run deploy` does (a build without the mocks, then `wrangler deploy`, tried up to three times when Cloudflare's API fails), using the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; "Run workflow" in the Actions tab does the same by hand.
 
 `vp dev` on its own talks to no Worker: `src/app/mocks/` answers `/api` and the room's socket in the page with MSW, from a seeded Taiwan trip, and the app runs the same code it runs against the Worker. Nothing the mocks hold survives a reload.
 
