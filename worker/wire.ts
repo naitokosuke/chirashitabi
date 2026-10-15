@@ -8,7 +8,7 @@ import { hexColor, type HexColor } from "../src/app/shared/color";
 import { currencyCode, type CurrencyCode } from "../src/app/shared/money";
 import { isRecord } from "../src/app/shared/record";
 
-import type { MemberId } from "../src/app/features/members/types";
+import type { Email, MemberId } from "../src/app/features/members/types";
 import { isImageId, isNoteId, type ImageId, type NoteId } from "../src/app/features/notes/id";
 import { COLORS, type NoteColor, type NoteStatus } from "../src/app/features/notes/types";
 import type { AirportCode } from "../src/app/features/place/airports";
@@ -273,12 +273,13 @@ export const parseProfile = (v: unknown): { name: string; color: HexColor } | nu
 };
 
 /**
- * An e-mail address to invite, lowercased as the index keeps it, or null. Only its shape is
- * checked; whether it can log in is Access's to say.
+ * An e-mail address, to invite or as Access vouches for it, lowercased as the index keeps it,
+ * or null. Only its shape is checked; whether it can log in is Access's to say.
  */
-export const parseEmail = (v: unknown): string | null =>
+export const parseEmail = (v: unknown): Email | null =>
   typeof v === "string" && v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
-    ? v.trim().toLowerCase()
+    ? // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+      (v.trim().toLowerCase() as Email)
     : null;
 
 /** A local date and time, to the minute or the second (as Temporal writes one) */

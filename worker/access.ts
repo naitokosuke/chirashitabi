@@ -6,6 +6,10 @@
 
 import { isRecord } from "../src/app/shared/record";
 
+import type { Email } from "../src/app/features/members/types";
+
+import { parseEmail } from "./wire";
+
 export interface AccessConfig {
   /** `<team>.cloudflareaccess.com`: the issuer, and where the signing keys are served */
   teamDomain: string;
@@ -55,13 +59,13 @@ export class AccessVerifier {
   ) {}
 
   /** The verified e-mail behind `request`, or `Unauthenticated` */
-  async identify(request: Request): Promise<string> {
+  async identify(request: Request): Promise<Email> {
     const token = request.headers.get(HEADER);
     if (token === null) throw new Unauthenticated(`no ${HEADER}`);
     return this.verify(token);
   }
 
-  async verify(token: string): Promise<string> {
+  async verify(token: string): Promise<Email> {
     const [h, p, s, ...rest] = token.split(".");
     if (h === undefined || p === undefined || s === undefined || rest.length > 0)
       throw new Unauthenticated("malformed token");
@@ -85,9 +89,9 @@ export class AccessVerifier {
       throw new Unauthenticated("expired");
     if (typeof claims.nbf === "number" && now + SKEW_S < claims.nbf)
       throw new Unauthenticated("not yet valid");
-    if (typeof claims.email !== "string" || claims.email === "")
-      throw new Unauthenticated("no email");
-    return claims.email;
+    const email = parseEmail(claims.email);
+    if (email === null) throw new Unauthenticated("no email");
+    return email;
   }
 
   async key(kid: string): Promise<CryptoKey> {

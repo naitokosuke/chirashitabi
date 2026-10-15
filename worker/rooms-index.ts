@@ -1,12 +1,17 @@
 import { DurableObject } from "cloudflare:workers";
 
+import type { Email, MemberId } from "../src/app/features/members/types";
+import type { RoomId } from "../src/app/features/rooms/types";
+
+import type { SeatId } from "./room";
+
 /** Why a paid call was not reserved */
 export type Refusal = "day" | "trip";
 
 /**
  * One per account: which rooms each e-mail belongs to, and as which member, which rooms it is
  * invited to, and what each person has spent (docs/auth-and-security.md, "The budget"). The
- * only place an e-mail is stored.
+ * only place an e-mail is stored, lowercased as `Email` is.
  */
 export class RoomsIndex extends DurableObject<Env> {
   static readonly MAX_ROOMS_PER_EMAIL = 10;
@@ -48,22 +53,21 @@ export class RoomsIndex extends DurableObject<Env> {
    * so only a deploy changes them; a var that is missing or not a number allows nothing.
    * Returns the reservation's id, to refund it if the provider answers with an error.
    */
-  reserve(email: string, roomId: string): { id: number } | { refused: Refusal } {
-    const e = email.toLowerCase();
+  reserve(email: Email, roomId: RoomId): { id: number } | { refused: Refusal } {
     const day = new Date().toISOString().slice(0, 10); // UTC
     const sql = this.ctx.storage.sql;
     const spent = (where: string, ...args: string[]) =>
       sql
         .exec<{ n: number }>(
           `SELECT COUNT(*) AS n FROM spends WHERE email = ? AND refunded = 0 AND ${where}`,
-          e,
+          email,
           ...args,
         )
         .one().n;
     if (spent("day = ?", day) >= ceiling(this.env.SPEND_PER_DAY)) return { refused: "day" };
     if (spent("room_id = ?", roomId) >= ceiling(this.env.SPEND_PER_TRIP))
       return { refused: "trip" };
-    sql.exec("INSERT INTO spends (email, room_id, day) VALUES (?, ?, ?)", e, roomId, day);
+    sql.exec("INSERT INTO spends (email, room_id, day) VALUES (?, ?, ?)", email, roomId, day);
     return { id: sql.exec<{ id: number }>("SELECT last_insert_rowid() AS id").one().id };
   }
 
@@ -78,12 +82,12 @@ export class RoomsIndex extends DurableObject<Env> {
    * The member id `email` has in `roomId`, or null when it is not a member. A deleted room
    * speaks for nobody, but with `deleted`, which is how its owner restores it.
    */
-  resolve(email: string, roomId: string, deleted = false): string | null {
+  resolve(email: Email, roomId: RoomId, deleted = false): MemberId | null {
     const row = this.ctx.storage.sql
-      .exec<{ member_id: string }>(
+      .exec<{ member_id: MemberId }>(
         `SELECT member_id FROM memberships
            WHERE email = ? AND room_id = ? AND deleted_at IS ${deleted ? "NOT NULL" : "NULL"}`,
-        email.toLowerCase(),
+        email,
         roomId,
       )
       .toArray()[0];
@@ -91,24 +95,24 @@ export class RoomsIndex extends DurableObject<Env> {
   }
 
   /** The rooms `email` is in, oldest first; with `deleted`, the deleted ones instead */
-  rooms(email: string, deleted = false): string[] {
+  rooms(email: Email, deleted = false): RoomId[] {
     return this.ctx.storage.sql
-      .exec<{ room_id: string }>(
+      .exec<{ room_id: RoomId }>(
         `SELECT room_id FROM memberships
            WHERE email = ? AND deleted_at IS ${deleted ? "NOT NULL" : "NULL"} ORDER BY rowid`,
-        email.toLowerCase(),
+        email,
       )
       .toArray()
       .map((r) => r.room_id);
   }
 
   /** The rooms `email` is in and who it is in each, oldest first; deleted ones left out */
-  memberships(email: string): { roomId: string; memberId: string }[] {
+  memberships(email: Email): { roomId: RoomId; memberId: MemberId }[] {
     return this.ctx.storage.sql
-      .exec<{ room_id: string; member_id: string }>(
+      .exec<{ room_id: RoomId; member_id: MemberId }>(
         `SELECT room_id, member_id FROM memberships
            WHERE email = ? AND deleted_at IS NULL ORDER BY rowid`,
-        email.toLowerCase(),
+        email,
       )
       .toArray()
       .map((r) => ({ roomId: r.room_id, memberId: r.member_id }));
@@ -118,15 +122,14 @@ export class RoomsIndex extends DurableObject<Env> {
    * Records a membership the room has already minted; false when `email` is at its room cap.
    * A deleted room still counts until it is gone for good.
    */
-  add(email: string, roomId: string, memberId: string): boolean {
-    const e = email.toLowerCase();
+  add(email: Email, roomId: RoomId, memberId: MemberId): boolean {
     const count = this.ctx.storage.sql
-      .exec<{ n: number }>("SELECT COUNT(*) AS n FROM memberships WHERE email = ?", e)
+      .exec<{ n: number }>("SELECT COUNT(*) AS n FROM memberships WHERE email = ?", email)
       .one().n;
     if (count >= RoomsIndex.MAX_ROOMS_PER_EMAIL) return false;
     this.ctx.storage.sql.exec(
       "INSERT INTO memberships (email, room_id, member_id) VALUES (?, ?, ?)",
-      e,
+      email,
       roomId,
       memberId,
     );
@@ -134,7 +137,7 @@ export class RoomsIndex extends DurableObject<Env> {
   }
 
   /** `memberId` is no longer in `roomId`: removed by the owner, or left */
-  forget(roomId: string, memberId: string): void {
+  forget(roomId: RoomId, memberId: MemberId): void {
     this.ctx.storage.sql.exec(
       "DELETE FROM memberships WHERE room_id = ? AND member_id = ?",
       roomId,
@@ -148,16 +151,15 @@ export class RoomsIndex extends DurableObject<Env> {
    * Records that `email` is invited to `roomId`, to the room's seat `inviteId`; false when it
    * is already a member there or already invited.
    */
-  invite(email: string, roomId: string, inviteId: string): boolean {
-    const e = email.toLowerCase();
+  invite(email: Email, roomId: RoomId, inviteId: SeatId): boolean {
     const sql = this.ctx.storage.sql;
     const known = (table: "memberships" | "invitations") =>
-      sql.exec(`SELECT 1 FROM ${table} WHERE email = ? AND room_id = ?`, e, roomId).toArray()
+      sql.exec(`SELECT 1 FROM ${table} WHERE email = ? AND room_id = ?`, email, roomId).toArray()
         .length > 0;
     if (known("memberships") || known("invitations")) return false;
     sql.exec(
       "INSERT INTO invitations (email, room_id, invite_id) VALUES (?, ?, ?)",
-      e,
+      email,
       roomId,
       inviteId,
     );
@@ -165,20 +167,20 @@ export class RoomsIndex extends DurableObject<Env> {
   }
 
   /** The rooms `email` is invited to, oldest first */
-  invitations(email: string): string[] {
+  invitations(email: Email): RoomId[] {
     return this.ctx.storage.sql
-      .exec<{ room_id: string }>(
+      .exec<{ room_id: RoomId }>(
         "SELECT room_id FROM invitations WHERE email = ? ORDER BY rowid",
-        email.toLowerCase(),
+        email,
       )
       .toArray()
       .map((r) => r.room_id);
   }
 
   /** Who `roomId` has invited and not heard from yet, oldest first */
-  invited(roomId: string): string[] {
+  invited(roomId: RoomId): Email[] {
     return this.ctx.storage.sql
-      .exec<{ email: string }>(
+      .exec<{ email: Email }>(
         "SELECT email FROM invitations WHERE room_id = ? ORDER BY rowid",
         roomId,
       )
@@ -190,11 +192,11 @@ export class RoomsIndex extends DurableObject<Env> {
    * Takes the invitation of `email` to `roomId` out, accepted, declined or withdrawn; returns
    * the room's seat it held, or null when there was none.
    */
-  take(email: string, roomId: string): string | null {
+  take(email: Email, roomId: RoomId): SeatId | null {
     const row = this.ctx.storage.sql
-      .exec<{ invite_id: string }>(
+      .exec<{ invite_id: SeatId }>(
         "DELETE FROM invitations WHERE email = ? AND room_id = ? RETURNING invite_id",
-        email.toLowerCase(),
+        email,
         roomId,
       )
       .toArray()[0];
@@ -204,7 +206,7 @@ export class RoomsIndex extends DurableObject<Env> {
   // ---- deleting a room: hidden from everyone at once, gone for good when the room says so ----
 
   /** The room was deleted at `at`, or restored (null); its members' lists and requests follow */
-  mark(roomId: string, at: string | null): void {
+  mark(roomId: RoomId, at: string | null): void {
     const sql = this.ctx.storage.sql;
     sql.exec("UPDATE memberships SET deleted_at = ? WHERE room_id = ?", at, roomId);
     // nobody is waiting to join a room nobody can open
@@ -212,7 +214,7 @@ export class RoomsIndex extends DurableObject<Env> {
   }
 
   /** The room is gone for good: nothing of it is left here but what was spent in it */
-  drop(roomId: string): void {
+  drop(roomId: RoomId): void {
     const sql = this.ctx.storage.sql;
     sql.exec("DELETE FROM memberships WHERE room_id = ?", roomId);
     sql.exec("DELETE FROM invitations WHERE room_id = ?", roomId);
