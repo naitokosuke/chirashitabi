@@ -8,6 +8,7 @@ import { applyToTrip, moveSchedules } from "../trip/apply";
 import type { TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
+import type { Cid } from "./wire";
 
 /** Everything a room shows: what the cache's three slices hold (keys.ts) */
 export interface RoomState {
@@ -18,7 +19,7 @@ export interface RoomState {
 
 /** One of ours the room has not answered yet, signed by who made it; `cid` is how its answer names it */
 export interface Pending {
-  cid: string;
+  cid: Cid;
   m: Mutation;
   at: Temporal.Instant;
   by: MemberId;
@@ -88,12 +89,12 @@ export function createLedger() {
       return view();
     },
     /** One of ours, made by `by` (this device) and sent with `cid` */
-    commit(m: Mutation, cid: string, at: Temporal.Instant, by: MemberId): RoomState {
+    commit(m: Mutation, cid: Cid, at: Temporal.Instant, by: MemberId): RoomState {
       pending = [...pending, { cid, m, at, by }];
       return view();
     },
     /** The room applied ours at `at` */
-    ack(cid: string, at: Temporal.Instant): RoomState {
+    ack(cid: Cid, at: Temporal.Instant): RoomState {
       const p = pending.find((x) => x.cid === cid);
       if (p === undefined) return view();
       pending = pending.filter((x) => x !== p);
@@ -101,7 +102,7 @@ export function createLedger() {
       return view();
     },
     /** The room refused ours: it goes, and only it */
-    reject(cid: string): { dropped: Pending | undefined; view: RoomState } {
+    reject(cid: Cid): { dropped: Pending | undefined; view: RoomState } {
       const dropped = pending.find((x) => x.cid === cid);
       pending = pending.filter((x) => x !== dropped);
       return { dropped, view: view() };

@@ -6,11 +6,23 @@
  */
 import { isAirportCode } from "./airport-codes";
 import type { AirportCode } from "./airports";
+import type { Brand } from "./brand";
 import { hexColor, type HexColor } from "./color";
 import { isImageId, isNoteId, type Email, type ImageId, type MemberId, type NoteId } from "./ids";
 import { currencyCode, type CurrencyCode } from "./money";
 import { isRecord } from "./record";
 import { COLORS, type NoteColor, type NoteStatus } from "./room";
+
+/** A day as it travels: YYYY-MM-DD, a day the calendar has (isDate) */
+export type IsoDate = Brand<string, "IsoDate">;
+/** A time of day as it travels: HH:MM or HH:MM:SS (isTime) */
+export type IsoTime = Brand<string, "IsoTime">;
+/** A local date and time as it travels: YYYY-MM-DDTHH:MM, seconds optional (isDateTime) */
+export type IsoDateTime = Brand<string, "IsoDateTime">;
+/** A moment as the room stamps it: an ISO instant in UTC, ending in Z */
+export type IsoInstant = Brand<string, "IsoInstant">;
+/** The client's id for one of its mutations, which the room's answer names */
+export type Cid = Brand<string, "Cid">;
 
 /** A person says whether they made the room; an agent has no say in who is in it */
 export type WireMember =
@@ -20,7 +32,7 @@ export type WireMember =
 /** A room as `/api/me` lists it: the trip at a glance, without its notes */
 export interface WireRoomSummary {
   name: string;
-  first: string | null; // YYYY-MM-DD, the first day; null while the trip has none
+  first: IsoDate | null; // the first day; null while the trip has none
   days: number;
   members: Omit<WireMember, "id">[];
   memos: number;
@@ -29,7 +41,7 @@ export interface WireRoomSummary {
 }
 
 export interface WireDay {
-  date: string; // YYYY-MM-DD
+  date: IsoDate;
   intro: string;
 }
 
@@ -57,8 +69,8 @@ export interface WireFlight {
   number: string;
   from: AirportCode;
   to: AirportCode;
-  departs: string | null;
-  arrives: string | null;
+  departs: IsoDateTime | null;
+  arrives: IsoDateTime | null;
 }
 
 export type WireFlights = Record<Leg, WireFlight | null>;
@@ -69,15 +81,15 @@ export type WireFlights = Record<Leg, WireFlight | null>;
  */
 export interface WireStay {
   name: string;
-  checkIn: string;
+  checkIn: IsoDate;
   nights: number;
   mapsUrl: string | null;
   pin: { lat: number; lng: number } | null;
 }
 
 export interface WireSchedule {
-  date: string;
-  time: string | null; // HH:MM:SS
+  date: IsoDate;
+  time: IsoTime | null;
   status: NoteStatus;
 }
 
@@ -91,7 +103,7 @@ interface WireCard {
   /** How large the card is drawn, 1 being its own size (MIN_SCALE to MAX_SCALE) */
   scale: number;
   by: MemberId;
-  updatedAt: string; // ISO instant
+  updatedAt: IsoInstant;
 }
 
 export interface WireMemo extends WireCard {
@@ -156,12 +168,12 @@ export type WireMutation =
   // where a card is; as it is turned or resized, how it is turned and how large
   | { type: "note:move"; id: NoteId; x: number; y: number; rot?: number; scale?: number }
   | { type: "note:delete"; id: NoteId }
-  | { type: "day:intro"; date: string; intro: string }
+  | { type: "day:intro"; date: IsoDate; intro: string }
   | { type: "member:profile"; name: string; color: HexColor }
   // the trip's name, as written on the desk
   | { type: "trip:rename"; name: string }
   // when the trip is: its first day and how many; everything planned moves with it
-  | { type: "trip:dates"; first: string; days: number }
+  | { type: "trip:dates"; first: IsoDate; days: number }
   // one of its flights, or none
   | { type: "trip:flight"; leg: Leg; flight: WireFlight | null }
   // where the nights are spent: the whole list, as the editor saves it
@@ -173,7 +185,7 @@ export type WireMutation =
  * (with the room's `updatedAt`), or `rejected` with that `cid`. A `note:move` without one
  * (a card's position while it is being dragged) is relayed, not kept, and not answered.
  */
-export type ClientMessage = ClientMutation & { cid?: string };
+export type ClientMessage = ClientMutation & { cid?: Cid };
 
 /** A note as its writer sends it in `note:add`: who and when are the room's to stamp */
 export type WireNewNote = WireNote extends infer N
@@ -189,9 +201,9 @@ export type ClientMutation =
 
 export type ServerMessage =
   | { type: "snapshot"; me: MemberId; members: WireMember[]; trip: WireTrip; notes: WireNote[] }
-  | { type: "mutation"; mutation: WireMutation; by: MemberId; updatedAt: string }
-  | { type: "ack"; cid: string; updatedAt: string }
-  | { type: "rejected"; reason: string; cid?: string }
+  | { type: "mutation"; mutation: WireMutation; by: MemberId; updatedAt: IsoInstant }
+  | { type: "ack"; cid: Cid; updatedAt: IsoInstant }
+  | { type: "rejected"; reason: string; cid?: Cid }
   // someone joined, was removed or left: who is in the room now
   | { type: "members"; members: WireMember[] }
   // this socket's person is out of the room, or the room was deleted; the socket closes after
@@ -201,7 +213,7 @@ export type ServerMessage =
 export type GoneReason = "removed" | "left" | "deleted";
 
 /** The client's id for one of its mutations, if the message carries a valid one */
-export const parseCid = (v: unknown): string | null => (isRecord(v) && isId(v.cid) ? v.cid : null);
+export const parseCid = (v: unknown): Cid | null => (isRecord(v) && isCid(v.cid) ? v.cid : null);
 
 export const MAX_MESSAGE_BYTES = 32 * 1024;
 
@@ -237,18 +249,18 @@ export const IMAGE_TYPES = ["image/webp", "image/jpeg", "image/png"] as const;
 /** The largest picture, in bytes; the app shrinks one to well under this before sending it */
 export const MAX_IMAGE_BYTES = 1024 * 1024;
 
-const isId = (v: unknown): v is string =>
+const isCid = (v: unknown): v is Cid =>
   typeof v === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(v) && v.length <= ID;
 const isColor = (v: unknown): v is NoteColor => COLORS.some((c) => c === v);
 const STATUSES: readonly NoteStatus[] = ["idea", "fixed", "done"];
 const isStatus = (v: unknown): v is NoteStatus => STATUSES.some((s) => s === v);
 
-export const isDate = (v: unknown): v is string => {
+export const isDate = (v: unknown): v is IsoDate => {
   if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
   const d = new Date(`${v}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(v);
 };
-const isTime = (v: unknown): v is string => {
+const isTime = (v: unknown): v is IsoTime => {
   if (typeof v !== "string") return false;
   const m = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(v);
   return m !== null && Number(m[1]) < 24 && Number(m[2]) < 60 && Number(m[3] ?? 0) < 60;
@@ -292,7 +304,7 @@ export const parseEmail = (v: unknown): Email | null =>
     : null;
 
 /** A local date and time, to the minute or the second (as Temporal writes one) */
-export const isDateTime = (v: unknown): v is string =>
+export const isDateTime = (v: unknown): v is IsoDateTime =>
   typeof v === "string" &&
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(v) &&
   isDate(v.slice(0, 10)) &&
@@ -314,10 +326,14 @@ const parseFlight = (v: unknown): WireFlight | null => {
     number: number.trim(),
     from,
     to,
-    departs: departs?.slice(0, 16) ?? null,
-    arrives: arrives?.slice(0, 16) ?? null,
+    departs: departs === null ? null : toMinute(departs),
+    arrives: arrives === null ? null : toMinute(arrives),
   };
 };
+
+/** A checked date and time, cut to the minute: still one */
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+const toMinute = (t: IsoDateTime): IsoDateTime => t.slice(0, 16) as IsoDateTime;
 
 /** A stay as a member writes it, its name trimmed; its nights within a trip's length */
 const parseStay = (v: unknown): WireStay | null => {

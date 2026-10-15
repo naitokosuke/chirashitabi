@@ -1,5 +1,11 @@
 import type { Mutation } from "./types";
-import { wireMutation, type ClientMessage, type GoneReason, type ServerMessage } from "./wire";
+import {
+  wireMutation,
+  type Cid,
+  type ClientMessage,
+  type GoneReason,
+  type ServerMessage,
+} from "./wire";
 
 export type SocketStatus =
   | "idle" // no room chosen
@@ -25,9 +31,9 @@ export interface RoomSocketOptions {
   /** A member's change, relayed by the room */
   onMutation(msg: Extract<ServerMessage, { type: "mutation" }>): void;
   /** The room applied one of ours, sent with this `cid`, at `updatedAt` */
-  onAck(cid: string, updatedAt: string): void;
+  onAck(cid: Cid, updatedAt: string): void;
   /** The room refused one of ours */
-  onRejected(cid: string, reason: string): void;
+  onRejected(cid: Cid, reason: string): void;
   /** Someone joined, was removed or left: who is in the room now */
   onMembers(members: Extract<ServerMessage, { type: "members" }>["members"]): void;
   /**
@@ -122,7 +128,7 @@ export function createRoomSocket(options: RoomSocketOptions) {
   }
 
   /** Sends now if connected; `cid` asks the room to answer. Returns whether it went */
-  function send(m: Mutation, cid?: string): boolean {
+  function send(m: Mutation, cid?: Cid): boolean {
     if (ws?.readyState !== OPEN || status !== "connected") return false;
     const out = wireMutation(m);
     ws.send(JSON.stringify((cid === undefined ? out : { ...out, cid }) satisfies ClientMessage));

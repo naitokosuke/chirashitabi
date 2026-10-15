@@ -22,6 +22,7 @@ import {
   parsePoint,
   parseProfile,
   parseTrip,
+  type IsoInstant,
   type ServerMessage,
   type WireMutation,
   type WireNote,
@@ -64,6 +65,9 @@ const forbidden = () => new HttpResponse(null, { status: 403 });
 const notFound = () => new HttpResponse(null, { status: 404 });
 const badRequest = () => new HttpResponse(null, { status: 400 });
 const now = () => Temporal.Now.instant();
+/** A moment as the room stamps it */
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+const stamp = (t: Temporal.Instant): IsoInstant => t.toString() as IsoInstant;
 
 /** The room a request names, if there is one and it is not deleted */
 /** The trip's candidate tags, as the agent would have proposed them */
@@ -135,7 +139,7 @@ const roomSocket = socket.addEventListener("connection", ({ client, params }) =>
     const cid = parseCid(sent);
     const at = now();
     // checked, and a new note stamped with whose it is and when, as the Worker's room does
-    const mutation = parseMutation(sent, { by: YUKI, updatedAt: at.toString() });
+    const mutation = parseMutation(sent, { by: YUKI, updatedAt: stamp(at) });
     if (mutation === null) {
       send(client, {
         type: "rejected",
@@ -149,8 +153,8 @@ const roomSocket = socket.addEventListener("connection", ({ client, params }) =>
       const next = applyToRoom(room.state, reviveMutation(mutation), YUKI, at);
       if (next.trip !== null) room.state = { ...next, trip: next.trip };
     }
-    tell(id, { type: "mutation", mutation, by: YUKI, updatedAt: at.toString() }, client);
-    if (cid !== null) send(client, { type: "ack", cid, updatedAt: at.toString() });
+    tell(id, { type: "mutation", mutation, by: YUKI, updatedAt: stamp(at) }, client);
+    if (cid !== null) send(client, { type: "ack", cid, updatedAt: stamp(at) });
   });
 });
 
@@ -193,7 +197,7 @@ const agent = [
     }
     await wait(THINKING_MS);
     const titles = ["Night view from Elephant Mountain", "Beef noodles at Yongkang Street"];
-    const updatedAt = now().toString();
+    const updatedAt = stamp(now());
     titles.forEach((title, i) => {
       const note: WireNote = {
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here

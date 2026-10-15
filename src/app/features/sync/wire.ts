@@ -2,6 +2,10 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import type {
   ClientMutation,
+  Cid,
+  IsoDate,
+  IsoDateTime,
+  IsoTime,
   WireMember,
   WireMemoPatch,
   WireMutation,
@@ -22,7 +26,9 @@ import type { Mutation } from "./types";
 // (and the airports list they load) stay out of the app
 export type {
   ClientMessage,
+  Cid,
   GoneReason,
+  IsoInstant,
   ServerMessage,
   WireMember,
   WireMutation,
@@ -158,9 +164,21 @@ export function reviveMutation(m: WireMutation): Mutation {
  * against what the room reads.
  */
 
+// Temporal writes the very forms the room checks for (YYYY-MM-DD, HH:MM:SS, both with a T)
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+const isoDate = (d: Temporal.PlainDate): IsoDate => d.toString() as IsoDate;
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+const isoTime = (t: Temporal.PlainTime): IsoTime => t.toString() as IsoTime;
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+const isoDateTime = (t: Temporal.PlainDateTime): IsoDateTime => t.toString() as IsoDateTime;
+
+/** A new id for one of ours, which the room's answer will name */
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+export const newCid = (): Cid => crypto.randomUUID() as Cid;
+
 const wireSchedule = (s: Schedule): WireSchedule => ({
-  date: s.date.toString(),
-  time: s.time === null ? null : s.time.toString(),
+  date: isoDate(s.date),
+  time: s.time === null ? null : isoTime(s.time),
   status: s.status,
 });
 
@@ -171,11 +189,11 @@ const wireFlight = (f: Flight | null): WireFlight | null =>
         number: f.number,
         from: f.from,
         to: f.to,
-        departs: f.departs === null ? null : f.departs.toString(),
-        arrives: f.arrives === null ? null : f.arrives.toString(),
+        departs: f.departs === null ? null : isoDateTime(f.departs),
+        arrives: f.arrives === null ? null : isoDateTime(f.arrives),
       };
 
-const wireStay = (s: Stay): WireStay => ({ ...s, checkIn: s.checkIn.toString() });
+const wireStay = (s: Stay): WireStay => ({ ...s, checkIn: isoDate(s.checkIn) });
 
 const wireNewNote = (n: Extract<Mutation, { type: "note:add" }>["note"]): WireNewNote =>
   n.kind === "memo" ? { ...n, schedule: n.schedule === null ? null : wireSchedule(n.schedule) } : n;
@@ -193,9 +211,9 @@ export function wireMutation(m: Mutation): ClientMutation {
     case "note:update":
       return { type: "note:update", id: m.id, patch: wirePatch(m.patch) };
     case "day:intro":
-      return { type: "day:intro", date: m.date.toString(), intro: m.intro };
+      return { type: "day:intro", date: isoDate(m.date), intro: m.intro };
     case "trip:dates":
-      return { type: "trip:dates", first: m.first.toString(), days: m.days };
+      return { type: "trip:dates", first: isoDate(m.first), days: m.days };
     case "trip:flight":
       return { type: "trip:flight", leg: m.leg, flight: wireFlight(m.flight) };
     case "trip:stays":
