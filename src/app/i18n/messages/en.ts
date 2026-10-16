@@ -347,6 +347,11 @@ one {{{$count} note has no place · open it and use “Find the place”}}
   "shiori.bookedCode": "Booked · {$code}",
   "shiori.bookingPage": "Booking",
   "shiori.markBooked": "Booked it",
+  "shiori.out": "Take it with you",
+  "shiori.calendar": "Add to a calendar (.ics)",
+  "shiori.calendarHint":
+    "The confirmed notes, the flights and the stays, at the times the booklet says; open the file to add them to the phone’s calendar.",
+  "shiori.calendarStay": "Stay:",
   "duration.unset": "– min",
   "duration.m": "{$m :integer} min",
   "duration.h": "{$h :integer} h",

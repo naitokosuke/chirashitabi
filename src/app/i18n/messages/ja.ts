@@ -310,6 +310,11 @@ export const ja: Messages = {
   "shiori.bookedCode": "予約済み・{$code}",
   "shiori.bookingPage": "予約の確認",
   "shiori.markBooked": "予約した",
+  "shiori.out": "持ち出す",
+  "shiori.calendar": "カレンダーに追加（.ics）",
+  "shiori.calendarHint":
+    "確定したメモ、フライト、宿を、しおりの時刻のまま書き出します。ファイルを開くとスマホのカレンダーに追加できます。",
+  "shiori.calendarStay": "宿:",
   "duration.unset": "– 分",
   "duration.m": "{$m :integer}分",
   "duration.h": "{$h :integer}時間",

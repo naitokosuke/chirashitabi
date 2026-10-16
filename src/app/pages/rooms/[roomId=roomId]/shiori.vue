@@ -37,6 +37,8 @@ import {
   wayMinutes,
 } from "../../../features/place/route";
 import type { LatLng } from "../../../features/place/types";
+import { useSync } from "../../../features/sync/useSync";
+import { calendarOf } from "../../../features/trip/calendar";
 import FlightLine from "../../../features/trip/FlightLine.vue";
 import {
   durationChoices,
@@ -69,6 +71,7 @@ const store = useNotes();
 const { trip, unassigned, forDay, byTag, budgetOf, fixedCount, dayNumber, dayOf, setIntro } =
   useTrip();
 const worker = useWorker();
+const sync = useSync();
 const calls = useWorkerCalls();
 const { members } = useMembers();
 const i18n = useI18n();
@@ -321,6 +324,25 @@ function nextStatus(n: Scheduled) {
   store.update(n.id, { schedule: cycleStatus(n.schedule) });
 }
 /** A tick in the appendix: shared with the room, so the partner sees the bag is packed */
+/** The confirmed plan, the flights and the stays as an .ics file, saved by the browser */
+function downloadCalendar() {
+  const t = trip.value;
+  if (t === undefined || sync.room === null) return;
+  const ics = calendarOf(t, store.notes.value ?? [], sync.room, Temporal.Now.instant(), {
+    flight: (number, from, to) => (number === "" ? `${from} → ${to}` : `${number} ${from} → ${to}`),
+    // the labels from the messages, the names as they are: a calendar keeps no isolating marks
+    stay: (name) => `${i18n.t("shiori.calendarStay")} ${name}`,
+    booked: (code) => `${i18n.t("shiori.booked")} ${code}`,
+  });
+  const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  // a name a file system takes: the trip's, without the characters some refuse
+  const name = t.name.replace(/[\\/:*?"<>|]+/g, " ").trim();
+  a.download = `${name === "" ? "trip" : name}.ics`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 function setChecked(n: Memo, e: Event) {
   if (!(e.target instanceof HTMLInputElement)) return;
   store.update(n.id, { checked: e.target.checked });
@@ -663,6 +685,14 @@ function adoptDraft() {
                     @change="(e) => setChecked(n, e)"
                   /><span>{{ n.title }}</span><small v-if="n.body !== ''"> —{{ n.body }}</small></label></li></ul>
             <p v-if="byTag(t).length === 0" data-turn>{{ i18n.t("shiori.tagEmpty") }}</p>
+          </section>
+          <!-- the plan out to a calendar: confirmed notes, flights and stays -->
+          <section class="out">
+            <h2 data-turn>{{ i18n.t("shiori.out") }}</h2>
+            <button data-turn type="button" @click="downloadCalendar">{{
+              i18n.t("shiori.calendar")
+            }}</button>
+            <p data-turn>{{ i18n.t("shiori.calendarHint") }}</p>
           </section>
         </template>
       </CtTabPanel>
@@ -1434,6 +1464,18 @@ article {
         > p {
           color: var(--muted);
           font-size: var(--font-sm);
+        }
+
+        /* taking the plan out: one quiet button, what it gives under it */
+        &.out > button {
+          min-height: var(--tap);
+          padding: 0 16px;
+          border-radius: 999px;
+          border: 1px solid var(--line);
+          background: var(--surface);
+          color: var(--ink);
+          font-size: var(--font-sm);
+          font-weight: 700;
         }
       }
     }
