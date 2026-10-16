@@ -67,6 +67,9 @@ export default defineConfig({
         })
       : []),
   ],
+  // what a build is made of (Vite DevTools, served at localhost:9999 once the build ends); only
+  // under `vp run analyze`, so a deploy neither carries it nor waits on it
+  devtools: process.env.ANALYZE === "true" && { apply: "build" },
   compiler: { vapor: true },
   typecheck: true,
   // the tests run in Node, but a `*.browser.test.ts` in a real Chromium: what a pointer does
