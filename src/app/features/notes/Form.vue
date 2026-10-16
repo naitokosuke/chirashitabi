@@ -13,6 +13,8 @@ export type FormMode =
 </script>
 
 <script setup lang="ts" vapor>
+import { Temporal } from "temporal-polyfill-lite";
+
 import {
   computed,
   nextTick,
@@ -34,6 +36,7 @@ import closeIcon from "../../icons/close.svg";
 import Icon from "../../icons/Icon.vue";
 import {
   googleMapsLink,
+  httpUrl,
   isShortMapsLink,
   placeFromUrl,
   placeSearchLink,
@@ -48,7 +51,15 @@ import { useWorker } from "../worker/useWorker";
 
 import { imageSrc, shrinkImage } from "./image";
 import { blankInput, inputFromNote, normalizeTag, noteText, parseNoteText } from "./input";
-import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteInput, type Tag } from "./types";
+import {
+  COLOR_NAMES,
+  COLORS,
+  PAPERS,
+  type Booking,
+  type NoteColor,
+  type NoteInput,
+  type Tag,
+} from "./types";
 import { useNotes } from "./useNotes";
 
 const props = defineProps<{ mode: FormMode }>();
@@ -89,6 +100,34 @@ const form = ref<NoteInput>(startingInput());
 const mapsUrl = ref(form.value.mapsUrl ?? "");
 /** When the place is open, as written (OpenStreetMap's way); blank for not said */
 const hours = ref(form.value.hours ?? "");
+// ---- whether it has to be booked: none, still to book (by a day), or booked (its number and page) ----
+type BookingState = "none" | Booking["state"];
+const startBooking = form.value.booking;
+const bookingState = ref<BookingState>(startBooking?.state ?? "none");
+const bookingBy = ref(startBooking?.state === "needed" ? (startBooking.by?.toString() ?? "") : "");
+const bookingCode = ref(startBooking?.state === "booked" ? startBooking.code : "");
+const bookingUrl = ref(startBooking?.state === "booked" ? (startBooking.url ?? "") : "");
+function setBookingState(e: Event) {
+  if (!(e.target instanceof HTMLSelectElement)) return;
+  const next = e.target.value;
+  if (next === "none" || next === "needed" || next === "booked") bookingState.value = next;
+}
+/** The booking as the fields say it; a page that is no http(s) link is none */
+function bookingOf(): Booking | null {
+  if (bookingState.value === "none") return null;
+  if (bookingState.value === "needed")
+    return {
+      state: "needed",
+      by: bookingBy.value === "" ? null : Temporal.PlainDate.from(bookingBy.value),
+    };
+  return { state: "booked", code: bookingCode.value.trim(), url: httpUrl(bookingUrl.value.trim()) };
+}
+function clearBooking() {
+  bookingState.value = "none";
+  bookingBy.value = "";
+  bookingCode.value = "";
+  bookingUrl.value = "";
+}
 /** Written, but past what the booklet can read: it is kept as it is and checks nothing */
 const hoursUnread = computed(() => hours.value.trim() !== "" && readHours(hours.value) === null);
 /** A short link is on its way to the Worker to be read */
@@ -473,6 +512,7 @@ function submit() {
     image: form.value.image,
     minutes: form.value.minutes,
     hours: hours.value.trim() === "" ? null : hours.value.trim(),
+    booking: bookingOf(),
   };
   if (target.value.kind === "edit") {
     store.update(target.value.id, input);
@@ -485,6 +525,7 @@ function submit() {
     form.value = startingInput();
     mapsUrl.value = "";
     hours.value = "";
+    clearBooking();
     text.value = "";
     forgetTags();
     focusText();
@@ -619,6 +660,40 @@ function submit() {
         />
         <p aria-live="polite">{{ i18n.t(hoursUnread ? "form.hoursUnread" : "form.hoursHint") }}</p>
       </div>
+      <div>
+        <label :for="`${id}-booking`">{{ i18n.t("form.booking") }}</label>
+        <select :id="`${id}-booking`" :value="bookingState" @change="setBookingState">
+          <option value="none">{{ i18n.t("form.bookingNone") }}</option>
+          <option value="needed">{{ i18n.t("form.bookingNeeded") }}</option>
+          <option value="booked">{{ i18n.t("form.bookingBooked") }}</option>
+        </select>
+      </div>
+      <div v-if="bookingState === 'needed'">
+        <label :for="`${id}-booking-by`">{{ i18n.t("form.bookingBy") }}</label>
+        <input :id="`${id}-booking-by`" v-model="bookingBy" type="date" />
+      </div>
+      <template v-else-if="bookingState === 'booked'">
+        <div>
+          <label :for="`${id}-booking-code`">{{ i18n.t("form.bookingCode") }}</label>
+          <input
+            :id="`${id}-booking-code`"
+            v-model="bookingCode"
+            autocapitalize="characters"
+            maxlength="100"
+            spellcheck="false"
+          />
+        </div>
+        <div>
+          <label :for="`${id}-booking-url`">{{ i18n.t("form.bookingUrl") }}</label>
+          <input
+            :id="`${id}-booking-url`"
+            v-model="bookingUrl"
+            inputmode="url"
+            type="url"
+            :placeholder="i18n.t('form.bookingUrlPlaceholder')"
+          />
+        </div>
+      </template>
       <div>
         <label :for="`${id}-minutes`">{{ i18n.t("shiori.minutes") }}</label>
         <select :id="`${id}-minutes`" :value="form.minutes ?? ''" @change="setMinutes">

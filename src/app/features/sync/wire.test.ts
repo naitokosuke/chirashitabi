@@ -35,6 +35,7 @@ const memo: NewMemo = {
   image: null,
   minutes: null,
   hours: null,
+  booking: null,
 };
 const flight = {
   number: "BR 191",
@@ -62,6 +63,18 @@ const MUTATIONS: Mutation[] = [
   { type: "note:update", id, patch: { title: "Ding Tai Fung" } },
   { type: "note:update", id, patch: { schedule: memo.schedule } },
   { type: "note:update", id, patch: { schedule: null, pin: null } },
+  {
+    type: "note:update",
+    id,
+    patch: { booking: { state: "needed", by: Temporal.PlainDate.from("2026-10-20") } },
+  },
+  { type: "note:update", id, patch: { booking: { state: "needed", by: null } } },
+  { type: "note:update", id, patch: { booking: { state: "booked", code: "A1", url: null } } },
+  { type: "note:update", id, patch: { booking: null, minutes: 90, hours: "Mo-Su 10:00-20:00" } },
+  {
+    type: "note:add",
+    note: { ...memo, booking: { state: "needed", by: Temporal.PlainDate.from("2026-10-20") } },
+  },
   { type: "note:recolor", id, color: "#ffd9de" },
   { type: "note:adopt", id },
   { type: "text:edit", id, text: "Day 2" },

@@ -788,7 +788,14 @@ describe("the socket", () => {
     const c = await connect(roomId, PARTNER);
     // a memo from a client that does not say how long it takes takes no time it was not given
     expect(c.snapshot.notes).toEqual([
-      { ...memo("n1"), minutes: null, hours: null, by: yuki, updatedAt: got.updatedAt },
+      {
+        ...memo("n1"),
+        minutes: null,
+        hours: null,
+        booking: null,
+        by: yuki,
+        updatedAt: got.updatedAt,
+      },
     ]);
     for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
@@ -929,6 +936,7 @@ describe("the socket", () => {
           rot: 3,
           minutes: null,
           hours: null,
+          booking: null,
         },
       ],
     });
@@ -982,6 +990,33 @@ describe("the socket", () => {
     const c = await connect(roomId, OPEN);
     expect(c.snapshot.notes).toMatchObject([{ id: "n1", hours: null }]);
     for (const s of [a, b, c]) s.ws.close(1000, "done");
+  });
+
+  test("a booking is kept as its state says: by when while to book, its number and page once booked", async () => {
+    const BOOK = "booking@example.com";
+    const { roomId } = await createRoom(BOOK);
+    const a = await connect(roomId, BOOK);
+    const needed = { state: "needed", by: "2026-10-20" };
+    a.send({ type: "note:add", note: { ...memo("n1"), booking: needed }, cid: "c1" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c1" });
+    const b = await connect(roomId, BOOK);
+    expect(b.snapshot.notes).toMatchObject([{ id: "n1", booking: needed }]);
+    // a booked one has no day to book by; a state it does not know is refused
+    const booked = { state: "booked", code: " ABC123 ", url: "https://example.com/r/1" };
+    a.send({ type: "note:update", id: "n1", patch: { booking: booked }, cid: "c2" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c2" });
+    const odd = { state: "maybe", by: null };
+    a.send({ type: "note:update", id: "n1", patch: { booking: odd }, cid: "c3" });
+    expect(await a.next()).toEqual({ type: "rejected", reason: "not a mutation", cid: "c3" });
+    const c = await connect(roomId, BOOK);
+    expect(c.snapshot.notes).toMatchObject([
+      { id: "n1", booking: { state: "booked", code: "ABC123", url: "https://example.com/r/1" } },
+    ]);
+    a.send({ type: "note:update", id: "n1", patch: { booking: null }, cid: "c4" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c4" });
+    const d = await connect(roomId, BOOK);
+    expect(d.snapshot.notes).toMatchObject([{ id: "n1", booking: null }]);
+    for (const s of [a, b, c, d]) s.ws.close(1000, "done");
   });
 
   test("updates, moves, recolors, adoption, deletion and the day intro all land", async () => {
@@ -1038,6 +1073,7 @@ describe("the socket", () => {
         image: null,
         minutes: null,
         hours: null,
+        booking: null,
       },
     ]);
     expect(c.snapshot.trip.days[1]).toEqual({ date: "2026-11-04", intro: "Jiufen day" });

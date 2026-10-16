@@ -80,7 +80,17 @@ export interface Memo extends CardBase {
   minutes: number | null;
   /** When its place is open, as OpenStreetMap writes it (place/hours.ts reads it); null for not said */
   hours: string | null;
+  /** Whether it has to be booked, and how far that has got; null for no booking */
+  booking: Booking | null;
 }
+
+/**
+ * A memo's booking: still to book (by a day, or whenever), or booked, with the confirmation's
+ * number (blank when not written down) and its page when there is one
+ */
+export type Booking =
+  | { state: "needed"; by: Temporal.PlainDate | null }
+  | { state: "booked"; code: string; url: HttpUrl | null };
 
 /** A suggestion waits to be adopted (becoming a memo) or dismissed; anyone can make one */
 export interface Suggestion extends CardBase {
@@ -123,7 +133,16 @@ export type NewMemo = Omit<Memo, "by" | "updatedAt">;
 /** What the form writes */
 export type NoteInput = Pick<
   Memo,
-  "title" | "body" | "tags" | "color" | "mapsUrl" | "pin" | "image" | "minutes" | "hours"
+  | "title"
+  | "body"
+  | "tags"
+  | "color"
+  | "mapsUrl"
+  | "pin"
+  | "image"
+  | "minutes"
+  | "hours"
+  | "booking"
 >;
 
 /**
