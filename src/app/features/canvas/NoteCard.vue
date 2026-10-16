@@ -63,6 +63,7 @@ const day = computed(() => {
         ? note.title
         : undefined"
   >
+    <!-- a slip from the agent: white stock cut with a dashed edge, who proposed it at its head -->
     <template v-if="note.kind === 'suggestion'">
       <header>
         <span aria-hidden="true"></span>
@@ -84,6 +85,33 @@ const day = computed(() => {
       draggable="false"
       :src="sync.room === null ? undefined : imageSrc(sync.room, note.image)"
     />
+    <!-- a clipping from a page: the picture is the card, in a mount; the site on the picture opens the page -->
+    <template v-else-if="clipping">
+      <figure>
+        <img
+          alt=""
+          draggable="false"
+          loading="lazy"
+          :src="
+            sync.room === null || note.image === null ? undefined : imageSrc(sync.room, note.image)
+          "
+        />
+        <a
+          :href="safeUrl(note.link)"
+          rel="noopener noreferrer"
+          target="_blank"
+          :aria-label="i18n.t('note.link')"
+          @pointerdown.stop
+          @click.stop
+        ><Icon :size="12" :src="externalIcon" />{{ siteOf(note.link) }}</a>
+      </figure>
+      <!-- the mount's margin: who brought it in, and its day when it has one -->
+      <small><span aria-hidden="true"></span>{{ author?.name ?? i18n.t("member.someone") }}<time
+          v-if="note.schedule !== null"
+          :datetime="note.schedule.date.toString()"
+        >{{ day }}</time></small>
+    </template>
+    <!-- a sticky: a strip of adhesive across the top (its author's dot in it), the words under -->
     <template v-else>
       <!-- the card's picture, across its top; the card is still what a finger holds -->
       <img
@@ -93,10 +121,7 @@ const day = computed(() => {
         loading="lazy"
         :src="sync.room === null ? undefined : imageSrc(sync.room, note.image)"
       />
-      <!--
-        a clipping from a page: its site on the picture, which opens the page (the card under it
-        still moves); with a picture the words stay in the note, the picture says it all
-      -->
+      <!-- where the idea came from, when the page gave no picture: its site, which opens the page -->
       <a
         v-if="safeUrl(note.link) !== undefined"
         :href="safeUrl(note.link)"
@@ -106,25 +131,21 @@ const day = computed(() => {
         @pointerdown.stop
         @click.stop
       ><Icon :size="12" :src="externalIcon" />{{ siteOf(note.link) }}</a>
-      <p v-if="!clipping">{{ note.title }}</p>
-      <p v-if="!clipping && note.body !== ''"><template
-          v-for="(s, i) in segments(note.body)"
-          :key="i"
-        ><a
+      <p>{{ note.title }}</p>
+      <!-- the words, a few lines of them; a link in them is its site, tapped -->
+      <p v-if="note.body !== ''"><template v-for="(s, i) in segments(note.body)" :key="i"><a
             v-if="s.kind === 'link'"
             :href="s.url"
             rel="noopener noreferrer"
             target="_blank"
             @pointerdown.stop
             @click.stop
-          >{{ s.url }}</a><template v-else>{{ s.text }}</template></template></p>
-      <ul v-if="!clipping && note.tags.length > 0"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
+          ><Icon :size="11" :src="externalIcon" />{{ siteOf(s.url) }}</a><template v-else>{{
+            s.text
+          }}</template></template></p>
+      <ul v-if="note.tags.length > 0"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
       <!-- its day on the trip, once it has one: the desk shows how far the plan has come -->
       <time v-if="note.schedule !== null" :datetime="note.schedule.date.toString()">{{ day }}</time>
-      <!-- a clipping's mount says who brought it in, by name, in the margin under the picture -->
-      <small v-if="clipping"><span aria-hidden="true"></span>{{
-          author?.name ?? i18n.t("member.someone")
-        }}</small>
       <span></span>
     </template>
     <!-- picked: a handle above to turn it, one at the corner to resize it (the canvas drives both) -->
@@ -178,6 +199,28 @@ div {
     }
   }
 
+  /*
+   * ---- a sticky ----
+   * A strip of adhesive across the top, the paper a shade deeper there, is what says "sticky"
+   * at a glance; its author's dot sits in the strip. The words under it are few: a title, a
+   * few lines, the tags on one line, the day as a small stamp.
+   */
+  &[data-kind="memo"] {
+    padding: 18px 12px 12px;
+    background:
+      linear-gradient(
+        color-mix(in oklch, var(--paper-ink) 9%, transparent) 0 12px,
+        transparent 12px
+      ),
+      var(--card, var(--paper-white));
+
+    /* with a picture, the picture crosses the top instead */
+    &:has(> img) {
+      padding-block-start: 12px;
+      background: var(--card, var(--paper-white));
+    }
+  }
+
   /* the picture, edge to edge across the top; touches go to the card under it */
   > img {
     display: block;
@@ -196,145 +239,200 @@ div {
     aspect-ratio: 16 / 9;
   }
 
-  /*
-   * A clipping from a page, not a note: the paper is a narrow mount around the picture, edged
-   * in the paper's own ink so it reads as something brought in from outside, and the site sits
-   * on the picture with the arrow that means "elsewhere"
-   */
-  &[data-clipping] {
-    /* a wide mount, wider still under the picture, where the margin says who brought it in */
-    padding: 10px 10px 8px;
-    border-radius: 4px;
-    outline: 1.5px solid color-mix(in oklch, var(--paper-ink) 55%, transparent);
-    outline-offset: -1.5px;
-
-    > img {
-      width: 100%;
-      margin: 0;
-      border-radius: 2px;
-    }
-
-    > a {
-      position: absolute;
-      inset-inline-start: 14px;
-      inset-block-start: calc(10px + (100% - 20px) * 9 / 16 - 26px);
-      inset-block-end: auto;
-      margin: 0;
-      background: color-mix(in oklch, var(--paper-ink) 72%, transparent);
-      color: var(--paper-white);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-    }
-
-    /* the margin under the picture: who brought it in (their color, their name), and the day when it has one */
-    > small {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      min-height: 16px;
-      margin: 7px 0 0;
-      font-size: var(--font-2xs);
-      font-weight: 700;
-      color: var(--paper-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-
-      > span {
-        flex-shrink: 0;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--who);
-      }
-    }
-
-    > time {
-      display: block;
-      width: fit-content;
-      margin: 4px 0 0;
-    }
-
-    /* the dot in the corner is said in the margin instead */
-    > span:not([data-handle]) {
-      display: none;
-    }
-  }
-
   /* the page's site, a small tag above the title, with the arrow that means "elsewhere" */
   > a {
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    max-width: calc(100% - 18px);
-    margin: 0 0 4px;
+    max-width: 100%;
+    margin: 0 0 5px;
     padding: 2px 7px 2px 5px;
     border-radius: 999px;
     background: color-mix(in oklch, var(--paper-ink) 8%, transparent);
     color: var(--paper-muted);
     font-size: var(--font-2xs);
     font-weight: 700;
+    line-height: 1.2;
     text-decoration: none;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  /* the title */
+  /* the title: three lines at most on the desk, the rest in the note */
   > p:first-of-type {
     margin: 0;
     font-size: var(--font-base);
     font-weight: 700;
-    line-height: 1.4;
-    word-break: break-word;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
-  /* the body, under the title; a link in it is tapped, in the paper's ink */
+  /* the body, under the title: three lines at most; a link in it is its site, as a small tag */
   > p + p {
     margin: 4px 0 0;
     font-size: var(--font-xs);
+    line-height: 1.45;
     color: var(--paper-muted);
     overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 
     > a {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      vertical-align: bottom;
+      padding: 0 5px 0 3px;
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--paper-ink) 8%, transparent);
       color: var(--paper-ink);
-      text-underline-offset: 2px;
+      font-weight: 700;
+      text-decoration: none;
     }
   }
 
+  /* the tags, on one line */
   > ul {
     margin: 6px 0 0;
     padding: 0;
     list-style: none;
     font-size: var(--font-xs);
     font-weight: 700;
+    line-height: 1.3;
     color: var(--paper-muted);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    > li {
+      display: inline;
+
+      & + li {
+        margin-inline-start: 7px;
+      }
+    }
   }
 
   /* its day, a small stamp under the tags */
   > time {
     display: inline-block;
-    margin-block-start: 6px;
-    padding: 1px 6px;
+    margin-block-start: 7px;
+    padding: 1px 7px;
     border-radius: 999px;
     font-size: var(--font-xs);
     font-weight: 700;
+    line-height: 1.4;
     font-variant-numeric: tabular-nums;
     background: color-mix(in oklch, var(--paper-ink) 10%, transparent);
   }
 
-  /* who wrote it (the handles are spans too, and come after) */
+  /* who wrote it: in the strip (the handles are spans too, and come after) */
   > span:not([data-handle]) {
     position: absolute;
-    inset-block-start: 8px;
+    inset-block-start: 2px;
     inset-inline-end: 8px;
     width: 8px;
     height: 8px;
     border-radius: 50%;
     background: var(--who);
+  }
+
+  /* with a picture the strip is under it: the dot moves to the picture's corner */
+  &:has(> img) > span:not([data-handle]) {
+    inset-block-start: 8px;
+    width: 8px;
+    height: 8px;
+    box-shadow: 0 0 0 2px var(--paper-white);
+  }
+
+  /*
+   * ---- a clipping ----
+   * A page's picture is the card: a print in a mount of the paper, edged in ink so it reads as
+   * something brought in from outside. The site sits on the picture with the arrow that means
+   * "elsewhere", and the mount's margin says who brought it in, and its day when it has one.
+   */
+  &[data-clipping] {
+    padding: 8px 8px 7px;
+    border-radius: 3px;
+    background: var(--card, var(--paper-white));
+    outline: 1px solid color-mix(in oklch, var(--paper-ink) 35%, transparent);
+    outline-offset: -1px;
+
+    > figure {
+      position: relative;
+      margin: 0;
+
+      > img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        border-radius: 2px;
+        background: color-mix(in oklch, var(--paper-ink) 6%, transparent);
+        pointer-events: none;
+      }
+
+      > a {
+        position: absolute;
+        inset-inline-start: 6px;
+        inset-block-end: 6px;
+        max-width: calc(100% - 12px);
+        margin: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px 8px 3px 6px;
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--paper-ink) 72%, transparent);
+        color: var(--paper-white);
+        font-size: var(--font-2xs);
+        font-weight: 700;
+        line-height: 1.2;
+        text-decoration: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+      }
+    }
+
+    > small {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 18px;
+      margin: 6px 1px 0;
+      font-size: var(--font-2xs);
+      font-weight: 700;
+      color: var(--paper-muted);
+      white-space: nowrap;
+      overflow: hidden;
+
+      > span {
+        flex-shrink: 0;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--who);
+      }
+
+      > time {
+        margin-inline-start: auto;
+        padding: 0 6px;
+        border-radius: 999px;
+        font-variant-numeric: tabular-nums;
+        color: var(--paper-ink);
+        background: color-mix(in oklch, var(--paper-ink) 10%, transparent);
+      }
+    }
   }
 
   /* picked: framed in ink, lifted a little above the rest */
@@ -450,21 +548,27 @@ div {
     }
   }
 
-  /* a machine's note: plain white stock cut straight, with a dashed edge, never a person's soft corner */
+  /*
+   * ---- a slip from the agent ----
+   * White stock cut straight, with a dashed edge all round like a perforation, lying flatter
+   * than a pad of paper: never a person's soft corner, never their tinted stock. Who proposed
+   * it heads it, and the two things to do with it foot it.
+   */
   &[data-kind="suggestion"] {
-    background: var(--paper-white);
-    outline: 1px dashed color-mix(in oklch, var(--paper-ink) 30%, transparent);
-    outline-offset: -5px;
-    width: 186px;
+    width: 180px;
+    padding: 10px 12px 12px;
     border-radius: 0;
+    background: var(--paper-white);
+    border: 1px dashed color-mix(in oklch, var(--paper-ink) 45%, transparent);
+    box-shadow: var(--shadow-tool);
 
     > header {
       display: flex;
       align-items: center;
       gap: 6px;
-      font-size: var(--font-md);
+      margin-block-end: 6px;
+      font-size: var(--font-sm);
       font-weight: 700;
-      margin-block-end: 4px;
 
       /* who suggested it */
       > span {
@@ -483,14 +587,20 @@ div {
     }
 
     > p {
-      font-weight: 400;
       font-size: var(--font-sm);
+      font-weight: 400;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+      display: -webkit-box;
+      -webkit-line-clamp: 6;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
 
     > footer {
       display: flex;
       gap: 6px;
-      margin-block-start: 8px;
+      margin-block-start: 10px;
 
       > button {
         min-height: var(--tap);

@@ -1,7 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import type { HttpUrl } from "../place/google-maps";
-
 import { segments, siteOf } from "./links";
 
 describe("segments", () => {
@@ -31,6 +29,6 @@ describe("segments", () => {
 });
 
 test("siteOf", () => {
-  expect(siteOf("https://www.youtube.com/watch?v=x" as HttpUrl)).toBe("youtube.com");
+  expect(siteOf("https://www.youtube.com/watch?v=x")).toBe("youtube.com");
   expect(siteOf(null)).toBe("");
 });

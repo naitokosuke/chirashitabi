@@ -118,8 +118,17 @@ components:
     textColor: "{colors.paper-ink}"
     typography: "{typography.label}"
     rounded: "0"
-    padding: "12px"
-    width: "186px"
+    padding: "10px 12px 12px"
+    width: "180px"
+    border: "1px dashed paper-ink at 45%"
+  clipping-card:
+    backgroundColor: "{colors.paper-yellow}"
+    textColor: "{colors.paper-muted}"
+    typography: "{typography.caption}"
+    rounded: "3px"
+    padding: "8px 8px 7px"
+    width: "164px"
+    outline: "1px solid paper-ink at 35%"
   toast:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.tool-white}"
@@ -133,7 +142,7 @@ components:
 
 **Creative North Star: "Graphite on Paper" (紙と鉛筆)**
 
-The screen is a desk, and the desk is neutral: a cool, almost colorless gray with the faint dot grid of graph paper. On it, paper. Ideas are sticky notes in six tinted stocks, scattered at slight angles, each with a small dot saying whose hand it came from. Everything that is not paper is a tool drawn in one ink: white chips and panels on a hairline, and filled ink tiles for putting something new down (writing, and on the canvas a sticker). Color belongs to the paper and to nobody else; the tools stay graphite so the notes are what you see.
+The screen is a desk, and the desk is neutral: a cool, almost colorless gray with the faint dot grid of graph paper. On it, paper, and each thing on the desk is a thing you could pick up: an idea is a sticky, tinted stock with a strip of adhesive across its top and a small dot in the strip saying whose hand it came from; a page brought in from outside is a print in a mount of that stock, edged in ink, the site on the picture; the agent's proposals are slips of white stock cut with a dashed edge; words written straight on the desk are lettering with no paper; a cut-out picture is a sticker edged in white. Everything that is not paper is a tool drawn in one ink: white chips and panels on a hairline, and filled ink tiles for putting something new down (writing, and on the canvas a sticker). Color belongs to the paper and to nobody else; the tools stay graphite so the notes are what you see.
 
 The voice is quiet. One ink, one neutral desk, one family of paper, and one moment of play when a new note pops onto the desk. This is an Operate surface, two people getting a trip planned, and the tool should disappear into the task. Density is relaxed on the canvas and tighter in the booklet; the memo tab is the note form and nothing else, always open for the next thought.
 
