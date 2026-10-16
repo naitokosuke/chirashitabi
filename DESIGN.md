@@ -299,7 +299,7 @@ Handled like an object, as in a native whiteboard. A tap picks it: an ink frame,
 
 ### Suggestion
 
-A slip: 164px, on the agent's paper, cut square (no radius, where every person's paper is rounded); a strip across its top saying "suggestion", its lower edge perforated (dashed). The proposal in Note, five lines of it, all of it once picked. Its two answers, as simple as a swipe: two halves of its foot, 36px tall pills side by side across it inside its padding, 8px apart: each held, not tapped (`CtHoldButton`, 600ms), filling from its start edge: a thumb down to pass on it, filling in Paper Muted, and a thumb up to keep it as a memo, filling in Paper Ink; both rest as white on a hairline. Let go early and nothing happens. Named for a screen reader and on hover.
+A slip: 164px, on the agent's paper, cut square (no radius, where every person's paper is rounded); a strip across its top saying "suggestion", its lower edge perforated (dashed). The proposal in Note, five lines of it, all of it once picked. Its two answers, as simple as a swipe: two halves of its foot, 36px tall pills side by side across it inside its padding, 8px apart: each held, not tapped (`CtHoldButton`, 600ms), filling from its start edge: first the primary, a thumb up to keep it as a memo (Paper Ink, filling a step lighter), then the secondary, a thumb down to pass on it (white on a hairline, filling in Paper Muted). Let go early and nothing happens. Named for a screen reader and on hover.
 
 ### Print
 
