@@ -101,7 +101,7 @@ export const ProfileSchema = v.object({
 // ---- members and rooms ----
 
 /** A person says whether they made the room; an agent has no say in who is in it */
-const WireMemberSchema = v.variant("kind", [
+export const WireMemberSchema = v.variant("kind", [
   v.object({
     id: MemberIdSchema,
     kind: v.literal("person"),
@@ -193,7 +193,7 @@ export type WireStay = v.InferOutput<typeof WireStaySchema>;
 const WireDaySchema = v.object({ date: IsoDateSchema, intro: v.string() });
 export type WireDay = v.InferOutput<typeof WireDaySchema>;
 
-const WireTripSchema = v.object({
+export const WireTripSchema = v.object({
   name: v.string(),
   days: v.array(WireDaySchema),
   currency: CurrencyCodeSchema,
@@ -287,7 +287,7 @@ export type WireNewNote = v.InferOutput<typeof WireNewNoteSchema>;
 
 const WireMemoSchema = v.object({ ...memo, ...stamped });
 export type WireMemo = v.InferOutput<typeof WireMemoSchema>;
-const WireNoteSchema = v.variant("kind", [
+export const WireNoteSchema = v.variant("kind", [
   WireMemoSchema,
   v.object({ ...suggestion, ...stamped }),
   v.object({ ...textBox, ...stamped }),
@@ -359,7 +359,7 @@ const ClientMutationSchema = v.variant("type", [
 export type ClientMutation = v.InferOutput<typeof ClientMutationSchema>;
 
 /** The app's `Mutation`, as JSON: as the room relays it, a new note stamped */
-const WireMutationSchema = v.variant("type", [
+export const WireMutationSchema = v.variant("type", [
   v.object({ type: v.literal("note:add"), note: WireNoteSchema }),
   ...mutations,
 ]);

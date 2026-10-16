@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 
 import { hexColor } from "../../shared/color";
+import type { CurrencyCode } from "../../shared/money";
 
 import type { MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
@@ -12,6 +13,9 @@ import type { Cid, IsoInstant, ServerMessage } from "./wire";
 const C1 = "c1" as Cid;
 const C2 = "c2" as Cid;
 const AT = "2026-10-01T00:00:00Z" as IsoInstant;
+// ids as a room mints them: the socket reads every message with the contract's schemas
+const YUKI = "0b0d6f1e-5c1a-4e8b-9a43-7f2d1c6e9a01" as MemberId;
+const KEN = "4e7a2c90-3b5d-4f16-8e21-a9c4d0b7f302" as MemberId;
 
 /** A socket the test drives: it opens when told, and records what is sent */
 class FakeSocket implements SocketLike {
@@ -33,8 +37,12 @@ class FakeSocket implements SocketLike {
   }
   /** The room opens the connection and sends its first message */
   serve(msg: ServerMessage) {
+    this.say(JSON.stringify(msg));
+  }
+  /** Whatever comes over the socket, as it comes */
+  say(data: string) {
     this.readyState = 1;
-    for (const l of this.listeners.message) l({ data: JSON.stringify(msg) });
+    for (const l of this.listeners.message) l({ data });
   }
   drop() {
     this.readyState = 3;
@@ -44,9 +52,16 @@ class FakeSocket implements SocketLike {
 
 const snapshot: Extract<ServerMessage, { type: "snapshot" }> = {
   type: "snapshot",
-  me: "yuki" as MemberId,
+  me: YUKI,
   members: [],
-  trip: {} as never,
+  trip: {
+    name: "Taiwan trip",
+    days: [],
+    currency: "TWD" as CurrencyCode,
+    center: { lat: 25.05, lng: 121.54 },
+    flights: { out: null, back: null },
+    stays: [],
+  },
   notes: [],
 };
 const intro: Mutation = { type: "day:intro", date: "2026-11-03" as never, intro: "hi" };
@@ -171,11 +186,36 @@ describe("createRoomSocket", () => {
     const msg: ServerMessage = {
       type: "mutation",
       mutation: { type: "note:delete", id: "a" as NoteId },
-      by: "ken" as MemberId,
+      by: KEN,
       updatedAt: AT,
     };
     last().serve(msg);
     expect(mutations).toEqual([msg]);
+  });
+
+  test("a message it cannot read is not passed on: the socket closes, for the next snapshot", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    for (const data of [
+      "not JSON",
+      JSON.stringify({ type: "mutation", mutation: { type: "note:delete", id: "a" }, by: "ken" }),
+      JSON.stringify({ type: "hello" }),
+    ]) {
+      const { socket, mutations, last } = setup();
+      socket.connect("room-1");
+      last().serve(snapshot);
+      last().say(data);
+      expect(mutations).toEqual([]);
+      expect(last().closed).toEqual({ code: 4000, reason: "resync" });
+    }
+  });
+
+  test("a snapshot it cannot read is no connection: the socket closes, for another try", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { socket, statuses, last } = setup();
+    socket.connect("room-1");
+    last().serve({ ...snapshot, me: "yuki" as MemberId });
+    expect(statuses).not.toContain("connected");
+    expect(last().closed).toEqual({ code: 4000, reason: "resync" });
   });
 
   test("leaving closes the socket, and an old socket's close is ignored", () => {
@@ -216,7 +256,7 @@ describe("createRoomSocket", () => {
     last().serve(snapshot);
     const members = [
       {
-        id: "ken" as MemberId,
+        id: KEN,
         kind: "person" as const,
         role: "guest" as const,
         name: "Ken",

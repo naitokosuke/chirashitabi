@@ -6,7 +6,13 @@ import type { Pinned } from "./pin";
 import type { LatLng } from "./types";
 
 // a link a note may carry, and reading its point, as the app takes them from the contract
-export { httpUrl, isShortMapsLink, parseMapsUrl, type HttpUrl } from "../../../contract/place";
+export {
+  httpUrl,
+  HttpUrlSchema,
+  isShortMapsLink,
+  parseMapsUrl,
+  type HttpUrl,
+} from "../../../contract/place";
 
 export const googleMapsLink = ({ lat, lng }: LatLng): HttpUrl =>
   v.parse(HttpUrlSchema, `https://www.google.com/maps?q=${lat},${lng}`);

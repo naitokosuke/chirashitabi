@@ -31,6 +31,8 @@ function memoryStorage(): Storage {
 }
 
 const at = Temporal.Instant.from("2026-11-03T03:00:00Z");
+// an id as a room mints it: what is kept is read back with the contract's schemas
+const YUKI = "0b0d6f1e-5c1a-4e8b-9a43-7f2d1c6e9a01" as MemberId;
 const memo: Memo = {
   id: "n1" as NoteId,
   kind: "memo",
@@ -40,7 +42,7 @@ const memo: Memo = {
   y: 20,
   rot: 1,
   scale: 1,
-  by: "yuki" as MemberId,
+  by: YUKI,
   updatedAt: at,
   body: "",
   tags: ["Food" as Tag],
@@ -84,7 +86,7 @@ const room: RoomState = {
   },
   members: [
     {
-      id: "yuki" as MemberId,
+      id: YUKI,
       kind: "person",
       role: "owner",
       name: "Yuki",
@@ -101,13 +103,13 @@ describe("keep and kept", () => {
         cid: "c1" as Cid,
         m: { type: "day:intro" as const, date: Temporal.PlainDate.from("2026-11-03"), intro: "x" },
         at,
-        by: "yuki" as MemberId,
+        by: YUKI,
       },
     ];
-    keep(storage, "r1", { me: "yuki" as MemberId, confirmed: room, pending, savedAt: at });
+    keep(storage, "r1", { me: YUKI, confirmed: room, pending, savedAt: at });
     const back = kept(storage, "r1");
     expect(back?.savedAt.equals(at)).toBe(true);
-    expect(back?.me).toBe("yuki");
+    expect(back?.me).toBe(YUKI);
     expect(back?.confirmed).toEqual(room);
     expect(back?.pending).toEqual(pending);
     const s = (back?.confirmed.notes[0] as Memo).schedule!;
@@ -117,13 +119,13 @@ describe("keep and kept", () => {
 
   test("unanswered changes kept before they were signed are this device's", () => {
     const storage = memoryStorage();
-    keep(storage, "r1", { me: "yuki" as MemberId, confirmed: room, pending: [], savedAt: at });
+    keep(storage, "r1", { me: YUKI, confirmed: room, pending: [], savedAt: at });
     const saved = JSON.parse(storage.getItem("chirashitabi:room:r1")!) as Record<string, unknown>;
     saved.pending = [
       { cid: "c1", m: { type: "day:intro", date: "2026-11-03", intro: "x" }, at: at.toString() },
     ];
     storage.setItem("chirashitabi:room:r1", JSON.stringify(saved));
-    expect(kept(storage, "r1")?.pending[0]?.by).toBe("yuki");
+    expect(kept(storage, "r1")?.pending[0]?.by).toBe(YUKI);
   });
 
   test("kept without who this device is: nothing, since nothing of it could be signed", () => {
@@ -134,7 +136,7 @@ describe("keep and kept", () => {
 
   test("rooms are kept apart", () => {
     const storage = memoryStorage();
-    keep(storage, "r1", { me: "yuki" as MemberId, confirmed: room, pending: [], savedAt: at });
+    keep(storage, "r1", { me: YUKI, confirmed: room, pending: [], savedAt: at });
     expect(kept(storage, "r2")).toBeNull();
   });
 
@@ -146,6 +148,17 @@ describe("keep and kept", () => {
     expect(kept(storage, "r1")).toBeNull();
   });
 
+  test("this version's, but not what keep() wrote: nothing", () => {
+    const storage = memoryStorage();
+    keep(storage, "r1", { me: YUKI, confirmed: room, pending: [], savedAt: at });
+    const saved = JSON.parse(storage.getItem("chirashitabi:room:r1")!) as Record<string, unknown>;
+    storage.setItem(
+      "chirashitabi:room:r1",
+      JSON.stringify({ ...saved, confirmed: { notes: [{ id: "n1" }], trip: null, members: [] } }),
+    );
+    expect(kept(storage, "r1")).toBeNull();
+  });
+
   test("a storage that refuses keeps nothing and throws nothing", () => {
     const full = {
       ...memoryStorage(),
@@ -154,7 +167,7 @@ describe("keep and kept", () => {
       },
     } as Storage;
     expect(() =>
-      keep(full, "r1", { me: "yuki" as MemberId, confirmed: room, pending: [], savedAt: at }),
+      keep(full, "r1", { me: YUKI, confirmed: room, pending: [], savedAt: at }),
     ).not.toThrow();
   });
 });

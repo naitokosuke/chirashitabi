@@ -1,14 +1,17 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import type { MemberId } from "../members/types";
+import * as v from "valibot";
+
+import { MemberIdSchema, type MemberId } from "../members/types";
 
 import type { Pending, RoomState } from "./ledger";
 import {
-  type WireMember,
-  type Cid,
-  type WireMutation,
-  type WireNote,
-  type WireTrip,
+  CidSchema,
+  IsoInstantSchema,
+  WireMemberSchema,
+  WireMutationSchema,
+  WireNoteSchema,
+  WireTripSchema,
   reviveMember,
   reviveMutation,
   reviveNote,
@@ -26,14 +29,33 @@ import {
 const VERSION = 2;
 const keyOf = (roomId: string) => `chirashitabi:room:${roomId}`;
 
-interface Saved {
-  v: typeof VERSION;
-  savedAt: string;
-  me: MemberId;
-  confirmed: { notes: WireNote[]; trip: WireTrip | null; members: WireMember[] };
-  /** `by` since this device signed each one; kept before that, they are all `me`'s */
-  pending: { cid: Cid; m: WireMutation; at: string; by?: MemberId }[];
-}
+/**
+ * What keep() writes, read back as the room's own messages are: one from another version, or
+ * that is not what keep() wrote at all, is none
+ */
+const SavedSchema = v.pipe(
+  v.string(),
+  v.parseJson(),
+  v.object({
+    v: v.literal(VERSION),
+    savedAt: IsoInstantSchema,
+    me: MemberIdSchema,
+    confirmed: v.object({
+      notes: v.array(WireNoteSchema),
+      trip: v.nullable(WireTripSchema),
+      members: v.array(WireMemberSchema),
+    }),
+    /** `by` since this device signed each one; kept before that, they are all `me`'s */
+    pending: v.array(
+      v.object({
+        cid: CidSchema,
+        m: WireMutationSchema,
+        at: IsoInstantSchema,
+        by: v.optional(MemberIdSchema),
+      }),
+    ),
+  }),
+);
 
 /** A room as this device kept it; `me` is who this device is in it, so offline notes are signed */
 export interface Kept {
@@ -67,10 +89,9 @@ export function kept(storage: Storage, roomId: string): Kept | null {
   try {
     const raw = storage.getItem(keyOf(roomId));
     if (raw === null) return null;
-    // what keep() wrote; one from another version is told by `v`, and one that is not even that throws below
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- this device's own copy, written by keep()
-    const saved = JSON.parse(raw) as Saved;
-    if (saved.v !== VERSION || saved.me === "") return null;
+    const read = v.safeParse(SavedSchema, raw);
+    if (!read.success) return null;
+    const saved = read.output;
     return {
       me: saved.me,
       confirmed: {
