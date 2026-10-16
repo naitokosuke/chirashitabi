@@ -30,15 +30,14 @@ export type WireMember =
   | { id: MemberId; kind: "agent"; name: string; color: HexColor };
 
 /** A room as `/api/me` lists it: the trip at a glance, without its notes */
-export interface WireRoomSummary {
+export type WireRoomSummary = {
   name: string;
-  first: IsoDate | null; // the first day; null while the trip has none
-  days: number;
-  members: Omit<WireMember, "id">[];
+  /** The people first, then the agent, as they look: no ids, no roles; who is who stays in the room */
+  members: Pick<WireMember, "kind" | "name" | "color">[];
   memos: number;
   /** Whether the person asking made the trip, and so may delete it (false on an invitation) */
   owner: boolean;
-}
+} & ({ first: null; days: 0 } | { first: IsoDate; days: number }); // the first day, none while it has no days
 
 export interface WireDay {
   date: IsoDate;
@@ -79,13 +78,11 @@ export type WireFlights = Record<Leg, WireFlight | null>;
  * Where the travellers sleep: a name, the first night (YYYY-MM-DD) and how many, and where it
  * is, as a Google Maps link and the point it names, when they gave one
  */
-export interface WireStay {
+export type WireStay = {
   name: string;
   checkIn: IsoDate;
   nights: number;
-  mapsUrl: string | null;
-  pin: { lat: number; lng: number } | null;
-}
+} & ({ mapsUrl: null; pin: null } | { mapsUrl: string; pin: { lat: number; lng: number } | null });
 
 export interface WireSchedule {
   date: IsoDate;
@@ -361,7 +358,9 @@ const parseStay = (v: unknown): WireStay | null => {
   if (typeof nights !== "number" || !Number.isInteger(nights) || nights < 1 || nights > DAYS)
     return null;
   if (!(mapsUrl === null || isUrl(mapsUrl)) || !(pin === null || isLatLng(pin))) return null;
-  return { name: name.trim(), checkIn, nights, mapsUrl, pin };
+  const stay = { name: name.trim(), checkIn, nights };
+  // no link, no point: a pin is only ever the point a link names
+  return mapsUrl === null ? { ...stay, mapsUrl, pin: null } : { ...stay, mapsUrl, pin };
 };
 
 /** What a room is created with */

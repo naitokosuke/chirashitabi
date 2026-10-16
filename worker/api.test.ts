@@ -867,6 +867,34 @@ describe("the socket", () => {
     a.ws.close(1000, "done");
   });
 
+  test("a room from before null times keeps its flights, an unknown time now null", async () => {
+    const owner = "old-flight-room@example.com";
+    const { roomId } = await createRoom(owner);
+    const worker = server.getWorker();
+    const room = await worker.getDurableObjectStorage("Room", { name: roomId });
+    // the flights table as it was: times NOT NULL, one not known yet written ""
+    await room.exec("DROP TABLE flights");
+    await room.exec(`CREATE TABLE flights (
+      leg TEXT PRIMARY KEY CHECK (leg IN ('out', 'back')), number TEXT NOT NULL,
+      from_place TEXT NOT NULL, to_place TEXT NOT NULL, departs TEXT NOT NULL, arrives TEXT NOT NULL)`);
+    await room.exec(
+      `INSERT INTO flights (leg, number, from_place, to_place, departs, arrives)
+       VALUES ('out', 'BR 191', 'HND', 'TSA', '2026-11-03T08:50', '')`,
+    );
+    await worker.evictDurableObject("Room", { name: roomId });
+
+    const a = await connect(roomId, owner);
+    expect(a.snapshot).toMatchObject({
+      trip: {
+        flights: {
+          out: { number: "BR 191", departs: "2026-11-03T08:50", arrives: null },
+          back: null,
+        },
+      },
+    });
+    a.ws.close(1000, "done");
+  });
+
   test("a room from before text boxes takes them once its notes are copied over", async () => {
     const owner = "old-room@example.com";
     const { roomId } = await createRoom(owner);

@@ -76,7 +76,7 @@ const room: RoomState = {
         name: "Hotel Proverbs",
         checkIn: Temporal.PlainDate.from("2026-11-03"),
         nights: 1,
-        mapsUrl: null,
+        mapsUrl: "https://www.google.com/maps?q=25.04,121.55",
         pin: { lat: 25.04, lng: 121.55 },
       },
     ],

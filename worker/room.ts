@@ -161,14 +161,6 @@ export class Room extends DurableObject<Env> {
         id TEXT PRIMARY KEY,
         created_at TEXT NOT NULL
       );
-      CREATE TABLE IF NOT EXISTS flights (
-        leg TEXT PRIMARY KEY CHECK (leg IN ('out', 'back')),
-        number TEXT NOT NULL,
-        from_place TEXT NOT NULL,
-        to_place TEXT NOT NULL,
-        departs TEXT NOT NULL,
-        arrives TEXT NOT NULL
-      );
       CREATE TABLE IF NOT EXISTS stays (
         position INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
@@ -184,6 +176,25 @@ export class Room extends DurableObject<Env> {
         at TEXT NOT NULL
       );
     `);
+    ctx.storage.sql.exec(flightsTable("flights"));
+    // flights kept when a time not known yet was written "" (its columns were NOT NULL then) are
+    // copied once into a table where it is null, every column by name
+    const { sql: flightsDdl } = ctx.storage.sql
+      .exec<{ sql: string }>(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'flights'",
+      )
+      .one();
+    if (flightsDdl.includes("departs TEXT NOT NULL")) {
+      ctx.storage.transactionSync(() => {
+        const sql = ctx.storage.sql;
+        sql.exec(flightsTable("flights_next"));
+        sql.exec(`INSERT INTO flights_next (leg, number, from_place, to_place, departs, arrives)
+          SELECT leg, number, from_place, to_place, NULLIF(departs, ''), NULLIF(arrives, '')
+          FROM flights`);
+        sql.exec("DROP TABLE flights");
+        sql.exec("ALTER TABLE flights_next RENAME TO flights");
+      });
+    }
     // a flight kept before its airports had to be codes on the list: one it names by a code in
     // another case, a name or a Japanese name becomes that code; one it names by nothing on the
     // list stays as written, out of the snapshot (trip()), until a member sets it again
@@ -505,7 +516,11 @@ export class Room extends DurableObject<Env> {
       .exec<{ memos: number }>("SELECT COUNT(*) AS memos FROM notes WHERE kind = 'memo'")
       .one();
     const owner = by !== null && by === this.ownerId();
-    return { name, first: days[0] ?? null, days: days.length, members, memos, owner };
+    const [first] = days;
+    const glance = { name, members, memos, owner };
+    return first === undefined
+      ? { ...glance, first: null, days: 0 }
+      : { ...glance, first, days: days.length };
   }
 
   // ---- the agent (RPC from the Worker, inside a member's request) ----
@@ -784,8 +799,8 @@ export class Room extends DurableObject<Env> {
         number: string;
         from_place: string;
         to_place: string;
-        departs: IsoDateTime | "";
-        arrives: IsoDateTime | "";
+        departs: IsoDateTime | null;
+        arrives: IsoDateTime | null;
       }>("SELECT * FROM flights")
       .toArray()) {
       const { from_place: from, to_place: to } = f;
@@ -795,9 +810,8 @@ export class Room extends DurableObject<Env> {
         number: f.number,
         from,
         to,
-        // a time not known yet is kept as "" (the columns were made NOT NULL before it could be)
-        departs: f.departs === "" ? null : f.departs,
-        arrives: f.arrives === "" ? null : f.arrives,
+        departs: f.departs,
+        arrives: f.arrives,
       };
     }
     const stays = sql
@@ -810,13 +824,15 @@ export class Room extends DurableObject<Env> {
         pin_lng: number | null;
       }>("SELECT * FROM stays ORDER BY position")
       .toArray()
-      .map((s): WireStay => ({
-        name: s.name,
-        checkIn: s.check_in,
-        nights: s.nights,
-        mapsUrl: s.maps_url,
-        pin: s.pin_lat === null || s.pin_lng === null ? null : { lat: s.pin_lat, lng: s.pin_lng },
-      }));
+      .map((s): WireStay => {
+        const stay = { name: s.name, checkIn: s.check_in, nights: s.nights };
+        const pin =
+          s.pin_lat === null || s.pin_lng === null ? null : { lat: s.pin_lat, lng: s.pin_lng };
+        // no link, no point: a pin is only ever the point a link names
+        return s.maps_url === null
+          ? { ...stay, mapsUrl: null, pin: null }
+          : { ...stay, mapsUrl: s.maps_url, pin };
+      });
     return {
       name: t.name,
       currency: t.currency,
@@ -1031,8 +1047,8 @@ export class Room extends DurableObject<Env> {
             m.flight.number,
             m.flight.from,
             m.flight.to,
-            m.flight.departs ?? "",
-            m.flight.arrives ?? "",
+            m.flight.departs,
+            m.flight.arrives,
           );
         return { ok: true, value: m };
       }
@@ -1195,3 +1211,15 @@ const fromRow = (r: NoteRow): WireNote => {
 /** Now, as the room stamps what it applies */
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
 const stamp = (): IsoInstant => new Date().toISOString() as IsoInstant;
+
+/** The trip's flights, one a leg; a time not known yet is null */
+const flightsTable = (name: string) => `
+  CREATE TABLE IF NOT EXISTS ${name} (
+    leg TEXT PRIMARY KEY CHECK (leg IN ('out', 'back')),
+    number TEXT NOT NULL,
+    from_place TEXT NOT NULL,
+    to_place TEXT NOT NULL,
+    departs TEXT,
+    arrives TEXT
+  )
+`;
