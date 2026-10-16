@@ -11,6 +11,7 @@ import { useI18n } from "../../../i18n/useI18n";
 
 import { usePlace } from "../../../features/canvas/usePlace";
 import People from "../../../features/members/People.vue";
+import type { MemberId } from "../../../features/members/types";
 import { useMembers } from "../../../features/members/useMembers";
 import type { NoteId } from "../../../features/notes/id";
 import { blankInput } from "../../../features/notes/input";
@@ -19,6 +20,7 @@ import { useNotes } from "../../../features/notes/useNotes";
 import Todos from "../../../features/todos/Todos.vue";
 import FlightLine from "../../../features/trip/FlightLine.vue";
 import { shortDate, weekday } from "../../../features/trip/format";
+import { settle, spentOf } from "../../../features/trip/itinerary";
 import StayLine from "../../../features/trip/StayLine.vue";
 import TripEditor from "../../../features/trip/TripEditor.vue";
 import { useTrip } from "../../../features/trip/useTrip";
@@ -67,6 +69,16 @@ const share = (count: number) => (piles.value.total === 0 ? 0 : count);
 
 const fixedTotal = computed(() => budgetOf(undefined, true));
 const allTotal = computed(() => budgetOf(undefined, false));
+const spent = computed(() => spentOf(notes.value ?? []));
+/** Who pays whom to split what was paid evenly; empty while there are not two to settle between */
+const settleLine = computed(() => {
+  const [a, b, ...more] = (members.value ?? []).filter((m) => m.kind === "person");
+  if (a === undefined || b === undefined || more.length > 0) return "";
+  const s = settle(notes.value ?? [], [a.id, b.id]);
+  if (s === null) return i18n.t("home.even");
+  const nameOf = (id: MemberId) => (id === a.id ? a.name : b.name);
+  return i18n.t("home.owes", { from: nameOf(s.from), to: nameOf(s.to), amount: price(s.amount) });
+});
 </script>
 
 <template>
@@ -147,6 +159,16 @@ const allTotal = computed(() => budgetOf(undefined, false));
       <p><small>{{ i18n.t("home.budget") }}</small>{{ price(fixedTotal) }}<small
           v-if="allTotal > fixedTotal"
         >{{ i18n.t("shiori.withMaybes", { total: price(allTotal) }) }}</small></p>
+
+      <!-- what was actually paid against the plan, and how the two even it up at the end -->
+      <template v-if="spent > 0">
+        <p><small>{{ i18n.t("home.spent") }}</small>{{ price(spent) }}<small>{{
+            spent > fixedTotal
+              ? i18n.t("home.over", { amount: price(spent - fixedTotal) })
+              : i18n.t("home.left", { amount: price(fixedTotal - spent) })
+          }}</small></p>
+        <p v-if="settleLine !== ''" class="settle">{{ settleLine }}</p>
+      </template>
 
       <Todos @add="addTodo" @open="openNote" />
 
@@ -389,6 +411,12 @@ section {
           margin-inline: 0 8px;
           font-weight: 700;
         }
+      }
+
+      /* who pays whom, under what was spent */
+      &.settle {
+        margin-block-start: -20px;
+        font-size: var(--font-md);
       }
     }
   }

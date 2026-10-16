@@ -104,6 +104,8 @@ export function reviveNote(n: WireNote): Note {
     // nor one kept before to-dos had a day and someone to do them
     due: n.due == null ? null : Temporal.PlainDate.from(n.due),
     assignee: n.assignee ?? null,
+    // nor one kept before spending
+    paid: n.paid ?? null,
   };
 }
 

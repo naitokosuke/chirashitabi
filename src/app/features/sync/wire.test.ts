@@ -4,6 +4,7 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { hexColor } from "../../shared/color";
 
+import type { MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
 import type { NewMemo, Tag } from "../notes/types";
 import type { AirportCode } from "../place/airports";
@@ -12,6 +13,7 @@ import type { Mutation } from "./types";
 import { reviveMutation, wireMutation, type WireMutation } from "./wire";
 
 const id = "a" as NoteId;
+const payer = "3f2b8c1e-4d5a-4b6c-9e7f-0a1b2c3d4e5f" as MemberId;
 const memo: NewMemo = {
   id,
   kind: "memo",
@@ -38,6 +40,7 @@ const memo: NewMemo = {
   booking: null,
   due: null,
   assignee: null,
+  paid: null,
 };
 const flight = {
   number: "BR 191",
@@ -73,6 +76,8 @@ const MUTATIONS: Mutation[] = [
   { type: "note:update", id, patch: { booking: { state: "needed", by: null } } },
   { type: "note:update", id, patch: { booking: { state: "booked", code: "A1", url: null } } },
   { type: "note:update", id, patch: { booking: null, minutes: 90, hours: "Mo-Su 10:00-20:00" } },
+  { type: "note:update", id, patch: { budget: 800, paid: { amount: 760, by: payer } } },
+  { type: "note:update", id, patch: { paid: null } },
   {
     type: "note:add",
     note: { ...memo, booking: { state: "needed", by: Temporal.PlainDate.from("2026-10-20") } },
