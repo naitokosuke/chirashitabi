@@ -8,7 +8,17 @@ import type { Memo, NoteStatus, Scheduled } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 import type { DayDraft } from "../worker/types";
 
-import { draftUpdates, endOf, flightDays, forDay, stayOn, timing, wakeAt } from "./itinerary";
+import {
+  draftUpdates,
+  endOf,
+  flightDays,
+  forDay,
+  settle,
+  spentOf,
+  stayOn,
+  timing,
+  wakeAt,
+} from "./itinerary";
 import type { Stay } from "./types";
 
 const day = Temporal.PlainDate.from("2026-11-03");
@@ -38,6 +48,7 @@ function memo(id: string, time: string | null, status: NoteStatus, editedAt: str
     booking: null,
     due: null,
     assignee: null,
+    paid: null,
   };
 }
 
@@ -141,6 +152,39 @@ describe("forDay", () => {
       memo("loose-b", null, "idea", "2026-10-01T00:00:00Z"),
     ];
     expect(ids(forDay(notes, day))).toEqual(["first", "second", "loose-a", "loose-b"]);
+  });
+});
+
+describe("spentOf and settle", () => {
+  const yuki = "yuki" as MemberId;
+  const ken = "ken" as MemberId;
+  const gone = "gone" as MemberId;
+  const paid = (id: string, amount: number, by: MemberId): Memo => ({
+    ...memo(id, null, "fixed", "2026-10-01T00:00:00Z"),
+    paid: { amount, by },
+  });
+
+  test("what was paid adds up, whoever paid it", () => {
+    const notes = [
+      paid("a", 760, ken),
+      paid("b", 380, yuki),
+      memo("c", null, "idea", "2026-10-01T00:00:00Z"),
+    ];
+    expect(spentOf(notes)).toBe(1140);
+  });
+
+  test("the one who paid less pays the other half the difference", () => {
+    const notes = [paid("a", 760, ken), paid("b", 380, yuki)];
+    expect(settle(notes, [yuki, ken])).toEqual({ from: yuki, to: ken, amount: 190 });
+    expect(settle(notes, [ken, yuki])).toEqual({ from: yuki, to: ken, amount: 190 });
+  });
+
+  test("even, or paid by someone no longer in the trip, settles nothing", () => {
+    expect(settle([paid("a", 500, ken), paid("b", 500, yuki)], [yuki, ken])).toBeNull();
+    const fractions = [paid("a", 0.1, ken), paid("b", 0.2, ken), paid("c", 0.3, yuki)];
+    expect(settle(fractions, [yuki, ken])).toBeNull();
+    expect(settle([paid("a", 500, gone)], [yuki, ken])).toBeNull();
+    expect(settle([], [yuki, ken])).toBeNull();
   });
 });
 

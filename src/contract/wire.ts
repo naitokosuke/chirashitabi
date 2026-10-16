@@ -254,6 +254,11 @@ const BookingSchema = v.variant("state", [
   }),
 ]);
 export type WireBooking = v.InferOutput<typeof BookingSchema>;
+/** What was actually paid for a memo's plan, in the trip's currency, and which member paid it */
+const PaidSchema = v.object({
+  amount: v.pipe(v.number(), v.finite(), v.gtValue(0), v.maxValue(1e9)),
+  by: MemberIdSchema,
+});
 /** How long a memo's plan takes there, in whole minutes: a day at most */
 const MinutesSchema = v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(24 * 60));
 /** A point on the desk, as `{ x, y }` within the canvas's bounds */
@@ -296,6 +301,8 @@ const memo = {
   due: v.optional(v.nullable(IsoDateSchema), null),
   /** Who is to do it; null for whoever. None from an older client: whoever */
   assignee: v.optional(v.nullable(MemberIdSchema), null),
+  /** What was actually paid and who paid it; null for nothing yet. None from an older client: nothing yet */
+  paid: v.optional(v.nullable(PaidSchema), null),
 };
 const suggestion = { ...card, kind: v.literal("suggestion") };
 /** Words set straight on the desk, with no paper under them: a heading, a label. `title` is the text */
@@ -339,6 +346,7 @@ const WireMemoPatchSchema = v.strictObject({
   booking: v.optional(v.nullable(BookingSchema)),
   due: v.optional(v.nullable(IsoDateSchema)),
   assignee: v.optional(v.nullable(MemberIdSchema)),
+  paid: v.optional(v.nullable(PaidSchema)),
   x: v.optional(memo.x),
   y: v.optional(memo.y),
   rot: v.optional(memo.rot),
