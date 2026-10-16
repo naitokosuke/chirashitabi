@@ -66,7 +66,7 @@ export const mockNotes = (): Note[] => [
   n({
     title: "Din Tai Fung xiaolongbao",
     pin: pin(25.0335, 121.5301),
-    body: "The main shop has a queue; the Taipei 101 branch is fine",
+    body: "The main shop has a queue; the Taipei 101 branch is fine https://www.dintaifung.com.tw/",
     tags: tags("Food"),
     x: 40,
     y: 40,

@@ -177,6 +177,7 @@ export const ja: Messages = {
   "canvas.text": "机の上の文字",
   "canvas.sticker": "ステッカー",
   "canvas.stickerSending": "貼っています…",
+  "canvas.pastedPlace": "地図の場所",
   "canvas.stickerAdded": "ステッカーを貼りました",
   "canvas.stickerFailed": "ステッカーを貼れませんでした。もう一度試してください。",
   "canvas.duplicate": "複製",

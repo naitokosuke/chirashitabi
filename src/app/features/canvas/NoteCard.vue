@@ -5,7 +5,7 @@ import { useI18n } from "../../i18n/useI18n";
 
 import { useMembers } from "../members/useMembers";
 import { imageSrc } from "../notes/image";
-import { siteOf } from "../notes/links";
+import { segments, siteOf } from "../notes/links";
 import { PAPERS, type Note } from "../notes/types";
 import { safeUrl } from "../place/google-maps";
 import { useSync } from "../sync/useSync";
@@ -96,7 +96,14 @@ const day = computed(() => {
         @click.stop
       >{{ siteOf(note.link) }}</a>
       <p>{{ note.title }}</p>
-      <p v-if="note.body !== ''">{{ note.body }}</p>
+      <p v-if="note.body !== ''"><template v-for="(s, i) in segments(note.body)" :key="i"><a
+            v-if="s.kind === 'link'"
+            :href="s.url"
+            rel="noopener noreferrer"
+            target="_blank"
+            @pointerdown.stop
+            @click.stop
+          >{{ s.url }}</a><template v-else>{{ s.text }}</template></template></p>
       <ul v-if="note.tags.length > 0"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
       <!-- its day on the trip, once it has one: the desk shows how far the plan has come -->
       <time v-if="note.schedule !== null" :datetime="note.schedule.date.toString()">{{ day }}</time>
@@ -191,11 +198,17 @@ div {
     word-break: break-word;
   }
 
-  /* the body, under the title */
+  /* the body, under the title; a link in it is tapped, in the paper's ink */
   > p + p {
     margin: 4px 0 0;
     font-size: var(--font-xs);
     color: var(--paper-muted);
+    overflow-wrap: anywhere;
+
+    > a {
+      color: var(--paper-ink);
+      text-underline-offset: 2px;
+    }
   }
 
   > ul {

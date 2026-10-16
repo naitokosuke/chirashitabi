@@ -19,7 +19,7 @@ import { useI18n } from "../../../i18n/useI18n";
 
 import { useMembers } from "../../../features/members/useMembers";
 import type { NoteId } from "../../../features/notes/id";
-import { siteOf } from "../../../features/notes/links";
+import { segments, siteOf } from "../../../features/notes/links";
 import {
   ARRIVAL_TAG,
   PACKING_TAG,
@@ -596,7 +596,12 @@ function adoptDraft() {
                 </div>
                 <div>
                   <p>{{ n.title }}</p>
-                  <p v-if="n.body !== ''">{{ n.body }}</p>
+                  <p v-if="n.body !== ''"><template v-for="(s, i) in segments(n.body)" :key="i"><a
+                        v-if="s.kind === 'link'"
+                        :href="s.url"
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      >{{ s.url }}</a><template v-else>{{ s.text }}</template></template></p>
                   <!-- when its place is open that day, and whether the plan falls while it is shut -->
                   <p v-if="hoursOn(n) !== ''" class="hours">{{ hoursOn(n) }}</p>
                   <p v-if="shutWarning(n) !== ''" class="warn">{{ shutWarning(n) }}</p>

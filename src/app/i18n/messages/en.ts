@@ -198,6 +198,7 @@ one {{From {$date} · {$count} night}}
   "canvas.sticker": "Sticker",
   "canvas.stickerSending": "Sticking…",
   "canvas.stickerAdded": "Stuck a sticker",
+  "canvas.pastedPlace": "A place on the map",
   "canvas.stickerFailed": "The sticker did not go through. Try it again.",
   "canvas.duplicate": "Duplicate",
   "canvas.delete": "Delete",
