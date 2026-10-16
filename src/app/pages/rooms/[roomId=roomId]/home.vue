@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import type { Temporal } from "temporal-polyfill-lite";
+import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
@@ -17,6 +17,7 @@ import type { NoteId } from "../../../features/notes/id";
 import { blankInput } from "../../../features/notes/input";
 import { TODO_TAG, type Note } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
+import { whenOf } from "../../../features/rooms/when";
 import Todos from "../../../features/todos/Todos.vue";
 import FlightLine from "../../../features/trip/FlightLine.vue";
 import { shortDate, weekday } from "../../../features/trip/format";
@@ -58,6 +59,16 @@ const range = computed(() => {
   return first.equals(last) ? short(first) : `${short(first)} – ${short(last)}`;
 });
 
+/** Before the trip (or while it has no days yet), what there is to do before it comes first */
+const ahead = computed(() => {
+  const days = trip.value?.days ?? [];
+  const when = whenOf(
+    { first: days[0]?.date ?? null, days: days.length },
+    Temporal.Now.plainDateISO(),
+  );
+  return when.kind === "ahead" || when.kind === "undated";
+});
+
 /** Every memo in one of three piles: confirmed (or done), on a day as a maybe, or not on a day yet */
 const piles = computed(() => {
   const memos = (notes.value ?? []).filter((n) => n.kind === "memo");
@@ -74,7 +85,8 @@ const allTotal = computed(() => budgetOf(undefined, false));
 
 <template>
   <section>
-    <div>
+    <!-- a phone: one column; a computer: the plan on the main column, to-dos and people beside it -->
+    <div :data-ahead="ahead || undefined">
       <header>
         <h1>{{ trip?.name }}</h1>
         <p v-if="range !== ''">{{ range }} · {{ i18n.t("home.days", { count: trip?.days.length ?? 0 }) }}</p>
@@ -87,73 +99,80 @@ const allTotal = computed(() => budgetOf(undefined, false));
         </ul>
       </header>
 
-      <!-- how the trip goes: its flights and stays, and the way to change them, its name and dates -->
-      <TripEditor v-if="editing && trip !== undefined" :trip @close="() => (editing = false)" />
-      <div v-else class="plan">
-        <FlightLine
-          v-if="trip !== undefined && trip.flights.out !== null"
-          leg="out"
-          :flight="trip.flights.out"
-          :on="trip.days[0]?.date"
-        />
-        <FlightLine
-          v-if="trip !== undefined && trip.flights.back !== null"
-          leg="back"
-          :flight="trip.flights.back"
-          :on="trip.days.at(-1)?.date"
-        />
-        <StayLine v-for="(s, i) in trip?.stays" :key="i" :label="i18n.t('stay.title')" :stay="s" />
-        <button type="button" @click="() => (editing = true)">{{ i18n.t("trip.edit") }}</button>
+      <div class="main">
+        <!-- how the trip goes: its flights and stays, and the way to change them, its name and dates -->
+        <div class="plan">
+          <TripEditor v-if="editing && trip !== undefined" :trip @close="() => (editing = false)" />
+          <template v-else>
+            <FlightLine
+              v-if="trip !== undefined && trip.flights.out !== null"
+              leg="out"
+              :flight="trip.flights.out"
+              :on="trip.days[0]?.date"
+            />
+            <FlightLine
+              v-if="trip !== undefined && trip.flights.back !== null"
+              leg="back"
+              :flight="trip.flights.back"
+              :on="trip.days.at(-1)?.date"
+            />
+            <StayLine v-for="(s, i) in trip?.stays" :key="i" :label="i18n.t('stay.title')" :stay="s" />
+            <button type="button" @click="() => (editing = true)">{{ i18n.t("trip.edit") }}</button>
+          </template>
+        </div>
+
+        <!-- the days side by side, each a stack of its notes in their own paper; maybes faded.
+           Wide, each slip is long enough to carry its title -->
+        <ol v-if="trip !== undefined && trip.days.length > 0" class="days">
+          <li
+            v-for="d in trip?.days"
+            :key="d.date.toString()"
+            :aria-label="i18n.t('home.day', { date: short(d.date), count: forDay(d.date).length })"
+          >
+            <div aria-hidden="true">
+              <span
+                v-for="n in forDay(d.date)"
+                :key="n.id"
+                :data-maybe="n.schedule.status === 'idea' || undefined"
+                :style="`background: ${paperFor(n)}`"
+              >{{ n.title }}</span>
+            </div>
+            <time aria-hidden="true" :datetime="d.date.toString()">{{ short(d.date) }}<small>{{
+                weekday(d.date, i18n.locale)
+              }}</small></time>
+          </li>
+        </ol>
+
+        <!-- how far the plan has come: one bar, three piles -->
+        <figure>
+          <div aria-hidden="true">
+            <span class="confirmed" :style="`flex-grow: ${share(piles.fixed)}`"></span>
+            <span class="maybe" :style="`flex-grow: ${share(piles.maybe)}`"></span>
+            <span class="loose" :style="`flex-grow: ${share(piles.loose)}`"></span>
+          </div>
+          <ul>
+            <li class="confirmed"><span aria-hidden="true"></span>{{ i18n.t("home.fixed") }}<b>{{
+                piles.fixed
+              }}</b></li>
+            <li class="maybe"><span aria-hidden="true"></span>{{ i18n.t("home.maybe") }}<b>{{
+                piles.maybe
+              }}</b></li>
+            <li class="loose"><span aria-hidden="true"></span>{{ i18n.t("home.loose") }}<b>{{
+                piles.loose
+              }}</b></li>
+          </ul>
+        </figure>
+
+        <p class="budget"><small>{{ i18n.t("home.budget") }}</small>{{ price(fixedTotal) }}<small
+            v-if="allTotal > fixedTotal"
+          >{{ i18n.t("shiori.withMaybes", { total: price(allTotal) }) }}</small></p>
       </div>
 
-      <!-- the days side by side, each a stack of its notes in their own paper; maybes faded -->
-      <ol v-if="trip !== undefined && trip.days.length > 0">
-        <li
-          v-for="d in trip?.days"
-          :key="d.date.toString()"
-          :aria-label="i18n.t('home.day', { date: short(d.date), count: forDay(d.date).length })"
-        >
-          <div aria-hidden="true">
-            <span
-              v-for="n in forDay(d.date)"
-              :key="n.id"
-              :data-maybe="n.schedule.status === 'idea' || undefined"
-              :style="`background: ${paperFor(n)}`"
-            ></span>
-          </div>
-          <time aria-hidden="true" :datetime="d.date.toString()">{{ short(d.date) }}<small>{{
-              weekday(d.date, i18n.locale)
-            }}</small></time>
-        </li>
-      </ol>
+      <div class="side">
+        <Todos @add="addTodo" @open="openNote" />
 
-      <!-- how far the plan has come: one bar, three piles -->
-      <figure>
-        <div aria-hidden="true">
-          <span class="confirmed" :style="`flex-grow: ${share(piles.fixed)}`"></span>
-          <span class="maybe" :style="`flex-grow: ${share(piles.maybe)}`"></span>
-          <span class="loose" :style="`flex-grow: ${share(piles.loose)}`"></span>
-        </div>
-        <ul>
-          <li class="confirmed"><span aria-hidden="true"></span>{{ i18n.t("home.fixed") }}<b>{{
-              piles.fixed
-            }}</b></li>
-          <li class="maybe"><span aria-hidden="true"></span>{{ i18n.t("home.maybe") }}<b>{{
-              piles.maybe
-            }}</b></li>
-          <li class="loose"><span aria-hidden="true"></span>{{ i18n.t("home.loose") }}<b>{{
-              piles.loose
-            }}</b></li>
-        </ul>
-      </figure>
-
-      <p><small>{{ i18n.t("home.budget") }}</small>{{ price(fixedTotal) }}<small
-          v-if="allTotal > fixedTotal"
-        >{{ i18n.t("shiori.withMaybes", { total: price(allTotal) }) }}</small></p>
-
-      <Todos @add="addTodo" @open="openNote" />
-
-      <People @out="toTrips" />
+        <People @out="toTrips" />
+      </div>
     </div>
   </section>
 </template>
@@ -177,8 +196,42 @@ section {
     flex-direction: column;
     gap: 28px;
 
+    /* a phone: the two columns are one, in this order; before the trip, its to-dos come first */
+    > .main,
+    > .side {
+      display: contents;
+    }
+
+    .plan {
+      order: 2;
+    }
+
+    .days {
+      order: 3;
+    }
+
+    figure {
+      order: 4;
+    }
+
+    .budget {
+      order: 5;
+    }
+
+    .todos {
+      order: 6;
+    }
+
+    .people {
+      order: 7;
+    }
+
+    &[data-ahead] .todos {
+      order: 1;
+    }
+
     /* the flights, one ticket strip each, and the way into the trip's settings under them */
-    > .plan {
+    .main > .plan {
       display: grid;
       gap: 8px;
 
@@ -254,7 +307,7 @@ section {
     }
 
     /* one column per day, its notes stacked from the bottom like paper on a spike */
-    > ol {
+    .main > .days {
       list-style: none;
       margin: 0;
       padding: 16px 12px 12px;
@@ -282,9 +335,12 @@ section {
           padding-block-end: 6px;
           border-block-end: 1px solid var(--line);
 
+          /* a slip too short for its title, which is there for a wider screen */
           > span {
             width: min(44px, 100%);
             height: 14px;
+            overflow: hidden;
+            font-size: 0;
             border-radius: 3px;
             box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
 
@@ -314,9 +370,40 @@ section {
           }
         }
       }
+
+      /*
+       * Wider than a phone, the days wrap into rows of columns wide enough for a slip to carry
+       * its title, read from the top in the day's order and still stacked down onto the spike
+       */
+      @media (--wide) {
+        grid-auto-flow: row;
+        grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+        gap: 20px 10px;
+        padding: 20px 16px 16px;
+
+        > li > div {
+          min-height: 144px;
+          flex-direction: column;
+          justify-content: flex-end;
+          gap: 4px;
+
+          > span {
+            width: 100%;
+            height: auto;
+            box-sizing: border-box;
+            padding: 4px 6px;
+            font-size: var(--font-xs);
+            font-weight: 700;
+            line-height: 1.3;
+            color: var(--paper-ink);
+            white-space: nowrap;
+            text-overflow: ellipsis;
+          }
+        }
+      }
     }
 
-    > figure {
+    .main > figure {
       margin: 0;
 
       /* each pile's ink, shared by its piece of the bar and its key */
@@ -376,7 +463,7 @@ section {
       }
     }
 
-    > p {
+    .main > .budget {
       margin: 0;
       font-size: var(--font-4xl);
       font-weight: 700;
@@ -391,6 +478,87 @@ section {
         &:first-child {
           margin-inline: 0 8px;
           font-weight: 700;
+        }
+      }
+    }
+
+    /*
+     * A computer: a dashboard as wide as 1200px. The main column has the days large enough to
+     * read their slips, the progress and budget side by side, then the flights and stays; to its
+     * end, the to-dos on a panel of their own, then the people.
+     */
+    @media (--desktop) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+      align-content: start;
+      align-items: start;
+      gap: 36px 40px;
+      padding-inline: max(32px, (100% - 1200px) / 2);
+
+      > header {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        column-gap: 24px;
+
+        > h1,
+        > p {
+          grid-column: 1;
+        }
+
+        > ul {
+          grid-column: 2;
+          grid-row: 1 / span 2;
+          margin: 0;
+        }
+      }
+
+      > .main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 28px 40px;
+
+        > .days {
+          order: 0;
+          grid-column: 1 / -1;
+
+          > li > div {
+            min-height: 184px;
+          }
+        }
+
+        > figure {
+          order: 1;
+        }
+
+        > .budget {
+          order: 2;
+          text-align: end;
+        }
+
+        > .plan {
+          order: 3;
+          grid-column: 1 / -1;
+        }
+      }
+
+      > .side {
+        display: flex;
+        flex-direction: column;
+        gap: 36px;
+
+        > .todos {
+          order: 0;
+          padding: 16px 16px 8px;
+          background: var(--surface);
+          border: 1px solid var(--line);
+          border-radius: 14px;
+        }
+
+        > .people {
+          order: 1;
         }
       }
     }

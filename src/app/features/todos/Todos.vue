@@ -107,9 +107,11 @@ function markBooked(n: Memo) {
   flex-direction: column;
   gap: 10px;
 
+  /* a heading like the people's under it */
   > h2 {
     margin: 0;
-    font-size: var(--font-md);
+    font-size: var(--font-2xl);
+    line-height: 1.35;
     display: flex;
     align-items: center;
     gap: 8px;
