@@ -123,7 +123,7 @@ async function walk(e: KeyboardEvent, day: Temporal.PlainDate) {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="week in weeks" :key="week[0]!.toString()">
+        <tr v-for="week in weeks" :key="week[0].toString()">
           <td
             v-for="day in week"
             :key="day.toString()"

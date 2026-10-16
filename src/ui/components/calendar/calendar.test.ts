@@ -11,7 +11,7 @@ describe("weeksOf", () => {
     // November 2026 starts on a Sunday and ends on a Monday
     const weeks = weeksOf(Temporal.PlainYearMonth.from("2026-11"));
     expect(weeks).toHaveLength(5);
-    expect(weeks[0]![0]!.toString()).toBe("2026-11-01");
+    expect(weeks[0]![0].toString()).toBe("2026-11-01");
     expect(weeks[4]!.map((x) => x.toString())).toEqual([
       "2026-11-29",
       "2026-11-30",

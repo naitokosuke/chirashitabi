@@ -10,13 +10,17 @@ export interface DateRange {
  * The weeks from Sunday that hold the month's days, whole, so the first and the last run
  * into the months either side: what the calendar draws, row by row
  */
-export function weeksOf(month: Temporal.PlainYearMonth): Temporal.PlainDate[][] {
+export function weeksOf(
+  month: Temporal.PlainYearMonth,
+): [Temporal.PlainDate, ...Temporal.PlainDate[]][] {
   const first = month.toPlainDate({ day: 1 });
   const before = first.dayOfWeek % 7;
   const sunday = first.subtract({ days: before });
-  return Array.from({ length: Math.ceil((before + month.daysInMonth) / 7) }, (_, w) =>
-    Array.from({ length: 7 }, (_, d) => sunday.add({ days: w * 7 + d })),
-  );
+  return Array.from({ length: Math.ceil((before + month.daysInMonth) / 7) }, (_, w) => {
+    // a row starts on its Sunday, so it is never empty
+    const start = sunday.add({ days: w * 7 });
+    return [start, ...Array.from({ length: 6 }, (_, d) => start.add({ days: d + 1 }))];
+  });
 }
 
 /**
