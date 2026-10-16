@@ -45,6 +45,7 @@ import {
 } from "../place/google-maps";
 import { readHours } from "../place/hours";
 import type { FoundPlace } from "../place/types";
+import { useOffline } from "../sync/useOffline";
 import { useSync } from "../sync/useSync";
 import { FITS_AT, fits, likeness, rankTags, type TagOption } from "../tags/rank";
 import { useTags } from "../tags/useTags";
@@ -71,6 +72,8 @@ const store = useNotes();
 const { notes } = store;
 const tags = useTags();
 const i18n = useI18n();
+/** Cut off: what needs the Worker is not offered */
+const cut = useOffline();
 const id = useId();
 const docked = computed(() => props.mode.kind === "tab");
 const active = computed(() => props.mode.kind === "tab" && props.mode.active);
@@ -152,7 +155,7 @@ function onMapsUrl() {
   Object.assign(form.value, placeFromUrl(mapsUrl.value, form.value.pin));
   const short = mapsUrl.value.trim();
   const api = worker.api;
-  if (api === null || !isShortMapsLink(short) || short === expandedFrom) return;
+  if (api === null || cut.offline || !isShortMapsLink(short) || short === expandedFrom) return;
   expandedFrom = short;
   // a shared short link hides its point: the Worker reads where it leads, and the link becomes
   // that one, unless something else was pasted meanwhile
@@ -609,11 +612,12 @@ function submit() {
           <button
             v-if="askByTap"
             type="button"
-            :disabled="tagState === 'asking' || !text.trim()"
+            :disabled="tagState === 'asking' || !text.trim() || cut.offline"
             :aria-busy="tagState === 'asking'"
             @click="() => askForTags(true)"
           >{{ i18n.t("form.suggestTags") }}</button>
           <p v-if="tagState !== 'idle'" aria-live="polite">{{ i18n.t(TAG_STATE[tagState]) }}</p>
+          <p v-else-if="askByTap && cut.offline">{{ i18n.t("offline.unavailable") }}</p>
         </div>
       </div>
       <div>
@@ -648,7 +652,7 @@ function submit() {
         <div v-if="worker.api !== null" class="places">
           <button
             type="button"
-            :disabled="places.kind === 'asking' || !text.trim()"
+            :disabled="places.kind === 'asking' || !text.trim() || cut.offline"
             :aria-busy="places.kind === 'asking'"
             @click="findPlaces"
           >{{ i18n.t("form.findPlace") }}</button>
@@ -666,6 +670,7 @@ function submit() {
           <p v-if="places.kind !== 'idle'" aria-live="polite">{{
             i18n.t(PLACE_STATE[places.kind])
           }}</p>
+          <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
         </div>
       </div>
       <div>
@@ -743,10 +748,11 @@ function submit() {
           :id="`${id}-photo`"
           accept="image/*"
           type="file"
-          :disabled="photo === 'sending'"
+          :disabled="photo === 'sending' || cut.offline"
           @change="onPhoto"
         />
         <p v-if="photo !== 'idle'" aria-live="polite">{{ i18n.t(PHOTO_STATE[photo]) }}</p>
+        <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
       </div>
       <fieldset>
         <legend>{{ i18n.t("form.color") }}</legend>

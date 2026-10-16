@@ -72,7 +72,8 @@ src/app/            The app
              shrunk on the device, and where a room's picture is shown from); Form (the note form, new or
              edit, Google Maps link -> coordinates: the memo tab, and a sheet over anything)
     sync/    useSync (the session: which room, who this device is in it, where changes go); keys
-             (the room's cache keys); useRoom (the socket to a room, written into the cache); ledger
+             (the room's cache keys); useRoom (the socket to a room, written into the cache; its pictures
+             fetched while reachable, for the service worker to keep); ledger
              (confirmed state and our unanswered changes); persist (the room kept on the device);
              wire (the room's JSON back into the app's types); useOffline (cut off: the browser said so,
              or the socket gave up) and Offline (the band along the top of every screen while it is);

@@ -80,6 +80,7 @@ import {
   type TextBox,
 } from "../../../features/notes/types";
 import { useNotes, type Shape } from "../../../features/notes/useNotes";
+import { useOffline } from "../../../features/sync/useOffline";
 import FilterBar from "../../../features/tags/FilterBar.vue";
 import { useTags } from "../../../features/tags/useTags";
 import { useToast } from "../../../features/toast/useToast";
@@ -108,6 +109,8 @@ const worker = useWorker();
 const tags = useTags();
 const { trip } = useTrip();
 const i18n = useI18n();
+/** Cut off: what needs the Worker is not offered */
+const cut = useOffline();
 const { view, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
 const worldStyle = computed(
@@ -752,7 +755,7 @@ watch(
         <button
           v-if="worker.api !== null"
           type="button"
-          :disabled="thinking"
+          :disabled="thinking || cut.offline"
           :aria-busy="thinking"
           :aria-expanded="asking.kind !== 'closed'"
           :aria-controls="askId"
@@ -903,7 +906,7 @@ watch(
         <button
           v-if="worker.api !== null && menu.note.kind !== 'sticker'"
           type="button"
-          :disabled="thinking"
+          :disabled="thinking || cut.offline"
           @click="askFromMenu"
         >{{ i18n.t("canvas.ideasFromHere") }}</button>
         <button type="button" @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</button>

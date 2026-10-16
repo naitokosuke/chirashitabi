@@ -8,6 +8,8 @@ import { type EntryKeyTagged, useQueryCache } from "@pinia/colada";
 
 import { useI18n } from "../../i18n/useI18n";
 
+import { imageSrc } from "../notes/image";
+import type { Note } from "../notes/types";
 import { roomId, type RoomId } from "../rooms/types";
 import { ROOMS_KEY } from "../rooms/useRooms";
 import { useToast } from "../toast/useToast";
@@ -56,6 +58,23 @@ export const useRoom = defineStore("room", () => {
     put(roomKeys.members(id), state.members);
     if (state.trip !== null) put(roomKeys.trip(id), state.trip);
     keepSoon();
+    if (id !== null) warm(id, state.notes);
+  }
+
+  /**
+   * The room's pictures, fetched once each while the room is reachable: the service worker
+   * keeps every picture that comes through it (sw.js), so one fetched now is there on the
+   * plane, whether or not a card showing it was ever on screen
+   */
+  const warmed = new Set<string>();
+  function warm(room: RoomId, notes: Note[]) {
+    if (!navigator.onLine) return;
+    for (const n of notes) {
+      const image = n.kind === "memo" || n.kind === "sticker" ? n.image : null;
+      if (image === null || warmed.has(image)) continue;
+      warmed.add(image);
+      fetch(imageSrc(room, image), { priority: "low" }).catch(() => warmed.delete(image));
+    }
   }
 
   // ---- kept on this device (persist.ts): a moment after the last change, and when the page goes away ----

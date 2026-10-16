@@ -76,6 +76,7 @@ export const ja: Messages = {
 
   "room.reconnecting": "接続中… {$time} 時点の内容です",
   "offline.out": "オフラインです",
+  "offline.unavailable": "オフラインでは使えません",
   "offline.in": "オフライン · {$time} 時点の内容です",
   "room.refused": "部屋に受け付けられなかった変更を元に戻しました",
   "room.gone.removed": "この旅から外されました",

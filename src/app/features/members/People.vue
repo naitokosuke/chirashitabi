@@ -6,6 +6,7 @@ import { encode } from "uqr";
 import { useI18n } from "../../i18n/useI18n";
 
 import { KEPT_DAYS } from "../rooms/api";
+import { useOffline } from "../sync/useOffline";
 import { useSync } from "../sync/useSync";
 
 import { parseEmail, SEATS, type Email, type MemberId, type Person } from "./types";
@@ -21,6 +22,8 @@ import { useMembers } from "./useMembers";
  */
 const emit = defineEmits<{ out: [] }>();
 const i18n = useI18n();
+/** Cut off: what needs the Worker is not offered */
+const cut = useOffline();
 const id = useId();
 const sync = useSync();
 const membership = useMembers();
@@ -120,7 +123,12 @@ const qrPath = qr.data
             </button>
             <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
           </template>
-          <button v-else type="button" @click="() => ask({ kind: 'remove', member: m.id })">
+          <button
+            v-else
+            type="button"
+            :disabled="cut.offline"
+            @click="() => ask({ kind: 'remove', member: m.id })"
+          >
             {{ i18n.t("people.remove") }}
           </button>
         </span>
@@ -133,7 +141,7 @@ const qrPath = qr.data
           <small>{{ i18n.t("people.pending") }}</small>
         </span>
         <span class="acts">
-          <button type="button" @click="() => uninvite(address)">{{
+          <button type="button" :disabled="cut.offline" @click="() => uninvite(address)">{{
             i18n.t("people.uninvite")
           }}</button>
         </span>
@@ -158,12 +166,12 @@ const qrPath = qr.data
         <button
           class="primary"
           type="submit"
-          :disabled="invite.isLoading.value || email.trim() === ''"
+          :disabled="invite.isLoading.value || email.trim() === '' || cut.offline"
         >
           {{ i18n.t(invite.isLoading.value ? "people.inviting" : "people.invite") }}
         </button>
       </div>
-      <p class="hint">{{ i18n.t("people.inviteHint") }}</p>
+      <p class="hint">{{ i18n.t(cut.offline ? "offline.unavailable" : "people.inviteHint") }}</p>
       <details class="qr">
         <summary>{{ i18n.t("people.qr") }}</summary>
         <svg
@@ -195,7 +203,7 @@ const qrPath = qr.data
           </button>
           <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
         </template>
-        <button v-else type="button" @click="() => ask({ kind: 'delete' })">
+        <button v-else type="button" :disabled="cut.offline" @click="() => ask({ kind: 'delete' })">
           {{ i18n.t("people.delete") }}
         </button>
       </template>
@@ -206,7 +214,7 @@ const qrPath = qr.data
           }}</button>
           <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
         </template>
-        <button v-else type="button" @click="() => ask({ kind: 'leave' })">
+        <button v-else type="button" :disabled="cut.offline" @click="() => ask({ kind: 'leave' })">
           {{ i18n.t("people.leave") }}
         </button>
       </template>
