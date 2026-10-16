@@ -73,6 +73,7 @@ There is no CORS configuration, so no other origin is ever allowed.
 Pictures on cards are the one exception, and only for reading.
 `GET /api/rooms/<id>/images/<image id>` comes from an `<img>`, which sends no `Origin`; it changes nothing, so it passes on Access's identity and the room membership alone, and answers only for a picture the room's list has, from that room's folder in the private R2 bucket.
 An upload (`POST /api/rooms/<id>/images`) carries the picture's bytes rather than JSON and is held to the same `Origin` check as every other call, to one of three image types, to 1 MB, and to 100 pictures a room.
+Each upload first drops the pictures no card shows that are more than a day old, from the room's list and then from R2, so a deleted card or a replaced photo gives its place back; the day spares a photo whose form is still open or whose card is still on its way from an offline device.
 
 ## Who is asking
 

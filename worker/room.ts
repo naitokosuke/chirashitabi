@@ -237,13 +237,37 @@ export class Room extends DurableObject<Env> {
   static readonly MAX_IMAGES = 100;
 
   /**
-   * Takes a picture member `by` is uploading into the room's list, before its bytes are
-   * written; the Worker has checked its type and size. Returns its id, or null when the room
-   * already holds as many as it may.
+   * How long a picture no card shows is kept: its form may still be open, or the card that
+   * shows it may still be on its way from a device that was offline
    */
-  addImage(by: MemberId, type: string, bytes: number): ImageId | null {
+  static readonly UNUSED_AFTER = 24 * 60 * 60 * 1000;
+
+  /**
+   * Takes a picture member `by` is uploading into room `roomId`'s list, before its bytes are
+   * written; the Worker has checked its type and size. Pictures no card shows, kept longer than
+   * UNUSED_AFTER, go first, so a deleted card or a replaced photo gives its place back. Returns
+   * its id, or null when the room already holds as many as it may.
+   */
+  async addImage(
+    by: MemberId,
+    roomId: RoomId,
+    type: string,
+    bytes: number,
+  ): Promise<ImageId | null> {
     this.assertMember(by);
     const sql = this.ctx.storage.sql;
+    // off the list before the bytes go, so no card can take a picture whose bytes are going
+    const unused = sql
+      .exec<{ id: ImageId }>(
+        `DELETE FROM pictures
+         WHERE created_at < ? AND id NOT IN (SELECT image FROM notes WHERE image IS NOT NULL)
+         RETURNING id`,
+        new Date(Date.now() - Room.UNUSED_AFTER).toISOString(),
+      )
+      .toArray()
+      .map((p) => `rooms/${roomId}/images/${p.id}`);
+    // R2 deletes up to 1000 keys a call; a room holds at most MAX_IMAGES
+    if (unused.length > 0) await this.env.IMAGES.delete(unused);
     if (sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM pictures").one().n >= Room.MAX_IMAGES)
       return null;
     const id = v.parse(ImageIdSchema, crypto.randomUUID());

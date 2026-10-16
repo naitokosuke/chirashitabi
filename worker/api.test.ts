@@ -1663,6 +1663,34 @@ describe("pictures", () => {
     expect(c.snapshot).toMatchObject({ notes: [] });
     for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
+
+  test("a picture no card shows gives its place back a day on, at the next upload", async () => {
+    const email = "unused-photos@example.com";
+    const { roomId } = await createRoom(email);
+    const kept = async () => ((await (await upload(roomId, email)).json()) as { id: string }).id;
+    const shown = await kept();
+    const dropped = await kept();
+    const recent = await kept();
+    const a = await connect(roomId, email);
+    a.send({ type: "note:add", note: { ...memo("n1"), image: shown }, cid: "c1" });
+    expect((await a.next()).type).toBe("ack");
+    a.ws.close(1000, "done");
+
+    // the first two were uploaded two days ago; the third may still be in an open form
+    const worker = server.getWorker();
+    const storage = await worker.getDurableObjectStorage("Room", { name: roomId });
+    const env = await worker.getEnv();
+    const old = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    await storage.exec(
+      `UPDATE pictures SET created_at = '${old}' WHERE id IN ('${shown}', '${dropped}')`,
+    );
+    expect((await upload(roomId, email)).status).toBe(200);
+
+    expect((await fetchImage(roomId, shown, email)).status).toBe(200);
+    expect((await fetchImage(roomId, recent, email)).status).toBe(200);
+    expect((await fetchImage(roomId, dropped, email)).status).toBe(404);
+    expect(await env.IMAGES.head(`rooms/${roomId}/images/${dropped}`)).toBeNull();
+  });
 });
 
 describe("turning and resizing a card", () => {
