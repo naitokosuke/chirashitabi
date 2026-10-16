@@ -10,6 +10,7 @@ import type { Brand } from "./brand";
 import { hexColor, type HexColor } from "./color";
 import { isImageId, isNoteId, type ImageId, type MemberId, type NoteId } from "./ids";
 import { currencyCode, type CurrencyCode } from "./money";
+import { httpUrl, type HttpUrl } from "./place";
 import { isRecord } from "./record";
 import { COLORS, type NoteColor, type NoteStatus } from "./room";
 
@@ -82,7 +83,7 @@ export type WireStay = {
   name: string;
   checkIn: IsoDate;
   nights: number;
-} & ({ mapsUrl: null; pin: null } | { mapsUrl: string; pin: { lat: number; lng: number } | null });
+} & ({ mapsUrl: null; pin: null } | { mapsUrl: HttpUrl; pin: { lat: number; lng: number } | null });
 
 export interface WireSchedule {
   date: IsoDate;
@@ -107,7 +108,7 @@ export interface WireMemo extends WireCard {
   kind: "memo";
   body: string;
   tags: string[];
-  mapsUrl: string | null;
+  mapsUrl: HttpUrl | null;
   pin: { lat: number; lng: number } | null;
   schedule: WireSchedule | null;
   budget: number | null;
@@ -241,7 +242,6 @@ const TAG = 40;
 const TAGS = 20;
 const INTRO = 1000;
 const NAME = 60;
-const URL_LEN = 2000;
 const ID = 64;
 const COORD = 1e6;
 const DAYS = 60;
@@ -280,15 +280,7 @@ const isTime = (v: unknown): v is IsoTime => {
   const m = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(v);
   return m !== null && Number(m[1]) < 24 && Number(m[2]) < 60 && Number(m[3] ?? 0) < 60;
 };
-const isUrl = (v: unknown): v is string => {
-  if (!isText(v, URL_LEN)) return false;
-  try {
-    const u = new URL(v);
-    return u.protocol === "https:" || u.protocol === "http:";
-  } catch {
-    return false;
-  }
-};
+const isUrl = (v: unknown): v is HttpUrl => httpUrl(v) !== null;
 const isLatLng = (v: unknown): v is { lat: number; lng: number } =>
   isRecord(v) && isFinite_(v.lat, 90) && isFinite_(v.lng, 180) && Object.keys(v).length === 2;
 /** A point on the desk, as `{ x, y }` within the canvas's bounds */

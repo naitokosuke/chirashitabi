@@ -2,7 +2,16 @@ import { DurableObject } from "cloudflare:workers";
 
 import { airportCodeOf, isAirportCode } from "./airports";
 import type { PlaceContext, SuggestContext, TagContext } from "./claude";
-import type { Brand, HexColor, MemberId, ImageId, NoteId, RoomId, CurrencyCode } from "./types";
+import type {
+  Brand,
+  HexColor,
+  HttpUrl,
+  MemberId,
+  ImageId,
+  NoteId,
+  RoomId,
+  CurrencyCode,
+} from "./types";
 import {
   SEATS,
   type Cid,
@@ -66,7 +75,7 @@ type NoteRow = {
   updated_at: IsoInstant;
   body: string;
   tags: string;
-  maps_url: string | null;
+  maps_url: HttpUrl | null;
   pin_lat: number | null;
   pin_lng: number | null;
   sched_date: IsoDate | null;
@@ -819,7 +828,7 @@ export class Room extends DurableObject<Env> {
         name: string;
         check_in: IsoDate;
         nights: number;
-        maps_url: string | null;
+        maps_url: HttpUrl | null;
         pin_lat: number | null;
         pin_lng: number | null;
       }>("SELECT * FROM stays ORDER BY position")

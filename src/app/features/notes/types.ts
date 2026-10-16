@@ -2,6 +2,7 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import type { NoteColor, NoteStatus } from "../../../contract/room";
 import type { MemberId } from "../members/types";
+import type { HttpUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
 
 import type { ImageId, NoteId } from "./id";
@@ -58,7 +59,7 @@ export interface Memo extends CardBase {
   kind: "memo";
   body: string;
   tags: string[];
-  mapsUrl: string | null;
+  mapsUrl: HttpUrl | null;
   pin: LatLng | null;
   schedule: Schedule | null;
   budget: number | null;

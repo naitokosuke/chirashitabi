@@ -5,6 +5,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { currencyCode } from "../../shared/money";
 
 import { airportsOf } from "../place/airports";
+import type { HttpUrl } from "../place/google-maps";
 
 import {
   flightOf,
@@ -43,7 +44,7 @@ const trip: TripSnapshot = {
       name: "Hotel Proverbs",
       checkIn: first,
       nights: 2,
-      mapsUrl: "https://www.google.com/maps?q=25.04,121.55",
+      mapsUrl: "https://www.google.com/maps?q=25.04,121.55" as HttpUrl,
       pin: { lat: 25.04, lng: 121.55 },
     },
   ],

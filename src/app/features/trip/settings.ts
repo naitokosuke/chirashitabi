@@ -1,7 +1,7 @@
 import { Temporal } from "temporal-polyfill-lite";
 
 import { findAirport, type Airport } from "../place/airports";
-import { parseMapsUrl, safeUrl } from "../place/google-maps";
+import { httpUrl, parseMapsUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
 
@@ -98,8 +98,9 @@ export function stayOf(f: StayForm): Read<Stay, "name" | "nights" | "check-in" |
   const link = f.mapsUrl.trim();
   if (link === "") return { ok: true, value: { ...stay, mapsUrl: null, pin: null } };
   // only a link the room takes: one it would refuse is not one yet
-  if (safeUrl(link) === undefined) return { ok: false, why: "link" };
-  return { ok: true, value: { ...stay, mapsUrl: link, pin: parseMapsUrl(link) ?? f.pin } };
+  const url = httpUrl(link);
+  if (url === null) return { ok: false, why: "link" };
+  return { ok: true, value: { ...stay, mapsUrl: url, pin: parseMapsUrl(url) ?? f.pin } };
 }
 
 export const sameStays = (a: Stay[], b: Stay[]) =>

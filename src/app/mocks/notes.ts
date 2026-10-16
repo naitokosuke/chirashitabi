@@ -10,6 +10,7 @@ import {
   type Schedule,
   type Suggestion,
 } from "../features/notes/types";
+import type { HttpUrl } from "../features/place/google-maps";
 
 import { CLAUDE, KEN, YUKI } from "./members";
 
@@ -20,6 +21,8 @@ const on = (date: string, time: string, status: NoteStatus): Schedule => ({
   status,
 });
 const pin = (lat: number, lng: number) => ({ lat, lng });
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+const link = (url: string) => url as HttpUrl;
 
 let i = 0;
 const card = (): Pick<Memo, "id" | "color" | "rot" | "scale" | "by" | "updatedAt"> => ({
@@ -62,7 +65,7 @@ export const mockNotes = (): Note[] => [
     by: KEN,
     schedule: on("2026-11-03", "12:30", "fixed"),
     budget: 700,
-    mapsUrl: "https://maps.google.com/?q=Din+Tai+Fung",
+    mapsUrl: link("https://maps.google.com/?q=Din+Tai+Fung"),
   }),
   n({
     title: "Jiufen at dusk",
@@ -74,7 +77,7 @@ export const mockNotes = (): Note[] => [
     y: 52,
     rot: 1.5,
     schedule: on("2026-11-03", "16:00", "fixed"),
-    mapsUrl: "https://maps.google.com/?q=Jiufen",
+    mapsUrl: link("https://maps.google.com/?q=Jiufen"),
   }),
   n({
     title: "Taihu Brewing",

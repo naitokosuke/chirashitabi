@@ -1,3 +1,19 @@
+import type { Brand } from "./brand";
+
+/**
+ * A link as written that is http(s), at most 2000 characters: what a note or a stay may carry.
+ * Notes come from the other person in the room, so a `javascript:` URL never reaches an href.
+ */
+export type HttpUrl = Brand<string, "HttpUrl">;
+
+/** The link as written, or null when it is not one a note may carry */
+export const httpUrl = (v: unknown): HttpUrl | null => {
+  if (typeof v !== "string" || v.length > 2000 || !URL.canParse(v)) return null;
+  const { protocol } = new URL(v);
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+  return protocol === "https:" || protocol === "http:" ? (v as HttpUrl) : null;
+};
+
 /** A point on the map. Always both halves: a latitude alone is not a place */
 export interface LatLng {
   lat: number;
