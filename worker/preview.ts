@@ -237,8 +237,24 @@ async function youtube(u: URL, ours: string[], base?: string): Promise<Preview |
     site: "youtube.com",
     title: title === null ? null : line(title, TITLE),
     description: author === null ? null : line(author, TITLE),
-    image: thumb === null ? null : await picture(thumb, ours, base),
+    image: thumb === null ? null : await thumbnail(thumb, ours, base),
   };
+}
+
+/**
+ * A video's picture without the black bars: oEmbed names `hqdefault.jpg` (4:3, a 16:9 video
+ * letterboxed in it), so the largest 16:9 one is tried first (`maxresdefault`, not every video
+ * has it), then the small 16:9 one every video has (`mqdefault`), then what oEmbed named
+ */
+async function thumbnail(named: string, ours: string[], base?: string): Promise<Preview["image"]> {
+  const m = /^(https:\/\/i\.ytimg\.com\/vi(?:_webp)?\/[^/]+\/)[a-z]+\.(jpg|webp)$/.exec(named);
+  if (m !== null) {
+    for (const size of ["maxresdefault", "mqdefault"]) {
+      const found = await picture(`${m[1]}${size}.${m[2]}`, ours, base);
+      if (found !== null) return found;
+    }
+  }
+  return picture(named, ours, base);
 }
 
 /**

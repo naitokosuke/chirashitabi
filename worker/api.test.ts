@@ -195,6 +195,9 @@ beforeAll(async () => {
         }),
       );
     }
+    // the largest 16:9 frame is not there for this video; the small one is
+    if (host === "i.ytimg.com" && path.endsWith("/maxresdefault.jpg"))
+      return answer(404, "text/plain", "no");
     if (host === "i.ytimg.com") return answer(200, "image/jpeg", PNG);
     if (host === "files.example.com") return answer(200, "application/pdf", "%PDF-");
     answer(404, "text/plain", "no");
@@ -2428,6 +2431,9 @@ describe("a link's preview", () => {
       description: "Some Channel",
     });
     expect(typeof yt.preview.image).toBe("string");
+    // the bar-free 16:9 frame was asked for, the largest first and then the one every video has
+    const frames = fetched.filter((f) => f.host === "i.ytimg.com").map((f) => f.path);
+    expect(frames).toEqual(["/vi/abc/maxresdefault.jpg", "/vi/abc/mqdefault.jpg"]);
     // each ask is one of the day's few in the tests: the rest on accounts of their own
     const BIG = "bigpic@example.com";
     const { roomId: bigRoom } = await createRoom(BIG);
