@@ -2,6 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import {
   PACKING_TAG,
+  TODO_TAG,
   type Memo,
   type MemoPatch,
   type Note,
@@ -31,9 +32,13 @@ function byTime(a: Scheduled, b: Scheduled) {
     : Number(ta === null) - Number(tb === null);
 }
 
-/** Memos still waiting for a day (packing notes never need one) */
+/** Memos still waiting for a day (packing notes and to-dos never need one) */
 export const unassigned = (notes: Note[]) =>
-  notes.filter(isMemo).filter((n) => n.schedule === null && !n.tags.includes(PACKING_TAG));
+  notes
+    .filter(isMemo)
+    .filter(
+      (n) => n.schedule === null && !n.tags.includes(PACKING_TAG) && !n.tags.includes(TODO_TAG),
+    );
 
 /** A day's memos in time order, optionally only those with `status` */
 export const forDay = (notes: Note[], date: Temporal.PlainDate, status?: NoteStatus) =>

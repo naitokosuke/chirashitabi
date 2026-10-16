@@ -101,6 +101,9 @@ export function reviveNote(n: WireNote): Note {
     hours: n.hours ?? null,
     // nor one kept before bookings
     booking: n.booking == null ? null : booking(n.booking),
+    // nor one kept before to-dos had a day and someone to do them
+    due: n.due == null ? null : Temporal.PlainDate.from(n.due),
+    assignee: n.assignee ?? null,
   };
 }
 
@@ -139,11 +142,12 @@ export const reviveMember = (m: WireMember): Member => {
 };
 
 const revivePatch = (p: WireMemoPatch): MemoPatch => {
-  const { schedule: s, booking: b, ...rest } = p;
+  const { schedule: s, booking: b, due: d, ...rest } = p;
   return {
     ...rest,
     ...(Object.hasOwn(p, "schedule") ? { schedule: s == null ? null : schedule(s) } : {}),
     ...(Object.hasOwn(p, "booking") ? { booking: b == null ? null : booking(b) } : {}),
+    ...(Object.hasOwn(p, "due") ? { due: d == null ? null : Temporal.PlainDate.from(d) } : {}),
   };
 };
 
@@ -230,15 +234,17 @@ const wireNewNote = (n: Extract<Mutation, { type: "note:add" }>["note"]): WireNe
         ...n,
         schedule: n.schedule === null ? null : wireSchedule(n.schedule),
         booking: n.booking === null ? null : wireBooking(n.booking),
+        due: n.due === null ? null : isoDate(n.due),
       }
     : n;
 
 const wirePatch = (p: MemoPatch): WireMemoPatch => {
-  const { schedule: s, booking: b, ...rest } = p;
+  const { schedule: s, booking: b, due: d, ...rest } = p;
   return {
     ...rest,
     ...(s === undefined ? {} : { schedule: s === null ? null : wireSchedule(s) }),
     ...(b === undefined ? {} : { booking: b === null ? null : wireBooking(b) }),
+    ...(d === undefined ? {} : { due: d === null ? null : isoDate(d) }),
   };
 };
 

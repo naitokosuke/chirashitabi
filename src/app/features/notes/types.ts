@@ -82,6 +82,10 @@ export interface Memo extends CardBase {
   hours: string | null;
   /** Whether it has to be booked, and how far that has got; null for no booking */
   booking: Booking | null;
+  /** The day a to-do is to be done by; null for none */
+  due: Temporal.PlainDate | null;
+  /** Who is to do it or book it; null for whoever */
+  assignee: MemberId | null;
 }
 
 /**
@@ -143,6 +147,8 @@ export type NoteInput = Pick<
   | "minutes"
   | "hours"
   | "booking"
+  | "due"
+  | "assignee"
 >;
 
 /**
@@ -157,3 +163,5 @@ export type MemoPatch = Partial<Omit<Memo, "id" | "kind" | "by" | "updatedAt">>;
 /** Tags with a meaning of their own: packing notes never need a day or a pin */
 export const PACKING_TAG = v.parse(TagSchema, "Packing");
 export const ARRIVAL_TAG = v.parse(TagSchema, "On arrival");
+/** A to-do before the trip: it never needs a day, and it is ticked off on the trip's home */
+export const TODO_TAG = v.parse(TagSchema, "To do");

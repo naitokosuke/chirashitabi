@@ -22,6 +22,8 @@ export const inputFromNote = (note: Memo): NoteInput => ({
   minutes: note.minutes,
   hours: note.hours,
   booking: note.booking,
+  due: note.due,
+  assignee: note.assignee,
 });
 
 /** A new memo: carries the tags being filtered on, and a pin when written from the map */
@@ -36,6 +38,8 @@ export const blankInput = (tags: Iterable<Tag>, pin: LatLng | null): NoteInput =
   minutes: null,
   hours: null,
   booking: null,
+  due: null,
+  assignee: null,
 });
 
 /** A copy keeps the words and the look, not the place */
@@ -53,6 +57,9 @@ export const duplicateInput = (n: Note): NoteInput => ({
   // the hours are the place's, which the copy does not keep, and a booking is the one plan's
   hours: null,
   booking: null,
+  // a copied to-do is another one, to be given its own day and someone
+  due: null,
+  assignee: null,
 });
 
 /** What a suggestion becomes once adopted: a plain white memo, nothing planned yet */
@@ -71,6 +78,8 @@ export const adopted = (s: Suggestion): Memo => ({
   minutes: null,
   hours: null,
   booking: null,
+  due: null,
+  assignee: null,
 });
 
 /** Tags shown on a card; suggestions have none */

@@ -36,6 +36,8 @@ function memo(id: string, time: string | null, status: NoteStatus, editedAt: str
     minutes: null,
     hours: null,
     booking: null,
+    due: null,
+    assignee: null,
   };
 }
 

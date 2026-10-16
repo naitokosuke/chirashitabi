@@ -34,6 +34,8 @@ import { useI18n } from "../../i18n/useI18n";
 import backIcon from "../../icons/back.svg";
 import closeIcon from "../../icons/close.svg";
 import Icon from "../../icons/Icon.vue";
+import type { MemberId } from "../members/types";
+import { useMembers } from "../members/useMembers";
 import {
   googleMapsLink,
   httpUrl,
@@ -59,6 +61,7 @@ import {
   type NoteColor,
   type NoteInput,
   type Tag,
+  TODO_TAG,
 } from "./types";
 import { useNotes } from "./useNotes";
 
@@ -128,6 +131,17 @@ function clearBooking() {
   bookingCode.value = "";
   bookingUrl.value = "";
 }
+// ---- a to-do: the day it is to be done by, and who is to do it (or to book it) ----
+const { members } = useMembers();
+const people = computed(() => (members.value ?? []).filter((m) => m.kind === "person"));
+const isTodo = computed(() => form.value.tags.includes(TODO_TAG));
+/** Someone is to do it: a to-do, or a plan still to book */
+const hasAssignee = computed(() => isTodo.value || bookingState.value === "needed");
+const due = ref(form.value.due?.toString() ?? "");
+const assignee = ref<string>(form.value.assignee ?? "");
+/** Whom the field names, while they are in the room */
+const assigneeOf = (): MemberId | null =>
+  people.value.find((m) => m.id === assignee.value)?.id ?? null;
 /** Written, but past what the booklet can read: it is kept as it is and checks nothing */
 const hoursUnread = computed(() => hours.value.trim() !== "" && readHours(hours.value) === null);
 /** A short link is on its way to the Worker to be read */
@@ -513,6 +527,9 @@ function submit() {
     minutes: form.value.minutes,
     hours: hours.value.trim() === "" ? null : hours.value.trim(),
     booking: bookingOf(),
+    // a day and someone only while it is a to-do (or, for someone, still to book)
+    due: isTodo.value && due.value !== "" ? Temporal.PlainDate.from(due.value) : null,
+    assignee: hasAssignee.value ? assigneeOf() : null,
   };
   if (target.value.kind === "edit") {
     store.update(target.value.id, input);
@@ -526,6 +543,8 @@ function submit() {
     mapsUrl.value = "";
     hours.value = "";
     clearBooking();
+    due.value = "";
+    assignee.value = "";
     text.value = "";
     forgetTags();
     focusText();
@@ -666,6 +685,17 @@ function submit() {
           <option value="none">{{ i18n.t("form.bookingNone") }}</option>
           <option value="needed">{{ i18n.t("form.bookingNeeded") }}</option>
           <option value="booked">{{ i18n.t("form.bookingBooked") }}</option>
+        </select>
+      </div>
+      <div v-if="isTodo">
+        <label :for="`${id}-due`">{{ i18n.t("form.due") }}</label>
+        <input :id="`${id}-due`" v-model="due" type="date" />
+      </div>
+      <div v-if="hasAssignee">
+        <label :for="`${id}-assignee`">{{ i18n.t("form.assignee") }}</label>
+        <select :id="`${id}-assignee`" v-model="assignee">
+          <option value="">{{ i18n.t("form.assigneeAnyone") }}</option>
+          <option v-for="m in people" :key="m.id" :value="m.id">{{ m.name }}</option>
         </select>
       </div>
       <div v-if="bookingState === 'needed'">

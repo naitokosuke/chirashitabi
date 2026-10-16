@@ -7,6 +7,7 @@ import {
   ARRIVAL_TAG,
   PACKING_TAG,
   TagSchema,
+  TODO_TAG,
   type Memo,
   type Note,
   type NoteStatus,
@@ -50,6 +51,8 @@ const n = (p: Partial<Memo> & Pick<Memo, "title" | "x" | "y">): Memo => ({
   minutes: null,
   hours: null,
   booking: null,
+  due: null,
+  assignee: null,
   ...p,
 });
 const suggest = (p: Partial<Suggestion> & Pick<Suggestion, "title" | "x" | "y">): Suggestion => ({
@@ -189,5 +192,23 @@ export const mockNotes = (): Note[] => [
     x: 480,
     y: 380,
     rot: 2,
+  }),
+  n({
+    title: "Change yen to NT$",
+    tags: [TODO_TAG],
+    color: "#ead9ff",
+    x: 700,
+    y: 400,
+    rot: -1.5,
+    due: Temporal.PlainDate.from("2026-10-30"),
+    assignee: KEN,
+  }),
+  n({
+    title: "Set up the eSIM",
+    tags: [TODO_TAG],
+    color: "#ead9ff",
+    x: 720,
+    y: 520,
+    rot: 1,
   }),
 ];

@@ -292,6 +292,10 @@ const memo = {
   hours: v.optional(v.nullable(HoursSchema), null),
   /** Whether it has to be booked, and how far that has got; null for no booking. None from an older client: none */
   booking: v.optional(v.nullable(BookingSchema), null),
+  /** The day it is to be done by, before the trip; null for none. None from an older client: none */
+  due: v.optional(v.nullable(IsoDateSchema), null),
+  /** Who is to do it; null for whoever. None from an older client: whoever */
+  assignee: v.optional(v.nullable(MemberIdSchema), null),
 };
 const suggestion = { ...card, kind: v.literal("suggestion") };
 /** Words set straight on the desk, with no paper under them: a heading, a label. `title` is the text */
@@ -333,6 +337,8 @@ const WireMemoPatchSchema = v.strictObject({
   minutes: v.optional(v.nullable(MinutesSchema)),
   hours: v.optional(v.nullable(HoursSchema)),
   booking: v.optional(v.nullable(BookingSchema)),
+  due: v.optional(v.nullable(IsoDateSchema)),
+  assignee: v.optional(v.nullable(MemberIdSchema)),
   x: v.optional(memo.x),
   y: v.optional(memo.y),
   rot: v.optional(memo.rot),
