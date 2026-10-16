@@ -30,6 +30,12 @@
       "runtimeExecutable": "env",
       "runtimeArgs": ["MUSEA=true", "vp", "dev", "--port", "5175"],
       "port": 5175
+    },
+    {
+      "name": "built",
+      "runtimeExecutable": "vp",
+      "runtimeArgs": ["preview", "--port", "4173"],
+      "port": 4173
     }
   ]
 }

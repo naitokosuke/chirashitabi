@@ -39,16 +39,10 @@
   --on-tint: #fff;
 
   /*
-   * Paper. Six stocks at one lightness and a low, equal chroma, so they read as one family
-   * of tinted paper rather than candy. Yellow carries a little more chroma and leans
-   * green: at low chroma a warm yellow turns into cream. On the dark desk each is a step
+   * Paper. One white stock; a member's paper is their color washed into it (paperOf in
+   * features/members), so whose a note is reads off the sheet. On the dark desk it is a step
    * dimmer so it does not glare. Ink on paper is always dark.
    */
-  --paper-yellow: light-dark(oklch(0.95 0.07 100), oklch(0.88 0.075 100));
-  --paper-pink: light-dark(oklch(0.935 0.035 12), oklch(0.865 0.04 12));
-  --paper-mint: light-dark(oklch(0.94 0.035 165), oklch(0.87 0.04 165));
-  --paper-sky: light-dark(oklch(0.935 0.033 245), oklch(0.865 0.038 245));
-  --paper-lilac: light-dark(oklch(0.935 0.035 300), oklch(0.865 0.04 300));
   --paper-white: light-dark(oklch(0.995 0 0), oklch(0.92 0 0));
   --paper-ink: oklch(0.23 0.01 260);
   --paper-muted: oklch(0.45 0.01 260);

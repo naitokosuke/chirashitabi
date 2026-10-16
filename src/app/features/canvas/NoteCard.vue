@@ -1,17 +1,20 @@
 <script setup lang="ts" vapor>
 import { computed } from "vue";
 
-import { CtPaper } from "../../../ui/index";
+import { CtHoldButton, CtPaper } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
 import externalIcon from "../../icons/external.svg";
 import Icon from "../../icons/Icon.vue";
+import thumbsDownIcon from "../../icons/thumbs-down.svg";
+import thumbsUpIcon from "../../icons/thumbs-up.svg";
+import { paperOf } from "../members/paper";
 import { useMembers } from "../members/useMembers";
 import type { ImageId } from "../notes/id";
 import { imageSrc } from "../notes/image";
 import { segments, siteOf } from "../notes/links";
-import { PAPERS, type Note } from "../notes/types";
+import type { Note } from "../notes/types";
 import { safeUrl } from "../place/google-maps";
 import { useSync } from "../sync/useSync";
 import type { Visibility } from "../tags/types";
@@ -19,8 +22,8 @@ import { hhmm, shortDate } from "../trip/format";
 
 /**
  * A card on the desk, placed, turned and scaled where the note says. Paper (a memo, the
- * agent's suggestion, a page's picture) is drawn by CtPaper in one of its cuts; words written
- * on the desk and a sticker are not paper and draw themselves.
+ * agent's suggestion) is drawn by CtPaper in the paper of whoever wrote it, cut by what it is;
+ * words written on the desk and a sticker are not paper and draw themselves.
  */
 const props = defineProps<{
   note: Note;
@@ -32,14 +35,12 @@ const props = defineProps<{
 }>();
 defineEmits<{ adopt: []; remove: [] }>();
 const { members } = useMembers();
-/** Whose card it is; nobody once they have left the room */
-const author = computed(() => members.value?.find((m) => m.id === props.note.by));
+/** Whose paper it is written on: theirs, or white once they have left the room */
+const paper = computed(() => paperOf(members.value?.find((m) => m.id === props.note.by)?.color));
 const sync = useSync();
 const i18n = useI18n();
-/** A page's picture with its link: the picture is the card, the words stay in the note */
-const print = computed(
-  () => props.note.kind === "memo" && props.note.link !== null && props.note.image !== null,
-);
+/** A memo with a picture is a print: the picture mounted, its words under it */
+const print = computed(() => props.note.kind === "memo" && props.note.image !== null);
 /** "11/3 12:30", or the date alone when it has no time; nothing off the itinerary */
 const day = computed(() => {
   const s = props.note.kind === "memo" ? props.note.schedule : null;
@@ -49,6 +50,8 @@ const day = computed(() => {
 });
 /** Where a picture of the room is shown from, once the room is known */
 const picture = (id: ImageId) => (sync.room === null ? undefined : imageSrc(sync.room, id));
+/** How long a slip's answer is held: long enough not to be brushed, short enough to be a flick */
+const HOLD_MS = 600;
 </script>
 
 <template>
@@ -56,6 +59,7 @@ const picture = (id: ImageId) => (sync.room === null ? undefined : imageSrc(sync
     v-show="visibility !== 'hidden'"
     class="card"
     :data-kind="note.kind"
+    :data-print="print || undefined"
     :data-dragging="dragging || undefined"
     :data-pop="pop || undefined"
     :data-selected="selected || undefined"
@@ -70,38 +74,53 @@ const picture = (id: ImageId) => (sync.room === null ? undefined : imageSrc(sync
         ? note.title
         : undefined"
   >
-    <!-- a slip from the agent: who proposed it in the strip, the proposal, what to do with it -->
-    <CtPaper
-      v-if="note.kind === 'suggestion'"
-      variant="proposal"
-      :lifted="dragging"
-      :selected
-      :who="author?.color"
-    >
-      <template #strip>{{ author?.name ?? i18n.t("member.someone") }} · {{ i18n.t("note.suggestion") }}</template>
-      <p class="title">{{ note.title }}</p>
+    <!-- a slip from the agent, cut square: what it is in the strip, the proposal, what to do with it -->
+    <CtPaper v-if="note.kind === 'suggestion'" variant="proposal" :lifted="dragging" :paper :selected>
+      <template #strip>{{ i18n.t("note.suggestion") }}</template>
+      <!-- five lines of it on the desk; picked, all of it -->
+      <template #default>
+        <p class="title" data-lines="5" :data-open="selected || undefined">{{ note.title }}</p>
+      </template>
+      <!-- held, not tapped: a thumb down to pass on it, a thumb up to keep it as a memo; the slip
+           goes the moment one is full, so what it says when done is what it does -->
       <template #foot>
-        <button class="keep" type="button" @click.stop="() => $emit('adopt')">{{
-          i18n.t("note.adopt")
-        }}</button>
-        <button type="button" @click.stop="() => $emit('remove')">{{
-          i18n.t("common.dismiss")
-        }}</button>
+        <CtHoldButton
+          class="dismiss"
+          :done="i18n.t('common.dismiss')"
+          :hold-time="HOLD_MS"
+          :label="i18n.t('common.dismiss')"
+          :title="i18n.t('common.dismiss')"
+          @hold="() => $emit('remove')"
+        >
+          <template #icon><Icon :size="18" :src="thumbsDownIcon" /></template>
+          <template #hint>{{ i18n.t("rooms.hold") }}</template>
+        </CtHoldButton>
+        <CtHoldButton
+          class="keep"
+          :done="i18n.t('note.adopt')"
+          :hold-time="HOLD_MS"
+          :label="i18n.t('note.adopt')"
+          :title="i18n.t('note.adopt')"
+          @hold="() => $emit('adopt')"
+        >
+          <template #icon><Icon :size="18" :src="thumbsUpIcon" /></template>
+          <template #hint>{{ i18n.t("rooms.hold") }}</template>
+        </CtHoldButton>
       </template>
     </CtPaper>
     <!-- words on the desk itself: no paper -->
-    <p v-else-if="note.kind === 'text'">{{ note.title }}</p>
+    <p v-else-if="note.kind === 'text'" class="lettering">{{ note.title }}</p>
     <!-- a cut-out picture on the desk itself: edged in white, no paper -->
-    <img v-else-if="note.kind === 'sticker'" alt="" draggable="false" :src="picture(note.image)" />
-    <!-- a page brought in: its picture in a mount, the site in the margin, which opens the page -->
-    <CtPaper
-      v-else-if="print"
-      variant="print"
-      :lifted="dragging"
-      :paper="PAPERS[note.color]"
-      :selected
-      :who="author?.color"
-    >
+    <img
+      v-else-if="note.kind === 'sticker'"
+      alt=""
+      class="cutout"
+      draggable="false"
+      :src="picture(note.image)"
+    />
+    <!-- a memo: a sticky, or with a picture a print (the picture mounted); then where it came
+         from, the words, the tags and the day -->
+    <CtPaper v-else :lifted="dragging" :paper :selected :variant="print ? 'print' : 'note'">
       <template #picture>
         <img
           alt=""
@@ -111,61 +130,44 @@ const picture = (id: ImageId) => (sync.room === null ? undefined : imageSrc(sync
           :src="note.image === null ? undefined : picture(note.image)"
         />
       </template>
-      <template #margin>
+      <template #default>
+        <!-- where the idea came from: its site, which opens the page -->
         <a
-          class="from"
+          v-if="safeUrl(note.link) !== undefined"
+          class="link source"
           :href="safeUrl(note.link)"
           rel="noopener noreferrer"
           target="_blank"
           :aria-label="i18n.t('note.link')"
           @pointerdown.stop
           @click.stop
-        ><Icon :size="11" :src="externalIcon" />{{ siteOf(note.link) }}</a>
-        <time v-if="note.schedule !== null" class="when" :datetime="note.schedule.date.toString()">{{
-          day
-        }}</time>
+        ><Icon :size="11" :src="externalIcon" /><span class="site">{{ siteOf(note.link) }}</span></a
+        >
+        <p class="title" :data-lines="print ? 2 : 3">{{ note.title }}</p>
+        <!-- the words, a few lines of them (a page's own line stays off its print, for the
+             booklet); a link in them is its site, as every link on the desk is -->
+        <p v-if="note.body !== '' && !(print && note.link !== null)" class="words"><template
+            v-for="(s, i) in segments(note.body)"
+            :key="i"
+          ><a
+              v-if="s.kind === 'link'"
+              class="link"
+              :href="s.url"
+              rel="noopener noreferrer"
+              target="_blank"
+              @pointerdown.stop
+              @click.stop
+            ><Icon :size="11" :src="externalIcon" /><span class="site">{{ siteOf(s.url) }}</span></a
+            ><template v-else>{{
+              s.text
+            }}</template></template></p>
+        <p v-if="note.tags.length > 0" class="tags">{{
+          note.tags.map((t) => `#${t}`).join("  ")
+        }}</p>
       </template>
-    </CtPaper>
-    <!-- a sticky: the picture across the top when it has one, the words, the tags, the day -->
-    <CtPaper v-else :lifted="dragging" :paper="PAPERS[note.color]" :selected :who="author?.color">
-      <img
-        v-if="note.image !== null"
-        alt=""
-        class="band"
-        draggable="false"
-        loading="lazy"
-        :src="picture(note.image)"
-      />
-      <!-- where the idea came from, when the page gave no picture: its site, which opens the page -->
-      <a
-        v-if="safeUrl(note.link) !== undefined"
-        class="site"
-        :href="safeUrl(note.link)"
-        rel="noopener noreferrer"
-        target="_blank"
-        :aria-label="i18n.t('note.link')"
-        @pointerdown.stop
-        @click.stop
-      ><Icon :size="11" :src="externalIcon" />{{ siteOf(note.link) }}</a>
-      <p class="title">{{ note.title }}</p>
-      <!-- the words, a few lines of them; a link in them is its site, tapped -->
-      <p v-if="note.body !== ''" class="body"><template
-          v-for="(s, i) in segments(note.body)"
-          :key="i"
-        ><a
-            v-if="s.kind === 'link'"
-            :href="s.url"
-            rel="noopener noreferrer"
-            target="_blank"
-            @pointerdown.stop
-            @click.stop
-          ><Icon :size="11" :src="externalIcon" />{{ siteOf(s.url) }}</a><template v-else>{{
-            s.text
-          }}</template></template></p>
-      <ul v-if="note.tags.length > 0"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
       <template #foot>
         <!-- its day on the trip, once it has one: the desk shows how far the plan has come -->
-        <time v-if="note.schedule !== null" :datetime="note.schedule.date.toString()">{{
+        <time v-if="note.schedule !== null" class="day" :datetime="note.schedule.date.toString()">{{
           day
         }}</time>
       </template>
@@ -181,7 +183,12 @@ const picture = (id: ImageId) => (sync.room === null ? undefined : imageSrc(sync
 <style scoped>
 @import "../../../ui/styles/media.css";
 
-/* the root is .card: CtPaper's own root carries this component's scope too, and a bare div rule would reach it */
+/*
+ * The card on the desk: where it is, how it is turned and how large. What it looks like is the
+ * paper's (CtPaper); only the words written on it, and the two things that are not paper (words
+ * on the desk, a sticker), are styled here. Every rule is a class: a bare element rule would
+ * reach the paper's own root, which carries this component's scope too.
+ */
 .card {
   position: absolute;
   inset-inline-start: 0;
@@ -220,268 +227,264 @@ const picture = (id: ImageId) => (sync.room === null ? undefined : imageSrc(sync
     z-index: var(--z-float);
   }
 
-  /* ---- what is written on paper: one type scale for a sticky and a slip alike ---- */
-
-  /* the picture, edge to edge across the top, under the strip; touches go to the card under it */
-  .band {
-    display: block;
-    width: calc(100% + 24px);
-    height: 100px;
-    margin: -9px -12px 10px;
-    object-fit: cover;
-    background: color-mix(in oklch, var(--paper-ink) 6%, transparent);
-    pointer-events: none;
+  /* a print is the wider cut */
+  &[data-print] {
+    width: 220px;
   }
+}
 
-  /* the title: three lines at most on the desk, the rest in the note */
-  .title {
-    margin: 0;
-    font-size: var(--font-base);
-    font-weight: 700;
-    line-height: 1.35;
-    overflow-wrap: anywhere;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
+/* ---- what is written on paper: one scale for every cut ---- */
 
-  /* the body, under the title: three lines at most; a link in it is its site, as a small tag */
-  .body {
-    margin: 4px 0 0;
-    font-size: var(--font-xs);
-    line-height: 1.45;
-    color: var(--paper-muted);
-    overflow-wrap: anywhere;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+/* a print's picture, 16:9 in its frame; touches go to the card under it */
+.shot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  pointer-events: none;
+}
 
-    > a {
-      display: inline-flex;
-      align-items: center;
-      gap: 2px;
-      vertical-align: bottom;
-      padding: 0 5px 0 3px;
-      border-radius: 999px;
-      background: color-mix(in oklch, var(--paper-ink) 8%, transparent);
-      color: var(--paper-ink);
-      font-weight: 700;
-      text-decoration: none;
-    }
-  }
+.title {
+  margin: 0;
+  font-size: var(--font-base);
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 
-  /* the page's site above the title, when the page gave no picture to be the card */
-  .site {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    max-width: 100%;
-    margin: 0 0 5px;
-    padding: 2px 7px 2px 5px;
-    border-radius: 999px;
-    background: color-mix(in oklch, var(--paper-ink) 8%, transparent);
-    color: var(--paper-muted);
-    font-size: var(--font-2xs);
-    font-weight: 700;
-    line-height: 1.2;
-    text-decoration: none;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* the tags, on one line */
-  ul {
-    margin: 6px 0 0;
-    padding: 0;
-    list-style: none;
-    font-size: var(--font-xs);
-    font-weight: 700;
-    line-height: 1.3;
-    color: var(--paper-muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-
-    > li {
-      display: inline;
-
-      & + li {
-        margin-inline-start: 7px;
-      }
-    }
-  }
-
-  /* the foot: a day as a small stamp, or a slip's two actions, of one height */
-  time,
-  .keep,
-  .keep + button {
-    min-height: 26px;
-    margin-block-start: 8px;
-    padding: 0 9px;
-    border-radius: 999px;
-    font-size: var(--font-xs);
-    font-weight: 700;
-    line-height: 26px;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-
-  time {
-    display: inline-block;
-    background: color-mix(in oklch, var(--paper-ink) 10%, transparent);
-  }
-
-  /* the two actions: keeping it takes the room, and is never cut; dismissing it only what its word needs */
-  .keep {
-    flex: 1 1 auto;
-    min-width: fit-content;
-    padding: 0 8px;
-  }
-
-  /* dismissing is a word, not a button: the same quiet text as taking a day off a note */
-  .keep + button {
-    flex: 0 0 auto;
-    padding: 0 2px;
-  }
-
-  /* a proposal is a sentence: it may run longer than a sticky's title */
-  &[data-kind="suggestion"] .title {
+  /* a proposal is a sentence: five lines of it, all of it once picked */
+  &[data-lines="5"] {
     -webkit-line-clamp: 5;
   }
 
-  .keep {
-    background: var(--paper-ink);
-    color: var(--paper-white);
+  &[data-open] {
+    -webkit-line-clamp: unset;
   }
 
-  .keep + button {
-    color: var(--paper-muted);
-    text-decoration: underline;
-    text-underline-offset: 3px;
+  /* a print's caption under its picture: two lines of it */
+  &[data-lines="2"] {
+    -webkit-line-clamp: 2;
   }
+}
 
-  /* ---- a print: the picture, and the margin's caption ---- */
-  .shot {
-    display: block;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    object-fit: cover;
-    pointer-events: none;
-  }
+.words {
+  margin: 4px 0 0;
+  font-size: var(--font-xs);
+  line-height: 1.45;
+  color: var(--paper-muted);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
-  .from {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    min-width: 0;
-    color: var(--paper-ink);
-    text-decoration: none;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+.tags {
+  margin: 6px 0 0;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--paper-muted);
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-  /* in the margin the day is written, not stamped, at the end */
-  .when {
-    min-height: 0;
-    margin: 0 0 0 auto;
-    padding: 0;
-    line-height: 1;
-    background: none;
-    color: var(--paper-muted);
-  }
+/* a link, wherever it is on the desk: the arrow that means elsewhere, and the site, in ink */
+.link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: bottom;
+  color: var(--paper-ink);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  line-height: 1.45;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--paper-ink) 35%, transparent);
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
 
-  /*
-   * The handles: a thumb-sized target with a small dot in it, the same size on screen whatever
-   * the card's scale and the desk's zoom (both undone by their own scale)
-   */
-  > span[data-handle] {
+.site {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * Whatever is pressed on paper (a link, a slip's two actions) aims at a touch 24px across on
+ * screen (WCAG 2.5.8): the target reaches past what is drawn by what the card's scale and the
+ * desk's zoom took off it. It reaches only into the room around it (--room), never over the
+ * words beside it or the next action, nor off the paper: zoomed far out, the card is picked
+ * and dragged rather than pressed through.
+ */
+.link,
+.keep,
+.dismiss {
+  --reach: calc(24px / (var(--scale, 1) * var(--zoom, 1)));
+  --room: 6px;
+
+  &::after {
+    content: "";
     position: absolute;
-    width: var(--tap);
-    height: var(--tap);
-    display: grid;
-    place-items: center;
-    scale: calc(1 / (var(--scale, 1) * var(--zoom, 1)));
-    touch-action: none;
+    inset-block: max(calc(var(--room) * -1), min(0px, calc((100% - var(--reach)) / 2)));
+    inset-inline: max(calc(var(--room) * -1), min(0px, calc((100% - var(--reach)) / 2)));
+  }
+}
 
-    &::before {
-      content: "";
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: var(--surface);
-      box-shadow:
-        0 0 0 2px var(--ink),
-        var(--shadow-tool);
-    }
+/* a link in the words has the lines beside it, and nothing else */
+.words > .link {
+  --room: 2px;
+}
 
-    /* at the bottom-end corner: dragged away from the middle, the card grows */
-    &[data-handle="resize"] {
-      inset-block-end: calc(var(--tap) / -2);
-      inset-inline-end: calc(var(--tap) / -2);
-      cursor: nwse-resize;
-    }
+/* above a memo's title, on its own line */
+.source {
+  display: flex;
+  width: fit-content;
+  margin: 0 0 8px;
+}
 
-    /* above the middle of the top edge: dragged around the middle, the card turns */
-    &[data-handle="rotate"] {
-      inset-block-start: calc(var(--tap) * -1.4);
-      inset-inline-start: calc(50% - var(--tap) / 2);
-      cursor: grab;
-    }
+/* a day, wherever it is on the desk: a small stamp, at the end of its line */
+.day {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--paper-ink) 10%, transparent);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  line-height: 22px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/*
+ * A slip's two answers, as simple as a swipe: two halves of its foot, side by side across the
+ * width inside its padding, each held (CtHoldButton) until it fills from its start edge: a thumb
+ * down to pass on it, filling in Paper Muted, and a thumb up to keep it, filling in Paper Ink.
+ * Both rest as white paper on a hairline, the thumb up in ink. Each is already a thumb's width,
+ * so its target is what is drawn and reaches no further, never into the paper's padding.
+ */
+.keep,
+.dismiss {
+  --room: 0px;
+  /* full, the thumb shows white on the fill, on paper in either theme */
+  --on-ink: var(--paper-white);
+  flex: 1;
+  display: grid;
+  place-items: center;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  background: var(--paper-white);
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--paper-ink) 35%, transparent);
+}
+
+.keep {
+  --tone: var(--paper-ink);
+  color: var(--paper-ink);
+}
+
+.dismiss {
+  --tone: var(--paper-muted);
+  color: var(--paper-muted);
+}
+
+/*
+ * The handles: a thumb-sized target with a small dot in it, the same size on screen whatever
+ * the card's scale and the desk's zoom (both undone by their own scale)
+ */
+.card > [data-handle] {
+  position: absolute;
+  width: var(--tap);
+  height: var(--tap);
+  display: grid;
+  place-items: center;
+  scale: calc(1 / (var(--scale, 1) * var(--zoom, 1)));
+  touch-action: none;
+
+  &::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow:
+      0 0 0 2px var(--ink),
+      var(--shadow-tool);
   }
 
-  /*
-   * A text box: the desk's own lettering, no paper and no shadow, in the desk's ink so it reads
-   * in either theme, as wide as its longest line up to a point. Picked, it is framed like a card.
-   */
-  &[data-kind="text"] {
-    width: max-content;
-    max-width: 560px;
-    padding: var(--text-box-pad);
-    border-radius: 4px;
-    color: var(--ink);
-
-    &[data-selected] {
-      box-shadow: 0 0 0 2px var(--ink);
-    }
-
-    > p {
-      margin: 0;
-      font-size: var(--text-box-size);
-      font-weight: 700;
-      line-height: 1.3;
-      letter-spacing: 0.02em;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
+  /* at the bottom-end corner: dragged away from the middle, the card grows */
+  &[data-handle="resize"] {
+    inset-block-end: calc(var(--tap) / -2);
+    inset-inline-end: calc(var(--tap) / -2);
+    cursor: nwse-resize;
   }
 
-  /*
-   * A sticker: the picture alone, its outline traced in white like a die-cut sticker and lifted
-   * off the desk by a soft shadow that follows the cut. Picked, it is framed like a card.
-   */
-  &[data-kind="sticker"] {
-    width: var(--sticker-size);
-    border-radius: 4px;
-
-    &[data-dragging] > img {
-      filter: var(--sticker-edge) drop-shadow(0 8px 10px rgb(0 0 0 / .22));
-    }
-
-    &[data-selected] {
-      box-shadow: 0 0 0 2px var(--ink);
-    }
-
-    > img {
-      display: block;
-      width: 100%;
-      height: auto;
-      object-fit: contain;
-      filter: var(--sticker-edge) drop-shadow(0 2px 3px rgb(0 0 0 / .2));
-    }
+  /* above the middle of the top edge: dragged around the middle, the card turns */
+  &[data-handle="rotate"] {
+    inset-block-start: calc(var(--tap) * -1.4);
+    inset-inline-start: calc(50% - var(--tap) / 2);
+    cursor: grab;
   }
+}
+
+/*
+ * A text box: the desk's own lettering, no paper and no shadow, in the desk's ink so it reads
+ * in either theme, as wide as its longest line up to a point. Picked, it is framed like a card.
+ */
+.card[data-kind="text"] {
+  width: max-content;
+  max-width: 560px;
+  padding: var(--text-box-pad);
+  border-radius: 4px;
+
+  &[data-selected] {
+    box-shadow: 0 0 0 2px var(--ink);
+  }
+}
+
+.lettering {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-box-size);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * A sticker: the picture alone, its outline traced in white like a die-cut sticker and lifted
+ * off the desk by a soft shadow that follows the cut. Picked, it is framed like a card.
+ */
+.card[data-kind="sticker"] {
+  width: var(--sticker-size);
+  border-radius: 4px;
+
+  &[data-selected] {
+    box-shadow: 0 0 0 2px var(--ink);
+  }
+
+  &[data-dragging] > .cutout {
+    filter: var(--sticker-edge) drop-shadow(0 8px 10px rgb(0 0 0 / .22));
+  }
+}
+
+.cutout {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  filter: var(--sticker-edge) drop-shadow(0 2px 3px rgb(0 0 0 / .2));
 }
 
 /* every frame keeps the card's translate, so it pops where it lands and never at the origin */

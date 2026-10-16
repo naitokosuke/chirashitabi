@@ -6,7 +6,7 @@ import { useSync } from "../sync/useSync";
 
 import { NoteIdSchema, type ImageId, type NoteId } from "./id";
 import { duplicateInput } from "./input";
-import type { MemoPatch, NewMemo, NewSticker, NewText, NoteColor, NoteInput } from "./types";
+import type { MemoPatch, NewMemo, NewSticker, NewText, NoteInput } from "./types";
 
 const uid = () => v.parse(NoteIdSchema, Math.random().toString(36).slice(2, 10));
 
@@ -83,11 +83,6 @@ export const useNotes = defineQuery(() => {
     if (byId(id)?.kind !== "memo") return;
     sync.commit({ type: "note:update", id, patch });
   }
-  /** Any card can change color, suggestions included */
-  function recolor(id: NoteId, color: NoteColor) {
-    if (byId(id) === undefined) return;
-    sync.commit({ type: "note:recolor", id, color });
-  }
   /** Where a card is, and, when it was turned or resized, how it is turned and how large */
   function move(id: NoteId, x: number, y: number, shape?: Shape) {
     if (byId(id) === undefined) return;
@@ -125,7 +120,6 @@ export const useNotes = defineQuery(() => {
     addSticker,
     editText,
     update,
-    recolor,
     move,
     sendMove,
     remove,

@@ -17,16 +17,11 @@ import { formatMoney } from "../../../shared/money";
 
 import { useI18n } from "../../../i18n/useI18n";
 
+import { paperOf } from "../../../features/members/paper";
 import { useMembers } from "../../../features/members/useMembers";
 import type { NoteId } from "../../../features/notes/id";
 import { segments, siteOf } from "../../../features/notes/links";
-import {
-  ARRIVAL_TAG,
-  PACKING_TAG,
-  PAPERS,
-  type Memo,
-  type Scheduled,
-} from "../../../features/notes/types";
+import { ARRIVAL_TAG, PACKING_TAG, type Memo, type Scheduled } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
 import { directionsLink, safeUrl } from "../../../features/place/google-maps";
 import { clockText, fitHours, openOn, readHours, spansText } from "../../../features/place/hours";
@@ -77,6 +72,8 @@ const worker = useWorker();
 const sync = useSync();
 const calls = useWorkerCalls();
 const { members, me } = useMembers();
+/** A note's paper: whoever wrote it */
+const paperFor = (n: Memo) => paperOf(members.value?.find((m) => m.id === n.by)?.color);
 const i18n = useI18n();
 /** Cut off: what needs the Worker is not offered */
 const cut = useOffline();
@@ -485,7 +482,7 @@ function adoptDraft() {
             <button
               type="button"
               :aria-pressed="picking?.id === n.id"
-              :style="`background:${PAPERS[n.color]}`"
+              :style="`background:${paperFor(n)}`"
               @click="() => togglePick(n)"
             >
               <span>{{ n.title }}</span>
@@ -563,7 +560,7 @@ function adoptDraft() {
               <li
                 data-turn
                 :data-status="n.schedule.status"
-                :style="`--card:${PAPERS[n.color]}`"
+                :style="`--card:${paperFor(n)}`"
                 :data-stamp="i18n.t('status.done')"
               >
                 <div>
@@ -664,7 +661,7 @@ function adoptDraft() {
                 v-for="n in forDay(day, 'idea')"
                 :key="n.id"
                 data-turn
-                :style="`--card:${PAPERS[n.color]}`"
+                :style="`--card:${paperFor(n)}`"
               >
                 <div><span>{{
                     n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime")
@@ -729,7 +726,7 @@ function adoptDraft() {
                 :key="n.id"
                 data-turn
                 :data-checked="n.checked || undefined"
-                :style="`--card:${PAPERS[n.color]}`"
+                :style="`--card:${paperFor(n)}`"
               ><label><input
                     type="checkbox"
                     :checked="n.checked"

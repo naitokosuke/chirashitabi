@@ -72,15 +72,7 @@ import type { NoteId } from "../../../features/notes/id";
 import { shrinkImage, STICKER_SIDE } from "../../../features/notes/image";
 import { blankInput } from "../../../features/notes/input";
 import { siteOf } from "../../../features/notes/links";
-import {
-  COLOR_NAMES,
-  COLORS,
-  PAPERS,
-  type FormTarget,
-  type NoteColor,
-  type NoteInput,
-  type TextBox,
-} from "../../../features/notes/types";
+import { type FormTarget, type NoteInput, type TextBox } from "../../../features/notes/types";
 import { useNotes, type Shape } from "../../../features/notes/useNotes";
 import {
   httpUrl,
@@ -437,9 +429,6 @@ function onMenuKey(e: KeyboardEvent) {
   const next = buttons[(i + (e.key === "ArrowRight" ? 1 : buttons.length - 1)) % buttons.length];
   e.preventDefault();
   next?.focus();
-}
-function setMenuColor(color: NoteColor) {
-  if (menu.value !== null) store.recolor(menu.value.note.id, color);
 }
 /** The menu's card when it is a memo, the only kind that goes on a day */
 const menuMemo = computed(() => (menuNote.value?.kind === "memo" ? menuNote.value : null));
@@ -927,15 +916,6 @@ watch(
         <button v-if="menu.note.kind === 'text'" type="button" @click="rewriteFromMenu">{{
           i18n.t("common.edit")
         }}</button>
-        <button
-          v-for="c in menu.note.kind === 'text' || menu.note.kind === 'sticker' ? [] : COLORS"
-          :key="c"
-          type="button"
-          :style="`background:${PAPERS[c]}`"
-          :aria-label="i18n.t(COLOR_NAMES[c])"
-          :aria-pressed="menuNote?.color === c"
-          @click="() => setMenuColor(c)"
-        ></button>
         <!-- the trip's days: a memo goes on one from the desk, where the ideas are -->
         <div
           v-if="menuMemo !== null && (trip?.days.length ?? 0) > 0"
@@ -1258,7 +1238,7 @@ section {
       }
     }
 
-    /* The card's menu: a row of paper colors, then the two actions; wraps on a narrow desk */
+    /* The card's menu: the trip's days, then the actions; wraps on a narrow desk */
     > [role="toolbar"] {
       position: absolute;
       z-index: var(--z-menu);
@@ -1290,32 +1270,16 @@ section {
           }
         }
 
-        /* a paper color: the only direct buttons with a pressed state */
-        &[aria-pressed] {
-          width: var(--tap);
-          height: var(--tap);
-          border-radius: 50%;
-          margin: 2px;
-          padding: 0;
-          min-height: 0;
-          /* a hairline keeps white paper visible on the white menu */
-          box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
-
-          &[aria-pressed="true"] {
-            outline: 2px solid var(--ink);
-            outline-offset: 2px;
-          }
-        }
       }
 
-      /* the days, a row of their own between the colors and the actions; the memo's day inked */
+      /* the days, a row of their own above the actions; the memo's day inked */
       > [role="group"] {
         flex-basis: 100%;
         display: flex;
         flex-wrap: wrap;
         gap: 4px;
-        padding-block: 4px;
-        border-block: 1px solid var(--line);
+        padding-block-end: 4px;
+        border-block-end: 1px solid var(--line);
 
         > button {
           min-height: var(--tap);
