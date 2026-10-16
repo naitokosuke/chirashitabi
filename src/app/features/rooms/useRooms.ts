@@ -52,8 +52,8 @@ export const useRooms = defineQuery(() => {
      * leaves it. What this device kept of it goes too, or opening it would show a room that
      * refuses it.
      */
-    remove: change(async ({ room, owner }: { room: RoomId; owner: boolean }) => {
-      await (owner ? deleteRoom(room) : leaveRoom(room));
+    remove: change(async ({ room, action }: { room: RoomId; action: "delete" | "leave" }) => {
+      await (action === "delete" ? deleteRoom(room) : leaveRoom(room));
       forget(localStorage, room);
     }),
     /** Brings a deleted trip back */

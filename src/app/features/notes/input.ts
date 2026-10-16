@@ -1,6 +1,14 @@
 import type { LatLng } from "../place/types";
 
-import { COLORS, type Memo, type Note, type NoteInput, type Suggestion } from "./types";
+import {
+  COLORS,
+  tagOf,
+  type Memo,
+  type Note,
+  type NoteInput,
+  type Suggestion,
+  type Tag,
+} from "./types";
 
 /** The form's starting point when editing an existing memo */
 export const inputFromNote = (note: Memo): NoteInput => ({
@@ -14,7 +22,7 @@ export const inputFromNote = (note: Memo): NoteInput => ({
 });
 
 /** A new memo: carries the tags being filtered on, and a pin when written from the map */
-export const blankInput = (tags: Iterable<string>, pin: LatLng | null): NoteInput => ({
+export const blankInput = (tags: Iterable<Tag>, pin: LatLng | null): NoteInput => ({
   title: "",
   body: "",
   tags: [...tags],
@@ -52,14 +60,14 @@ export const adopted = (s: Suggestion): Memo => ({
 });
 
 /** Tags shown on a card; suggestions have none */
-export const tagsOf = (n: Note): readonly string[] => (n.kind === "memo" ? n.tags : []);
+export const tagsOf = (n: Note): readonly Tag[] => (n.kind === "memo" ? n.tags : []);
 
 /** The textarea shows the title on the first line, the body below */
 export const noteText = (input: Pick<NoteInput, "title" | "body">) =>
   [input.title, input.body].filter(Boolean).join("\n");
 
-/** "#Food " -> "Food" */
-export const normalizeTag = (raw: string) => raw.replace(/^#/, "").trim();
+/** "#Food " -> "Food"; null for what is no tag (blank, or longer than the room keeps) */
+export const normalizeTag = (raw: string): Tag | null => tagOf(raw.replace(/^#/, "").trim());
 
 /**
  * The first line is the title, the rest the body. `#tags` anywhere become
@@ -68,10 +76,11 @@ export const normalizeTag = (raw: string) => raw.replace(/^#/, "").trim();
 /** A `#tag` written in the text becomes a tag and leaves the text, title and body alike */
 export function parseNoteText(text: string): Pick<NoteInput, "title" | "body" | "tags"> {
   const [first = "", ...rest] = text.trim().split("\n");
-  const tags = [...text.matchAll(/#([^\s#]+)/g)].flatMap(([, tag]) => tag ?? []);
+  // a word too long for the room is left in the words, not made a tag it would refuse
+  const tags = [...text.matchAll(/#([^\s#]+)/g)].flatMap(([, word]) => tagOf(word) ?? []);
   const strip = (line: string) =>
     line
-      .replace(/#[^\s#]+/g, "")
+      .replace(/#([^\s#]+)/g, (whole, word: string) => (tagOf(word) === null ? whole : ""))
       .replace(/[ \t]{2,}/g, " ")
       .trim();
   const stripped = strip(first);

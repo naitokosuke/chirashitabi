@@ -7,10 +7,11 @@ import { lastDay, shelve, whenOf } from "./when";
 
 const TODAY = Temporal.PlainDate.from("2026-10-03");
 const trip = (name: string, first: string | null, days = 3): RoomSummary => ({
+  ...(first === null
+    ? { first: null, days: 0 as const }
+    : { first: Temporal.PlainDate.from(first), days }),
   id: name as RoomId,
   name,
-  first: first === null ? null : Temporal.PlainDate.from(first),
-  days,
   members: [],
   memos: 0,
   owner: true,

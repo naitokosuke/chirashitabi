@@ -19,6 +19,16 @@ export const isMemberId = (v: unknown): v is MemberId =>
 /** An e-mail address as a person logs in with it: trimmed and lowercased, one key per person */
 export type Email = Brand<string, "Email">;
 
+/**
+ * An e-mail address, to invite or as Access vouches for it, lowercased as the index keeps it,
+ * or null. Only its shape is checked; whether it can log in is Access's to say.
+ */
+export const parseEmail = (v: unknown): Email | null =>
+  typeof v === "string" && v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
+    ? // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+      (v.trim().toLowerCase() as Email)
+    : null;
+
 export type NoteId = Brand<string, "NoteId">;
 
 /** A note's id, as the device that made the note minted it (uid in useNotes.ts) */

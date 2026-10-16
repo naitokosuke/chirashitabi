@@ -8,7 +8,7 @@ import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
 import { deleteRoom, fetchInvited, invite, leaveRoom, removeMember, uninvite } from "./api";
-import type { MemberId, Person } from "./types";
+import type { Email, MemberId, Person } from "./types";
 
 /**
  * Who is in the room of the session, and the changes to it over HTTP beside the socket. The
@@ -23,36 +23,41 @@ import type { MemberId, Person } from "./types";
 export const useMembers = defineQuery(() => {
   const sync = useSync();
   const queryCache = useQueryCache();
-  const { data: members } = useQueryState(() => roomKeys.members(sync.room.id));
+  // what changes who is in is offered only in a room (People, on its home tab)
+  const inRoom = (): RoomId => {
+    if (sync.room === null) throw new Error("not in a room");
+    return sync.room;
+  };
+  const { data: members } = useQueryState(() => roomKeys.members(sync.room));
   /** This device's person, once the room has said who is in it */
   const me = computed(() =>
     members.value?.find((m): m is Person => m.kind === "person" && m.id === sync.me),
   );
 
   const invited = useQuery({
-    key: () => roomKeys.invited(sync.room.id),
-    query: () => fetchInvited(sync.room.id),
-    enabled: () => me.value?.role === "owner",
+    key: () => roomKeys.invited(sync.room),
+    query: () => fetchInvited(inRoom()),
+    enabled: () => sync.room !== null && me.value?.role === "owner",
   });
 
   // the list of trips is only marked out of date: it is not fetched while in a room
   const refresh = () => {
-    for (const key of [roomKeys.invited(sync.room.id), ROOMS_KEY])
+    for (const key of [roomKeys.invited(sync.room), ROOMS_KEY])
       queryCache.invalidateQueries({ key }).catch(() => {
         // each query's own error state reports it
       });
   };
   const change = <V>(call: (room: RoomId, v: V) => Promise<unknown>) =>
-    useMutation({ mutation: (v: V) => call(sync.room.id, v), onSettled: refresh });
+    useMutation({ mutation: (v: V) => call(inRoom(), v), onSettled: refresh });
 
   return {
     members,
     me,
     invited,
-    invite: change((r, email: string) => invite(r, email)),
-    uninvite: change((r, email: string) => uninvite(r, email)),
+    invite: change((r, email: Email) => invite(r, email)),
+    uninvite: change((r, email: Email) => uninvite(r, email)),
     remove: change((r, member: MemberId) => removeMember(r, member)),
-    leave: useMutation({ mutation: () => leaveRoom(sync.room.id), onSettled: refresh }),
-    deleteRoom: useMutation({ mutation: () => deleteRoom(sync.room.id), onSettled: refresh }),
+    leave: useMutation({ mutation: () => leaveRoom(inRoom()), onSettled: refresh }),
+    deleteRoom: useMutation({ mutation: () => deleteRoom(inRoom()), onSettled: refresh }),
   };
 });

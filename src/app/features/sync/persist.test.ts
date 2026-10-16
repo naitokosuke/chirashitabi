@@ -7,8 +7,9 @@ import { currencyCode } from "../../shared/money";
 
 import type { MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
-import type { Memo } from "../notes/types";
+import type { Memo, Tag } from "../notes/types";
 import type { AirportCode } from "../place/airports";
+import type { HttpUrl } from "../place/google-maps";
 
 import type { RoomState } from "./ledger";
 import { keep, kept } from "./persist";
@@ -42,7 +43,7 @@ const memo: Memo = {
   by: "yuki" as MemberId,
   updatedAt: at,
   body: "",
-  tags: ["Food"],
+  tags: ["Food" as Tag],
   mapsUrl: null,
   pin: { lat: 25.03, lng: 121.56 },
   schedule: {
@@ -76,7 +77,7 @@ const room: RoomState = {
         name: "Hotel Proverbs",
         checkIn: Temporal.PlainDate.from("2026-11-03"),
         nights: 1,
-        mapsUrl: null,
+        mapsUrl: "https://www.google.com/maps?q=25.04,121.55" as HttpUrl,
         pin: { lat: 25.04, lng: 121.55 },
       },
     ],

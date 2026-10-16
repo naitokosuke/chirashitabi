@@ -1,9 +1,11 @@
+import type { Tag } from "../notes/types";
+
 /**
  * A tag that could go on a memo being written: how many notes have it, and how likely Clef
  * found it fitting (null when Clef has not judged it). `isNew` is a tag no note has yet
  */
 export interface TagOption {
-  name: string;
+  name: Tag;
   count: number;
   p: number | null;
   isNew: boolean;

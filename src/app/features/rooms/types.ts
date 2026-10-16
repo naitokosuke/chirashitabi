@@ -13,16 +13,14 @@ export { roomId, type RoomId } from "../../../contract/ids";
  * A room as the list of a person's trips shows it: the trip at a glance. `first` is null while
  * the trip has no days; the members are the people first, then the agent.
  */
-export interface RoomSummary {
+export type RoomSummary = {
   id: RoomId;
   name: string;
-  first: Temporal.PlainDate | null;
-  days: number;
   members: { kind: "person" | "agent"; name: string; color: HexColor }[];
   memos: number;
   /** This person made the trip, and so may delete it; anyone else may leave it */
   owner: boolean;
-}
+} & ({ first: null; days: 0 } | { first: Temporal.PlainDate; days: number });
 
 /** A trip its owner deleted, which either person in it can restore until `until` (the room's own count of days) */
 export interface DeletedRoom {

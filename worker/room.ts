@@ -2,9 +2,20 @@ import { DurableObject } from "cloudflare:workers";
 
 import { airportCodeOf, isAirportCode } from "./airports";
 import type { PlaceContext, SuggestContext, TagContext } from "./claude";
-import type { Brand, HexColor, MemberId, ImageId, NoteId, RoomId, CurrencyCode } from "./types";
+import type {
+  Brand,
+  HexColor,
+  HttpUrl,
+  MemberId,
+  ImageId,
+  NoteId,
+  RoomId,
+  CurrencyCode,
+} from "./types";
 import {
   SEATS,
+  tagOf,
+  type Tag,
   type Cid,
   type IsoDate,
   type IsoDateTime,
@@ -12,6 +23,8 @@ import {
   type IsoTime,
   type NoteColor,
   type NoteStatus,
+  type RejectReason,
+  type UnreadReason,
   MAX_MESSAGE_BYTES,
   parseCid,
   parseMutation,
@@ -29,6 +42,16 @@ import {
 } from "./wire";
 
 export type MemberKind = "person" | "agent";
+
+/** Done, or why not: what the room or the index declined, for the Worker to answer and log */
+export type Done<Reason> = { ok: true } | { ok: false; reason: Reason };
+/** Why no seat was held for an invitation */
+export type SeatRefusal = "not the owner" | "no seat";
+/** Why a person was not taken out: the owner never is, only the owner takes another, or gone already */
+export type RemoveRefusal = "the owner" | "not theirs" | "not in";
+
+/** A mutation the room wrote, as it wrote it, or why it did not */
+type Applied = { ok: true; value: WireMutation } | { ok: false; reason: RejectReason };
 
 /** A seat the room holds for an invitation, as it minted it; the index keeps whom it is for */
 export type SeatId = Brand<string, "SeatId">;
@@ -54,7 +77,7 @@ type NoteRow = {
   updated_at: IsoInstant;
   body: string;
   tags: string;
-  maps_url: string | null;
+  maps_url: HttpUrl | null;
   pin_lat: number | null;
   pin_lng: number | null;
   sched_date: IsoDate | null;
@@ -149,14 +172,6 @@ export class Room extends DurableObject<Env> {
         id TEXT PRIMARY KEY,
         created_at TEXT NOT NULL
       );
-      CREATE TABLE IF NOT EXISTS flights (
-        leg TEXT PRIMARY KEY CHECK (leg IN ('out', 'back')),
-        number TEXT NOT NULL,
-        from_place TEXT NOT NULL,
-        to_place TEXT NOT NULL,
-        departs TEXT NOT NULL,
-        arrives TEXT NOT NULL
-      );
       CREATE TABLE IF NOT EXISTS stays (
         position INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
@@ -172,6 +187,25 @@ export class Room extends DurableObject<Env> {
         at TEXT NOT NULL
       );
     `);
+    ctx.storage.sql.exec(flightsTable("flights"));
+    // flights kept when a time not known yet was written "" (its columns were NOT NULL then) are
+    // copied once into a table where it is null, every column by name
+    const { sql: flightsDdl } = ctx.storage.sql
+      .exec<{ sql: string }>(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'flights'",
+      )
+      .one();
+    if (flightsDdl.includes("departs TEXT NOT NULL")) {
+      ctx.storage.transactionSync(() => {
+        const sql = ctx.storage.sql;
+        sql.exec(flightsTable("flights_next"));
+        sql.exec(`INSERT INTO flights_next (leg, number, from_place, to_place, departs, arrives)
+          SELECT leg, number, from_place, to_place, NULLIF(departs, ''), NULLIF(arrives, '')
+          FROM flights`);
+        sql.exec("DROP TABLE flights");
+        sql.exec("ALTER TABLE flights_next RENAME TO flights");
+      });
+    }
     // a flight kept before its airports had to be codes on the list: one it names by a code in
     // another case, a name or a Japanese name becomes that code; one it names by nothing on the
     // list stays as written, out of the snapshot (trip()), until a member sets it again
@@ -277,15 +311,15 @@ export class Room extends DurableObject<Env> {
 
   /**
    * Holds a seat for someone the owner `by` invites, until they answer or the owner takes it
-   * back; null when `by` is not the owner or every seat is taken or held. The index keeps who
+   * back; refused when `by` is not the owner or every seat is taken or held. The index keeps who
    * the seat is for; the room keeps no e-mail.
    */
-  openSeat(by: MemberId): SeatId | null {
+  openSeat(by: MemberId): { ok: true; seat: SeatId } | { ok: false; reason: SeatRefusal } {
     this.assertMember(by);
-    if (by !== this.ownerId()) return null;
+    if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     const sql = this.ctx.storage.sql;
     const held = sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM invitations").one().n;
-    if (this.count("person") + held >= Room.MAX_PEOPLE) return null;
+    if (this.count("person") + held >= Room.MAX_PEOPLE) return { ok: false, reason: "no seat" };
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
     const id = crypto.randomUUID() as SeatId;
     sql.exec(
@@ -293,7 +327,7 @@ export class Room extends DurableObject<Env> {
       id,
       new Date().toISOString(),
     );
-    return id;
+    return { ok: true, seat: id };
   }
 
   /** The seat is given back: declined, withdrawn, or not recorded in the index after all */
@@ -303,13 +337,16 @@ export class Room extends DurableObject<Env> {
 
   /**
    * The invited person takes their seat as who they say they are; returns their new member id,
-   * or null when the seat is gone (withdrawn, or the room deleted). Everyone in is told.
+   * or why not: the seat is gone (withdrawn), or the room deleted. Everyone in is told.
    */
-  accept(seat: SeatId, me: Profile): MemberId | null {
-    if (this.deletion() !== null) return null;
+  accept(
+    seat: SeatId,
+    me: Profile,
+  ): { ok: true; member: MemberId } | { ok: false; reason: "no seat" | "deleted" } {
+    if (this.deletion() !== null) return { ok: false, reason: "deleted" };
     const sql = this.ctx.storage.sql;
     if (sql.exec("DELETE FROM invitations WHERE id = ? RETURNING id", seat).toArray().length === 0)
-      return null;
+      return { ok: false, reason: "no seat" };
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
     const id = crypto.randomUUID() as MemberId;
     sql.exec(
@@ -319,7 +356,7 @@ export class Room extends DurableObject<Env> {
       me.color,
     );
     this.tellMembers();
-    return id;
+    return { ok: true, member: id };
   }
 
   /** The index could not record a member `accept` just let in: they are not in after all */
@@ -344,39 +381,40 @@ export class Room extends DurableObject<Env> {
 
   /**
    * Takes `member` out: the owner `by` removing someone else, or someone other than the owner
-   * leaving (`by` is `member`). False for anything else; the owner never leaves their own
+   * leaving (`by` is `member`). Refused for anything else; the owner never leaves their own
    * room, they delete it. Their notes stay; their socket is told and closed.
    */
-  remove(by: MemberId, member: MemberId): boolean {
+  remove(by: MemberId, member: MemberId): Done<RemoveRefusal> {
     this.assertMember(by);
     const owner = this.ownerId();
-    if (member === owner || (by !== owner && by !== member)) return false;
+    if (member === owner) return { ok: false, reason: "the owner" };
+    if (by !== owner && by !== member) return { ok: false, reason: "not theirs" };
     const sql = this.ctx.storage.sql;
     const gone = sql
       .exec("DELETE FROM members WHERE id = ? AND kind = 'person' RETURNING id", member)
       .toArray();
-    if (gone.length === 0) return false;
+    if (gone.length === 0) return { ok: false, reason: "not in" };
     this.#rate.delete(member);
     this.closeSockets(this.ctx.getWebSockets(member), by === member ? "left" : "removed");
     this.tellMembers();
-    return true;
+    return { ok: true };
   }
 
   /**
    * The owner `by` deletes the room: nobody can open it from now on, and in DELETE_AFTER it is
    * gone for good unless the owner restores it. `roomId` is kept for that day, when its pictures
-   * go too. False when `by` is not the owner.
+   * go too. Refused when `by` is not the owner.
    */
-  delete(by: MemberId, roomId: RoomId): boolean {
+  delete(by: MemberId, roomId: RoomId): Done<"not the owner"> {
     this.assertMember(by);
-    if (by !== this.ownerId()) return false;
+    if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     const at = new Date();
     const sql = this.ctx.storage.sql;
     sql.exec("INSERT INTO deletion (id, room_id, at) VALUES (1, ?, ?)", roomId, at.toISOString());
     sql.exec("DELETE FROM invitations");
     this.closeSockets(this.ctx.getWebSockets(), "deleted");
     void this.ctx.storage.setAlarm(at.getTime() + Room.DELETE_AFTER);
-    return true;
+    return { ok: true };
   }
 
   /** How long a deleted room can be restored */
@@ -387,13 +425,13 @@ export class Room extends DurableObject<Env> {
     return this.deletion()?.at ?? null;
   }
 
-  /** A person in the room, `by`, takes the deletion back; false when it is not deleted */
-  restore(by: MemberId): boolean {
-    if (this.deletion() === null) return false;
+  /** A person in the room, `by`, takes the deletion back; refused when it is not deleted */
+  restore(by: MemberId): Done<"not deleted"> {
+    if (this.deletion() === null) return { ok: false, reason: "not deleted" };
     this.assertPerson(by);
     this.ctx.storage.sql.exec("DELETE FROM deletion");
     void this.ctx.storage.deleteAlarm();
-    return true;
+    return { ok: true };
   }
 
   /**
@@ -418,14 +456,15 @@ export class Room extends DurableObject<Env> {
 
   /**
    * The owner `by` wants the deleted room gone now rather than on its day: it goes as the
-   * alarm would take it. False unless the room is deleted and `by` owns it; the other person
+   * alarm would take it. Refused unless the room is deleted and `by` owns it; the other person
    * could still have restored it, so only the one who deleted it may end that.
    */
-  async purge(by: MemberId): Promise<boolean> {
+  async purge(by: MemberId): Promise<Done<"not deleted" | "not the owner">> {
     const deletion = this.deletion();
-    if (deletion === null || by !== this.ownerId()) return false;
+    if (deletion === null) return { ok: false, reason: "not deleted" };
+    if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     await this.erase(deletion);
-    return true;
+    return { ok: true };
   }
 
   /** The room goes for good: its pictures, its place in the index, its storage */
@@ -488,7 +527,11 @@ export class Room extends DurableObject<Env> {
       .exec<{ memos: number }>("SELECT COUNT(*) AS memos FROM notes WHERE kind = 'memo'")
       .one();
     const owner = by !== null && by === this.ownerId();
-    return { name, first: days[0] ?? null, days: days.length, members, memos, owner };
+    const [first] = days;
+    const glance = { name, members, memos, owner };
+    return first === undefined
+      ? { ...glance, first: null, days: 0 }
+      : { ...glance, first, days: days.length };
   }
 
   // ---- the agent (RPC from the Worker, inside a member's request) ----
@@ -609,11 +652,11 @@ export class Room extends DurableObject<Env> {
         updatedAt: now,
       };
       const result = this.apply({ type: "note:add", note }, Room.AGENT_ID, now);
-      if (typeof result === "string") return;
+      if (!result.ok) return;
       added++;
       const out = JSON.stringify({
         type: "mutation",
-        mutation: result,
+        mutation: result.value,
         by: Room.AGENT_ID,
         updatedAt: now,
       } satisfies ServerMessage);
@@ -674,7 +717,10 @@ export class Room extends DurableObject<Env> {
     if (by === undefined || !this.isPerson(by)) return ws.close(1008, "no member");
     // the client's id for this mutation, once it is known: an answer names it
     let cid: Cid | null = null;
-    const reject = (reason: string) =>
+    // what could not be read names no cid; what was read and refused names it when it had one
+    const unread = (reason: UnreadReason) =>
+      ws.send(JSON.stringify({ type: "rejected", reason } satisfies ServerMessage));
+    const reject = (reason: RejectReason) =>
       ws.send(
         JSON.stringify({
           type: "rejected",
@@ -683,14 +729,14 @@ export class Room extends DurableObject<Env> {
         } satisfies ServerMessage),
       );
 
-    if (typeof message !== "string") return reject("text only");
-    if (message.length > MAX_MESSAGE_BYTES) return reject("too large");
+    if (typeof message !== "string") return unread("text only");
+    if (message.length > MAX_MESSAGE_BYTES) return unread("too large");
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(message);
     } catch {
-      return reject("not JSON");
+      return unread("not JSON");
     }
     cid = parseCid(parsed);
     if (!this.withinRate(by)) return reject("too many messages");
@@ -701,15 +747,17 @@ export class Room extends DurableObject<Env> {
     // a card on its way under a finger is relayed, not kept; letting go sends the move with a cid
     const dragging = cid === null && mutation.type === "note:move";
     if (dragging && this.note(mutation.id) === undefined) return reject("no such note");
-    const result = dragging ? mutation : this.apply(mutation, by, updatedAt);
-    if (typeof result === "string") return reject(result);
+    const result: Applied = dragging
+      ? { ok: true, value: mutation }
+      : this.apply(mutation, by, updatedAt);
+    if (!result.ok) return reject(result.reason);
 
     if (cid !== null)
       ws.send(JSON.stringify({ type: "ack", cid, updatedAt } satisfies ServerMessage));
 
     const out = JSON.stringify({
       type: "mutation",
-      mutation: result,
+      mutation: result.value,
       by,
       updatedAt,
     } satisfies ServerMessage);
@@ -762,8 +810,8 @@ export class Room extends DurableObject<Env> {
         number: string;
         from_place: string;
         to_place: string;
-        departs: IsoDateTime | "";
-        arrives: IsoDateTime | "";
+        departs: IsoDateTime | null;
+        arrives: IsoDateTime | null;
       }>("SELECT * FROM flights")
       .toArray()) {
       const { from_place: from, to_place: to } = f;
@@ -773,9 +821,8 @@ export class Room extends DurableObject<Env> {
         number: f.number,
         from,
         to,
-        // a time not known yet is kept as "" (the columns were made NOT NULL before it could be)
-        departs: f.departs === "" ? null : f.departs,
-        arrives: f.arrives === "" ? null : f.arrives,
+        departs: f.departs,
+        arrives: f.arrives,
       };
     }
     const stays = sql
@@ -783,18 +830,20 @@ export class Room extends DurableObject<Env> {
         name: string;
         check_in: IsoDate;
         nights: number;
-        maps_url: string | null;
+        maps_url: HttpUrl | null;
         pin_lat: number | null;
         pin_lng: number | null;
       }>("SELECT * FROM stays ORDER BY position")
       .toArray()
-      .map((s): WireStay => ({
-        name: s.name,
-        checkIn: s.check_in,
-        nights: s.nights,
-        mapsUrl: s.maps_url,
-        pin: s.pin_lat === null || s.pin_lng === null ? null : { lat: s.pin_lat, lng: s.pin_lng },
-      }));
+      .map((s): WireStay => {
+        const stay = { name: s.name, checkIn: s.check_in, nights: s.nights };
+        const pin =
+          s.pin_lat === null || s.pin_lng === null ? null : { lat: s.pin_lat, lng: s.pin_lng };
+        // no link, no point: a pin is only ever the point a link names
+        return s.maps_url === null
+          ? { ...stay, mapsUrl: null, pin: null }
+          : { ...stay, mapsUrl: s.maps_url, pin };
+      });
     return {
       name: t.name,
       currency: t.currency,
@@ -819,11 +868,11 @@ export class Room extends DurableObject<Env> {
   }
 
   /** Writes the mutation as `by` at `now`; returns what was written, or why it was not */
-  private apply(m: WireMutation, by: MemberId, now: IsoInstant): WireMutation | string {
+  private apply(m: WireMutation, by: MemberId, now: IsoInstant): Applied {
     const sql = this.ctx.storage.sql;
     switch (m.type) {
       case "note:add": {
-        if (this.note(m.note.id) !== undefined) return "duplicate id";
+        if (this.note(m.note.id) !== undefined) return { ok: false, reason: "duplicate id" };
         const note = { ...m.note, by, updatedAt: now };
         const memo: WireMemo =
           note.kind === "memo"
@@ -842,7 +891,8 @@ export class Room extends DurableObject<Env> {
                 image: note.kind === "sticker" ? note.image : null,
               };
         // a card shows only a picture the room has
-        if (memo.image !== null && !this.hasImage(memo.image)) return "no such image";
+        if (memo.image !== null && !this.hasImage(memo.image))
+          return { ok: false, reason: "no such image" };
         sql.exec(
           `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at, body, tags, maps_url,
              pin_lat, pin_lng, sched_date, sched_time, sched_status, budget, checked, image, scale)
@@ -869,16 +919,16 @@ export class Room extends DurableObject<Env> {
           memo.image,
           note.scale,
         );
-        return { type: "note:add", note };
+        return { ok: true, value: { type: "note:add", note } };
       }
       case "note:update": {
         const row = this.note(m.id);
-        if (row === undefined) return "no such note";
-        if (row.kind !== "memo") return "not a memo";
+        if (row === undefined) return { ok: false, reason: "no such note" };
+        if (row.kind !== "memo") return { ok: false, reason: "not a memo" };
         const p = m.patch;
         const has = <K extends keyof typeof p>(k: K) => Object.hasOwn(p, k);
         if (has("image") && typeof p.image === "string" && !this.hasImage(p.image))
-          return "no such image";
+          return { ok: false, reason: "no such image" };
         sql.exec(
           `UPDATE notes SET
              title = ?, body = ?, tags = ?, color = ?, maps_url = ?, pin_lat = ?, pin_lng = ?,
@@ -904,24 +954,24 @@ export class Room extends DurableObject<Env> {
           now,
           m.id,
         );
-        return m;
+        return { ok: true, value: m };
       }
       case "note:recolor": {
-        if (this.note(m.id) === undefined) return "no such note";
+        if (this.note(m.id) === undefined) return { ok: false, reason: "no such note" };
         sql.exec("UPDATE notes SET color = ?, updated_at = ? WHERE id = ?", m.color, now, m.id);
-        return m;
+        return { ok: true, value: m };
       }
       case "text:edit": {
         const row = this.note(m.id);
-        if (row === undefined) return "no such note";
-        if (row.kind !== "text") return "not a text box";
+        if (row === undefined) return { ok: false, reason: "no such note" };
+        if (row.kind !== "text") return { ok: false, reason: "not a text box" };
         sql.exec("UPDATE notes SET title = ?, updated_at = ? WHERE id = ?", m.text, now, m.id);
-        return m;
+        return { ok: true, value: m };
       }
       case "note:adopt": {
         const row = this.note(m.id);
-        if (row === undefined) return "no such note";
-        if (row.kind !== "suggestion") return "not a suggestion";
+        if (row === undefined) return { ok: false, reason: "no such note" };
+        if (row.kind !== "suggestion") return { ok: false, reason: "not a suggestion" };
         sql.exec(
           `UPDATE notes SET kind = 'memo', color = '#ffffff', body = '', tags = '[]', maps_url = NULL,
              pin_lat = NULL, pin_lng = NULL, sched_date = NULL, sched_time = NULL, sched_status = NULL,
@@ -929,11 +979,11 @@ export class Room extends DurableObject<Env> {
           now,
           m.id,
         );
-        return m;
+        return { ok: true, value: m };
       }
       case "note:move": {
         const row = this.note(m.id);
-        if (row === undefined) return "no such note";
+        if (row === undefined) return { ok: false, reason: "no such note" };
         // a move that does not say how the card is turned or how large keeps what it was
         sql.exec(
           "UPDATE notes SET x = ?, y = ?, rot = ?, scale = ?, updated_at = ? WHERE id = ?",
@@ -944,20 +994,20 @@ export class Room extends DurableObject<Env> {
           now,
           m.id,
         );
-        return m;
+        return { ok: true, value: m };
       }
       case "note:delete": {
-        if (this.note(m.id) === undefined) return "no such note";
+        if (this.note(m.id) === undefined) return { ok: false, reason: "no such note" };
         sql.exec("UPDATE notes SET deleted_at = ? WHERE id = ?", now, m.id);
-        return m;
+        return { ok: true, value: m };
       }
       case "day:intro": {
         const n = sql.exec("UPDATE days SET intro = ? WHERE date = ?", m.intro, m.date).rowsWritten;
-        return n === 0 ? "no such day" : m;
+        return n === 0 ? { ok: false, reason: "no such day" } : { ok: true, value: m };
       }
       case "member:profile": {
         sql.exec("UPDATE members SET name = ?, color = ? WHERE id = ?", m.name, m.color, by);
-        return m;
+        return { ok: true, value: m };
       }
       case "trip:dates": {
         // the trip moves by how far its first day moved, and its days are the new run of them:
@@ -994,7 +1044,7 @@ export class Room extends DurableObject<Env> {
           dates[0],
           dates.at(-1),
         );
-        return m;
+        return { ok: true, value: m };
       }
       case "trip:flight": {
         if (m.flight === null) sql.exec("DELETE FROM flights WHERE leg = ?", m.leg);
@@ -1008,10 +1058,10 @@ export class Room extends DurableObject<Env> {
             m.flight.number,
             m.flight.from,
             m.flight.to,
-            m.flight.departs ?? "",
-            m.flight.arrives ?? "",
+            m.flight.departs,
+            m.flight.arrives,
           );
-        return m;
+        return { ok: true, value: m };
       }
       case "trip:stays": {
         sql.exec("DELETE FROM stays");
@@ -1028,11 +1078,11 @@ export class Room extends DurableObject<Env> {
             s.pin?.lng ?? null,
           ),
         );
-        return m;
+        return { ok: true, value: m };
       }
       case "trip:rename": {
         sql.exec("UPDATE trip SET name = ? WHERE id = 1", m.name);
-        return m;
+        return { ok: true, value: m };
       }
     }
   }
@@ -1131,9 +1181,9 @@ const notesTable = (name: string) => `
 `;
 
 /** A note's tags as its column keeps them: a JSON array of strings */
-const tagsOf = (column: string): string[] => {
+const tagsOf = (column: string): Tag[] => {
   const tags: unknown = JSON.parse(column);
-  return Array.isArray(tags) ? tags.filter((t) => typeof t === "string") : [];
+  return Array.isArray(tags) ? tags.flatMap((t: unknown) => tagOf(t) ?? []) : [];
 };
 
 const fromRow = (r: NoteRow): WireNote => {
@@ -1172,3 +1222,15 @@ const fromRow = (r: NoteRow): WireNote => {
 /** Now, as the room stamps what it applies */
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
 const stamp = (): IsoInstant => new Date().toISOString() as IsoInstant;
+
+/** The trip's flights, one a leg; a time not known yet is null */
+const flightsTable = (name: string) => `
+  CREATE TABLE IF NOT EXISTS ${name} (
+    leg TEXT PRIMARY KEY CHECK (leg IN ('out', 'back')),
+    number TEXT NOT NULL,
+    from_place TEXT NOT NULL,
+    to_place TEXT NOT NULL,
+    departs TEXT,
+    arrives TEXT
+  )
+`;

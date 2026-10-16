@@ -5,7 +5,7 @@ import { describe, expect, test } from "vite-plus/test";
 import type { MemberId } from "../members/types";
 import type { RoomId } from "../rooms/types";
 
-import { linked, NO_ROOM, opened, OUT, roomOf, synced } from "./session";
+import { linked, opened, OUT, roomOf, synced } from "./session";
 
 const ROOM = "0d5f3c1e-6a4b-4c2d-9e8f-1a2b3c4d5e6f" as RoomId;
 const ME = "yuki" as MemberId;
@@ -43,6 +43,6 @@ describe("session", () => {
   test("out of a room nothing moves it in", () => {
     expect(linked(OUT, "connected")).toBe(OUT);
     expect(synced(OUT, ME, at)).toBe(OUT);
-    expect(roomOf(OUT)).toBe(NO_ROOM);
+    expect(roomOf(OUT)).toBeNull();
   });
 });

@@ -5,6 +5,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { currencyCode } from "../../shared/money";
 
 import { airportsOf } from "../place/airports";
+import type { HttpUrl } from "../place/google-maps";
 
 import {
   flightOf,
@@ -43,7 +44,7 @@ const trip: TripSnapshot = {
       name: "Hotel Proverbs",
       checkIn: first,
       nights: 2,
-      mapsUrl: "https://www.google.com/maps?q=25.04,121.55",
+      mapsUrl: "https://www.google.com/maps?q=25.04,121.55" as HttpUrl,
       pin: { lat: 25.04, lng: 121.55 },
     },
   ],
@@ -81,11 +82,16 @@ describe("newStay and stayOf", () => {
 
   test("its link sets its pin; a blank link clears both; a stay with no name is not one yet", () => {
     const blank = newStay([], first);
-    expect(stayOf(blank)).toBeUndefined();
+    expect(stayOf(blank)).toEqual({ ok: false, why: "name" });
     const s = stayOf({ ...blank, name: " Inn ", mapsUrl: "https://maps.google.com/?q=25.1,121.8" });
-    expect(s).toMatchObject({ name: "Inn", pin: { lat: 25.1, lng: 121.8 } });
-    expect(stayOf({ ...blank, name: "Inn", pin: { lat: 1, lng: 2 } })?.pin).toBeNull();
-    expect(stayOf({ ...blank, name: "Inn", mapsUrl: "javascript:alert(1)" })).toBeUndefined();
+    expect(s).toMatchObject({ ok: true, value: { name: "Inn", pin: { lat: 25.1, lng: 121.8 } } });
+    expect(stayOf({ ...blank, name: "Inn", pin: { lat: 1, lng: 2 } })).toMatchObject({
+      value: { pin: null },
+    });
+    expect(stayOf({ ...blank, name: "Inn", mapsUrl: "javascript:alert(1)" })).toEqual({
+      ok: false,
+      why: "link",
+    });
   });
 });
 
@@ -95,23 +101,32 @@ describe("newFlight and flightOf", () => {
   });
 
   test("a flight that is off is none; its airports are enough, as codes, with no number or times", () => {
-    expect(flightOf({ ...newFlight(), on: false }, airports)).toBeNull();
+    expect(flightOf({ ...newFlight(), on: false }, airports)).toEqual({ ok: true, value: null });
     const f = flightOf({ ...newFlight(), number: " CI 223 ", from: " hnd", to: "松山" }, airports);
-    expect(f).toEqual({ number: "CI 223", from: HND, to: TSA, departs: null, arrives: null });
+    expect(f).toEqual({
+      ok: true,
+      value: { number: "CI 223", from: HND, to: TSA, departs: null, arrives: null },
+    });
   });
 
   test("an airport not named or not on the list, or a time half typed, is not one yet", () => {
-    expect(flightOf({ ...newFlight(), from: "HND" }, airports)).toBeUndefined();
-    expect(flightOf({ ...newFlight(), from: "HND", to: "Taipei" }, airports)).toBeUndefined();
-    expect(flightOf({ ...newFlight(), from: "HND", to: "TSA" }, [])).toBeUndefined();
+    const notYet = (why: string) => ({ ok: false, why });
+    expect(flightOf({ ...newFlight(), from: "HND" }, airports)).toEqual(notYet("airport"));
+    expect(flightOf({ ...newFlight(), from: "HND", to: "Taipei" }, airports)).toEqual(
+      notYet("airport"),
+    );
+    expect(flightOf({ ...newFlight(), from: "HND", to: "TSA" }, [])).toEqual(notYet("airport"));
     expect(
       flightOf({ ...newFlight(), from: "HND", to: "TSA", departs: "2026-11-03T" }, airports),
-    ).toBeUndefined();
+    ).toEqual(notYet("time"));
+    expect(
+      flightOf({ ...newFlight(), from: "HND", to: "TSA", number: "X".repeat(21) }, airports),
+    ).toEqual(notYet("number"));
     const timed = flightOf(
       { ...newFlight(), from: "HND", to: "TSA", departs: "2026-11-03T08:50" },
       airports,
     );
-    expect(timed?.departs?.toString()).toBe("2026-11-03T08:50:00");
-    expect(timed?.arrives).toBeNull();
+    expect(timed.ok && timed.value?.departs?.toString()).toBe("2026-11-03T08:50:00");
+    expect(timed.ok && timed.value?.arrives).toBeNull();
   });
 });

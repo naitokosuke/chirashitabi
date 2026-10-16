@@ -1,7 +1,7 @@
 import { Temporal } from "temporal-polyfill-lite";
 
 import { findAirport, type Airport } from "../place/airports";
-import { parseMapsUrl, safeUrl } from "../place/google-maps";
+import { httpUrl, parseMapsUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
 
@@ -78,23 +78,29 @@ export function newStay(stays: StayForm[], first: Temporal.PlainDate): StayForm 
   return { name: "", checkIn: checkIn.toString(), nights: 1, mapsUrl: "", pin: null };
 }
 
-/** A stay's inputs as the room takes it, or undefined while it is not one yet */
-export function stayOf(f: StayForm): Stay | undefined {
+/** Inputs read as what the room takes, or which of them is not one yet */
+export type Read<T, Why> = { ok: true; value: T } | { ok: false; why: Why };
+
+/** A stay's inputs as the room takes it, or which is not one yet */
+export function stayOf(f: StayForm): Read<Stay, "name" | "nights" | "check-in" | "link"> {
   const name = f.name.trim();
-  if (name === "" || name.length > MAX_NAME) return undefined;
-  if (!Number.isInteger(f.nights) || f.nights < 1 || f.nights > MAX_DAYS) return undefined;
+  if (name === "" || name.length > MAX_NAME) return { ok: false, why: "name" };
+  if (!Number.isInteger(f.nights) || f.nights < 1 || f.nights > MAX_DAYS)
+    return { ok: false, why: "nights" };
   let checkIn: Temporal.PlainDate;
   try {
     checkIn = Temporal.PlainDate.from(f.checkIn);
   } catch {
-    return undefined;
+    return { ok: false, why: "check-in" };
   }
+  const stay = { name, checkIn, nights: f.nights };
   // the link is a stay's only way to a place: no link, no pin; one that names no point keeps the pin it had
   const link = f.mapsUrl.trim();
-  if (link === "") return { name, checkIn, nights: f.nights, mapsUrl: null, pin: null };
+  if (link === "") return { ok: true, value: { ...stay, mapsUrl: null, pin: null } };
   // only a link the room takes: one it would refuse is not one yet
-  if (safeUrl(link) === undefined) return undefined;
-  return { name, checkIn, nights: f.nights, mapsUrl: link, pin: parseMapsUrl(link) ?? f.pin };
+  const url = httpUrl(link);
+  if (url === null) return { ok: false, why: "link" };
+  return { ok: true, value: { ...stay, mapsUrl: url, pin: parseMapsUrl(url) ?? f.pin } };
 }
 
 export const sameStays = (a: Stay[], b: Stay[]) =>
@@ -134,23 +140,26 @@ const dateTime = (s: string) => {
 };
 
 /**
- * A flight's inputs as the room takes it: null for no flight, undefined while it is not one
- * yet (an airport not on the list `airports`, a time half typed, or a number longer than the
- * room keeps). The number and the times may be blank; an airport may be typed as its code, its
- * name or a Japanese name, and is taken as its code.
+ * A flight's inputs as the room takes it (null for no flight), or which is not one yet: an
+ * airport not on the list `airports`, a time half typed, or a number longer than the room
+ * keeps. The number and the times may be blank; an airport may be typed as its code, its name
+ * or a Japanese name, and is taken as its code.
  */
-export function flightOf(f: FlightForm, airports: Airport[]): Flight | null | undefined {
-  if (!f.on) return null;
+export function flightOf(
+  f: FlightForm,
+  airports: Airport[],
+): Read<Flight | null, "airport" | "time" | "number"> {
+  if (!f.on) return { ok: true, value: null };
   const from = findAirport(airports, f.from)?.code;
   const to = findAirport(airports, f.to)?.code;
   const number = f.number.trim();
   const departs = f.departs === "" ? null : dateTime(f.departs);
   const arrives = f.arrives === "" ? null : dateTime(f.arrives);
-  if (from === undefined || to === undefined) return undefined;
+  if (from === undefined || to === undefined) return { ok: false, why: "airport" };
   if ((f.departs !== "" && departs === null) || (f.arrives !== "" && arrives === null))
-    return undefined;
-  if (number.length > MAX_FLIGHT_NO) return undefined;
-  return { number, from, to, departs, arrives };
+    return { ok: false, why: "time" };
+  if (number.length > MAX_FLIGHT_NO) return { ok: false, why: "number" };
+  return { ok: true, value: { number, from, to, departs, arrives } };
 }
 
 const sameTime = (a: Temporal.PlainDateTime | null, b: Temporal.PlainDateTime | null) =>
@@ -191,8 +200,12 @@ export function settingsOf(
   if (!Number.isInteger(form.days) || form.days < 1 || form.days > MAX_DAYS) return null;
   const out = flightOf(form.flights.out, airports);
   const back = flightOf(form.flights.back, airports);
-  if (out === undefined || back === undefined) return null;
-  const stays = form.stays.map(stayOf);
-  if (!stays.every((s) => s !== undefined)) return null;
-  return { name, first, days: form.days, flights: { out, back }, stays };
+  if (!out.ok || !back.ok) return null;
+  const stays: Stay[] = [];
+  for (const f of form.stays) {
+    const s = stayOf(f);
+    if (!s.ok) return null;
+    stays.push(s.value);
+  }
+  return { name, first, days: form.days, flights: { out: out.value, back: back.value }, stays };
 }

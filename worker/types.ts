@@ -5,6 +5,7 @@ export {
   isImageId,
   isMemberId,
   isNoteId,
+  parseEmail,
   roomId,
   type Email,
   type ImageId,
@@ -13,5 +14,5 @@ export {
   type RoomId,
 } from "../src/contract/ids";
 export type { CurrencyCode } from "../src/contract/money";
-export { isShortMapsLink, parseMapsUrl } from "../src/contract/place";
+export { isShortMapsLink, parseMapsUrl, type HttpUrl } from "../src/contract/place";
 export { isRecord } from "../src/contract/record";

@@ -55,16 +55,18 @@ export function summaryOf(raw: unknown): RoomSummary | null {
       return [];
     return [{ kind, name, color: hex } as const];
   });
-  return {
+  const glance = {
     id,
     name: r.name,
-    first: date(r.first),
-    days: count(r.days),
     members,
     memos: count(r.memos),
     // a Worker from before says nothing: not the owner, so the list offers leaving at most
     owner: r.owner === true,
   };
+  // a trip with no first day has no days to count
+  const first = date(r.first);
+  const days = count(r.days);
+  return first === null ? { ...glance, first, days: 0 } : { ...glance, first, days };
 }
 
 /** How long the room keeps a deleted trip (worker/room.ts, DELETE_AFTER) */

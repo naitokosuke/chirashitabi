@@ -1,14 +1,17 @@
 import type { EntryKeyTagged } from "@pinia/colada";
 
-import type { Member } from "../members/types";
+import type { Email, Member } from "../members/types";
 import type { Note } from "../notes/types";
 import type { RoomId } from "../rooms/types";
 import type { TripSnapshot } from "../trip/types";
 
-/** A slice's key, tagged with what the slice holds: reading or writing it is typed */
+/**
+ * A slice's key, tagged with what the slice holds: reading or writing it is typed. Out of a
+ * room (null) it is a key nothing writes, so what reads it reads nothing.
+ */
 const slice =
   <T>(name: string) =>
-  (roomId: RoomId) =>
+  (roomId: RoomId | null) =>
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Pinia Colada's tag is a type alone, with no value to make it from
     ["room", roomId, name] as unknown as EntryKeyTagged<T>;
 
@@ -24,5 +27,5 @@ export const roomKeys = {
    * Not a slice of the socket's: the e-mails the owner invited, fetched over HTTP by the owner
    * only (useMembers), refreshed when the members change
    */
-  invited: slice<string[]>("invited"),
+  invited: slice<Email[]>("invited"),
 };

@@ -28,13 +28,13 @@ import {
   type RoomId,
   isShortMapsLink,
   parseMapsUrl,
+  parseEmail,
   isRecord,
 } from "./types";
 import {
   IMAGE_TYPES,
   isDate,
   MAX_IMAGE_BYTES,
-  parseEmail,
   parsePoint,
   parseProfile,
   parseTrip,
@@ -231,9 +231,15 @@ const api = new Hono<ApiEnv>()
       const seat = await index.take(c.var.email, roomId);
       if (seat === null) return c.text("Not Found", 404);
       const room = c.env.ROOM.getByName(roomId);
-      const memberId = await room.accept(seat, me);
-      if (memberId === null) return c.text("Conflict", 409);
-      if (!(await index.add(c.var.email, roomId, memberId))) {
+      const accepted = await room.accept(seat, me);
+      if (!accepted.ok) {
+        c.var.log.set({ refused: accepted.reason });
+        return c.text("Conflict", 409);
+      }
+      const memberId = accepted.member;
+      const added = await index.add(c.var.email, roomId, memberId);
+      if (!added.ok) {
+        c.var.log.set({ refused: added.reason });
         // at the cap of rooms: the seat is lost, as a declined one would be
         await room.unaccept(memberId);
         return c.text("Conflict", 409);
@@ -266,8 +272,11 @@ const api = new Hono<ApiEnv>()
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
       const roomId = crypto.randomUUID() as RoomId;
       const memberId = await c.env.ROOM.getByName(roomId).create(trip, me);
-      if (!(await c.env.ROOMS.getByName("index").add(c.var.email, roomId, memberId)))
+      const added = await c.env.ROOMS.getByName("index").add(c.var.email, roomId, memberId);
+      if (!added.ok) {
+        c.var.log.set({ refused: added.reason });
         return c.text("Conflict", 409);
+      }
       return c.json({ roomId, memberId });
     },
   )
@@ -276,12 +285,20 @@ const api = new Hono<ApiEnv>()
   // back, and its owner may have it gone for good at once (the room drops itself from the index)
   .post(`${ROOM}/restore`, member("restore", true), async (c) => {
     const { roomId, memberId, room } = c.var;
-    if (!(await room.restore(memberId))) return c.text("Forbidden", 403);
+    const restored = await room.restore(memberId);
+    if (!restored.ok) {
+      c.var.log.set({ refused: restored.reason });
+      return c.text("Forbidden", 403);
+    }
     await c.env.ROOMS.getByName("index").mark(roomId, null);
     return c.json({});
   })
   .post(`${ROOM}/purge`, member("purge", true), async (c) => {
-    if (!(await c.var.room.purge(c.var.memberId))) return c.text("Forbidden", 403);
+    const purged = await c.var.room.purge(c.var.memberId);
+    if (!purged.ok) {
+      c.var.log.set({ refused: purged.reason });
+      return c.text("Forbidden", 403);
+    }
     return c.json({});
   })
 
@@ -642,11 +659,17 @@ const api = new Hono<ApiEnv>()
       const { roomId, memberId, room } = c.var;
       const invitee = c.req.valid("json");
       if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
-      const seat = await room.openSeat(memberId);
-      if (seat === null) return c.text("Conflict", 409); // every seat taken or held
-      if (!(await c.env.ROOMS.getByName("index").invite(invitee, roomId, seat))) {
+      const held = await room.openSeat(memberId);
+      if (!held.ok) {
+        c.var.log.set({ refused: held.reason });
+        return c.text("Conflict", 409);
+      }
+      const { seat } = held;
+      const invited = await c.env.ROOMS.getByName("index").invite(invitee, roomId, seat);
+      if (!invited.ok) {
         await room.closeSeat(seat);
-        return c.text("Conflict", 409); // already in, or already invited
+        c.var.log.set({ refused: invited.reason });
+        return c.text("Conflict", 409);
       }
       return c.json({ invited: invitee });
     },
@@ -674,20 +697,32 @@ const api = new Hono<ApiEnv>()
     async (c) => {
       const { roomId, memberId, room } = c.var;
       const removed = c.req.valid("json");
-      if (!(await room.remove(memberId, removed))) return c.text("Forbidden", 403);
+      const out = await room.remove(memberId, removed);
+      if (!out.ok) {
+        c.var.log.set({ refused: out.reason });
+        return c.text("Forbidden", 403);
+      }
       await c.env.ROOMS.getByName("index").forget(roomId, removed);
       return c.json({});
     },
   )
   .post(`${ROOM}/leave`, member("leave"), async (c) => {
     const { roomId, memberId, room } = c.var;
-    if (!(await room.remove(memberId, memberId))) return c.text("Forbidden", 403);
+    const out = await room.remove(memberId, memberId);
+    if (!out.ok) {
+      c.var.log.set({ refused: out.reason });
+      return c.text("Forbidden", 403);
+    }
     await c.env.ROOMS.getByName("index").forget(roomId, memberId);
     return c.json({});
   })
   .post(`${ROOM}/delete`, member("delete"), async (c) => {
     const { roomId, memberId, room } = c.var;
-    if (!(await room.delete(memberId, roomId))) return c.text("Forbidden", 403);
+    const deleted = await room.delete(memberId, roomId);
+    if (!deleted.ok) {
+      c.var.log.set({ refused: deleted.reason });
+      return c.text("Forbidden", 403);
+    }
     await c.env.ROOMS.getByName("index").mark(roomId, await room.deletedAt());
     return c.json({});
   })

@@ -29,6 +29,7 @@ export type {
   Cid,
   GoneReason,
   IsoInstant,
+  RejectReason,
   ServerMessage,
   WireMember,
   WireMutation,

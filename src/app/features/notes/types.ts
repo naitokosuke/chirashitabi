@@ -1,13 +1,14 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { NoteColor, NoteStatus } from "../../../contract/room";
+import type { NoteColor, NoteStatus, Tag } from "../../../contract/room";
 import type { MemberId } from "../members/types";
+import type { HttpUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
 
 import type { ImageId, NoteId } from "./id";
 
 // a card's papers and a schedule's statuses, as the app takes them from the contract
-export { COLORS, type NoteColor, type NoteStatus } from "../../../contract/room";
+export { COLORS, tagOf, type NoteColor, type NoteStatus, type Tag } from "../../../contract/room";
 
 /** How each paper is called, for a swatch's label (message ids) */
 export const COLOR_NAMES = {
@@ -57,8 +58,8 @@ interface CardBase {
 export interface Memo extends CardBase {
   kind: "memo";
   body: string;
-  tags: string[];
-  mapsUrl: string | null;
+  tags: Tag[];
+  mapsUrl: HttpUrl | null;
   pin: LatLng | null;
   schedule: Schedule | null;
   budget: number | null;
@@ -122,5 +123,7 @@ export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; i
 export type MemoPatch = Partial<Omit<Memo, "id" | "kind" | "by" | "updatedAt">>;
 
 /** Tags with a meaning of their own: packing notes never need a day or a pin */
-export const PACKING_TAG = "Packing";
-export const ARRIVAL_TAG = "On arrival";
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+export const PACKING_TAG = "Packing" as Tag;
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+export const ARRIVAL_TAG = "On arrival" as Tag;

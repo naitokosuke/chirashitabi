@@ -5,7 +5,7 @@ import { isRecord } from "../../shared/record";
 import type { Api } from "../../../../.worker-types/worker";
 import type { RoomId } from "../rooms/types";
 
-import type { MemberId } from "./types";
+import { parseEmail, type Email, type MemberId } from "./types";
 
 /** A room's calls; every one says JSON, as the Worker's gate wants, even one with no body */
 const inRoom = hc<Api>("/", { headers: { "Content-Type": "application/json" } }).api.rooms[
@@ -20,18 +20,18 @@ async function call<R extends ClientResponse<unknown>>(request: Promise<R>): Pro
 }
 
 /** `/invited` as the app holds it: the e-mails, and nothing that is not one */
-export function invitedOf(raw: unknown): string[] {
+export function invitedOf(raw: unknown): Email[] {
   const list = isRecord(raw) ? raw.invited : null;
-  return Array.isArray(list) ? list.filter((e): e is string => typeof e === "string") : [];
+  return Array.isArray(list) ? list.flatMap((e: unknown) => parseEmail(e) ?? []) : [];
 }
 
 /** Whom the owner has invited and is waiting on; the room answers its owner only */
-export const fetchInvited = async (roomId: RoomId): Promise<string[]> =>
+export const fetchInvited = async (roomId: RoomId): Promise<Email[]> =>
   invitedOf(await (await call(inRoom.invited.$post({ param: { roomId } }))).json());
 
-export const invite = (roomId: RoomId, email: string) =>
+export const invite = (roomId: RoomId, email: Email) =>
   call(inRoom.invite.$post({ param: { roomId }, json: { email } }));
-export const uninvite = (roomId: RoomId, email: string) =>
+export const uninvite = (roomId: RoomId, email: Email) =>
   call(inRoom.uninvite.$post({ param: { roomId }, json: { email } }));
 export const removeMember = (roomId: RoomId, member: MemberId) =>
   call(inRoom.remove.$post({ param: { roomId }, json: { member } }));

@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-import type { SeatId } from "./room";
+import type { Done, SeatId } from "./room";
 import type { Email, MemberId, RoomId } from "./types";
 
 /** Why a paid call was not reserved */
@@ -120,18 +120,18 @@ export class RoomsIndex extends DurableObject<Env> {
    * Records a membership the room has already minted; false when `email` is at its room cap.
    * A deleted room still counts until it is gone for good.
    */
-  add(email: Email, roomId: RoomId, memberId: MemberId): boolean {
+  add(email: Email, roomId: RoomId, memberId: MemberId): Done<"at the cap"> {
     const count = this.ctx.storage.sql
       .exec<{ n: number }>("SELECT COUNT(*) AS n FROM memberships WHERE email = ?", email)
       .one().n;
-    if (count >= RoomsIndex.MAX_ROOMS_PER_EMAIL) return false;
+    if (count >= RoomsIndex.MAX_ROOMS_PER_EMAIL) return { ok: false, reason: "at the cap" };
     this.ctx.storage.sql.exec(
       "INSERT INTO memberships (email, room_id, member_id) VALUES (?, ?, ?)",
       email,
       roomId,
       memberId,
     );
-    return true;
+    return { ok: true };
   }
 
   /** `memberId` is no longer in `roomId`: removed by the owner, or left */
@@ -146,22 +146,23 @@ export class RoomsIndex extends DurableObject<Env> {
   // ---- invitations: a seat the room holds for an e-mail, until it is taken or given back ----
 
   /**
-   * Records that `email` is invited to `roomId`, to the room's seat `inviteId`; false when it
+   * Records that `email` is invited to `roomId`, to the room's seat `inviteId`; refused when it
    * is already a member there or already invited.
    */
-  invite(email: Email, roomId: RoomId, inviteId: SeatId): boolean {
+  invite(email: Email, roomId: RoomId, inviteId: SeatId): Done<"already in" | "already invited"> {
     const sql = this.ctx.storage.sql;
     const known = (table: "memberships" | "invitations") =>
       sql.exec(`SELECT 1 FROM ${table} WHERE email = ? AND room_id = ?`, email, roomId).toArray()
         .length > 0;
-    if (known("memberships") || known("invitations")) return false;
+    if (known("memberships")) return { ok: false, reason: "already in" };
+    if (known("invitations")) return { ok: false, reason: "already invited" };
     sql.exec(
       "INSERT INTO invitations (email, room_id, invite_id) VALUES (?, ?, ?)",
       email,
       roomId,
       inviteId,
     );
-    return true;
+    return { ok: true };
   }
 
   /** The rooms `email` is invited to, oldest first */

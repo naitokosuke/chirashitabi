@@ -4,6 +4,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import type { CurrencyCode } from "../shared/money";
 
 import type { AirportCode } from "../features/place/airports";
+import type { HttpUrl } from "../features/place/google-maps";
 import type { TripSnapshot } from "../features/trip/types";
 
 const start = Temporal.PlainDate.from("2026-11-03");
@@ -30,7 +31,7 @@ export const mockTrip = (): TripSnapshot => ({
       checkIn: start,
       nights: 3,
       mapsUrl:
-        "https://www.google.com/maps/search/Hotel%20Proverbs%20Taipei/@25.041600,121.548900,17z",
+        "https://www.google.com/maps/search/Hotel%20Proverbs%20Taipei/@25.041600,121.548900,17z" as HttpUrl,
       pin: { lat: 25.0416, lng: 121.5489 },
     },
   ],

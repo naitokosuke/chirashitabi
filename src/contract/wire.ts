@@ -8,10 +8,11 @@ import { isAirportCode } from "./airport-codes";
 import type { AirportCode } from "./airports";
 import type { Brand } from "./brand";
 import { hexColor, type HexColor } from "./color";
-import { isImageId, isNoteId, type Email, type ImageId, type MemberId, type NoteId } from "./ids";
+import { isImageId, isNoteId, type ImageId, type MemberId, type NoteId } from "./ids";
 import { currencyCode, type CurrencyCode } from "./money";
+import { httpUrl, type HttpUrl } from "./place";
 import { isRecord } from "./record";
-import { COLORS, type NoteColor, type NoteStatus } from "./room";
+import { COLORS, tagOf, type NoteColor, type NoteStatus, type Tag } from "./room";
 
 /** A day as it travels: YYYY-MM-DD, a day the calendar has (isDate) */
 export type IsoDate = Brand<string, "IsoDate">;
@@ -30,15 +31,14 @@ export type WireMember =
   | { id: MemberId; kind: "agent"; name: string; color: HexColor };
 
 /** A room as `/api/me` lists it: the trip at a glance, without its notes */
-export interface WireRoomSummary {
+export type WireRoomSummary = {
   name: string;
-  first: IsoDate | null; // the first day; null while the trip has none
-  days: number;
-  members: Omit<WireMember, "id">[];
+  /** The people first, then the agent, as they look: no ids, no roles; who is who stays in the room */
+  members: Pick<WireMember, "kind" | "name" | "color">[];
   memos: number;
   /** Whether the person asking made the trip, and so may delete it (false on an invitation) */
   owner: boolean;
-}
+} & ({ first: null; days: 0 } | { first: IsoDate; days: number }); // the first day, none while it has no days
 
 export interface WireDay {
   date: IsoDate;
@@ -79,13 +79,11 @@ export type WireFlights = Record<Leg, WireFlight | null>;
  * Where the travellers sleep: a name, the first night (YYYY-MM-DD) and how many, and where it
  * is, as a Google Maps link and the point it names, when they gave one
  */
-export interface WireStay {
+export type WireStay = {
   name: string;
   checkIn: IsoDate;
   nights: number;
-  mapsUrl: string | null;
-  pin: { lat: number; lng: number } | null;
-}
+} & ({ mapsUrl: null; pin: null } | { mapsUrl: HttpUrl; pin: { lat: number; lng: number } | null });
 
 export interface WireSchedule {
   date: IsoDate;
@@ -109,8 +107,8 @@ interface WireCard {
 export interface WireMemo extends WireCard {
   kind: "memo";
   body: string;
-  tags: string[];
-  mapsUrl: string | null;
+  tags: Tag[];
+  mapsUrl: HttpUrl | null;
   pin: { lat: number; lng: number } | null;
   schedule: WireSchedule | null;
   budget: number | null;
@@ -203,11 +201,29 @@ export type ServerMessage =
   | { type: "snapshot"; me: MemberId; members: WireMember[]; trip: WireTrip; notes: WireNote[] }
   | { type: "mutation"; mutation: WireMutation; by: MemberId; updatedAt: IsoInstant }
   | { type: "ack"; cid: Cid; updatedAt: IsoInstant }
-  | { type: "rejected"; reason: string; cid?: Cid }
+  // a message the room could not read: it cannot say which of ours it was
+  | { type: "rejected"; reason: UnreadReason }
+  // a mutation it read and refused; the cid when the message had one
+  | { type: "rejected"; reason: RejectReason; cid?: Cid }
   // someone joined, was removed or left: who is in the room now
   | { type: "members"; members: WireMember[] }
   // this socket's person is out of the room, or the room was deleted; the socket closes after
   | { type: "gone"; reason: GoneReason };
+
+/** Why the room could not read a message at all */
+export type UnreadReason = "text only" | "too large" | "not JSON";
+
+/** Why the room refused a mutation it read */
+export type RejectReason =
+  | "too many messages"
+  | "not a mutation"
+  | "duplicate id"
+  | "no such note"
+  | "no such day"
+  | "no such image"
+  | "not a memo"
+  | "not a text box"
+  | "not a suggestion";
 
 /** Why a member's socket was closed by the room: removed by the owner, left on their own, or the room deleted */
 export type GoneReason = "removed" | "left" | "deleted";
@@ -222,11 +238,9 @@ const TITLE = 200;
 /** A text box's words: a few lines at most */
 const TEXT = 1000;
 const BODY = 4000;
-const TAG = 40;
 const TAGS = 20;
 const INTRO = 1000;
 const NAME = 60;
-const URL_LEN = 2000;
 const ID = 64;
 const COORD = 1e6;
 const DAYS = 60;
@@ -265,22 +279,14 @@ const isTime = (v: unknown): v is IsoTime => {
   const m = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(v);
   return m !== null && Number(m[1]) < 24 && Number(m[2]) < 60 && Number(m[3] ?? 0) < 60;
 };
-const isUrl = (v: unknown): v is string => {
-  if (!isText(v, URL_LEN)) return false;
-  try {
-    const u = new URL(v);
-    return u.protocol === "https:" || u.protocol === "http:";
-  } catch {
-    return false;
-  }
-};
+const isUrl = (v: unknown): v is HttpUrl => httpUrl(v) !== null;
 const isLatLng = (v: unknown): v is { lat: number; lng: number } =>
   isRecord(v) && isFinite_(v.lat, 90) && isFinite_(v.lng, 180) && Object.keys(v).length === 2;
 /** A point on the desk, as `{ x, y }` within the canvas's bounds */
 export const parsePoint = (v: unknown): { x: number; y: number } | null =>
   isRecord(v) && isFinite_(v.x) && isFinite_(v.y) ? { x: v.x, y: v.y } : null;
-const isTags = (v: unknown): v is string[] =>
-  Array.isArray(v) && v.length <= TAGS && v.every((t) => isText(t, TAG) && t !== "");
+const isTags = (v: unknown): v is Tag[] =>
+  Array.isArray(v) && v.length <= TAGS && v.every((t) => tagOf(t) !== null);
 const isSchedule = (v: unknown): v is WireSchedule =>
   isRecord(v) && isDate(v.date) && (v.time === null || isTime(v.time)) && isStatus(v.status);
 const isBudget = (v: unknown): v is number | null =>
@@ -292,16 +298,6 @@ export const parseProfile = (v: unknown): { name: string; color: HexColor } | nu
   const color = hexColor(String(v.color).toLowerCase());
   return color === null ? null : { name: v.name.trim(), color };
 };
-
-/**
- * An e-mail address, to invite or as Access vouches for it, lowercased as the index keeps it,
- * or null. Only its shape is checked; whether it can log in is Access's to say.
- */
-export const parseEmail = (v: unknown): Email | null =>
-  typeof v === "string" && v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
-    ? // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-      (v.trim().toLowerCase() as Email)
-    : null;
 
 /** A local date and time, to the minute or the second (as Temporal writes one) */
 export const isDateTime = (v: unknown): v is IsoDateTime =>
@@ -343,7 +339,9 @@ const parseStay = (v: unknown): WireStay | null => {
   if (typeof nights !== "number" || !Number.isInteger(nights) || nights < 1 || nights > DAYS)
     return null;
   if (!(mapsUrl === null || isUrl(mapsUrl)) || !(pin === null || isLatLng(pin))) return null;
-  return { name: name.trim(), checkIn, nights, mapsUrl, pin };
+  const stay = { name: name.trim(), checkIn, nights };
+  // no link, no point: a pin is only ever the point a link names
+  return mapsUrl === null ? { ...stay, mapsUrl, pin: null } : { ...stay, mapsUrl, pin };
 };
 
 /** What a room is created with */

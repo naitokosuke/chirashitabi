@@ -6,7 +6,7 @@ import { isRecord } from "../shared/record";
 
 import { SEATS, type Member } from "../features/members/types";
 import type { NoteId } from "../features/notes/id";
-import type { Note } from "../features/notes/types";
+import { tagOf, type Note } from "../features/notes/types";
 import { isShortMapsLink } from "../features/place/google-maps";
 import { roomId, type RoomId } from "../features/rooms/types";
 import { applyToRoom, type RoomState } from "../features/sync/ledger";
@@ -71,7 +71,9 @@ const stamp = (t: Temporal.Instant): IsoInstant => t.toString() as IsoInstant;
 
 /** The room a request names, if there is one and it is not deleted */
 /** The trip's candidate tags, as the agent would have proposed them */
-const CANDIDATES = ["Airport", "Souvenirs", "Night markets", "Temples", "Tea"];
+const CANDIDATES = ["Airport", "Souvenirs", "Night markets", "Temples", "Tea"].flatMap(
+  (t) => tagOf(t) ?? [],
+);
 
 const open = (id: unknown) => {
   const room = find(id);
@@ -222,7 +224,7 @@ const agent = [
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
     const body: unknown = await request.json();
-    const chosen = isRecord(body) && Array.isArray(body.chosen) ? body.chosen : [];
+    const chosen: unknown[] = isRecord(body) && Array.isArray(body.chosen) ? body.chosen : [];
     const inUse = new Set(room.state.notes.flatMap((n) => (n.kind === "memo" ? n.tags : [])));
     // every tag judged, the likeliest first: the in-use ones, then the trip's candidates
     const tags = [...inUse, ...CANDIDATES.filter((t) => !inUse.has(t))].filter(

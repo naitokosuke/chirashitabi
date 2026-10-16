@@ -1,17 +1,29 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
+import type { MemberId } from "../members/types";
 import type { ImageId, NoteId } from "../notes/id";
-import type { Scheduled } from "../notes/types";
+import type { Scheduled, Tag } from "../notes/types";
 import type { FoundPlace, LatLng } from "../place/types";
 
 /** A suggested order and times for one day, from whichever member drafted it */
 export interface DayDraft {
-  /** Who drafted it, as the Worker names them: an id to find among the members */
-  by: string;
+  /** Who drafted it, as the Worker names them: an id to find among the members; null when it named none */
+  by: MemberId | null;
   reason: string; // why this order
   items: { note: Scheduled; time: Temporal.PlainTime | null }[];
   intro: string;
 }
+
+/** The budget declined a paid call (docs/auth-and-security.md): asking again will not help */
+export type OverBudget = { kind: "over"; ceiling: "day" | "trip" };
+/** The room already keeps as many pictures as it may */
+export type RoomFull = { kind: "full" };
+
+/**
+ * A call's answer, or what the Worker declined: an outcome to say, not a failure. A failure
+ * (offline, an error from the Worker) is thrown.
+ */
+export type Answer<T, Refused> = { ok: true; value: T } | { ok: false; refused: Refused };
 
 /** What the Cloudflare Worker will do for the room, besides sync */
 export interface WorkerApi {
@@ -24,12 +36,12 @@ export interface WorkerApi {
     at: { x: number; y: number };
     ask: string;
     about: NoteId | null;
-  }): Promise<number>;
+  }): Promise<Answer<number, OverBudget>>;
   /**
    * Keep a picture in the room (shrunk on the device first, notes/image.ts); resolves with its
    * id for a card to show
    */
-  uploadImage(image: Blob): Promise<ImageId>;
+  uploadImage(image: Blob): Promise<Answer<ImageId, RoomFull>>;
   /**
    * Tags that fit a memo as it is being written, judged by Clef on its words and its picture,
    * from the tags in use and the trip's candidates (proposed by the agent once). Every tag
@@ -40,13 +52,13 @@ export interface WorkerApi {
     title: string;
     body: string;
     image: ImageId | null;
-    chosen: string[];
-  }): Promise<{ tag: string; p: number; isNew: boolean }[]>;
+    chosen: Tag[];
+  }): Promise<Answer<{ tag: Tag; p: number; isNew: boolean }[], OverBudget>>;
   /**
    * The trip's candidate tags the agent proposed, none before the first ask for tags; free,
    * so the form ranks them with the tags in use as the words are typed
    */
-  tagCandidates(): Promise<string[]>;
+  tagCandidates(): Promise<Tag[]>;
   /**
    * Where a memo is: the room's agent names the place from its words, and OpenStreetMap finds
    * it, so the points are real ones. Up to three to choose from, none when the memo is not
@@ -57,7 +69,7 @@ export interface WorkerApi {
     body: string;
     tags: string[];
     lang: "ja" | "en";
-  }): Promise<FoundPlace[]>;
+  }): Promise<Answer<FoundPlace[], OverBudget>>;
   /**
    * What is at a point pinned on the map, from OpenStreetMap: the place there or the street,
    * named in `lang`; null when it has nothing there. Free, so not budgeted
@@ -70,9 +82,12 @@ export interface WorkerApi {
    * read; any other link, or one that does not say, comes back as it was. When it leads to a
    * place's name and not its point, `at` is where OpenStreetMap finds that name. Budgeted
    */
-  expandLink(url: string, lang: "ja" | "en"): Promise<{ url: string; at: LatLng | null }>;
+  expandLink(
+    url: string,
+    lang: "ja" | "en",
+  ): Promise<Answer<{ url: string; at: LatLng | null }, OverBudget>>;
   /** Have a member order a day's notes and give them times */
-  draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<DayDraft>;
+  draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<Answer<DayDraft, OverBudget>>;
   /**
    * Publish the booklet as a static page at /r/<slug>/shiori, with a fresh slug each time;
    * null while the Worker cannot, and the UI hides it

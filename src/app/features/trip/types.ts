@@ -3,6 +3,7 @@ import type { Temporal } from "temporal-polyfill-lite";
 import type { CurrencyCode } from "../../shared/money";
 
 import type { AirportCode } from "../place/airports";
+import type { HttpUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
 
 export interface Day {
@@ -32,13 +33,11 @@ export type Flights = Record<Leg, Flight | null>;
  * Where the nights are spent: its name, the first night and how many, and where it is when a
  * Google Maps link said so. A day's plan leaves from where its night before was spent.
  */
-export interface Stay {
+export type Stay = {
   name: string;
   checkIn: Temporal.PlainDate;
   nights: number;
-  mapsUrl: string | null;
-  pin: LatLng | null;
-}
+} & ({ mapsUrl: null; pin: null } | { mapsUrl: HttpUrl; pin: LatLng | null });
 
 /** What the room knows about the trip itself */
 export interface TripSnapshot {

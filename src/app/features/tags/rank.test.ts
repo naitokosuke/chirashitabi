@@ -1,9 +1,11 @@
 import { describe, expect, test } from "vite-plus/test";
 
+import type { Tag } from "../notes/types";
+
 import { fits, likeness, mention, rankTags, type TagOption } from "./rank";
 
 const tag = (name: string, count = 1, p: number | null = null): TagOption => ({
-  name,
+  name: name as Tag,
   count,
   p,
   isNew: false,

@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { isShortMapsLink, parseMapsUrl, placeSearchLink, safeUrl } from "./google-maps";
+import {
+  isShortMapsLink,
+  parseMapsUrl,
+  placeFromUrl,
+  placeSearchLink,
+  safeUrl,
+} from "./google-maps";
 
 describe("placeSearchLink", () => {
   test("searches the name at the point, and the point reads back as the pin", () => {
@@ -38,5 +44,26 @@ describe("parseMapsUrl and isShortMapsLink", () => {
     expect(isShortMapsLink("https://goo.gl/other")).toBe(false);
     expect(isShortMapsLink("https://www.google.com/maps/@25,121,15z")).toBe(false);
     expect(isShortMapsLink("javascript:alert(1)")).toBe(false);
+  });
+});
+
+describe("placeFromUrl", () => {
+  const pin = { lat: 1, lng: 2 };
+
+  test("a link sets itself and the point it names; blank clears the link, the pin stays", () => {
+    expect(placeFromUrl(" https://www.google.com/maps?q=25.04,121.55 ", pin)).toEqual({
+      mapsUrl: "https://www.google.com/maps?q=25.04,121.55",
+      pin: { lat: 25.04, lng: 121.55 },
+    });
+    expect(placeFromUrl("https://example.com/", pin)).toEqual({
+      mapsUrl: "https://example.com/",
+      pin,
+    });
+    expect(placeFromUrl("  ", pin)).toEqual({ mapsUrl: null, pin });
+  });
+
+  test("what is not a link a note may carry sets none, and the pin stays", () => {
+    expect(placeFromUrl("Din Tai Fung", pin)).toEqual({ mapsUrl: null, pin });
+    expect(placeFromUrl("javascript:alert(1)", pin)).toEqual({ mapsUrl: null, pin });
   });
 });

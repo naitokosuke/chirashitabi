@@ -8,7 +8,7 @@ import { useI18n } from "../../i18n/useI18n";
 import { KEPT_DAYS } from "../rooms/api";
 import { useSync } from "../sync/useSync";
 
-import { SEATS, type MemberId, type Person } from "./types";
+import { parseEmail, SEATS, type Email, type MemberId, type Person } from "./types";
 import { useMembers } from "./useMembers";
 
 /**
@@ -51,9 +51,14 @@ const failed = ref<"invite" | "other" | null>(null);
 
 const invite = membership.invite;
 async function sendInvite() {
-  const address = email.value.trim();
-  if (address === "" || invite.isLoading.value) return;
+  if (email.value.trim() === "" || invite.isLoading.value) return;
   failed.value = null;
+  // an address that is not one is said at once, as the room would refuse it
+  const address = parseEmail(email.value);
+  if (address === null) {
+    failed.value = "invite";
+    return;
+  }
   try {
     await invite.mutateAsync(address);
     email.value = "";
@@ -73,7 +78,7 @@ async function run(change: () => Promise<unknown>, then?: () => void) {
     failed.value = "other";
   }
 }
-const uninvite = (address: string) => run(() => membership.uninvite.mutateAsync(address));
+const uninvite = (address: Email) => run(() => membership.uninvite.mutateAsync(address));
 const remove = (member: MemberId) => run(() => membership.remove.mutateAsync(member));
 // the room says so on the socket too; this is in case the socket was down when it did
 const out = () => emit("out");

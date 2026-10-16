@@ -5,7 +5,6 @@ export {
   MAX_MESSAGE_BYTES,
   isDate,
   parseCid,
-  parseEmail,
   parseMutation,
   parsePoint,
   parseProfile,
@@ -17,7 +16,9 @@ export {
   type IsoInstant,
   type IsoTime,
   type Leg,
+  type RejectReason,
   type ServerMessage,
+  type UnreadReason,
   type WireFlights,
   type WireMember,
   type WireMemo,
@@ -27,4 +28,4 @@ export {
   type WireStay,
   type WireTrip,
 } from "../src/contract/wire";
-export { SEATS, type NoteColor, type NoteStatus } from "../src/contract/room";
+export { SEATS, tagOf, type NoteColor, type NoteStatus, type Tag } from "../src/contract/room";

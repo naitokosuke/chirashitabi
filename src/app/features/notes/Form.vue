@@ -19,6 +19,7 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  shallowRef,
   useId,
   useTemplateRef,
   watch,
@@ -41,12 +42,11 @@ import type { FoundPlace } from "../place/types";
 import { useSync } from "../sync/useSync";
 import { FITS_AT, fits, likeness, rankTags, type TagOption } from "../tags/rank";
 import { useTags } from "../tags/useTags";
-import { OverBudget, RoomFull } from "../worker/api";
 import { useWorker } from "../worker/useWorker";
 
 import { imageSrc, shrinkImage } from "./image";
 import { blankInput, inputFromNote, normalizeTag, noteText, parseNoteText } from "./input";
-import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteInput } from "./types";
+import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteInput, type Tag } from "./types";
 import { useNotes } from "./useNotes";
 
 const props = defineProps<{ mode: FormMode }>();
@@ -100,7 +100,10 @@ function onMapsUrl() {
   expanding.value = true;
   api
     .expandLink(short, i18n.locale === "en" ? "en" : "ja")
-    .then(({ url, at }) => {
+    .then((answer) => {
+      // past the budget the short link stays, as when it could not be read
+      if (!answer.ok) return;
+      const { url, at } = answer.value;
       if (mapsUrl.value.trim() !== short || url === short) return;
       mapsUrl.value = url;
       Object.assign(form.value, placeFromUrl(url, at ?? form.value.pin));
@@ -128,7 +131,7 @@ const PHOTO_STATE = {
   full: "form.photoFull",
 } as const satisfies Record<Exclude<PhotoState, "idle">, string>;
 const photoSrc = computed(() =>
-  form.value.image === null ? null : imageSrc(sync.room.id, form.value.image),
+  form.value.image === null || sync.room === null ? null : imageSrc(sync.room, form.value.image),
 );
 async function onPhoto(e: Event) {
   const input = e.target;
@@ -139,10 +142,11 @@ async function onPhoto(e: Event) {
   if (file === undefined || api === null) return;
   photo.value = "sending";
   try {
-    form.value.image = await api.uploadImage(await shrinkImage(file));
-    photo.value = "idle";
-  } catch (err) {
-    photo.value = err instanceof RoomFull ? "full" : "failed";
+    const kept = await api.uploadImage(await shrinkImage(file));
+    if (kept.ok) form.value.image = kept.value;
+    photo.value = kept.ok ? "idle" : "full";
+  } catch {
+    photo.value = "failed";
   }
 }
 function removePhoto() {
@@ -159,7 +163,7 @@ const TAG_STATE = {
   day: "form.tagsLimit",
   trip: "form.tagsTripLimit",
 } as const satisfies Record<Exclude<TagState, "idle">, string>;
-const offered = ref<{ tag: string; p: number; isNew: boolean }[]>([]);
+const offered = ref<{ tag: Tag; p: number; isNew: boolean }[]>([]);
 /**
  * In a room with no tags yet, the first ask has the agent propose the trip's tags too, so it
  * waits for a tap; after that Clef is asked by itself
@@ -192,14 +196,20 @@ async function askForTags(byTap: boolean) {
       chosen: [...form.value.tags, ...inline],
     });
     if (of !== memo) return;
-    offered.value = got;
+    if (!got.ok) {
+      // past the budget: Clef stops asking by itself for this memo
+      asks = MAX_ASKS;
+      tagState.value = got.refused.ceiling;
+      return;
+    }
+    offered.value = got.value;
     // nothing fitting is worth saying only to the one who asked
-    tagState.value = byTap && !got.some((t) => t.p >= FITS_AT) ? "none" : "idle";
-  } catch (err) {
+    tagState.value = byTap && !got.value.some((t) => t.p >= FITS_AT) ? "none" : "idle";
+  } catch {
     if (of !== memo) return;
-    // refused or failed: Clef stops asking by itself for this memo
+    // failed: Clef stops asking by itself for this memo
     asks = MAX_ASKS;
-    tagState.value = err instanceof OverBudget ? err.ceiling : "failed";
+    tagState.value = "failed";
   }
 }
 /** Asked once the words are there, then again only for a new photo or words much changed */
@@ -231,7 +241,7 @@ function forgetTags() {
 }
 // ---- the tags to add: those in use and the trip's, in the order they fit the words as typed ----
 /** The trip's candidate tags the agent proposed; read once the Worker is there, free */
-const candidates = ref<string[]>([]);
+const candidates = ref<Tag[]>([]);
 watch(
   () => worker.api,
   (api) => {
@@ -288,32 +298,37 @@ watch(ranked, () => {
 onBeforeUnmount(() => clearTimeout(resort));
 
 // ---- where the memo is: the agent names the place, OpenStreetMap finds it; one is chosen ----
-type PlaceState = "idle" | "asking" | "none" | "failed" | "day" | "trip";
-const placeState = ref<PlaceState>("idle");
+/** The places found to choose from, or what the ask is doing or why it found none */
+type Places =
+  | { kind: "idle"; found: FoundPlace[] }
+  | { kind: "asking" | "none" | "failed" | "day" | "trip" };
+const places = shallowRef<Places>({ kind: "idle", found: [] });
 const PLACE_STATE = {
   asking: "form.placesAsking",
   none: "form.placesNone",
   failed: "form.placesFailed",
   day: "form.tagsLimit",
   trip: "form.tagsTripLimit",
-} as const satisfies Record<Exclude<PlaceState, "idle">, string>;
-const found = ref<FoundPlace[]>([]);
+} as const satisfies Record<Exclude<Places["kind"], "idle">, string>;
+/** What there is to choose from: only once an ask found some */
+const found = computed(() => (places.value.kind === "idle" ? places.value.found : []));
 async function findPlaces() {
   const api = worker.api;
-  if (api === null || placeState.value === "asking") return;
+  if (api === null || places.value.kind === "asking") return;
   const { title, body, tags: inline } = parseNoteText(text.value);
-  placeState.value = "asking";
-  found.value = [];
+  places.value = { kind: "asking" };
   try {
-    found.value = await api.findPlaces({
+    const answer = await api.findPlaces({
       title,
       body,
       tags: [...form.value.tags, ...inline],
       lang: i18n.locale === "en" ? "en" : "ja",
     });
-    placeState.value = found.value.length === 0 ? "none" : "idle";
-  } catch (err) {
-    placeState.value = err instanceof OverBudget ? err.ceiling : "failed";
+    if (!answer.ok) places.value = { kind: answer.refused.ceiling };
+    else if (answer.value.length === 0) places.value = { kind: "none" };
+    else places.value = { kind: "idle", found: answer.value };
+  } catch {
+    places.value = { kind: "failed" };
   }
 }
 /**
@@ -328,7 +343,7 @@ function choosePlace(p: FoundPlace) {
     const line = `${i18n.t("form.hours")} ${p.hours}`;
     if (!text.value.includes(line)) text.value = `${text.value.trimEnd()}\n${line}`;
   }
-  found.value = [];
+  places.value = { kind: "idle", found: [] };
 }
 
 /**
@@ -420,7 +435,7 @@ const hintKey = computed(() =>
 
 function addTag(raw: string) {
   const t = normalizeTag(raw);
-  if (t !== "" && !form.value.tags.includes(t)) form.value.tags.push(t);
+  if (t !== null && !form.value.tags.includes(t)) form.value.tags.push(t);
 }
 function commitTag() {
   if (tagInput.value.trim() !== "") {
@@ -428,7 +443,7 @@ function commitTag() {
     tagInput.value = "";
   }
 }
-function removeTag(t: string) {
+function removeTag(t: Tag) {
   form.value.tags.splice(form.value.tags.indexOf(t), 1);
 }
 function setColor(c: NoteColor) {
@@ -561,8 +576,8 @@ function submit() {
         <div v-if="worker.api !== null" class="places">
           <button
             type="button"
-            :disabled="placeState === 'asking' || !text.trim()"
-            :aria-busy="placeState === 'asking'"
+            :disabled="places.kind === 'asking' || !text.trim()"
+            :aria-busy="places.kind === 'asking'"
             @click="findPlaces"
           >{{ i18n.t("form.findPlace") }}</button>
           <ul v-if="found.length > 0">
@@ -576,8 +591,8 @@ function submit() {
           <p v-if="found.length > 0 || namedByOsm" class="credit">{{
             i18n.t("form.placesCredit")
           }}</p>
-          <p v-if="placeState !== 'idle'" aria-live="polite">{{
-            i18n.t(PLACE_STATE[placeState])
+          <p v-if="places.kind !== 'idle'" aria-live="polite">{{
+            i18n.t(PLACE_STATE[places.kind])
           }}</p>
         </div>
       </div>

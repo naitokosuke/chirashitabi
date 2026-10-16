@@ -19,6 +19,15 @@ describe("parseNoteText", () => {
     });
   });
 
+  test("a #word too long for a tag stays in the words, as the room would keep no such tag", () => {
+    const long = "x".repeat(41);
+    expect(parseNoteText(`Lunch #${long} #Food`)).toEqual({
+      title: `Lunch #${long}`,
+      body: "",
+      tags: ["Food"],
+    });
+  });
+
   test("a title that is only tags keeps its words, so the note is never blank", () => {
     expect(parseNoteText("#Packing")).toEqual({ title: "#Packing", body: "", tags: ["Packing"] });
   });

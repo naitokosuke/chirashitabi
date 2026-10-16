@@ -100,7 +100,10 @@ function onStayLink(s: StayForm) {
   expanding.add(s);
   api
     .expandLink(short, i18n.locale === "en" ? "en" : "ja")
-    .then(({ url, at }) => {
+    .then((answer) => {
+      // past the budget the short link stays, as when it could not be read
+      if (!answer.ok) return;
+      const { url, at } = answer.value;
       if (s.mapsUrl.trim() !== short) return;
       s.mapsUrl = url;
       readFrom.set(s, url);
@@ -142,7 +145,8 @@ function chooseStay(s: StayForm, p: FoundPlace) {
 function stayLinkState(s: StayForm) {
   if (s.mapsUrl.trim() === "") return "stay.linkHint";
   if (expanding.has(s)) return "stay.linkExpanding";
-  return (stayOf(s)?.pin ?? null) === null ? "stay.linkNoPin" : "stay.linkPinned";
+  const stay = stayOf(s);
+  return stay.ok && stay.value.pin !== null ? "stay.linkPinned" : "stay.linkNoPin";
 }
 
 function save() {
