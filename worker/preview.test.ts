@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { decodeEntities, previewable, readHead, siteOf } from "./preview";
+import { decodeEntities, previewable, readHead, siteOf, youtubeWatch } from "./preview";
 
 const OURS = ["chirashitabi.app", "shiori.chirashitabi.app"];
 
@@ -64,6 +64,18 @@ describe("readHead", () => {
     expect(head.title).toHaveLength(200);
     expect(head.description).toHaveLength(1000);
   });
+});
+
+test("youtubeWatch", () => {
+  for (const shared of [
+    "https://youtu.be/dQw4w9WgXcQ?si=abc",
+    "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10s",
+    "https://m.youtube.com/shorts/dQw4w9WgXcQ",
+  ])
+    expect(youtubeWatch(new URL(shared))).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  expect(youtubeWatch(new URL("https://www.youtube.com/@channel"))).toBe(
+    "https://www.youtube.com/@channel",
+  );
 });
 
 test("decodeEntities and siteOf", () => {

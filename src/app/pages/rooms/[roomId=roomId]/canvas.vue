@@ -704,7 +704,11 @@ async function linkCard(url: HttpUrl) {
     return;
   }
   const site = siteOf(url);
-  const n = placeAtCenter({ ...blankInput(tags.selected, null), title: site, link: url }, "pop");
+  // a print, on white stock
+  const n = placeAtCenter(
+    { ...blankInput(tags.selected, null), title: site, link: url, color: "#ffffff" },
+    "pop",
+  );
   const api = worker.api;
   if (api === null || cut.offline) return;
   try {
