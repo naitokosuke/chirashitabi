@@ -1,7 +1,7 @@
 import type { HttpUrl } from "../place/google-maps";
 
 /** The site a page is on, as it reads on a card: its host without `www.`; "" for no link */
-export const siteOf = (url: HttpUrl | null): string =>
+export const siteOf = (url: string | null): string =>
   url === null || !URL.canParse(url) ? "" : new URL(url).hostname.replace(/^www\./, "");
 
 /** A note's words cut at the links in them, so each link can be tapped and the rest read as it is */
