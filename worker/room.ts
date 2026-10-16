@@ -1,18 +1,22 @@
 import { DurableObject } from "cloudflare:workers";
+import * as v from "valibot";
 
 import { airportCodeOf, isAirportCode } from "./airports";
 import type { PlaceContext, SuggestContext, TagContext } from "./claude";
-import type {
-  Brand,
-  HexColor,
-  HttpUrl,
-  MemberId,
-  ImageId,
-  NoteId,
-  RoomId,
-  CurrencyCode,
+import {
+  type HexColor,
+  type HttpUrl,
+  type MemberId,
+  MemberIdSchema,
+  type ImageId,
+  ImageIdSchema,
+  type NoteId,
+  NoteIdSchema,
+  type RoomId,
+  type CurrencyCode,
 } from "./types";
 import {
+  IsoInstantSchema,
   SEATS,
   tagOf,
   type Tag,
@@ -54,7 +58,8 @@ export type RemoveRefusal = "the owner" | "not theirs" | "not in";
 type Applied = { ok: true; value: WireMutation } | { ok: false; reason: RejectReason };
 
 /** A seat the room holds for an invitation, as it minted it; the index keeps whom it is for */
-export type SeatId = Brand<string, "SeatId">;
+const SeatIdSchema = v.pipe(v.string(), v.uuid(), v.brand("SeatId"));
+export type SeatId = v.InferOutput<typeof SeatIdSchema>;
 
 interface Profile {
   name: string;
@@ -101,8 +106,7 @@ type NoteRow = {
 export class Room extends DurableObject<Env> {
   static readonly MAX_PEOPLE = SEATS;
   // the one id that is the same in every room
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-  static readonly AGENT_ID = "agent:claude" as MemberId;
+  static readonly AGENT_ID = v.parse(MemberIdSchema, "agent:claude");
   static readonly MEMBER_HEADER = "X-Chirashitabi-Member";
 
   #rate = new Map<MemberId, { since: number; n: number }>();
@@ -242,8 +246,7 @@ export class Room extends DurableObject<Env> {
     const sql = this.ctx.storage.sql;
     if (sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM pictures").one().n >= Room.MAX_IMAGES)
       return null;
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-    const id = crypto.randomUUID() as ImageId;
+    const id = v.parse(ImageIdSchema, crypto.randomUUID());
     sql.exec(
       "INSERT INTO pictures (id, by, type, bytes, created_at) VALUES (?, ?, ?, ?, ?)",
       id,
@@ -278,8 +281,7 @@ export class Room extends DurableObject<Env> {
   create(trip: WireTrip, me: Profile): MemberId {
     if (this.count() > 0) throw new Error("room already created");
     const sql = this.ctx.storage.sql;
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-    const creator = crypto.randomUUID() as MemberId;
+    const creator = v.parse(MemberIdSchema, crypto.randomUUID());
     sql.exec(
       "INSERT INTO members (id, kind, creator, name, color) VALUES (?, 'person', 1, ?, ?)",
       creator,
@@ -320,8 +322,7 @@ export class Room extends DurableObject<Env> {
     const sql = this.ctx.storage.sql;
     const held = sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM invitations").one().n;
     if (this.count("person") + held >= Room.MAX_PEOPLE) return { ok: false, reason: "no seat" };
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-    const id = crypto.randomUUID() as SeatId;
+    const id = v.parse(SeatIdSchema, crypto.randomUUID());
     sql.exec(
       "INSERT INTO invitations (id, created_at) VALUES (?, ?)",
       id,
@@ -347,8 +348,7 @@ export class Room extends DurableObject<Env> {
     const sql = this.ctx.storage.sql;
     if (sql.exec("DELETE FROM invitations WHERE id = ? RETURNING id", seat).toArray().length === 0)
       return { ok: false, reason: "no seat" };
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-    const id = crypto.randomUUID() as MemberId;
+    const id = v.parse(MemberIdSchema, crypto.randomUUID());
     sql.exec(
       "INSERT INTO members (id, kind, name, color) VALUES (?, 'person', ?, ?)",
       id,
@@ -638,8 +638,7 @@ export class Room extends DurableObject<Env> {
     let added = 0;
     titles.forEach((title, i) => {
       const note: WireNote = {
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-        id: crypto.randomUUID() as NoteId,
+        id: v.parse(NoteIdSchema, crypto.randomUUID()),
         kind: "suggestion",
         title,
         color: "#ffffff",
@@ -741,7 +740,7 @@ export class Room extends DurableObject<Env> {
     cid = parseCid(parsed);
     if (!this.withinRate(by)) return reject("too many messages");
     const updatedAt = stamp();
-    const mutation = parseMutation(parsed, { by, updatedAt });
+    const mutation = parseMutation(parsed, { by, updatedAt }, isAirportCode);
     if (mutation === null) return reject("not a mutation");
 
     // a card on its way under a finger is relayed, not kept; letting go sends the move with a cid
@@ -1220,8 +1219,7 @@ const fromRow = (r: NoteRow): WireNote => {
 };
 
 /** Now, as the room stamps what it applies */
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-const stamp = (): IsoInstant => new Date().toISOString() as IsoInstant;
+const stamp = (): IsoInstant => v.parse(IsoInstantSchema, new Date().toISOString());
 
 /** The trip's flights, one a leg; a time not known yet is null */
 const flightsTable = (name: string) => `

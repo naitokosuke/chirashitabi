@@ -1,20 +1,26 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import type {
-  ClientMutation,
-  Cid,
-  IsoDate,
-  IsoDateTime,
-  IsoTime,
-  WireMember,
-  WireMemoPatch,
-  WireMutation,
-  WireFlight,
-  WireNewNote,
-  WireNote,
-  WireSchedule,
-  WireStay,
-  WireTrip,
+import * as v from "valibot";
+
+import {
+  CidSchema,
+  IsoDateSchema,
+  IsoDateTimeSchema,
+  IsoTimeSchema,
+  type ClientMutation,
+  type Cid,
+  type IsoDate,
+  type IsoDateTime,
+  type IsoTime,
+  type WireMember,
+  type WireMemoPatch,
+  type WireMutation,
+  type WireFlight,
+  type WireNewNote,
+  type WireNote,
+  type WireSchedule,
+  type WireStay,
+  type WireTrip,
 } from "../../../contract/wire";
 import type { Member } from "../members/types";
 import type { MemoPatch, Note, Schedule } from "../notes/types";
@@ -22,8 +28,7 @@ import type { Flight, Stay, TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
 
-// what crosses the socket, as the app takes it from the contract: types only, so the checks
-// (and the airports list they load) stay out of the app
+// what crosses the socket, as the app takes it from the contract
 export type {
   ClientMessage,
   Cid,
@@ -165,17 +170,15 @@ export function reviveMutation(m: WireMutation): Mutation {
  * against what the room reads.
  */
 
-// Temporal writes the very forms the room checks for (YYYY-MM-DD, HH:MM:SS, both with a T)
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-const isoDate = (d: Temporal.PlainDate): IsoDate => d.toString() as IsoDate;
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-const isoTime = (t: Temporal.PlainTime): IsoTime => t.toString() as IsoTime;
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-const isoDateTime = (t: Temporal.PlainDateTime): IsoDateTime => t.toString() as IsoDateTime;
+// Temporal writes the very forms the room checks for (YYYY-MM-DD, HH:MM:SS, both with a T);
+// one that is not throws here, before the room would refuse it
+const isoDate = (d: Temporal.PlainDate): IsoDate => v.parse(IsoDateSchema, d.toString());
+const isoTime = (t: Temporal.PlainTime): IsoTime => v.parse(IsoTimeSchema, t.toString());
+const isoDateTime = (t: Temporal.PlainDateTime): IsoDateTime =>
+  v.parse(IsoDateTimeSchema, t.toString());
 
 /** A new id for one of ours, which the room's answer will name */
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-export const newCid = (): Cid => crypto.randomUUID() as Cid;
+export const newCid = (): Cid => v.parse(CidSchema, crypto.randomUUID());
 
 const wireSchedule = (s: Schedule): WireSchedule => ({
   date: isoDate(s.date),

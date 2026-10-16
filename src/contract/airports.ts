@@ -1,57 +1,40 @@
-import type { Brand } from "./brand";
-import type { LatLng } from "./place";
+import * as v from "valibot";
 
 /**
  * An airport's IATA code that is on the list (airports.json): what a flight's from and to are.
  * Only the list mints one (airportsOf), or the room, which checked it against the same list.
  */
-export type AirportCode = Brand<string, "AirportCode">;
+export const AirportCodeSchema = v.pipe(v.string(), v.regex(/^[A-Z]{3}$/), v.brand("AirportCode"));
+
+export type AirportCode = v.InferOutput<typeof AirportCodeSchema>;
+
+/** A row of airports.json as the script writes it, as the airport it is */
+const AirportRowSchema = v.pipe(
+  v.strictTuple([AirportCodeSchema, v.string(), v.string(), v.string(), v.number(), v.number()]),
+  v.transform(([code, name, city, country, lat, lng]) => ({
+    code,
+    name,
+    city,
+    country,
+    at: { lat, lng },
+  })),
+);
 
 /**
  * Airports with an IATA code and scheduled service, from OurAirports (airports.json, built by
  * scripts/airports.mjs): what a flight's from and to are matched against, for suggestions as
  * they are typed and for its point on the map.
  */
-export interface Airport {
-  code: AirportCode;
-  name: string;
-  city: string;
-  country: string;
-  at: LatLng;
-}
-
-/** A row of airports.json as the script writes it, its code minted by being on the list */
-type AirportRow = [
-  code: AirportCode,
-  name: string,
-  city: string,
-  country: string,
-  lat: number,
-  lng: number,
-];
-
-const isAirportRow = (v: unknown): v is AirportRow =>
-  Array.isArray(v) &&
-  v.length === 6 &&
-  typeof v[0] === "string" &&
-  /^[A-Z]{3}$/.test(v[0]) &&
-  typeof v[1] === "string" &&
-  typeof v[2] === "string" &&
-  typeof v[3] === "string" &&
-  typeof v[4] === "number" &&
-  typeof v[5] === "number";
+export type Airport = v.InferOutput<typeof AirportRowSchema>;
 
 /** airports.json as the airports; a row that is not one is left out */
-export const airportsOf = (rows: unknown): Airport[] =>
-  (Array.isArray(rows) ? rows : [])
-    .filter(isAirportRow)
-    .map(([code, name, city, country, lat, lng]) => ({
-      code,
-      name,
-      city,
-      country,
-      at: { lat, lng },
-    }));
+export const airportsOf = (rows: unknown): Airport[] => {
+  const list = v.safeParse(v.array(v.unknown()), rows);
+  return (list.success ? list.output : []).flatMap((row) => {
+    const airport = v.safeParse(AirportRowSchema, row);
+    return airport.success ? [airport.output] : [];
+  });
+};
 
 /**
  * Japanese names people type for the airports a trip from Japan most often uses, which

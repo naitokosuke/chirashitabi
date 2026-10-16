@@ -2,11 +2,16 @@
 export type { Brand } from "../src/contract/brand";
 export type { HexColor } from "../src/contract/color";
 export {
+  EmailSchema,
+  ImageIdSchema,
   isImageId,
   isMemberId,
   isNoteId,
+  MemberIdSchema,
+  NoteIdSchema,
   parseEmail,
   roomId,
+  RoomIdSchema,
   type Email,
   type ImageId,
   type MemberId,
@@ -14,5 +19,5 @@ export {
   type RoomId,
 } from "../src/contract/ids";
 export type { CurrencyCode } from "../src/contract/money";
-export { isShortMapsLink, parseMapsUrl, type HttpUrl } from "../src/contract/place";
+export { isShortMapsLink, LatLngSchema, parseMapsUrl, type HttpUrl } from "../src/contract/place";
 export { isRecord } from "../src/contract/record";

@@ -1,4 +1,12 @@
-import { airportsOf, findAirport, type Airport, type AirportCode } from "./airports";
+import * as v from "valibot";
+
+import {
+  AirportCodeSchema,
+  airportsOf,
+  findAirport,
+  type Airport,
+  type AirportCode,
+} from "./airports";
 import rows from "./airports.json";
 
 /**
@@ -8,9 +16,14 @@ import rows from "./airports.json";
 const AIRPORTS: Airport[] = airportsOf(rows);
 const CODES = new Set<string>(AIRPORTS.map((a) => a.code));
 
+const AirportCodeOnListSchema = v.pipe(
+  AirportCodeSchema,
+  v.check((code) => CODES.has(code)),
+);
+
 /** A code on the list, exactly as the app writes it */
-export const isAirportCode = (v: unknown): v is AirportCode =>
-  typeof v === "string" && CODES.has(v);
+export const isAirportCode = (value: unknown): value is AirportCode =>
+  v.safeParse(AirportCodeOnListSchema, value).success;
 
 /**
  * The airport a flight kept before codes were required names (a code in any case, a name, or a
