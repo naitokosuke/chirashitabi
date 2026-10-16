@@ -258,7 +258,8 @@ const agent = [
   }),
   // a short link leads to a point near the trip's center, as maps.app.goo.gl's redirect would;
   // any other link comes back as it was
-  // what a page says of itself: a title and a line from its host; no picture in the mocks
+  // what a page says of itself: a title and a line from its host, and a picture drawn here (a
+  // 16:9 frame with the site on it), kept as one of the room's like a real one would be
   http.post("/api/rooms/:roomId/preview", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
@@ -267,13 +268,28 @@ const agent = [
     await wait(THINKING_MS / 2);
     if (!URL.canParse(url)) return HttpResponse.json({ preview: null });
     const site = new URL(url).hostname.replace(/^www\./, "");
+    const frame = new OffscreenCanvas(640, 360);
+    const ctx = frame.getContext("2d");
+    let image: string | null = null;
+    if (ctx !== null) {
+      const sky = ctx.createLinearGradient(0, 0, 640, 360);
+      sky.addColorStop(0, "#5b8def");
+      sky.addColorStop(1, "#e36d7a");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, 640, 360);
+      ctx.fillStyle = "rgba(255,255,255,.9)";
+      ctx.font = "bold 40px sans-serif";
+      ctx.fillText(site, 32, 200);
+      image = crypto.randomUUID();
+      room.images.set(image, await frame.convertToBlob({ type: "image/png" }));
+    }
     return HttpResponse.json({
       preview: {
         url,
         site,
         title: `A page on ${site}`,
         description: "What the page says of itself, in a line",
-        image: null,
+        image,
       },
     });
   }),
