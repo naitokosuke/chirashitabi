@@ -156,7 +156,7 @@ const api = new Hono<ApiEnv>()
       if (data.byteLength === 0) return c.text("Bad Request", 400);
       if (data.byteLength > MAX_IMAGE_BYTES) return c.text("Payload Too Large", 413);
       // the room's list first, so its cap holds; the bytes after, and the entry goes if they fail
-      const id = await room.addImage(memberId, type, data.byteLength);
+      const id = await room.addImage(memberId, roomId, type, data.byteLength);
       c.var.log.set({ image: { type, bytes: data.byteLength, stored: id !== null } });
       if (id === null) return c.text("Conflict", 409);
       try {
