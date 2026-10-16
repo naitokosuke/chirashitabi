@@ -28,23 +28,31 @@ import type { Flight, Stay, TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
 
-// what crosses the socket, as the app takes it from the contract
-export type {
-  ClientMessage,
-  Cid,
-  GoneReason,
-  IsoInstant,
-  RejectReason,
-  ServerMessage,
-  WireMember,
-  WireMutation,
-  WireNote,
-  WireTrip,
+// what crosses the socket, and its checks, as the app takes them from the contract
+export {
+  CidSchema,
+  IsoInstantSchema,
+  ServerMessageSchema,
+  WireMemberSchema,
+  WireMutationSchema,
+  WireNoteSchema,
+  WireTripSchema,
+  type ClientMessage,
+  type Cid,
+  type GoneReason,
+  type IsoInstant,
+  type RejectReason,
+  type ServerMessage,
+  type WireMember,
+  type WireMutation,
+  type WireNote,
+  type WireTrip,
 } from "../../../contract/wire";
 
 /**
- * The room's JSON back into the app's types. The room has checked every field,
- * and sent its ids and codes as brands, so this only revives: ISO strings become Temporal values.
+ * The room's JSON back into the app's types. It was read with the contract's schemas as it
+ * came (socket.ts, persist.ts), its ids and codes as brands, so this only revives: ISO strings
+ * become Temporal values.
  */
 
 const schedule = (s: WireSchedule): Schedule => ({

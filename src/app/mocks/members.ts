@@ -1,14 +1,28 @@
-// oxlint-disable typescript/no-unsafe-type-assertion -- the seed's ids and codes are minted here
-import type { HexColor } from "../shared/color";
+import * as v from "valibot";
 
-import type { Member, MemberId } from "../features/members/types";
+import { HexColorSchema } from "../shared/color";
 
-export const YUKI = "yuki" as MemberId;
-export const KEN = "ken" as MemberId;
-export const CLAUDE = "claude" as MemberId;
+import { MemberIdSchema, type Member } from "../features/members/types";
+
+// the seed's ids as a room would have minted them: a UUID for a person, `agent:<name>` for its agent
+export const YUKI = v.parse(MemberIdSchema, "0b0d6f1e-5c1a-4e8b-9a43-7f2d1c6e9a01");
+export const KEN = v.parse(MemberIdSchema, "4e7a2c90-3b5d-4f16-8e21-a9c4d0b7f302");
+export const CLAUDE = v.parse(MemberIdSchema, "agent:claude");
 
 export const mockMembers = (): Member[] => [
-  { id: YUKI, kind: "person", role: "owner", name: "Yuki", color: "#3c6ee0" as HexColor },
-  { id: KEN, kind: "person", role: "guest", name: "Ken", color: "#d7263d" as HexColor },
-  { id: CLAUDE, kind: "agent", name: "Claude", color: "#D97757" as HexColor },
+  {
+    id: YUKI,
+    kind: "person",
+    role: "owner",
+    name: "Yuki",
+    color: v.parse(HexColorSchema, "#3c6ee0"),
+  },
+  {
+    id: KEN,
+    kind: "person",
+    role: "guest",
+    name: "Ken",
+    color: v.parse(HexColorSchema, "#d7263d"),
+  },
+  { id: CLAUDE, kind: "agent", name: "Claude", color: v.parse(HexColorSchema, "#D97757") },
 ];

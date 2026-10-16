@@ -3,6 +3,7 @@ import { ALIASES, type Airport } from "../../../contract/airports";
 // the airports, as the app takes them from the contract; the list itself is fetched (useAirports)
 export {
   ALIASES,
+  AirportCodeSchema,
   airportsOf,
   findAirport,
   type Airport,

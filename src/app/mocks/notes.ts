@@ -1,17 +1,19 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import type { NoteId } from "../features/notes/id";
+import * as v from "valibot";
+
+import { NoteIdSchema } from "../features/notes/id";
 import {
   ARRIVAL_TAG,
   PACKING_TAG,
+  TagSchema,
   type Memo,
   type Note,
   type NoteStatus,
   type Schedule,
   type Suggestion,
-  type Tag,
 } from "../features/notes/types";
-import type { HttpUrl } from "../features/place/google-maps";
+import { HttpUrlSchema } from "../features/place/google-maps";
 
 import { CLAUDE, KEN, YUKI } from "./members";
 
@@ -22,15 +24,12 @@ const on = (date: string, time: string, status: NoteStatus): Schedule => ({
   status,
 });
 const pin = (lat: number, lng: number) => ({ lat, lng });
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-const tags = (...names: string[]) => names as Tag[];
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-const link = (url: string) => url as HttpUrl;
+const tags = (...names: string[]) => v.parse(v.array(TagSchema), names);
+const link = (url: string) => v.parse(HttpUrlSchema, url);
 
 let i = 0;
 const card = (): Pick<Memo, "id" | "color" | "rot" | "scale" | "by" | "updatedAt"> => ({
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-  id: ("s" + i++) as NoteId,
+  id: v.parse(NoteIdSchema, `s${i++}`),
   color: "#fff1b8",
   rot: 0,
   scale: 1,

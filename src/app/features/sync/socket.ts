@@ -1,5 +1,8 @@
+import * as v from "valibot";
+
 import type { Mutation } from "./types";
 import {
+  ServerMessageSchema,
   wireMutation,
   type Cid,
   type ClientMessage,
@@ -45,6 +48,9 @@ export interface RoomSocketOptions {
   onStatus(status: SocketStatus): void;
 }
 
+/** A message on the socket: JSON, and one the room sends */
+const MessageSchema = v.pipe(v.string(), v.parseJson(), ServerMessageSchema);
+
 const OPEN = 1;
 const MAX_ATTEMPTS = 8;
 const MAX_BACKOFF_MS = 30_000;
@@ -89,8 +95,17 @@ export function createRoomSocket(options: RoomSocketOptions) {
     if (room.status === "idle") return;
     const socket = open(room.roomId);
     room.ws = socket;
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the room's own messages, every field checked by it before it sent them
-    socket.addEventListener("message", (e) => receive(JSON.parse(String(e.data)) as ServerMessage));
+    socket.addEventListener("message", (e) => {
+      const msg = v.safeParse(MessageSchema, String(e.data));
+      if (msg.success) {
+        receive(msg.output);
+        return;
+      }
+      // a message this app cannot read (a room newer than it, or a broken one): the next
+      // snapshot is the truth; one it cannot read either backs off until the socket gives up
+      console.warn("room: a message this app cannot read");
+      resync();
+    });
     socket.addEventListener("close", () => {
       // superseded by leave(), another room, or a newer socket
       if (line !== room || room.ws !== socket) return;
@@ -109,6 +124,11 @@ export function createRoomSocket(options: RoomSocketOptions) {
     setStatus(room.status === "connecting" ? "connecting" : "reconnecting");
     const delay = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** room.attempt++);
     room.timer = setTimeout(dial, delay);
+  }
+
+  /** Closes the socket so the next one starts over from a snapshot */
+  function resync() {
+    if (line.status !== "idle") line.ws?.close(4000, "resync");
   }
 
   function receive(msg: ServerMessage) {
@@ -131,7 +151,7 @@ export function createRoomSocket(options: RoomSocketOptions) {
         }
         // refused without saying which (it could not read ours): the next snapshot is the truth
         console.warn(`room: ${msg.reason}`);
-        if (line.status !== "idle") line.ws?.close(4000, "resync");
+        resync();
         return;
       case "members":
         options.onMembers(msg.members);

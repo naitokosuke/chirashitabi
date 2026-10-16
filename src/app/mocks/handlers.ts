@@ -9,7 +9,7 @@ import { SEATS, type Member } from "../features/members/types";
 import { NoteIdSchema, type NoteId } from "../features/notes/id";
 import { tagOf, type Note } from "../features/notes/types";
 import { isShortMapsLink } from "../features/place/google-maps";
-import { roomId, type RoomId } from "../features/rooms/types";
+import { roomId, RoomIdSchema, type RoomId } from "../features/rooms/types";
 import { applyToRoom, type RoomState } from "../features/sync/ledger";
 import { reviveMember, reviveMutation, reviveNote, reviveTrip } from "../features/sync/wire";
 import type { TripSnapshot } from "../features/trip/types";
@@ -19,11 +19,15 @@ import { mockNotes } from "./notes";
 import { mockTrip } from "./trip";
 import {
   isAirportCode,
+  IsoInstantSchema,
   NewTripSchema,
   parseCid,
   parseMutation,
   PointSchema,
   ProfileSchema,
+  WireMemberSchema,
+  WireNoteSchema,
+  WireTripSchema,
   type IsoInstant,
   type ServerMessage,
   type WireMutation,
@@ -44,8 +48,7 @@ interface MockRoom {
 }
 
 /** The seeded trip's room */
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-export const MOCK_ROOM = "7a1f2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d" as RoomId;
+export const MOCK_ROOM = v.parse(RoomIdSchema, "7a1f2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d");
 
 const rooms = new Map<RoomId, MockRoom>([
   [
@@ -59,17 +62,16 @@ const rooms = new Map<RoomId, MockRoom>([
   ],
 ]);
 
-/** The app's values as they cross the wire: Temporal values as their ISO strings */
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the app's own values, as the wire writes them
-const wire = <T>(value: unknown): T => JSON.parse(JSON.stringify(value)) as T;
+/** The app's values as they cross the wire (Temporal values as their ISO strings), checked as the room's are */
+const wire = <S extends v.GenericSchema>(schema: S, value: unknown): v.InferOutput<S> =>
+  v.parse(schema, JSON.parse(JSON.stringify(value)));
 
 const forbidden = () => new HttpResponse(null, { status: 403 });
 const notFound = () => new HttpResponse(null, { status: 404 });
 const badRequest = () => new HttpResponse(null, { status: 400 });
 const now = () => Temporal.Now.instant();
 /** A moment as the room stamps it */
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-const stamp = (t: Temporal.Instant): IsoInstant => t.toString() as IsoInstant;
+const stamp = (t: Temporal.Instant): IsoInstant => v.parse(IsoInstantSchema, t.toString());
 
 /** The room a request names, if there is one and it is not deleted */
 /** The trip's candidate tags, as the agent would have proposed them */
@@ -132,9 +134,9 @@ const roomSocket = socket.addEventListener("connection", ({ client, params }) =>
   send(client, {
     type: "snapshot",
     me: YUKI,
-    members: wire(room.state.members),
-    trip: wire(room.state.trip),
-    notes: wire(room.state.notes),
+    members: wire(v.array(WireMemberSchema), room.state.members),
+    trip: wire(WireTripSchema, room.state.trip),
+    notes: wire(v.array(WireNoteSchema), room.state.notes),
   });
 
   client.addEventListener("message", (e) => {
@@ -206,8 +208,7 @@ const agent = [
     const updatedAt = stamp(now());
     titles.forEach((title, i) => {
       const note: WireNote = {
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-        id: crypto.randomUUID() as NoteId,
+        id: v.parse(NoteIdSchema, crypto.randomUUID()),
         kind: "suggestion",
         title,
         color: "#ffffff",
@@ -330,7 +331,7 @@ const members = [
     if (gone?.kind !== "person" || gone.role === "owner") return forbidden();
     const left: Member[] = room.state.members.filter((m) => m !== gone);
     room.state = { ...room.state, members: left };
-    tell(id, { type: "members", members: wire(left) });
+    tell(id, { type: "members", members: wire(v.array(WireMemberSchema), left) });
     return HttpResponse.json({});
   }),
   // Yuki owns every room here, and the owner never leaves their own
