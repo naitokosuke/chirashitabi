@@ -236,11 +236,19 @@ function save() {
         <div class="row">
           <div class="field">
             <label :for="`${id}-${leg}-dep`">{{ i18n.t("flight.departs") }}</label>
-            <input :id="`${id}-${leg}-dep`" v-model="form.flights[leg].departs" type="datetime-local" />
+            <input
+              :id="`${id}-${leg}-dep`"
+              v-model="form.flights[leg].departs"
+              type="datetime-local"
+            />
           </div>
           <div class="field">
             <label :for="`${id}-${leg}-arr`">{{ i18n.t("flight.arrives") }}</label>
-            <input :id="`${id}-${leg}-arr`" v-model="form.flights[leg].arrives" type="datetime-local" />
+            <input
+              :id="`${id}-${leg}-arr`"
+              v-model="form.flights[leg].arrives"
+              type="datetime-local"
+            />
           </div>
         </div>
       </template>
