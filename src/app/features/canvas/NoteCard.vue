@@ -3,6 +3,8 @@ import { computed } from "vue";
 
 import { useI18n } from "../../i18n/useI18n";
 
+import externalIcon from "../../icons/external.svg";
+import Icon from "../../icons/Icon.vue";
 import { useMembers } from "../members/useMembers";
 import { imageSrc } from "../notes/image";
 import { segments, siteOf } from "../notes/links";
@@ -26,6 +28,10 @@ const { members } = useMembers();
 const author = computed(() => members.value?.find((m) => m.id === props.note.by));
 const sync = useSync();
 const i18n = useI18n();
+/** A page's picture with its link: the picture is the card, the words stay in the note */
+const clipping = computed(
+  () => props.note.kind === "memo" && props.note.link !== null && props.note.image !== null,
+);
 /** "11/3 12:30", or the date alone when it has no time; nothing off the itinerary */
 const day = computed(() => {
   const s = props.note.kind === "memo" ? props.note.schedule : null;
@@ -40,6 +46,7 @@ const day = computed(() => {
     v-show="visibility !== 'hidden'"
     :data-kind="note.kind"
     :data-link="(note.kind === 'memo' && note.link !== null) || undefined"
+    :data-clipping="clipping || undefined"
     :data-dragging="dragging || undefined"
     :data-pop="pop || undefined"
     :data-selected="selected || undefined"
@@ -86,7 +93,10 @@ const day = computed(() => {
         loading="lazy"
         :src="sync.room === null ? undefined : imageSrc(sync.room, note.image)"
       />
-      <!-- where the idea came from: its site, which opens the page; the card under it still moves -->
+      <!--
+        a clipping from a page: its site on the picture, which opens the page (the card under it
+        still moves); with a picture the words stay in the note, the picture says it all
+      -->
       <a
         v-if="safeUrl(note.link) !== undefined"
         :href="safeUrl(note.link)"
@@ -95,9 +105,12 @@ const day = computed(() => {
         :aria-label="i18n.t('note.link')"
         @pointerdown.stop
         @click.stop
-      >{{ siteOf(note.link) }}</a>
-      <p>{{ note.title }}</p>
-      <p v-if="note.body !== ''"><template v-for="(s, i) in segments(note.body)" :key="i"><a
+      ><Icon :size="12" :src="externalIcon" />{{ siteOf(note.link) }}</a>
+      <p v-if="!clipping">{{ note.title }}</p>
+      <p v-if="!clipping && note.body !== ''"><template
+          v-for="(s, i) in segments(note.body)"
+          :key="i"
+        ><a
             v-if="s.kind === 'link'"
             :href="s.url"
             rel="noopener noreferrer"
@@ -105,7 +118,7 @@ const day = computed(() => {
             @pointerdown.stop
             @click.stop
           >{{ s.url }}</a><template v-else>{{ s.text }}</template></template></p>
-      <ul v-if="note.tags.length > 0"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
+      <ul v-if="!clipping && note.tags.length > 0"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
       <!-- its day on the trip, once it has one: the desk shows how far the plan has come -->
       <time v-if="note.schedule !== null" :datetime="note.schedule.date.toString()">{{ day }}</time>
       <span></span>
@@ -179,13 +192,51 @@ div {
     aspect-ratio: 16 / 9;
   }
 
-  /* the page's site, a small tag above the title */
-  > a {
-    display: inline-block;
-    max-width: 100%;
-    margin: 0 0 4px;
-    padding: 1px 6px;
+  /*
+   * A clipping from a page, not a note: the paper is a narrow mount around the picture, edged
+   * in the paper's own ink so it reads as something brought in from outside, and the site sits
+   * on the picture with the arrow that means "elsewhere"
+   */
+  &[data-clipping] {
+    padding: 5px;
     border-radius: 4px;
+    outline: 1.5px solid color-mix(in oklch, var(--paper-ink) 55%, transparent);
+    outline-offset: -1.5px;
+
+    > img {
+      width: 100%;
+      margin: 0;
+      border-radius: 2px;
+    }
+
+    > a {
+      position: absolute;
+      inset-inline-start: 9px;
+      inset-block-end: 9px;
+      margin: 0;
+      background: color-mix(in oklch, var(--paper-ink) 72%, transparent);
+      color: var(--paper-white);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* the day under the picture, when it has one */
+    > time {
+      display: block;
+      width: fit-content;
+      margin: 6px 2px 1px;
+    }
+  }
+
+  /* the page's site, a small tag above the title, with the arrow that means "elsewhere" */
+  > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    max-width: calc(100% - 18px);
+    margin: 0 0 4px;
+    padding: 2px 7px 2px 5px;
+    border-radius: 999px;
     background: color-mix(in oklch, var(--paper-ink) 8%, transparent);
     color: var(--paper-muted);
     font-size: var(--font-2xs);
