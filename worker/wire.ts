@@ -20,6 +20,7 @@ export {
   type RejectReason,
   type ServerMessage,
   type UnreadReason,
+  type WireBooking,
   type WireFlights,
   type WireMember,
   type WireMemo,

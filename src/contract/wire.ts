@@ -241,6 +241,19 @@ const TagsSchema = v.pipe(v.array(TagSchema), v.maxLength(TAGS));
 const BudgetSchema = v.nullable(v.pipe(v.number(), v.finite(), v.minValue(0), v.maxValue(1e9)));
 /** When a memo's place is open, as OpenStreetMap writes it; OpenStreetMap's own limit on a value */
 const HoursSchema = v.pipe(v.string(), v.trim(), v.nonEmpty(), v.maxLength(255));
+/**
+ * Whether a memo's plan has to be booked: still to book, by a day or whenever; or booked, with
+ * the confirmation's number (may be blank) and its page when there is one
+ */
+const BookingSchema = v.variant("state", [
+  v.object({ state: v.literal("needed"), by: v.nullable(IsoDateSchema) }),
+  v.object({
+    state: v.literal("booked"),
+    code: v.pipe(v.string(), v.trim(), v.maxLength(100)),
+    url: v.nullable(HttpUrlSchema),
+  }),
+]);
+export type WireBooking = v.InferOutput<typeof BookingSchema>;
 /** How long a memo's plan takes there, in whole minutes: a day at most */
 const MinutesSchema = v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(24 * 60));
 /** A point on the desk, as `{ x, y }` within the canvas's bounds */
@@ -277,6 +290,8 @@ const memo = {
   minutes: v.optional(v.nullable(MinutesSchema), null),
   /** When its place is open (`Mo-Fr 10:00-20:00`); null for not said. None from an older client: not said */
   hours: v.optional(v.nullable(HoursSchema), null),
+  /** Whether it has to be booked, and how far that has got; null for no booking. None from an older client: none */
+  booking: v.optional(v.nullable(BookingSchema), null),
 };
 const suggestion = { ...card, kind: v.literal("suggestion") };
 /** Words set straight on the desk, with no paper under them: a heading, a label. `title` is the text */
@@ -317,6 +332,7 @@ const WireMemoPatchSchema = v.strictObject({
   budget: v.optional(memo.budget),
   minutes: v.optional(v.nullable(MinutesSchema)),
   hours: v.optional(v.nullable(HoursSchema)),
+  booking: v.optional(v.nullable(BookingSchema)),
   x: v.optional(memo.x),
   y: v.optional(memo.y),
   rot: v.optional(memo.rot),

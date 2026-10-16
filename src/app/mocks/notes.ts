@@ -49,6 +49,7 @@ const n = (p: Partial<Memo> & Pick<Memo, "title" | "x" | "y">): Memo => ({
   image: null,
   minutes: null,
   hours: null,
+  booking: null,
   ...p,
 });
 const suggest = (p: Partial<Suggestion> & Pick<Suggestion, "title" | "x" | "y">): Suggestion => ({
@@ -70,6 +71,7 @@ export const mockNotes = (): Note[] => [
     schedule: on("2026-11-03", "12:30", "fixed"),
     minutes: 60,
     hours: "Mo-Fr 11:00-20:30; Sa,Su 10:30-21:00",
+    booking: { state: "booked", code: "DTF-2814", url: null },
     budget: 700,
     mapsUrl: link("https://maps.google.com/?q=Din+Tai+Fung"),
   }),
@@ -126,6 +128,7 @@ export const mockNotes = (): Note[] => [
   n({
     title: "Taipei 101 observatory",
     pin: pin(25.0339, 121.5645),
+    booking: { state: "needed", by: Temporal.PlainDate.from("2026-10-30") },
     body: "Depends on the weather",
     tags: tags("Want to go"),
     color: "#ffffff",

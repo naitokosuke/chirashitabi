@@ -80,6 +80,7 @@ const describe = (n: WireMemo) => ({
   budget: n.budget,
   minutes: n.minutes,
   hours: n.hours,
+  booked: n.booking?.state === "booked",
 });
 
 /** Asks Claude to order a day; the answer is checked against the notes it was given */

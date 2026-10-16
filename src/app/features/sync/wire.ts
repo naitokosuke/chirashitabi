@@ -12,6 +12,7 @@ import {
   type IsoDate,
   type IsoDateTime,
   type IsoTime,
+  type WireBooking,
   type WireMember,
   type WireMemoPatch,
   type WireMutation,
@@ -23,7 +24,7 @@ import {
   type WireTrip,
 } from "../../../contract/wire";
 import type { Member } from "../members/types";
-import type { MemoPatch, Note, Schedule } from "../notes/types";
+import type { Booking, MemoPatch, Note, Schedule } from "../notes/types";
 import type { Flight, Stay, TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
@@ -61,6 +62,11 @@ const schedule = (s: WireSchedule): Schedule => ({
   status: s.status,
 });
 
+const booking = (b: WireBooking): Booking =>
+  b.state === "needed"
+    ? { state: "needed", by: b.by === null ? null : Temporal.PlainDate.from(b.by) }
+    : b;
+
 export function reviveNote(n: WireNote): Note {
   const card = {
     id: n.id,
@@ -93,6 +99,8 @@ export function reviveNote(n: WireNote): Note {
     minutes: n.minutes ?? null,
     // nor one kept before its opening hours were its own
     hours: n.hours ?? null,
+    // nor one kept before bookings
+    booking: n.booking == null ? null : booking(n.booking),
   };
 }
 
@@ -131,10 +139,12 @@ export const reviveMember = (m: WireMember): Member => {
 };
 
 const revivePatch = (p: WireMemoPatch): MemoPatch => {
-  const { schedule: s, ...rest } = p;
-  return Object.hasOwn(p, "schedule")
-    ? { ...rest, schedule: s === null || s === undefined ? null : schedule(s) }
-    : rest;
+  const { schedule: s, booking: b, ...rest } = p;
+  return {
+    ...rest,
+    ...(Object.hasOwn(p, "schedule") ? { schedule: s == null ? null : schedule(s) } : {}),
+    ...(Object.hasOwn(p, "booking") ? { booking: b == null ? null : booking(b) } : {}),
+  };
 };
 
 /** A mutation from another member, as the app's `Mutation`; `by` and the stamp travel beside it */
@@ -198,6 +208,9 @@ const wireSchedule = (s: Schedule): WireSchedule => ({
   status: s.status,
 });
 
+const wireBooking = (b: Booking): WireBooking =>
+  b.state === "needed" ? { state: "needed", by: b.by === null ? null : isoDate(b.by) } : b;
+
 const wireFlight = (f: Flight | null): WireFlight | null =>
   f === null
     ? null
@@ -212,11 +225,21 @@ const wireFlight = (f: Flight | null): WireFlight | null =>
 const wireStay = (s: Stay): WireStay => ({ ...s, checkIn: isoDate(s.checkIn) });
 
 const wireNewNote = (n: Extract<Mutation, { type: "note:add" }>["note"]): WireNewNote =>
-  n.kind === "memo" ? { ...n, schedule: n.schedule === null ? null : wireSchedule(n.schedule) } : n;
+  n.kind === "memo"
+    ? {
+        ...n,
+        schedule: n.schedule === null ? null : wireSchedule(n.schedule),
+        booking: n.booking === null ? null : wireBooking(n.booking),
+      }
+    : n;
 
 const wirePatch = (p: MemoPatch): WireMemoPatch => {
-  const { schedule: s, ...rest } = p;
-  return s === undefined ? rest : { ...rest, schedule: s === null ? null : wireSchedule(s) };
+  const { schedule: s, booking: b, ...rest } = p;
+  return {
+    ...rest,
+    ...(s === undefined ? {} : { schedule: s === null ? null : wireSchedule(s) }),
+    ...(b === undefined ? {} : { booking: b === null ? null : wireBooking(b) }),
+  };
 };
 
 /** One of ours, as the room reads it */

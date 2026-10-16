@@ -202,6 +202,26 @@ function shutWarning(n: Scheduled) {
   if (fit.kind === "shut") return i18n.t("shiori.shut", { hours: spansText(openOn(week, day)) });
   return fit.kind === "closes" ? i18n.t("shiori.closes", { time: clockText(fit.at) }) : "";
 }
+/** Still to book and past the day it had to be booked by */
+const bookingLate = (n: Scheduled) =>
+  n.booking?.state === "needed" &&
+  n.booking.by !== null &&
+  Temporal.PlainDate.compare(n.booking.by, today) < 0;
+/** Whether it is booked, as it reads: "Booked · ABC123", "Book by 10/20"; "" for no booking */
+function bookingLine(n: Scheduled) {
+  const b = n.booking;
+  if (b === null) return "";
+  if (b.state === "booked")
+    return b.code === "" ? i18n.t("shiori.booked") : i18n.t("shiori.bookedCode", { code: b.code });
+  if (b.by === null) return i18n.t("shiori.bookingNeeded");
+  return i18n.t(bookingLate(n) ? "shiori.bookingLate" : "shiori.bookingBy", { date: short(b.by) });
+}
+const bookingPage = (n: Scheduled) =>
+  n.booking?.state === "booked" ? safeUrl(n.booking.url) : undefined;
+/** Booked, from the strip: the number and page can be written in the note later */
+function markBooked(n: Scheduled) {
+  store.update(n.id, { booking: { state: "booked", code: "", url: null } });
+}
 /** "–14:00" under the time it starts, or "" while it does not say when it ends */
 function until(n: Scheduled) {
   const end = endOf(n);
@@ -518,6 +538,25 @@ function adoptDraft() {
                   <!-- when its place is open that day, and whether the plan falls while it is shut -->
                   <p v-if="hoursOn(n) !== ''" class="hours">{{ hoursOn(n) }}</p>
                   <p v-if="shutWarning(n) !== ''" class="warn">{{ shutWarning(n) }}</p>
+                  <!-- whether it is booked: its number and page, or by when it has to be -->
+                  <p
+                    v-if="bookingLine(n) !== ''"
+                    class="booking"
+                    :data-late="bookingLate(n) || undefined"
+                  >
+                    <span>{{ bookingLine(n) }}</span>
+                    <a
+                      v-if="bookingPage(n) !== undefined"
+                      :href="bookingPage(n)"
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >{{ i18n.t("shiori.bookingPage") }}</a>
+                    <button
+                      v-if="editing && n.booking?.state === 'needed'"
+                      type="button"
+                      @click="() => markBooked(n)"
+                    >{{ i18n.t("shiori.markBooked") }}</button>
+                  </p>
                   <div v-if="editing">
                     <button
                       type="button"
@@ -1095,7 +1134,38 @@ article {
             }
 
             /* the body */
-            > p:not(:first-child, .meta, .hours, .warn) {
+            /* whether it is booked: quiet once it is, the trouble color once it is late */
+            > .booking {
+              margin: 4px 0 0;
+              display: flex;
+              flex-wrap: wrap;
+              align-items: center;
+              column-gap: 10px;
+              font-size: var(--font-xs);
+              font-weight: 700;
+              color: var(--paper-ink);
+
+              &[data-late] {
+                color: oklch(from var(--danger) min(l, 0.5) c h);
+              }
+
+              > a,
+              > button {
+                display: inline-flex;
+                align-items: center;
+                min-height: var(--tap);
+                margin-block: -10px;
+                padding: 0;
+                border: 0;
+                background: none;
+                color: var(--paper-ink);
+                font: inherit;
+                text-decoration: underline;
+                text-underline-offset: 3px;
+              }
+            }
+
+            > p:not(:first-child, .meta, .hours, .warn, .booking) {
               margin: 2px 0 0;
               font-size: var(--font-sm);
               color: var(--paper-muted);

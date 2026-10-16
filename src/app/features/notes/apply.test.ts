@@ -34,6 +34,7 @@ const memo = (id: string, extra: Partial<Memo> = {}): Memo => ({
   image: null,
   minutes: null,
   hours: null,
+  booking: null,
   ...extra,
 });
 const suggestion = (id: string): Suggestion => ({

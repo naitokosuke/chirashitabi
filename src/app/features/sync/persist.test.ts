@@ -58,6 +58,7 @@ const memo: Memo = {
   image: null,
   minutes: null,
   hours: null,
+  booking: null,
 };
 const room: RoomState = {
   notes: [memo],
