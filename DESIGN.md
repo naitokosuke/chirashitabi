@@ -279,6 +279,7 @@ An ink tile, 56px, 18px radius, a 24px plus in `--on-ink`, `--shadow-float`, lif
 - **Primary:** ink fill, `--on-ink` label, pill; disabled at 35–40% opacity.
 - **Tool button:** Tool White, 1px line, Label in Muted (fit, back, menu items); hover turns the label to ink.
 - **Destructive:** a menu item in `--danger` text.
+- **Hold button** (`CtHoldButton`, after React Bits' Hold Button): for what is not undone with a tap. Held, it presses in a little and fills from its start edge in its tone (ink, or danger), the fill cut to the button's own round outline and led by a soft rolling wave; what it says turns `--on-ink` as the fill passes over it. Let go, drifted off, or the window left, it drains back (200ms) and nothing happens; full, it acts, rings once in its tone and says what it did. No system tap highlight, callout or menu under the finger. Under reduced motion it does not press in, wave or ring.
 
 ### Chips (`CtChip`)
 

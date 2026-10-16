@@ -1,11 +1,13 @@
 <script setup lang="ts" vapor>
-import { onBeforeUnmount, ref, useId, useSlots } from "vue";
+import { onBeforeUnmount, onMounted, ref, useId, useSlots, useTemplateRef } from "vue";
 
 /**
- * A button held down to act, for what cannot be taken back: pressed, it fills from its start
- * edge over `holdTime`; let go before it is full, the fill drains back and nothing happens;
- * full, it acts (`hold`) and shows `done` for a moment. A pointer holds it (and gives up by
- * drifting off it), and so do Space and Enter; Escape lets go. After React Bits' Hold Button.
+ * A button held down to act, for what cannot be taken back, after React Bits' Hold Button:
+ * pressed, it fills from its start edge over `holdTime`, the fill's leading edge a soft wave,
+ * and whatever it says turns to the fill's color as the fill passes over it; let go before it
+ * is full, the fill drains back and nothing happens; full, it acts (`hold`), rings once and
+ * shows `done` for a moment. A pointer holds it (and gives up by drifting off it), and so do
+ * Space and Enter; Escape, the window losing focus or the page being hidden lets go.
  * `danger` fills it in the danger color, for something that goes for good. With an `icon`,
  * the icon is what is shown and `label` / `done` are what a screen reader is told.
  */
@@ -29,17 +31,32 @@ const RESET = 1200;
 const PAD = 10;
 
 const id = useId();
+const el = useTemplateRef<HTMLButtonElement>("el");
 /** How full: 0 to 1 */
 const p = ref(0);
 const state = ref<"idle" | "holding" | "done">("idle");
+/** The button's size, for the wave on the fill's edge */
+const size = ref({ w: 0, h: 0 });
 let frame = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let held: { pointer: number | null; rect: DOMRect | null } | null = null;
+let observer: ResizeObserver | null = null;
 
 const stop = () => {
   cancelAnimationFrame(frame);
   frame = 0;
 };
+
+/** Anything that takes the person away lets go */
+const away = () => letGo();
+const hidden = () => {
+  if (document.hidden) letGo();
+};
+function watchAway(on: boolean) {
+  const how = on ? "addEventListener" : "removeEventListener";
+  window[how]("blur", away);
+  document[how]("visibilitychange", hidden);
+}
 
 /** Fills from where it is to full over what is left of `holdTime`; full, it acts */
 function fill() {
@@ -55,11 +72,12 @@ function fill() {
     }
     frame = 0;
     held = null;
+    watchAway(false);
     state.value = "done";
     emit("hold");
     timer = setTimeout(() => {
       state.value = "idle";
-      p.value = 0;
+      drain();
     }, RESET);
   };
   frame = requestAnimationFrame(step);
@@ -72,7 +90,7 @@ function drain() {
   const t0 = performance.now();
   const step = (now: number) => {
     const t = Math.min(1, (now - t0) / RELEASE);
-    p.value = from * (1 - (1 - Math.pow(1 - t, 3)));
+    p.value = from * Math.pow(1 - t, 3);
     if (t < 1) frame = requestAnimationFrame(step);
     else frame = 0;
   };
@@ -83,11 +101,13 @@ function begin(pointer: number | null, rect: DOMRect | null) {
   if (props.disabled || state.value !== "idle" || held !== null) return;
   held = { pointer, rect };
   state.value = "holding";
+  watchAway(true);
   fill();
 }
 function letGo() {
   if (held === null) return;
   held = null;
+  watchAway(false);
   state.value = "idle";
   drain();
 }
@@ -129,20 +149,35 @@ function keyUp(e: KeyboardEvent) {
 }
 /** A click comes with every press; it is the hold that acts, so a click does nothing */
 const click = (e: MouseEvent) => e.preventDefault();
+/** A long press is this button's, not the system's menu */
+const menu = (e: MouseEvent) => e.preventDefault();
 
+onMounted(() => {
+  const button = el.value;
+  if (button === null) return;
+  const measure = () => {
+    size.value = { w: button.offsetWidth, h: button.offsetHeight };
+  };
+  measure();
+  observer = new ResizeObserver(measure);
+  observer.observe(button);
+});
 onBeforeUnmount(() => {
   stop();
   clearTimeout(timer);
+  watchAway(false);
+  observer?.disconnect();
 });
 </script>
 
 <template>
   <button
+    ref="el"
     type="button"
     :disabled
     :data-state="state"
     :data-danger="danger || undefined"
-    :style="`--p: ${p}`"
+    :style="`--p: ${p}; --w: ${size.w}px; --h: ${size.h}px`"
     :aria-labelledby="`${id}-label`"
     :aria-describedby="`${id}-hint`"
     @pointerdown="down"
@@ -153,13 +188,34 @@ onBeforeUnmount(() => {
     @keydown="keyDown"
     @keyup="keyUp"
     @click="click"
+    @contextmenu="menu"
   >
-    <span aria-hidden="true" class="fill"></span>
-    <span v-if="slots.icon !== undefined" aria-hidden="true" class="icon"><slot name="icon"></slot></span>
-    <span :id="`${id}-label`" class="label" :data-unseen="slots.icon !== undefined || undefined">{{
-      state === "done" ? done : label
-    }}</span>
-    <span :id="`${id}-hint`" class="hint">
+    <!-- done: one ring going out from it -->
+    <span aria-hidden="true" class="pulse"></span>
+    <!-- what it says, at rest -->
+    <span aria-hidden="true" class="face">
+      <slot v-if="slots.icon !== undefined" name="icon"></slot>
+      <template v-else>{{ state === "done" ? done : label }}</template>
+    </span>
+    <!-- the fill, and the same words in the fill's color under it, cut to how far it has come;
+         its leading edge a wave -->
+    <span aria-hidden="true" class="clip">
+      <span class="fill">
+        <span class="face">
+          <slot v-if="slots.icon !== undefined" name="icon"></slot>
+          <template v-else>{{ state === "done" ? done : label }}</template>
+        </span>
+      </span>
+      <span class="crest">
+        <span class="face">
+          <slot v-if="slots.icon !== undefined" name="icon"></slot>
+          <template v-else>{{ state === "done" ? done : label }}</template>
+        </span>
+      </span>
+    </span>
+    <!-- what a screen reader is told: what it does, and that it is held, not tapped -->
+    <span :id="`${id}-label`" class="unseen">{{ state === "done" ? done : label }}</span>
+    <span :id="`${id}-hint`" class="unseen">
       <slot name="hint"></slot>
     </span>
   </button>
@@ -170,21 +226,33 @@ onBeforeUnmount(() => {
 
 button {
   --tone: var(--ink);
+  --radius: 999px;
+  /* how far the wave on the fill's edge swings */
+  --wave: 5px;
   position: relative;
-  overflow: hidden;
+  isolation: isolate;
+  display: inline-grid;
+  place-items: center;
   min-height: var(--tap);
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   border: 0;
   background: var(--wash);
   color: var(--ink);
   font: inherit;
   font-size: var(--font-sm);
   font-weight: 700;
+  /* held, not tapped: no system highlight, callout, selection or scroll under the finger */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   transition: scale var(--duration-swap) var(--ease-spring);
+
+  @media (--reduced-motion) {
+    transition: none;
+  }
 
   &[data-danger] {
     --tone: var(--danger);
@@ -192,6 +260,10 @@ button {
 
   &[data-state="holding"] {
     scale: 0.97;
+
+    @media (--reduced-motion) {
+      scale: none;
+    }
   }
 
   &:disabled {
@@ -199,44 +271,101 @@ button {
   }
 
   &:focus-visible {
-    outline: 2px solid var(--ink);
+    outline: 2px solid var(--tone);
     outline-offset: 2px;
   }
+}
 
-  /* the fill, from the start edge, as far as the hold has come; done, it is full and solid */
-  > .fill {
-    position: absolute;
-    inset: 0;
-    inset-inline-end: calc((1 - var(--p, 0)) * 100%);
-    background: color-mix(in oklch, var(--tone) 32%, transparent);
-    pointer-events: none;
-  }
-  &[data-state="done"] {
-    color: var(--on-ink);
+.face {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
 
-    > .fill {
-      background: var(--tone);
-    }
+/* the fill's layers, over what it says (later in the button, so on top), cut to the button's own round outline (never a square box) */
+.clip {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 round var(--radius));
+  pointer-events: none;
+}
+
+.fill,
+.crest {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--tone);
+  color: var(--on-ink);
+}
+
+/* as far as the hold has come from the start edge; the wave covers the cut */
+.fill {
+  clip-path: inset(
+    0 calc((1 - var(--p)) * (100% + 0.75 * var(--wave)) - var(--p) * 0.25 * var(--wave)) 0 0
+  );
+
+  &:dir(rtl) {
+    clip-path: inset(
+      0 0 0 calc((1 - var(--p)) * (100% + 0.75 * var(--wave)) - var(--p) * 0.25 * var(--wave))
+    );
+  }
+}
+
+/* the leading edge: a column of soft waves that rides with the fill and rolls as it goes */
+.crest {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='200' viewBox='0 0 20 200' preserveAspectRatio='none'%3E%3Cpath d='M0 0H10C18 8 18 25.3 10 33.3S2 58.7 10 66.7S18 92 10 100S2 125.3 10 133.3S18 158.7 10 166.7S2 192 10 200H0Z'/%3E%3C/svg%3E");
+  mask-repeat: repeat-y;
+  mask-size: var(--wave) calc(var(--h) * 2);
+  mask-position: calc(-1 * var(--wave) + var(--p) * (var(--w) + var(--wave)))
+    calc(-1 * var(--p) * 1.2 * var(--h));
+
+  @media (--reduced-motion) {
+    display: none;
   }
 
-  > .label,
-  > .icon {
-    position: relative;
+  &:dir(rtl) {
+    display: none;
   }
+}
 
-  > .icon {
-    display: grid;
-    place-items: center;
-  }
+/* done: one ring in its color, going out and fading */
+.pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  pointer-events: none;
+  opacity: 0;
+}
 
-  /* what a screen reader is told: that the button is held, not tapped; and, beside an icon, what it does */
-  > .hint,
-  > .label[data-unseen] {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
+button[data-state="done"] > .pulse {
+  animation: ring 600ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+
+  @media (--reduced-motion) {
+    animation: none;
   }
+}
+
+@keyframes ring {
+  from {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--tone) 45%, transparent);
+  }
+  to {
+    opacity: 0;
+    box-shadow: 0 0 0 10px color-mix(in oklch, var(--tone) 0%, transparent);
+  }
+}
+
+.unseen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 </style>
