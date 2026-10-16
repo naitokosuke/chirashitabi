@@ -39,6 +39,7 @@ const day = computed(() => {
   <div
     v-show="visibility !== 'hidden'"
     :data-kind="note.kind"
+    :data-link="(note.kind === 'memo' && note.link !== null) || undefined"
     :data-dragging="dragging || undefined"
     :data-pop="pop || undefined"
     :data-selected="selected || undefined"
@@ -170,6 +171,12 @@ div {
     border-radius: 6px 6px 0 0;
     background: color-mix(in oklch, var(--paper-ink) 6%, transparent);
     pointer-events: none;
+  }
+
+  /* a page's picture (a video's frame, a post's cover) is made for 16:9: shown whole at that, not cut to the band */
+  &[data-link] > img {
+    height: auto;
+    aspect-ratio: 16 / 9;
   }
 
   /* the page's site, a small tag above the title */
