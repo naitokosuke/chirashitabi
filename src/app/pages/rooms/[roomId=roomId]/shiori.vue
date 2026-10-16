@@ -41,7 +41,6 @@ import {
 } from "../../../features/trip/itinerary";
 import StayLine from "../../../features/trip/StayLine.vue";
 import { useTrip } from "../../../features/trip/useTrip";
-import { OverBudget } from "../../../features/worker/api";
 import type { DayDraft } from "../../../features/worker/types";
 import { useWorker } from "../../../features/worker/useWorker";
 import { useWorkerCalls } from "../../../features/worker/useWorkerCalls";
@@ -230,6 +229,7 @@ const {
   mutateAsync: draftDay,
   isLoading: drafting,
   error: draftError,
+  data: draftAnswer,
   variables: draftAsked,
 } = calls.draftDay;
 /** Whether the last ask for a draft was for the day on the page: its pending and error belong there */
@@ -241,16 +241,21 @@ async function askForDraft() {
   const date = day.value;
   if (date === null || drafting.value) return;
   try {
-    draft.value = { date, ...(await draftDay({ date, notes: forDay(date) })) };
+    const answer = await draftDay({ date, notes: forDay(date) });
+    if (answer.ok) draft.value = { date, ...answer.value };
   } catch {
     // the error state says so by the button; asking again is the person's tap, never a retry
   }
 }
-/** Why the last draft did not come: the budget is spent (asking again will not help), or it failed */
+/**
+ * Why the last draft did not come, or null when it came: the budget is spent (asking again
+ * will not help), or it failed
+ */
 const draftFailure = computed(() => {
-  const e = draftError.value;
-  if (!(e instanceof OverBudget)) return "shiori.draftFailed";
-  return e.ceiling === "trip" ? "shiori.draftTripLimit" : "shiori.draftLimit";
+  if (draftError.value !== null) return "shiori.draftFailed";
+  const answer = draftAnswer.value;
+  if (answer === undefined || answer.ok) return null;
+  return answer.refused.ceiling === "trip" ? "shiori.draftTripLimit" : "shiori.draftLimit";
 });
 const { mutate: exportBooklet, isLoading: exporting, error: exportError } = calls.exportBooklet;
 
@@ -467,7 +472,7 @@ function adoptDraft() {
                 :aria-busy="drafting && askedHere"
                 @click="askForDraft"
               >{{ i18n.t(drafting && askedHere ? "shiori.drafting" : "shiori.askDraft") }}</button>
-              <p v-if="draftError !== null && askedHere && !drafting" aria-live="polite">{{
+              <p v-if="draftFailure !== null && askedHere && !drafting" aria-live="polite">{{
                 i18n.t(draftFailure)
               }}</p>
             </template>

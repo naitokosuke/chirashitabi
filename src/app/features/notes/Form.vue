@@ -41,7 +41,6 @@ import type { FoundPlace } from "../place/types";
 import { useSync } from "../sync/useSync";
 import { FITS_AT, fits, likeness, rankTags, type TagOption } from "../tags/rank";
 import { useTags } from "../tags/useTags";
-import { OverBudget, RoomFull } from "../worker/api";
 import { useWorker } from "../worker/useWorker";
 
 import { imageSrc, shrinkImage } from "./image";
@@ -100,7 +99,10 @@ function onMapsUrl() {
   expanding.value = true;
   api
     .expandLink(short, i18n.locale === "en" ? "en" : "ja")
-    .then(({ url, at }) => {
+    .then((answer) => {
+      // past the budget the short link stays, as when it could not be read
+      if (!answer.ok) return;
+      const { url, at } = answer.value;
       if (mapsUrl.value.trim() !== short || url === short) return;
       mapsUrl.value = url;
       Object.assign(form.value, placeFromUrl(url, at ?? form.value.pin));
@@ -139,10 +141,11 @@ async function onPhoto(e: Event) {
   if (file === undefined || api === null) return;
   photo.value = "sending";
   try {
-    form.value.image = await api.uploadImage(await shrinkImage(file));
-    photo.value = "idle";
-  } catch (err) {
-    photo.value = err instanceof RoomFull ? "full" : "failed";
+    const kept = await api.uploadImage(await shrinkImage(file));
+    if (kept.ok) form.value.image = kept.value;
+    photo.value = kept.ok ? "idle" : "full";
+  } catch {
+    photo.value = "failed";
   }
 }
 function removePhoto() {
@@ -192,14 +195,20 @@ async function askForTags(byTap: boolean) {
       chosen: [...form.value.tags, ...inline],
     });
     if (of !== memo) return;
-    offered.value = got;
+    if (!got.ok) {
+      // past the budget: Clef stops asking by itself for this memo
+      asks = MAX_ASKS;
+      tagState.value = got.refused.ceiling;
+      return;
+    }
+    offered.value = got.value;
     // nothing fitting is worth saying only to the one who asked
-    tagState.value = byTap && !got.some((t) => t.p >= FITS_AT) ? "none" : "idle";
-  } catch (err) {
+    tagState.value = byTap && !got.value.some((t) => t.p >= FITS_AT) ? "none" : "idle";
+  } catch {
     if (of !== memo) return;
-    // refused or failed: Clef stops asking by itself for this memo
+    // failed: Clef stops asking by itself for this memo
     asks = MAX_ASKS;
-    tagState.value = err instanceof OverBudget ? err.ceiling : "failed";
+    tagState.value = "failed";
   }
 }
 /** Asked once the words are there, then again only for a new photo or words much changed */
@@ -305,15 +314,20 @@ async function findPlaces() {
   placeState.value = "asking";
   found.value = [];
   try {
-    found.value = await api.findPlaces({
+    const places = await api.findPlaces({
       title,
       body,
       tags: [...form.value.tags, ...inline],
       lang: i18n.locale === "en" ? "en" : "ja",
     });
+    if (!places.ok) {
+      placeState.value = places.refused.ceiling;
+      return;
+    }
+    found.value = places.value;
     placeState.value = found.value.length === 0 ? "none" : "idle";
-  } catch (err) {
-    placeState.value = err instanceof OverBudget ? err.ceiling : "failed";
+  } catch {
+    placeState.value = "failed";
   }
 }
 /**

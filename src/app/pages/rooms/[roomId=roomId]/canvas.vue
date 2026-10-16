@@ -86,7 +86,6 @@ import { useToast } from "../../../features/toast/useToast";
 import { shortDate } from "../../../features/trip/format";
 import { assignTo } from "../../../features/trip/itinerary";
 import { useTrip } from "../../../features/trip/useTrip";
-import { OverBudget, RoomFull } from "../../../features/worker/api";
 import { useWorker } from "../../../features/worker/useWorker";
 import { useWorkerCalls } from "../../../features/worker/useWorkerCalls";
 import Icon from "../../../icons/Icon.vue";
@@ -597,20 +596,22 @@ async function askForIdeas() {
       : { x: a.about.x + 164 * a.about.scale + 24 + 94, y: a.about.y + 40 };
   asking.value = null;
   try {
-    const n = await suggestAt({
+    const answer = await suggestAt({
       at: { x: at.x, y: at.y },
       ask: askWords.value,
       about: a.about?.id ?? null,
     });
+    if (!answer.ok) {
+      const limit =
+        answer.refused.ceiling === "trip" ? "canvas.ideasTripLimit" : "canvas.ideasLimit";
+      toast.show(i18n.t(limit));
+      return;
+    }
+    const n = answer.value;
     askWords.value = "";
     toast.show(n === 0 ? i18n.t("canvas.noIdeas") : i18n.t("canvas.ideasAdded", { count: n }));
-  } catch (e) {
-    const key = !(e instanceof OverBudget)
-      ? "canvas.ideasFailed"
-      : e.ceiling === "trip"
-        ? "canvas.ideasTripLimit"
-        : "canvas.ideasLimit";
-    toast.show(i18n.t(key));
+  } catch {
+    toast.show(i18n.t("canvas.ideasFailed"));
   }
 }
 function write() {
@@ -686,7 +687,12 @@ async function stick(file: Blob, at?: Pt) {
   if (api === null || sticking.value) return;
   sticking.value = true;
   try {
-    const image = await api.uploadImage(await shrinkImage(file, STICKER_SIDE));
+    const kept = await api.uploadImage(await shrinkImage(file, STICKER_SIDE));
+    if (!kept.ok) {
+      toast.show(i18n.t("form.photoFull"));
+      return;
+    }
+    const image = kept.value;
     // the desk is always there while it sticks; were it not, its corner
     const r = vp.value?.getBoundingClientRect() ?? { width: 0, height: 0 };
     const c = toWorld(at?.x ?? r.width / 2, at?.y ?? r.height / 2);
@@ -694,8 +700,8 @@ async function stick(file: Blob, at?: Pt) {
     pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
     window.setTimeout(() => (pop.value = null), 900);
     toast.show(i18n.t("canvas.stickerAdded"), undoAdd(n.id));
-  } catch (err) {
-    toast.show(i18n.t(err instanceof RoomFull ? "form.photoFull" : "canvas.stickerFailed"));
+  } catch {
+    toast.show(i18n.t("canvas.stickerFailed"));
   } finally {
     sticking.value = false;
   }

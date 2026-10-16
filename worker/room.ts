@@ -32,6 +32,13 @@ import {
 
 export type MemberKind = "person" | "agent";
 
+/** Done, or why not: what the room or the index declined, for the Worker to answer and log */
+export type Done<Reason> = { ok: true } | { ok: false; reason: Reason };
+/** Why no seat was held for an invitation */
+export type SeatRefusal = "not the owner" | "no seat";
+/** Why a person was not taken out: the owner never is, only the owner takes another, or gone already */
+export type RemoveRefusal = "the owner" | "not theirs" | "not in";
+
 /** A mutation the room wrote, as it wrote it, or why it did not */
 type Applied = { ok: true; value: WireMutation } | { ok: false; reason: RejectReason };
 
@@ -282,15 +289,15 @@ export class Room extends DurableObject<Env> {
 
   /**
    * Holds a seat for someone the owner `by` invites, until they answer or the owner takes it
-   * back; null when `by` is not the owner or every seat is taken or held. The index keeps who
+   * back; refused when `by` is not the owner or every seat is taken or held. The index keeps who
    * the seat is for; the room keeps no e-mail.
    */
-  openSeat(by: MemberId): SeatId | null {
+  openSeat(by: MemberId): { ok: true; seat: SeatId } | { ok: false; reason: SeatRefusal } {
     this.assertMember(by);
-    if (by !== this.ownerId()) return null;
+    if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     const sql = this.ctx.storage.sql;
     const held = sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM invitations").one().n;
-    if (this.count("person") + held >= Room.MAX_PEOPLE) return null;
+    if (this.count("person") + held >= Room.MAX_PEOPLE) return { ok: false, reason: "no seat" };
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
     const id = crypto.randomUUID() as SeatId;
     sql.exec(
@@ -298,7 +305,7 @@ export class Room extends DurableObject<Env> {
       id,
       new Date().toISOString(),
     );
-    return id;
+    return { ok: true, seat: id };
   }
 
   /** The seat is given back: declined, withdrawn, or not recorded in the index after all */
@@ -308,13 +315,16 @@ export class Room extends DurableObject<Env> {
 
   /**
    * The invited person takes their seat as who they say they are; returns their new member id,
-   * or null when the seat is gone (withdrawn, or the room deleted). Everyone in is told.
+   * or why not: the seat is gone (withdrawn), or the room deleted. Everyone in is told.
    */
-  accept(seat: SeatId, me: Profile): MemberId | null {
-    if (this.deletion() !== null) return null;
+  accept(
+    seat: SeatId,
+    me: Profile,
+  ): { ok: true; member: MemberId } | { ok: false; reason: "no seat" | "deleted" } {
+    if (this.deletion() !== null) return { ok: false, reason: "deleted" };
     const sql = this.ctx.storage.sql;
     if (sql.exec("DELETE FROM invitations WHERE id = ? RETURNING id", seat).toArray().length === 0)
-      return null;
+      return { ok: false, reason: "no seat" };
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
     const id = crypto.randomUUID() as MemberId;
     sql.exec(
@@ -324,7 +334,7 @@ export class Room extends DurableObject<Env> {
       me.color,
     );
     this.tellMembers();
-    return id;
+    return { ok: true, member: id };
   }
 
   /** The index could not record a member `accept` just let in: they are not in after all */
@@ -349,39 +359,40 @@ export class Room extends DurableObject<Env> {
 
   /**
    * Takes `member` out: the owner `by` removing someone else, or someone other than the owner
-   * leaving (`by` is `member`). False for anything else; the owner never leaves their own
+   * leaving (`by` is `member`). Refused for anything else; the owner never leaves their own
    * room, they delete it. Their notes stay; their socket is told and closed.
    */
-  remove(by: MemberId, member: MemberId): boolean {
+  remove(by: MemberId, member: MemberId): Done<RemoveRefusal> {
     this.assertMember(by);
     const owner = this.ownerId();
-    if (member === owner || (by !== owner && by !== member)) return false;
+    if (member === owner) return { ok: false, reason: "the owner" };
+    if (by !== owner && by !== member) return { ok: false, reason: "not theirs" };
     const sql = this.ctx.storage.sql;
     const gone = sql
       .exec("DELETE FROM members WHERE id = ? AND kind = 'person' RETURNING id", member)
       .toArray();
-    if (gone.length === 0) return false;
+    if (gone.length === 0) return { ok: false, reason: "not in" };
     this.#rate.delete(member);
     this.closeSockets(this.ctx.getWebSockets(member), by === member ? "left" : "removed");
     this.tellMembers();
-    return true;
+    return { ok: true };
   }
 
   /**
    * The owner `by` deletes the room: nobody can open it from now on, and in DELETE_AFTER it is
    * gone for good unless the owner restores it. `roomId` is kept for that day, when its pictures
-   * go too. False when `by` is not the owner.
+   * go too. Refused when `by` is not the owner.
    */
-  delete(by: MemberId, roomId: RoomId): boolean {
+  delete(by: MemberId, roomId: RoomId): Done<"not the owner"> {
     this.assertMember(by);
-    if (by !== this.ownerId()) return false;
+    if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     const at = new Date();
     const sql = this.ctx.storage.sql;
     sql.exec("INSERT INTO deletion (id, room_id, at) VALUES (1, ?, ?)", roomId, at.toISOString());
     sql.exec("DELETE FROM invitations");
     this.closeSockets(this.ctx.getWebSockets(), "deleted");
     void this.ctx.storage.setAlarm(at.getTime() + Room.DELETE_AFTER);
-    return true;
+    return { ok: true };
   }
 
   /** How long a deleted room can be restored */
@@ -392,13 +403,13 @@ export class Room extends DurableObject<Env> {
     return this.deletion()?.at ?? null;
   }
 
-  /** A person in the room, `by`, takes the deletion back; false when it is not deleted */
-  restore(by: MemberId): boolean {
-    if (this.deletion() === null) return false;
+  /** A person in the room, `by`, takes the deletion back; refused when it is not deleted */
+  restore(by: MemberId): Done<"not deleted"> {
+    if (this.deletion() === null) return { ok: false, reason: "not deleted" };
     this.assertPerson(by);
     this.ctx.storage.sql.exec("DELETE FROM deletion");
     void this.ctx.storage.deleteAlarm();
-    return true;
+    return { ok: true };
   }
 
   /**
@@ -423,14 +434,15 @@ export class Room extends DurableObject<Env> {
 
   /**
    * The owner `by` wants the deleted room gone now rather than on its day: it goes as the
-   * alarm would take it. False unless the room is deleted and `by` owns it; the other person
+   * alarm would take it. Refused unless the room is deleted and `by` owns it; the other person
    * could still have restored it, so only the one who deleted it may end that.
    */
-  async purge(by: MemberId): Promise<boolean> {
+  async purge(by: MemberId): Promise<Done<"not deleted" | "not the owner">> {
     const deletion = this.deletion();
-    if (deletion === null || by !== this.ownerId()) return false;
+    if (deletion === null) return { ok: false, reason: "not deleted" };
+    if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     await this.erase(deletion);
-    return true;
+    return { ok: true };
   }
 
   /** The room goes for good: its pictures, its place in the index, its storage */
