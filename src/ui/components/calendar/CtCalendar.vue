@@ -1,4 +1,4 @@
-<script setup lang="ts" generic="T extends Temporal.PlainDate | DateRange" vapor>
+<script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, nextTick, ref, useTemplateRef } from "vue";
@@ -6,31 +6,37 @@ import { computed, nextTick, ref, useTemplateRef } from "vue";
 import { pick, weeksOf, type DateRange } from "./calendar";
 
 /**
- * A month of days to pick one from (after Nuxt UI's Calendar). With `range`, a stretch of
- * them: the first day tapped, then the last, the days between them banded, and until the
- * last is picked the band follows the pointer (or the focus) from the first. A day before
- * the first, or past `maxDays` from it, starts over from there. The arrow keys walk the days.
+ * A month of days to pick one from (after Nuxt UI's Calendar): one day (`v-model:day`), or
+ * a stretch of them (`v-model:range`): the first day tapped, then the last, the days between
+ * them banded, and until the last is picked the band follows the pointer (or the focus) from
+ * the first. A day before the first, or past `maxDays` from it, starts over from there. The
+ * arrow keys walk the days.
  */
 const props = defineProps<{
-  /** a day, or with `range` a DateRange */
-  modelValue: T;
-  range?: boolean;
+  /** the day picked, when one day is picked */
+  day?: Temporal.PlainDate;
+  /** the stretch picked, when a stretch is; given, the calendar picks one */
+  range?: DateRange;
   maxDays?: number;
   locale: string;
   prevLabel: string;
   nextLabel: string;
 }>();
-const emit = defineEmits<{ "update:modelValue": [value: T] }>();
+const emit = defineEmits<{
+  "update:day": [day: Temporal.PlainDate];
+  "update:range": [range: DateRange];
+}>();
 
-/** What is picked, as a range either way: one day is a range of it alone */
+const today = Temporal.Now.plainDateISO();
+
+/** What is picked, as a range either way: one day is a range of it alone (today, before one is) */
 const picked = computed<DateRange>(() => {
-  if (props.range) return props.modelValue as DateRange;
-  const day = props.modelValue as Temporal.PlainDate;
+  if (props.range !== undefined) return props.range;
+  const day = props.day ?? today;
   return { start: day, end: day };
 });
 const maxDays = computed(() => props.maxDays ?? Infinity);
 
-const today = Temporal.Now.plainDateISO();
 const month = ref(picked.value.start.toPlainYearMonth());
 const weeks = computed(() => weeksOf(month.value));
 /** A day of the month on the page; the days of the months either side are left blank */
@@ -76,7 +82,8 @@ const stateOf = (day: Temporal.PlainDate) => {
 
 const choose = (day: Temporal.PlainDate) => {
   focused.value = day;
-  emit("update:modelValue", (props.range ? pick(picked.value, day, maxDays.value) : day) as T);
+  if (props.range !== undefined) emit("update:range", pick(props.range, day, maxDays.value));
+  else emit("update:day", day);
 };
 const turn = (by: number) => {
   month.value = month.value.add({ months: by });

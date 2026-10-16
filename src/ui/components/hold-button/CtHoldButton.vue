@@ -91,8 +91,8 @@ function letGo() {
 }
 
 function down(e: PointerEvent) {
-  if (e.button !== 0 || !e.isPrimary) return;
-  const button = e.currentTarget as HTMLElement;
+  const button = e.currentTarget;
+  if (e.button !== 0 || !e.isPrimary || !(button instanceof HTMLElement)) return;
   try {
     button.setPointerCapture(e.pointerId);
   } catch {
