@@ -13,6 +13,7 @@ vp run check   # format + lint + type check (Vize)
 vp run fmt     # format the SFCs (Vize) and the rest
 vp run musea   # the component gallery (Vize Musea) at /__musea__
 vp build
+vp run analyze                      # VITE_MOCK=false build, then what it is made of (Vite DevTools) at localhost:9999
 vp run check:worker                 # wrangler types + tsc on worker/, writing .worker-types/ (before `vp run check`)
 vp run deploy                       # VITE_MOCK=false build, then wrangler deploy
 ```

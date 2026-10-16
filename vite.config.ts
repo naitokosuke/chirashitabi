@@ -69,6 +69,9 @@ export default defineConfig({
         })
       : []),
   ],
+  // what a build is made of (Vite DevTools, served at localhost:9999 once the build ends); only
+  // under `vp run analyze`, so a deploy neither carries it nor waits on it
+  devtools: process.env.ANALYZE === "true" && { apply: "build" },
   // the licenses of every dependency bundled into the build, as dist/.vite/license.md:
   // their notices travel with the code that carries them
   build: { license: true },
