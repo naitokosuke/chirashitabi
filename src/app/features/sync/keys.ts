@@ -1,6 +1,6 @@
 import type { EntryKeyTagged } from "@pinia/colada";
 
-import type { Member } from "../members/types";
+import type { Email, Member } from "../members/types";
 import type { Note } from "../notes/types";
 import type { RoomId } from "../rooms/types";
 import type { TripSnapshot } from "../trip/types";
@@ -27,5 +27,5 @@ export const roomKeys = {
    * Not a slice of the socket's: the e-mails the owner invited, fetched over HTTP by the owner
    * only (useMembers), refreshed when the members change
    */
-  invited: slice<string[]>("invited"),
+  invited: slice<Email[]>("invited"),
 };

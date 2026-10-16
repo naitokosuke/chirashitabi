@@ -1,13 +1,14 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
+import type { MemberId } from "../members/types";
 import type { ImageId, NoteId } from "../notes/id";
 import type { Scheduled } from "../notes/types";
 import type { FoundPlace, LatLng } from "../place/types";
 
 /** A suggested order and times for one day, from whichever member drafted it */
 export interface DayDraft {
-  /** Who drafted it, as the Worker names them: an id to find among the members */
-  by: string;
+  /** Who drafted it, as the Worker names them: an id to find among the members; null when it named none */
+  by: MemberId | null;
   reason: string; // why this order
   items: { note: Scheduled; time: Temporal.PlainTime | null }[];
   intro: string;

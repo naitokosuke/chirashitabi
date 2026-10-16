@@ -8,7 +8,7 @@ import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
 import { deleteRoom, fetchInvited, invite, leaveRoom, removeMember, uninvite } from "./api";
-import type { MemberId, Person } from "./types";
+import type { Email, MemberId, Person } from "./types";
 
 /**
  * Who is in the room of the session, and the changes to it over HTTP beside the socket. The
@@ -54,8 +54,8 @@ export const useMembers = defineQuery(() => {
     members,
     me,
     invited,
-    invite: change((r, email: string) => invite(r, email)),
-    uninvite: change((r, email: string) => uninvite(r, email)),
+    invite: change((r, email: Email) => invite(r, email)),
+    uninvite: change((r, email: Email) => uninvite(r, email)),
     remove: change((r, member: MemberId) => removeMember(r, member)),
     leave: useMutation({ mutation: () => leaveRoom(inRoom()), onSettled: refresh }),
     deleteRoom: useMutation({ mutation: () => deleteRoom(inRoom()), onSettled: refresh }),

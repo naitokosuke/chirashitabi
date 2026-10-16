@@ -5,6 +5,7 @@ import { hc, type ClientResponse } from "hono/client";
 import { isRecord } from "../../shared/record";
 
 import type { Api } from "../../../../.worker-types/worker";
+import { isMemberId } from "../members/types";
 import { isImageId } from "../notes/id";
 import type { FoundPlace } from "../place/types";
 import type { RoomId } from "../rooms/types";
@@ -155,7 +156,7 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
         inRoom.draft.$post({ param: { roomId: room }, json: { date: date.toString() } }),
       ),
       (d) => ({
-        by: text(d.by) ? d.by : "",
+        by: isMemberId(d.by) ? d.by : null,
         reason: text(d.reason) ? d.reason : "",
         intro: text(d.intro) ? d.intro : "",
         // the draft names the notes it was given; one that has since gone is left out

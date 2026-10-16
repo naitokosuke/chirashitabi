@@ -28,13 +28,13 @@ import {
   type RoomId,
   isShortMapsLink,
   parseMapsUrl,
+  parseEmail,
   isRecord,
 } from "./types";
 import {
   IMAGE_TYPES,
   isDate,
   MAX_IMAGE_BYTES,
-  parseEmail,
   parsePoint,
   parseProfile,
   parseTrip,

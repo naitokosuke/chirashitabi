@@ -8,7 +8,7 @@ import { isAirportCode } from "./airport-codes";
 import type { AirportCode } from "./airports";
 import type { Brand } from "./brand";
 import { hexColor, type HexColor } from "./color";
-import { isImageId, isNoteId, type Email, type ImageId, type MemberId, type NoteId } from "./ids";
+import { isImageId, isNoteId, type ImageId, type MemberId, type NoteId } from "./ids";
 import { currencyCode, type CurrencyCode } from "./money";
 import { isRecord } from "./record";
 import { COLORS, type NoteColor, type NoteStatus } from "./room";
@@ -307,16 +307,6 @@ export const parseProfile = (v: unknown): { name: string; color: HexColor } | nu
   const color = hexColor(String(v.color).toLowerCase());
   return color === null ? null : { name: v.name.trim(), color };
 };
-
-/**
- * An e-mail address, to invite or as Access vouches for it, lowercased as the index keeps it,
- * or null. Only its shape is checked; whether it can log in is Access's to say.
- */
-export const parseEmail = (v: unknown): Email | null =>
-  typeof v === "string" && v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
-    ? // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-      (v.trim().toLowerCase() as Email)
-    : null;
 
 /** A local date and time, to the minute or the second (as Temporal writes one) */
 export const isDateTime = (v: unknown): v is IsoDateTime =>

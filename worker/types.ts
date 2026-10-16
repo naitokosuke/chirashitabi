@@ -5,6 +5,7 @@ export {
   isImageId,
   isMemberId,
   isNoteId,
+  parseEmail,
   roomId,
   type Email,
   type ImageId,

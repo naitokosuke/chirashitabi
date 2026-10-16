@@ -5,7 +5,6 @@ export {
   MAX_MESSAGE_BYTES,
   isDate,
   parseCid,
-  parseEmail,
   parseMutation,
   parsePoint,
   parseProfile,
