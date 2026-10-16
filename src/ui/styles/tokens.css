@@ -98,9 +98,20 @@
    * above it. Both are the same on every view, so moving between them never moves anything.
    */
   --top-row: 52px;
-  --top-clear: calc(env(safe-area-inset-top, 0px) + var(--top-row) + 8px);
+  /*
+   * The strip at the very top nothing of a view goes in: the status bar, and, while this device
+   * is cut off, the band that says so (features/sync/Offline.vue) this much taller
+   */
+  --notice: 28px;
+  --top-inset: env(safe-area-inset-top, 0px);
+
+  /* cut off: the band takes the strip, and everything along the top moves down under it */
+  &[data-offline] {
+    --top-inset: calc(env(safe-area-inset-top, 0px) + var(--notice));
+  }
+  --top-clear: calc(var(--top-inset) + var(--top-row) + 8px);
   /* where a page with nothing floating over it (home, the memo, the trips) starts: a large title */
-  --page-top: calc(env(safe-area-inset-top, 0px) + 28px);
+  --page-top: calc(var(--top-inset) + 28px);
   --dock-height: 60px;
   --dock-gap: 12px;
   --dock-clear: calc(env(safe-area-inset-bottom, 0px) + var(--dock-gap) + var(--dock-height));
@@ -123,6 +134,8 @@
   --z-dock: 8;
   --z-drag: 10;
   --z-sheet: 20;
+  /* the band that says this device is cut off: over a sheet too */
+  --z-notice: 30;
 
   /* Motion: things that morph from one place to another overshoot nothing and settle softly */
   --ease-morph: cubic-bezier(0.22, 1, 0.36, 1);

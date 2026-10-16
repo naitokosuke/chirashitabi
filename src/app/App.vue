@@ -7,6 +7,7 @@ import { CtDock, CtDockDivider, CtDockGroup, CtDockItem, type CtOption } from ".
 
 import { useI18n } from "./i18n/useI18n";
 
+import Offline from "./features/sync/Offline.vue";
 import { useSync } from "./features/sync/useSync";
 import ThemeSwitch from "./features/theme/ThemeSwitch.vue";
 import Toast from "./features/toast/Toast.vue";
@@ -78,6 +79,8 @@ const covered = computed(() => sheetOpen.value || route.name === "/new");
 </script>
 
 <template>
+  <!-- the band along the very top while this device is cut off, over every screen -->
+  <Offline />
   <RouterView />
   <!-- out of a room only what has nothing to undo there: being put out of one, say -->
   <Toast v-if="inRoom || toast.current?.undo === undefined" :inert="sheetOpen" />

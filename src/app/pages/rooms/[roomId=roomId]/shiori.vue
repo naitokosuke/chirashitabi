@@ -803,7 +803,7 @@ article {
     gap: 8px;
     min-height: var(--top-row);
     /* in the page's column, so the days start where the page does */
-    padding: env(safe-area-inset-top, 0px) var(--page-margin) 0;
+    padding: var(--top-inset) var(--page-margin) 0;
     pointer-events: none;
 
     > * {

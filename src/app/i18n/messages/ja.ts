@@ -75,7 +75,8 @@ export const ja: Messages = {
   "rooms.restoreFailed": "元に戻せませんでした。もう一度お試しください。",
 
   "room.reconnecting": "接続中… {$time} 時点の内容です",
-  "room.unreachable": "オフライン · {$time} 時点の内容です",
+  "offline.out": "オフラインです",
+  "offline.in": "オフライン · {$time} 時点の内容です",
   "room.refused": "部屋に受け付けられなかった変更を元に戻しました",
   "room.gone.removed": "この旅から外されました",
   "room.gone.left": "旅から抜けました",

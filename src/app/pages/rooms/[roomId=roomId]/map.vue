@@ -574,7 +574,7 @@ section {
       inset-inline: 0;
       inset-block-start: 0;
       z-index: var(--z-float);
-      padding: env(safe-area-inset-top, 0px) 0 0;
+      padding: var(--top-inset) 0 0;
       pointer-events: none;
       display: flex;
       flex-direction: column;
