@@ -45,6 +45,8 @@ interface MockRoom {
   invited: string[];
   deletedAt: string | null;
   images: Map<string, Blob>;
+  /** The booklet as a public page: a link that leads nowhere here, and when */
+  publication: { url: string; at: string } | null;
 }
 
 /** The seeded trip's room */
@@ -58,6 +60,7 @@ const rooms = new Map<RoomId, MockRoom>([
       invited: [],
       deletedAt: null,
       images: new Map(),
+      publication: null,
     },
   ],
 ]);
@@ -294,6 +297,33 @@ const agent = [
   }),
 ];
 
+// ---- the booklet as a public page: only the owner (the seeded person, this device) puts it up ----
+
+const publishing = [
+  http.post("/api/rooms/:roomId/publication", ({ params }) => {
+    const room = open(params.roomId);
+    return room === undefined ? forbidden() : HttpResponse.json({ publication: room.publication });
+  }),
+  http.post("/api/rooms/:roomId/publish", async ({ params }) => {
+    const room = open(params.roomId);
+    if (room === undefined) return forbidden();
+    await wait(THINKING_MS / 2);
+    // a fresh slug each time, as the Worker mints one; nothing is served behind it here
+    const slug = crypto.randomUUID().replace(/-/g, "").slice(0, 22);
+    room.publication = {
+      url: `https://shiori.chirashitabi.app/r/${slug}/shiori`,
+      at: stamp(now()),
+    };
+    return HttpResponse.json({ publication: room.publication });
+  }),
+  http.post("/api/rooms/:roomId/withdraw", ({ params }) => {
+    const room = open(params.roomId);
+    if (room === undefined) return forbidden();
+    room.publication = null;
+    return HttpResponse.json({});
+  }),
+];
+
 // ---- who is in ----
 
 const members = [
@@ -394,9 +424,10 @@ const mine = [
       invited: [],
       deletedAt: null,
       images: new Map(),
+      publication: null,
     });
     return HttpResponse.json({ roomId: id });
   }),
 ];
 
-export const handlers = [roomSocket, ...agent, ...members, ...mine];
+export const handlers = [roomSocket, ...agent, ...publishing, ...members, ...mine];

@@ -2,6 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import * as v from "valibot";
 
 import { airportCodeOf, isAirportCode } from "./airports";
+import { renderBooklet, type Lang } from "./booklet";
 import type { PlaceContext, SuggestContext, TagContext } from "./claude";
 import {
   type HexColor,
@@ -217,6 +218,12 @@ export class Room extends DurableObject<Env> {
         room_id TEXT NOT NULL,
         at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS publication (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        slug TEXT NOT NULL,
+        by TEXT NOT NULL,
+        at TEXT NOT NULL
+      );
     `);
     ctx.storage.sql.exec(flightsTable("flights"));
     // flights kept when a time not known yet was written "" (its columns were NOT NULL then) are
@@ -323,6 +330,70 @@ export class Room extends DurableObject<Env> {
   private hasImage(id: ImageId): boolean {
     return (
       this.ctx.storage.sql.exec("SELECT 1 FROM pictures WHERE id = ?", id).toArray().length > 0
+    );
+  }
+
+  // ---- the public booklet (RPC from the Worker; its file is in R2, the room keeps its slug) ----
+
+  /** The booklet the room has published, asked by member `by`: its slug and when; null for none */
+  publication(by: MemberId): { slug: string; at: string } | null {
+    this.assertMember(by);
+    return this.published();
+  }
+
+  /**
+   * The owner `by` publishes the booklet as it is now, in `lang`, under a fresh slug, and the
+   * one before goes: publishing again is how a link that went too far is taken back. The page
+   * is written here from the room's own data (booklet.ts), so nothing a browser sends is on it.
+   */
+  async publish(
+    by: MemberId,
+    lang: Lang,
+  ): Promise<{ ok: true; slug: string; at: string } | { ok: false; reason: "not the owner" }> {
+    this.assertMember(by);
+    if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
+    const slug = newSlug();
+    const at = new Date().toISOString();
+    await this.env.IMAGES.put(
+      bookletKey(slug),
+      renderBooklet(this.trip(), this.notes(), lang, at),
+      {
+        httpMetadata: { contentType: "text/html; charset=utf-8" },
+      },
+    );
+    const before = this.published();
+    this.ctx.storage.sql.exec(
+      `INSERT INTO publication (id, slug, by, at) VALUES (1, ?, ?, ?)
+       ON CONFLICT (id) DO UPDATE SET slug = excluded.slug, by = excluded.by, at = excluded.at`,
+      slug,
+      by,
+      at,
+    );
+    if (before !== null) await this.env.IMAGES.delete(bookletKey(before.slug));
+    return { ok: true, slug, at };
+  }
+
+  /** The owner `by` takes the booklet down: its link answers nothing from now on */
+  async withdraw(by: MemberId): Promise<Done<"not the owner">> {
+    this.assertMember(by);
+    if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
+    await this.unpublish();
+    return { ok: true };
+  }
+
+  /** The published booklet goes, its record before its file, so no answer names a file going */
+  private async unpublish(): Promise<void> {
+    const p = this.published();
+    if (p === null) return;
+    this.ctx.storage.sql.exec("DELETE FROM publication");
+    await this.env.IMAGES.delete(bookletKey(p.slug));
+  }
+
+  private published(): { slug: string; at: string } | null {
+    return (
+      this.ctx.storage.sql
+        .exec<{ slug: string; at: string }>("SELECT slug, at FROM publication")
+        .toArray()[0] ?? null
     );
   }
 
@@ -456,9 +527,11 @@ export class Room extends DurableObject<Env> {
    * gone for good unless the owner restores it. `roomId` is kept for that day, when its pictures
    * go too. Refused when `by` is not the owner.
    */
-  delete(by: MemberId, roomId: RoomId): Done<"not the owner"> {
+  async delete(by: MemberId, roomId: RoomId): Promise<Done<"not the owner">> {
     this.assertMember(by);
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
+    // a deleted trip's booklet is not left up for its thirty days; restoring does not bring it back
+    await this.unpublish();
     const at = new Date();
     const sql = this.ctx.storage.sql;
     sql.exec("INSERT INTO deletion (id, room_id, at) VALUES (1, ?, ?)", roomId, at.toISOString());
@@ -526,6 +599,7 @@ export class Room extends DurableObject<Env> {
       .map((p) => `rooms/${deletion.room_id}/images/${p.id}`);
     // R2 deletes up to 1000 keys a call; a room holds at most MAX_IMAGES
     if (keys.length > 0) await this.env.IMAGES.delete(keys);
+    await this.unpublish();
     await this.env.ROOMS.getByName("index").drop(deletion.room_id);
     await this.ctx.storage.deleteAll();
   }
@@ -1325,6 +1399,16 @@ const bookingOf = (r: NoteRow): WireBooking | null => {
     return { state: "booked", code: r.booking_code ?? "", url: r.booking_url };
   return null;
 };
+
+/** Where a published booklet is in the bucket; its slug is its only name */
+export const bookletKey = (slug: string) => `booklets/${slug}/shiori.html`;
+
+/** A booklet's slug: 16 random bytes, base64url, 22 characters, so its link cannot be guessed */
+export const newSlug = () =>
+  btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
 /** Now, as the room stamps what it applies */
 const stamp = (): IsoInstant => v.parse(IsoInstantSchema, new Date().toISOString());

@@ -62,6 +62,7 @@ import {
 import StayLine from "../../../features/trip/StayLine.vue";
 import { useTrip } from "../../../features/trip/useTrip";
 import type { DayDraft } from "../../../features/worker/types";
+import { usePublication } from "../../../features/worker/usePublication";
 import { useWorker } from "../../../features/worker/useWorker";
 import { useWorkerCalls } from "../../../features/worker/useWorkerCalls";
 
@@ -73,7 +74,7 @@ const { trip, unassigned, forDay, byTag, budgetOf, fixedCount, dayNumber, dayOf,
 const worker = useWorker();
 const sync = useSync();
 const calls = useWorkerCalls();
-const { members } = useMembers();
+const { members, me } = useMembers();
 const i18n = useI18n();
 type Tab = Temporal.PlainDate | "appendix" | null;
 /**
@@ -393,7 +394,42 @@ const draftFailure = computed(() => {
   if (answer === undefined || answer.ok) return null;
   return answer.refused.ceiling === "trip" ? "shiori.draftTripLimit" : "shiori.draftLimit";
 });
-const { mutate: exportBooklet, isLoading: exporting, error: exportError } = calls.exportBooklet;
+// ---- the booklet as a public page: anyone sees whether it is up; the owner puts it up or down ----
+const { publication, publish, withdraw } = usePublication();
+const published = computed(() => publication.data.value ?? null);
+const isOwner = computed(() => me.value?.role === "owner");
+/** Why the last publish did not happen, or null */
+const publishFailure = computed(() => {
+  if (publish.error.value !== null || withdraw.error.value !== null) return "shiori.publishFailed";
+  const answer = publish.data.value;
+  if (answer === undefined || answer.ok) return null;
+  return answer.refused.ceiling === "trip" ? "shiori.draftTripLimit" : "shiori.publishLimit";
+});
+const publishedOn = computed(() =>
+  published.value === null
+    ? ""
+    : published.value.at.toLocaleString(i18n.locale, {
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+);
+function publishNow() {
+  publish.mutate(i18n.locale === "en" ? "en" : "ja");
+}
+/** The link copied, said for a moment on the button */
+const copied = ref(false);
+async function copyLink() {
+  if (published.value === null) return;
+  try {
+    await navigator.clipboard.writeText(published.value.url);
+    copied.value = true;
+    setTimeout(() => (copied.value = false), 1500);
+  } catch {
+    // the link is on the page to select by hand
+  }
+}
 
 function adoptDraft() {
   if (draft.value === null) return;
@@ -693,22 +729,53 @@ function adoptDraft() {
               i18n.t("shiori.calendar")
             }}</button>
             <p data-turn>{{ i18n.t("shiori.calendarHint") }}</p>
+            <!-- the booklet as a page anyone with its link can read -->
+            <template v-if="worker.api !== null">
+              <h3 data-turn>{{ i18n.t("shiori.publicTitle") }}</h3>
+              <p data-turn>{{ i18n.t("shiori.publicHint") }}</p>
+              <div v-if="published !== null" class="link" data-turn>
+                <a :href="published.url" rel="noopener noreferrer" target="_blank">{{
+                  published.url
+                }}</a>
+                <small>{{ i18n.t("shiori.publishedAt", { at: publishedOn }) }}</small>
+                <button type="button" @click="copyLink">{{
+                  i18n.t(copied ? "shiori.copied" : "shiori.copyLink")
+                }}</button>
+              </div>
+              <p v-else data-turn>{{
+                i18n.t(isOwner ? "shiori.notPublished" : "shiori.ownerPublishes")
+              }}</p>
+              <div v-if="isOwner" class="actions" data-turn>
+                <button
+                  type="button"
+                  :disabled="publish.isLoading.value"
+                  :aria-busy="publish.isLoading.value"
+                  @click="publishNow"
+                >{{
+                  i18n.t(
+                    publish.isLoading.value
+                      ? "shiori.publishing"
+                      : published === null
+                        ? "shiori.publish"
+                        : "shiori.republish",
+                  )
+                }}</button>
+                <button
+                  v-if="published !== null"
+                  type="button"
+                  :disabled="withdraw.isLoading.value"
+                  @click="() => withdraw.mutate()"
+                >{{ i18n.t("shiori.withdraw") }}</button>
+              </div>
+              <p v-if="publishFailure !== null" aria-live="polite" class="failed">{{
+                i18n.t(publishFailure)
+              }}</p>
+            </template>
           </section>
         </template>
       </CtTabPanel>
     </div>
 
-    <footer v-if="!editing && worker.api !== null && worker.api.exportBooklet !== null">
-      <p v-if="exportError !== null && !exporting" aria-live="polite">{{
-        i18n.t("shiori.exportFailed")
-      }}</p>
-      <button
-        type="button"
-        :disabled="exporting"
-        :aria-busy="exporting"
-        @click="() => exportBooklet()"
-      >{{ i18n.t(exporting ? "shiori.exporting" : "shiori.export") }}</button>
-    </footer>
   </article>
 </template>
 
@@ -1466,8 +1533,53 @@ article {
           font-size: var(--font-sm);
         }
 
-        /* taking the plan out: one quiet button, what it gives under it */
-        &.out > button {
+        /* the public page: its link, as of when, and the owner's buttons */
+        &.out {
+          > h3 {
+            margin: 22px 0 6px;
+            font-size: var(--font-md);
+          }
+
+          > .link {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px 12px;
+            padding: 10px 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--surface);
+
+            > a {
+              flex-basis: 100%;
+              color: var(--ink);
+              font-size: var(--font-sm);
+              font-weight: 700;
+              overflow-wrap: anywhere;
+            }
+
+            > small {
+              color: var(--muted);
+              font-size: var(--font-xs);
+            }
+          }
+
+          > .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-block-start: 10px;
+          }
+
+          > .failed {
+            color: var(--danger);
+          }
+        }
+
+        /* taking the plan out: quiet buttons, what each gives beside it */
+        &.out > button,
+        &.out > .actions > button,
+        &.out > .link > button {
           min-height: var(--tap);
           padding: 0 16px;
           border-radius: 999px;
@@ -1477,37 +1589,6 @@ article {
           font-size: var(--font-sm);
           font-weight: 700;
         }
-      }
-    }
-  }
-
-  > footer {
-    padding: 10px var(--page-margin) 12px;
-    border-top: 1px solid var(--line);
-    background: var(--bg);
-
-    > p {
-      margin: 0 0 8px;
-      text-align: center;
-      font-size: var(--font-sm);
-      color: var(--danger);
-    }
-
-    > button {
-      width: 100%;
-      height: 48px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      border-radius: 999px;
-      background: var(--ink);
-      color: var(--on-ink);
-      font-size: var(--font-base);
-      font-weight: 700;
-
-      &:disabled {
-        opacity: 0.6;
       }
     }
   }

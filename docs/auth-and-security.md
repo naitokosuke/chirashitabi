@@ -124,7 +124,7 @@ Creating and joining are explicit operations, not side effects of a first visit.
 - `room:remove(member)` is called by the owner, for anyone but themselves; `room:leave` by anyone else, for themselves.
   The room tells that person's sockets they are out (`gone`) and closes them, tells the rest who is in now (`members`), and the index forgets the membership; what they wrote stays, signed with their old id.
 - `room:delete` is called by the owner and is a soft delete: the room is marked deleted, every socket is told and closed, the index stops resolving anyone in it and drops its open invitations, and either person who was in it can restore it for 30 days (`room:restore`).
-  After 30 days an alarm deletes its pictures from R2, removes it from the index and calls `deleteAll` on the object; the booklet's files will go the same way once publishing exists. The owner can have that happen at once (`room:purge`), since only they deleted it; the other person, who could have restored it, cannot.
+  After 30 days an alarm deletes its pictures from R2, removes it from the index and calls `deleteAll` on the object; its public booklet, which deleting took down already, is gone with it. The owner can have that happen at once (`room:purge`), since only they deleted it; the other person, who could have restored it, cannot.
 - Everything else from a member id that is not in the table, or in a deleted room, is rejected inside the object.
 
 `MemberId` is a random id assigned by the room at creation or invitation.
@@ -173,7 +173,7 @@ The budget is what bounds a lost phone or a bug, so it is specified rather than 
 - It has a daily ceiling and a per-trip ceiling, both constants in `wrangler.jsonc` vars.
   No mutation can read or change them; raising one is a deploy.
 - Every paid call counts: `draftDay`, each Clef classification, each Places lookup, each short-link expansion.
-  `exportBooklet` counts too, not because R2 is paid but because its rate is the member's to choose and each upload is up to 2 MB.
+  Publishing the booklet counts too, not because R2 is paid but because its rate is the member's to choose; a refusal before the write (not the owner) or a failed write refunds.
 - The order is reserve, call, settle.
   The index decrements before the outbound request; a verified failure (a 4xx or 5xx from the provider) refunds; a timeout or an exception is treated as spent.
   Recording after the call would let a retry between the call and the record spend unrecorded money.
@@ -220,16 +220,22 @@ Wrangler's test harness follows a redirect even with `redirect: "manual"`, so a 
 Access guards a hostname, so anything meant to be public lives on `shiori.chirashitabi.app`, the second Custom Domain of the same Worker.
 On that hostname the Worker serves only published booklets from R2; no API route and no WebSocket is bound to it.
 
-The booklet that `exportBooklet` publishes is read-only and may be shown to people outside the room.
+The booklet a room publishes is read-only and may be shown to people outside the room.
 A secret URL is fine there as long as the page costs nothing to view.
 
-- The path is `/r/<slug>/shiori` with a random slug minted at each publish, not the room's name, so it cannot be enumerated.
-  Publishing again rotates the slug and deletes the previous slug's files from R2; rotating is how a leaked link is withdrawn.
-- The page never carries a Google key.
-  Places are links to Google Maps, as in the app, and the map on it is a static image.
-  Workers cannot run MapLibre and Browser Rendering is a paid call, so the image is captured from the member's own MapLibre canvas in the browser and uploaded with the export; the Worker checks it is a PNG under 2 MB and serves it with `Content-Type: image/png` and `X-Content-Type-Options: nosniff`.
-- The export escapes note titles, bodies, member names and tags the way the Vue templates do (rendered from the same components, or escaped explicitly), validates member colors with `hexColor` before they reach a `style`, and ships a CSP that forbids inline script.
-- The room records who published, and whether a room publishes at all is a room setting that the creator or both members control.
+- Only the owner publishes (`POST /api/rooms/<id>/publish`) or takes it down (`/withdraw`); whether the room has a public page at all is theirs.
+  Every member sees whether it is up and its link (`/publication`).
+  The room records who published it and when.
+- The page is one HTML file the room writes from its own data when the owner publishes (`worker/booklet.ts`), kept in R2 at `booklets/<slug>/shiori.html`; nothing a browser sends ends up on the public host.
+  It is a snapshot: it shows the plan as it was then, until the owner publishes again.
+- It carries the plan and nothing private: the trip's name and days, each day's line, its flights and where its night is spent, and the confirmed notes with their times, words and links.
+  No budget, no booking number or page, no picture (pictures stay behind the room's membership), no member's name, no maybe.
+- The path is `/r/<slug>/shiori` with a slug of 16 random bytes minted at each publish, not the room's name, so it cannot be enumerated; the host asks R2 only for a path of that shape.
+  Publishing again rotates the slug and deletes the previous slug's file; rotating is how a leaked link is withdrawn, and taking it down deletes it.
+  Deleting the trip takes it down at once rather than after the thirty days, and restoring the trip does not bring it back.
+- The page never carries a Google key, and has no map: places are links to Google Maps, as in the app.
+- Every word the travellers wrote is escaped, a link is only ever an http(s) one, and nothing is written into a `style` attribute (a note's paper is a class).
+  The page has no script, and it is served with a CSP that allows none and nothing fetched (`default-src 'none'; style-src 'unsafe-inline'`, no base, no forms, no frames), with `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `Cache-Control: public, max-age=60`, so a page taken down is out of caches within the minute.
 
 The deployed build is made with `VITE_MOCK=false`, so the mocks (`src/app/mocks/`, which answer `/api` and the socket in the page) are not in its bundle.
 MSW's service worker is emitted by its Vite plugin only beside a bundle that imports the mocks, so it is not in the deployed build either.
