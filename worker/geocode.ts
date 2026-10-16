@@ -5,7 +5,9 @@
  * its second query (index.ts).
  */
 
-import { isRecord } from "./types";
+import * as v from "valibot";
+
+import { listOf } from "./types";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 export const USER_AGENT = "chirashitabi/1.0 (+https://chirashitabi.app)";
@@ -50,41 +52,56 @@ export async function geocode(env: Env, query: string, lang: "ja" | "en"): Promi
   return placesFrom(await res.json().catch(() => null));
 }
 
+/** A place's `opening_hours` tag, on one line, or null when it has none */
+const HoursSchema = v.fallback(
+  v.pipe(
+    v.object({ opening_hours: v.string() }),
+    v.transform(({ opening_hours }) => {
+      const line = opening_hours.replace(/\s+/g, " ").trim();
+      return line === "" ? null : line.slice(0, HOURS);
+    }),
+  ),
+  null,
+);
+
+/** A coordinate as Nominatim writes it (a decimal string), on the globe */
+const coordinate = (max: number) =>
+  v.pipe(
+    v.union([v.string(), v.number()]),
+    v.transform(Number),
+    v.finite(),
+    v.minValue(-max),
+    v.maxValue(max),
+  );
+
+/** One place of Nominatim's search answer: a line of its address, and coordinates on the globe */
+const HitSchema = v.object({
+  name: v.fallback(v.string(), ""),
+  display_name: v.string(),
+  lat: coordinate(90),
+  lon: coordinate(180),
+  extratags: HoursSchema,
+});
+
 /** Nominatim's answer as places, each one checked: a name, and coordinates on the globe */
 export function placesFrom(raw: unknown): Place[] {
-  if (!Array.isArray(raw)) return [];
   const out: Place[] = [];
-  for (const r of raw) {
-    if (!isRecord(r)) continue;
-    const { name, display_name: line, lat, lon, extratags } = r;
-    const la = Number(lat);
-    const ln = Number(lon);
-    if (typeof line !== "string" || !Number.isFinite(la) || !Number.isFinite(ln)) continue;
-    if (Math.abs(la) > 90 || Math.abs(ln) > 180) continue;
-    const parts = line.split(",").map((p) => p.trim());
-    const title = typeof name === "string" && name.trim() !== "" ? name.trim() : (parts[0] ?? "");
+  for (const hit of v.parse(listOf(HitSchema), raw)) {
+    const parts = hit.display_name.split(",").map((p) => p.trim());
+    const title = hit.name.trim() !== "" ? hit.name.trim() : (parts[0] ?? "");
     if (title === "") continue;
     // the address is the line without the name it starts with
     const address = (parts[0] === title ? parts.slice(1) : parts).join(", ");
     out.push({
       name: title.slice(0, 120),
       address: address.slice(0, 240),
-      lat: la,
-      lng: ln,
-      hours: hoursOf(extratags),
+      lat: hit.lat,
+      lng: hit.lon,
+      hours: hit.extratags,
     });
     if (out.length === MAX_PLACES) break;
   }
   return out;
-}
-
-/** A place's `opening_hours` tag, on one line, or null when it has none */
-function hoursOf(tags: unknown): string | null {
-  if (!isRecord(tags)) return null;
-  const v = tags.opening_hours;
-  if (typeof v !== "string") return null;
-  const line = v.replace(/\s+/g, " ").trim();
-  return line === "" ? null : line.slice(0, HOURS);
 }
 
 /**
@@ -134,20 +151,26 @@ const NAMED = [
   "suburb",
 ] as const;
 
+/** Nominatim's reverse answer: a line of its address, its own name, the parts of its address */
+const ReverseSchema = v.object({
+  display_name: v.string(),
+  name: v.fallback(v.string(), ""),
+  // a part that is not words is no name
+  address: v.fallback(v.record(v.string(), v.fallback(v.string(), "")), {}),
+  extratags: HoursSchema,
+});
+
 /**
  * Nominatim's reverse answer as the place at `at`: its own name when it has one (a shop, a
  * sight), else the most telling part of its address (a building, then the street); the point
  * stays the one pinned. Null when there is nothing there (the sea: `{ "error": … }`).
  */
-export function placeAt(r: unknown, at: { lat: number; lng: number }): Place | null {
-  if (!isRecord(r)) return null;
-  const line = typeof r.display_name === "string" ? r.display_name : null;
-  if (line === null) return null;
-  const address = isRecord(r.address) ? r.address : {};
-  const own = typeof r.name === "string" ? r.name.trim() : "";
-  const part = NAMED.map((k) => address[k]).find(
-    (v): v is string => typeof v === "string" && v.trim() !== "",
-  );
+export function placeAt(raw: unknown, at: { lat: number; lng: number }): Place | null {
+  const r = v.safeParse(ReverseSchema, raw);
+  if (!r.success) return null;
+  const { display_name: line, address } = r.output;
+  const own = r.output.name.trim();
+  const part = NAMED.map((k) => address[k]).find((p) => p !== undefined && p.trim() !== "");
   const name = (own !== "" ? own : (part ?? "")).trim();
   if (name === "") return null;
   // the address line, without the name and without what comes before it (a house number)
@@ -159,6 +182,6 @@ export function placeAt(r: unknown, at: { lat: number; lng: number }): Place | n
     address: rest.slice(0, 240),
     lat: at.lat,
     lng: at.lng,
-    hours: hoursOf(r.extratags),
+    hours: r.output.extratags,
   };
 }

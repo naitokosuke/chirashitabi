@@ -10,7 +10,14 @@ import type { LatLng } from "../place/types";
 import type { ImageId, NoteId } from "./id";
 
 // a card's papers and a schedule's statuses, as the app takes them from the contract
-export { COLORS, tagOf, type NoteColor, type NoteStatus, type Tag } from "../../../contract/room";
+export {
+  COLORS,
+  tagOf,
+  TagSchema,
+  type NoteColor,
+  type NoteStatus,
+  type Tag,
+} from "../../../contract/room";
 
 /** How each paper is called, for a swatch's label (message ids) */
 export const COLOR_NAMES = {

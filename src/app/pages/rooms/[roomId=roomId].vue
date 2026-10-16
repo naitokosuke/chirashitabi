@@ -1,9 +1,8 @@
 <script setup lang="ts" vapor>
 import { computed, onBeforeUnmount, watch } from "vue";
 
+import * as v from "valibot";
 import { RouterView, useRoute, useRouter } from "vue-router";
-
-import { isRecord } from "../../shared/record";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -87,9 +86,8 @@ const sheet = computed((): FormMode | null =>
  */
 function closeSheet() {
   const tabOnly = { name: route.name, params: { roomId: route.params.roomId } };
-  const state: unknown = window.history.state;
-  const back = isRecord(state) ? state.back : undefined;
-  if (back === router.resolve(tabOnly).fullPath) router.back();
+  const state = v.safeParse(v.object({ back: v.string() }), window.history.state);
+  if (state.success && state.output.back === router.resolve(tabOnly).fullPath) router.back();
   else void router.replace(tabOnly);
 }
 function onSave(input: NoteInput, keepOpen: boolean) {

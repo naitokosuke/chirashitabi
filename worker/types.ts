@@ -20,4 +20,4 @@ export {
 } from "../src/contract/ids";
 export type { CurrencyCode } from "../src/contract/money";
 export { isShortMapsLink, LatLngSchema, parseMapsUrl, type HttpUrl } from "../src/contract/place";
-export { isRecord } from "../src/contract/record";
+export { listOf } from "../src/contract/list";

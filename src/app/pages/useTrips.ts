@@ -1,8 +1,7 @@
 import { computed } from "vue";
 
+import * as v from "valibot";
 import { useRouter, useRoute } from "vue-router";
-
-import { isRecord } from "../shared/record";
 
 import type { RoomId } from "../features/rooms/types";
 
@@ -26,9 +25,8 @@ export function useTrips() {
     open: (id: RoomId) => void router.push(placeOf(id)),
     create: () => void router.push("/new"),
     close() {
-      const state: unknown = window.history.state;
-      const back = isRecord(state) ? state.back : undefined;
-      if (back === "/") router.back();
+      const state = v.safeParse(v.object({ back: v.string() }), window.history.state);
+      if (state.success && state.output.back === "/") router.back();
       else void router.replace("/");
     },
     /** The new trip takes the sheet's place: back from it goes to the list, not to an empty form */

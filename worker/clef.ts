@@ -6,7 +6,26 @@
  * person's budget first, like any paid call (docs/auth-and-security.md).
  */
 
-import { isRecord } from "./types";
+import * as v from "valibot";
+
+/**
+ * Clef's answer: for each question (`t0`, `t1`, …), how likely `noul` is; a question it answered
+ * some other way has no likelihood
+ */
+const OutputSchema = v.object({
+  answers: v.record(
+    v.string(),
+    v.fallback(
+      v.nullable(
+        v.pipe(
+          v.object({ noul: v.number() }),
+          v.transform(({ noul }) => noul),
+        ),
+      ),
+      null,
+    ),
+  ),
+});
 
 export const CLEF_MODEL = "@cf/cloudflare/clef-flash";
 
@@ -78,14 +97,15 @@ export async function judgeTags(env: Env, memo: MemoToTag, tags: string[]): Prom
     // no answer: it may have run, so it counts
     return { ok: false, refund: false, reason: `Clef failed: ${String(e)}` };
   }
-  const answers = isRecord(output) && isRecord(output.answers) ? output.answers : null;
-  if (answers === null) return { ok: false, refund: false, reason: "Clef's answer had no answers" };
+  const answered = v.safeParse(OutputSchema, output);
+  if (!answered.success)
+    return { ok: false, refund: false, reason: "Clef's answer had no answers" };
+  const { answers } = answered.output;
   const scored = names
-    .map((tag, i) => {
-      const answer = answers[`t${i}`];
-      return { tag, p: isRecord(answer) ? answer.noul : undefined };
+    .flatMap((tag, i) => {
+      const p = answers[`t${i}`] ?? null;
+      return p === null ? [] : [{ tag, p }];
     })
-    .filter((t): t is { tag: string; p: number } => typeof t.p === "number")
     .sort((a, b) => b.p - a.p);
   return { ok: true, tags: scored };
 }

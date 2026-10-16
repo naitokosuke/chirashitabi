@@ -437,24 +437,6 @@ export const parseCid = (value: unknown): Cid | null => {
   return result.success ? result.output.cid : null;
 };
 
-/** A point on the desk, as `{ x, y }` within the canvas's bounds */
-export const parsePoint = (value: unknown): { x: number; y: number } | null => {
-  const result = v.safeParse(PointSchema, value);
-  return result.success ? result.output : null;
-};
-
-/** The profile a person sets for themselves; the name may be blank, people are told apart by color for now */
-export const parseProfile = (value: unknown): v.InferOutput<typeof ProfileSchema> | null => {
-  const result = v.safeParse(ProfileSchema, value);
-  return result.success ? result.output : null;
-};
-
-/** What a room is created with */
-export const parseTrip = (value: unknown): WireTrip | null => {
-  const result = v.safeParse(NewTripSchema, value);
-  return result.success ? result.output : null;
-};
-
 /** A client message as a mutation, or null when it is not one; a new note is stamped by the room */
 export function parseMutation(
   value: unknown,
