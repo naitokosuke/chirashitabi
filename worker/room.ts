@@ -352,6 +352,10 @@ export class Room extends DurableObject<Env> {
   ): Promise<{ ok: true; slug: string; at: string } | { ok: false; reason: "not the owner" }> {
     this.assertMember(by);
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
+    // the old file goes first: should anything after fail, the old link answers nothing, and the
+    // record still names a slug whose file a retry deletes again (an R2 delete of none is fine)
+    const before = this.published();
+    if (before !== null) await this.env.IMAGES.delete(bookletKey(before.slug));
     const slug = newSlug();
     const at = new Date().toISOString();
     await this.env.IMAGES.put(
@@ -361,7 +365,11 @@ export class Room extends DurableObject<Env> {
         httpMetadata: { contentType: "text/html; charset=utf-8" },
       },
     );
-    const before = this.published();
+    // deleted while the file was on its way: it goes again, and nothing is put up
+    if (this.deletion() !== null) {
+      await this.env.IMAGES.delete(bookletKey(slug));
+      throw new Error("room deleted");
+    }
     this.ctx.storage.sql.exec(
       `INSERT INTO publication (id, slug, by, at) VALUES (1, ?, ?, ?)
        ON CONFLICT (id) DO UPDATE SET slug = excluded.slug, by = excluded.by, at = excluded.at`,
@@ -369,7 +377,6 @@ export class Room extends DurableObject<Env> {
       by,
       at,
     );
-    if (before !== null) await this.env.IMAGES.delete(bookletKey(before.slug));
     return { ok: true, slug, at };
   }
 
@@ -381,12 +388,15 @@ export class Room extends DurableObject<Env> {
     return { ok: true };
   }
 
-  /** The published booklet goes, its record before its file, so no answer names a file going */
+  /**
+   * The published booklet goes, its file before its record: if the file cannot be deleted, the
+   * record still names it, and the next try (or the alarm's) deletes it
+   */
   private async unpublish(): Promise<void> {
     const p = this.published();
     if (p === null) return;
-    this.ctx.storage.sql.exec("DELETE FROM publication");
     await this.env.IMAGES.delete(bookletKey(p.slug));
+    this.ctx.storage.sql.exec("DELETE FROM publication");
   }
 
   private published(): { slug: string; at: string } | null {
