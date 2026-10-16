@@ -5,7 +5,9 @@ import { useI18n } from "../../i18n/useI18n";
 
 import { useMembers } from "../members/useMembers";
 import { imageSrc } from "../notes/image";
+import { siteOf } from "../notes/links";
 import { PAPERS, type Note } from "../notes/types";
+import { safeUrl } from "../place/google-maps";
 import { useSync } from "../sync/useSync";
 import type { Visibility } from "../tags/types";
 import { hhmm, shortDate } from "../trip/format";
@@ -83,6 +85,16 @@ const day = computed(() => {
         loading="lazy"
         :src="sync.room === null ? undefined : imageSrc(sync.room, note.image)"
       />
+      <!-- where the idea came from: its site, which opens the page; the card under it still moves -->
+      <a
+        v-if="safeUrl(note.link) !== undefined"
+        :href="safeUrl(note.link)"
+        rel="noopener noreferrer"
+        target="_blank"
+        :aria-label="i18n.t('note.link')"
+        @pointerdown.stop
+        @click.stop
+      >{{ siteOf(note.link) }}</a>
       <p>{{ note.title }}</p>
       <p v-if="note.body !== ''">{{ note.body }}</p>
       <ul v-if="note.tags.length > 0"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
@@ -151,6 +163,23 @@ div {
     border-radius: 6px 6px 0 0;
     background: color-mix(in oklch, var(--paper-ink) 6%, transparent);
     pointer-events: none;
+  }
+
+  /* the page's site, a small tag above the title */
+  > a {
+    display: inline-block;
+    max-width: 100%;
+    margin: 0 0 4px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: color-mix(in oklch, var(--paper-ink) 8%, transparent);
+    color: var(--paper-muted);
+    font-size: var(--font-2xs);
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* the title */

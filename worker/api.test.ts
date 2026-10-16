@@ -54,6 +54,11 @@ const looked: { q: string | null; lang: string | null; agent: string | undefined
 /** Stands in for maps.app.goo.gl: every path redirects away; `followed` keeps the paths */
 let shortlinks: Server;
 const followed: string[] = [];
+let pages: Server;
+/** What the pages stub was asked for: the host the Worker meant, and the path */
+const fetched: { host: string | undefined; path: string }[] = [];
+/** A small PNG: eight bytes of signature and nothing else, enough for a type check */
+const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 beforeAll(async () => {
   const pair = (await crypto.subtle.generateKey(
@@ -136,6 +141,67 @@ beforeAll(async () => {
   await new Promise<void>((resolve) => shortlinks.listen(0, "127.0.0.1", resolve));
   const shortlinksPort = (shortlinks.address() as AddressInfo).port;
 
+  // the pages a note may link to, by host and path: a blog with Open Graph tags, its picture,
+  // a redirect, YouTube's oEmbed, and a page that is no HTML
+  pages = createServer((req, res) => {
+    const host = req.headers["x-preview-host"];
+    const path = req.url ?? "/";
+    fetched.push({ host: Array.isArray(host) ? host[0] : host, path });
+    const answer = (status: number, type: string, body: string | Uint8Array) => {
+      res.statusCode = status;
+      res.setHeader("Content-Type", type);
+      res.end(body);
+    };
+    if (host === "blog.example.com" && path === "/post") {
+      return answer(
+        200,
+        "text/html; charset=utf-8",
+        `<html><head><title>plain</title>
+          <meta property="og:title" content="Beef noodles &amp; more">
+          <meta property="og:description" content="A bowl worth the queue">
+          <meta property="og:image" content="/cover.png">
+          </head><body><script>alert(1)</script></body></html>`,
+      );
+    }
+    if (host === "blog.example.com" && path === "/cover.png") return answer(200, "image/png", PNG);
+    // relative: the harness follows a redirect even when told not to (as expand.ts notes), and
+    // an absolute one would leave the stub; which hosts a redirect may lead to is preview.test.ts's
+    if (host === "blog.example.com" && path === "/moved") {
+      res.statusCode = 302;
+      res.setHeader("Location", "/post");
+      return res.end();
+    }
+    if (host === "blog.example.com" && path === "/big.png") {
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Content-Length", String(2 * 1024 * 1024));
+      return res.end(PNG);
+    }
+    if (host === "blog.example.com" && path === "/bigpic") {
+      return answer(
+        200,
+        "text/html",
+        `<meta property="og:title" content="Big"><meta property="og:image" content="/big.png">`,
+      );
+    }
+    if (host === "www.youtube.com" && path.startsWith("/oembed?")) {
+      return answer(
+        200,
+        "application/json",
+        JSON.stringify({
+          title: "Night market walk",
+          author_name: "Some Channel",
+          thumbnail_url: "https://i.ytimg.com/vi/abc/hqdefault.jpg",
+        }),
+      );
+    }
+    if (host === "i.ytimg.com") return answer(200, "image/jpeg", PNG);
+    if (host === "files.example.com") return answer(200, "application/pdf", "%PDF-");
+    answer(404, "text/plain", "no");
+  });
+  await new Promise<void>((resolve) => pages.listen(0, "127.0.0.1", resolve));
+  const pagesPort = (pages.address() as AddressInfo).port;
+
   // The Worker as it is deployed, but for its Workers AI binding: that one only runs against
   // Cloudflare (a login, which CI does not have), so Clef is the stub at CLEF_BASE_URL instead.
   // Written to a folder of its own, away from a developer's .dev.vars, with its paths made whole.
@@ -162,6 +228,7 @@ beforeAll(async () => {
           CLEF_BASE_URL: `http://127.0.0.1:${clefPort}`,
           GEOCODER_BASE_URL: `http://127.0.0.1:${geocoderPort}`,
           SHORTLINK_BASE_URL: `http://127.0.0.1:${shortlinksPort}`,
+          PREVIEW_BASE_URL: `http://127.0.0.1:${pagesPort}`,
           SPEND_PER_DAY: String(PER_DAY),
         },
       },
@@ -177,6 +244,7 @@ afterAll(async () => {
   clef?.close();
   geocoder?.close();
   shortlinks?.close();
+  pages?.close();
 });
 
 const b64url = (data: Uint8Array | string) => {
@@ -887,6 +955,7 @@ describe("the socket", () => {
         ...memo("n1"),
         minutes: null,
         hours: null,
+        link: null,
         booking: null,
         due: null,
         assignee: null,
@@ -1033,6 +1102,7 @@ describe("the socket", () => {
           rot: 3,
           minutes: null,
           hours: null,
+          link: null,
           booking: null,
           due: null,
           assignee: null,
@@ -1195,6 +1265,7 @@ describe("the socket", () => {
         image: null,
         minutes: null,
         hours: null,
+        link: null,
         booking: null,
         due: null,
         assignee: null,
@@ -2300,6 +2371,77 @@ describe("places by a typed name", () => {
     find = () => ({ status: 503, body: {} });
     expect((await findByName(roomId, email, { query: "Inn" })).status).toBe(502);
     expect((await findByName(roomId, STRANGER, { query: "Inn" })).status).toBe(403);
+  });
+});
+
+describe("a link's preview", () => {
+  const ask = (roomId: string, email: string, url: string) =>
+    post(`/api/rooms/${roomId}/preview`, email, { url });
+
+  test("a page's Open Graph, its picture kept by the room; the call is budgeted", async () => {
+    const PREVIEWER = "previewer@example.com";
+    const { roomId } = await createRoom(PREVIEWER);
+    const res = await ask(roomId, PREVIEWER, "https://blog.example.com/post");
+    expect(res.status).toBe(200);
+    const { preview } = (await res.json()) as { preview: Record<string, unknown> };
+    expect(preview).toMatchObject({
+      url: "https://blog.example.com/post",
+      site: "blog.example.com",
+      title: "Beef noodles & more",
+      description: "A bowl worth the queue",
+    });
+    expect(typeof preview.image).toBe("string");
+    // the picture is the room's now, served to its members like any
+    const img = await server.fetch(`${APP}/api/rooms/${roomId}/images/${preview.image as string}`, {
+      headers: { "Cf-Access-Jwt-Assertion": await token(PREVIEWER) },
+    });
+    expect(img.status).toBe(200);
+    expect(img.headers.get("content-type")).toBe("image/png");
+    // the budget counted it
+    const index = await server.getWorker().getDurableObjectStorage("RoomsIndex", { name: "index" });
+    const spent = await index.exec(
+      "SELECT COUNT(*) AS n FROM spends WHERE email = ? AND refunded = 0",
+      PREVIEWER,
+    );
+    expect(spent).toEqual([{ n: 1 }]);
+  });
+
+  test("a redirect is followed to the page", async () => {
+    const MOVER = "mover@example.com";
+    const { roomId } = await createRoom(MOVER);
+    const moved = (await (await ask(roomId, MOVER, "https://blog.example.com/moved")).json()) as {
+      preview: { title: string } | null;
+    };
+    expect(moved.preview?.title).toBe("Beef noodles & more");
+    expect(fetched.some((f) => f.host === "blog.example.com" && f.path === "/post")).toBe(true);
+  });
+
+  test("YouTube through its oEmbed; a picture too large is left out; what is no page is no preview", async () => {
+    const TUBER = "tuber@example.com";
+    const { roomId } = await createRoom(TUBER);
+    const yt = (await (await ask(roomId, TUBER, "https://youtu.be/abc")).json()) as {
+      preview: Record<string, unknown>;
+    };
+    expect(yt.preview).toMatchObject({
+      site: "youtube.com",
+      title: "Night market walk",
+      description: "Some Channel",
+    });
+    expect(typeof yt.preview.image).toBe("string");
+    // each ask is one of the day's few in the tests: the rest on accounts of their own
+    const BIG = "bigpic@example.com";
+    const { roomId: bigRoom } = await createRoom(BIG);
+    const big = (await (await ask(bigRoom, BIG, "https://blog.example.com/bigpic")).json()) as {
+      preview: Record<string, unknown>;
+    };
+    expect(big.preview).toMatchObject({ title: "Big", image: null });
+    const NONE = "nopage@example.com";
+    const { roomId: noneRoom } = await createRoom(NONE);
+    for (const url of ["https://files.example.com/a.pdf", "https://10.0.0.1/x"]) {
+      const none = (await (await ask(noneRoom, NONE, url)).json()) as { preview: unknown };
+      expect(none.preview).toBeNull();
+    }
+    expect((await post(`/api/rooms/${noneRoom}/preview`, NONE, {})).status).toBe(400);
   });
 });
 

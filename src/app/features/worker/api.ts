@@ -80,6 +80,15 @@ const PlaceSchema = v.pipe(
   })),
 );
 
+/** A page's preview as the Worker found it; the picture's id is one the room keeps */
+const LinkPreviewSchema = v.object({
+  url: HttpUrlSchema,
+  site: v.string(),
+  title: v.fallback(v.nullable(v.string()), null),
+  description: v.fallback(v.nullable(v.string()), null),
+  image: v.fallback(v.nullable(ImageIdSchema), null),
+});
+
 /** The public booklet as the Worker says where it is: an https link on its own host, and when */
 const PublicationSchema = v.pipe(
   v.object({ url: HttpUrlSchema, at: v.pipe(v.string(), v.isoTimestamp()) }),
@@ -203,6 +212,15 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
           return note === undefined ? [] : [{ note, time: timeOf(it.time), minutes: it.minutes }];
         }),
       }),
+    );
+  },
+  async preview(url) {
+    return read(
+      await budgeted(
+        inRoom.preview.$post({ param: { roomId: room }, json: { url } }),
+        v.object({ preview: v.nullable(LinkPreviewSchema) }),
+      ),
+      ({ preview }) => preview,
     );
   },
   async publication() {

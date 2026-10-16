@@ -99,6 +99,8 @@ export function reviveNote(n: WireNote): Note {
     minutes: n.minutes ?? null,
     // nor one kept before its opening hours were its own
     hours: n.hours ?? null,
+    // nor one kept before a memo could say where its idea came from
+    link: n.link ?? null,
     // nor one kept before bookings
     booking: n.booking == null ? null : booking(n.booking),
     // nor one kept before to-dos had a day and someone to do them

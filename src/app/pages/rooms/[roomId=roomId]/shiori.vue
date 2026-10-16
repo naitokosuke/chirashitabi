@@ -19,6 +19,7 @@ import { useI18n } from "../../../i18n/useI18n";
 
 import { useMembers } from "../../../features/members/useMembers";
 import type { NoteId } from "../../../features/notes/id";
+import { siteOf } from "../../../features/notes/links";
 import {
   ARRIVAL_TAG,
   PACKING_TAG,
@@ -636,7 +637,12 @@ function adoptDraft() {
                       :href="safeUrl(n.mapsUrl)"
                       rel="noopener noreferrer"
                       target="_blank"
-                    >{{ i18n.t("shiori.mapLink") }}</a></p>
+                    >{{ i18n.t("shiori.mapLink") }}</a><a
+                      v-if="safeUrl(n.link) !== undefined"
+                      :href="safeUrl(n.link)"
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >{{ siteOf(n.link) }}</a></p>
                 </div>
               </li>
             </template>

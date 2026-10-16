@@ -50,6 +50,7 @@ const n = (p: Partial<Memo> & Pick<Memo, "title" | "x" | "y">): Memo => ({
   image: null,
   minutes: null,
   hours: null,
+  link: null,
   booking: null,
   due: null,
   assignee: null,

@@ -80,6 +80,8 @@ export interface Memo extends CardBase {
   minutes: number | null;
   /** When its place is open, as OpenStreetMap writes it (place/hours.ts reads it); null for not said */
   hours: string | null;
+  /** The page its idea came from (a blog, a video); its title and picture may have come from it too */
+  link: HttpUrl | null;
   /** Whether it has to be booked, and how far that has got; null for no booking */
   booking: Booking | null;
   /** The day a to-do is to be done by; null for none */
@@ -146,6 +148,7 @@ export type NoteInput = Pick<
   | "image"
   | "minutes"
   | "hours"
+  | "link"
   | "booking"
   | "due"
   | "assignee"
