@@ -118,9 +118,9 @@ describe("keep and kept", () => {
     expect(back?.me).toBe(YUKI);
     expect(back?.confirmed).toEqual(room);
     expect(back?.pending).toEqual(pending);
-    const s = (back?.confirmed.notes[0] as Memo).schedule!;
-    expect(s.date).toBeInstanceOf(Temporal.PlainDate);
-    expect(s.time?.toString()).toBe("12:30:00");
+    const s = (back?.confirmed.notes[0] as Memo | undefined)?.schedule;
+    expect(s?.date).toBeInstanceOf(Temporal.PlainDate);
+    expect(s?.time?.toString()).toBe("12:30:00");
   });
 
   test("unanswered changes kept before they were signed are this device's", () => {
@@ -166,12 +166,10 @@ describe("keep and kept", () => {
   });
 
   test("a storage that refuses keeps nothing and throws nothing", () => {
-    const full = {
-      ...memoryStorage(),
-      setItem: () => {
-        throw new Error("QuotaExceededError");
-      },
-    } as Storage;
+    const full = memoryStorage();
+    full.setItem = () => {
+      throw new Error("QuotaExceededError");
+    };
     expect(() =>
       keep(full, "r1", { me: YUKI, confirmed: room, pending: [], savedAt: at }),
     ).not.toThrow();
