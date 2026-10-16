@@ -106,29 +106,29 @@ components:
     typography: "{typography.body}"
     rounded: "{rounded.control}"
     padding: "10px 12px"
-  note-card:
-    backgroundColor: "{colors.paper-yellow}"
+  paper:
+    component: "CtPaper (src/ui/components/paper)"
+    backgroundColor: "{colors.paper-white}"
     textColor: "{colors.paper-ink}"
     typography: "{typography.note}"
     rounded: "{rounded.note}"
-    padding: "12px"
     width: "164px"
-  suggestion-card:
+    strip: "18px, paper-ink at 9%, the author's dot at its end"
+    body: "9px 12px 0"
+    foot: "0 12px 12px"
+  paper-note:
+    variant: "note"
+    backgroundColor: "one of the six paper stocks"
+  paper-proposal:
+    variant: "proposal"
     backgroundColor: "{colors.paper-white}"
-    textColor: "{colors.paper-ink}"
-    typography: "{typography.label}"
-    rounded: "0"
-    padding: "10px 12px 12px"
-    width: "180px"
-    border: "1px dashed paper-ink at 45%"
-  clipping-card:
-    backgroundColor: "{colors.paper-yellow}"
-    textColor: "{colors.paper-muted}"
-    typography: "{typography.caption}"
+    strip: "paper-ink at 5%, its lower edge 1px dashed paper-ink at 35%, naming who proposed it"
+  paper-print:
+    variant: "print"
     rounded: "3px"
     padding: "8px 8px 7px"
-    width: "164px"
     outline: "1px solid paper-ink at 35%"
+    margin: "18px under the picture: the site, the day, the author's dot"
   toast:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.tool-white}"

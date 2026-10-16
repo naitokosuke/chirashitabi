@@ -137,6 +137,8 @@ src/ui/             The design system: props, slots and events only, no app impo
                  CtDockGroup (items that fold away together), CtDockDivider
     fab/         CtFab: the one filled tool on a view
     hold-button/ CtHoldButton: held down to act, for what cannot be taken back
+    paper/       CtPaper: a piece of paper on the desk in one of three cuts of one size, corner and shadow:
+                 a sticky (note), a slip from the agent (proposal), a page brought in (print)
     indicator/   CtIndicator and useIndicator (internal): the pill that stretches to the
                  chosen child of CtChipPick, CtSegmented, CtSwatches and CtTabList
     segmented/   CtSegmented: the pill morphs to the choice

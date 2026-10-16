@@ -13,6 +13,7 @@ export { default as CtDockGroup } from "./components/dock/CtDockGroup.vue";
 export { default as CtDockItem } from "./components/dock/CtDockItem.vue";
 export { default as CtFab } from "./components/fab/CtFab.vue";
 export { default as CtHoldButton } from "./components/hold-button/CtHoldButton.vue";
+export { default as CtPaper } from "./components/paper/CtPaper.vue";
 export { default as CtSegmented } from "./components/segmented/CtSegmented.vue";
 export { default as CtSwatches } from "./components/swatches/CtSwatches.vue";
 export { default as CtSwipeRow } from "./components/swipe-row/CtSwipeRow.vue";
