@@ -121,6 +121,10 @@ const day = computed(() => {
       <ul v-if="!clipping && note.tags.length > 0"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
       <!-- its day on the trip, once it has one: the desk shows how far the plan has come -->
       <time v-if="note.schedule !== null" :datetime="note.schedule.date.toString()">{{ day }}</time>
+      <!-- a clipping's mount says who brought it in, by name, in the margin under the picture -->
+      <small v-if="clipping"><span aria-hidden="true"></span>{{
+          author?.name ?? i18n.t("member.someone")
+        }}</small>
       <span></span>
     </template>
     <!-- picked: a handle above to turn it, one at the corner to resize it (the canvas drives both) -->
@@ -198,7 +202,8 @@ div {
    * on the picture with the arrow that means "elsewhere"
    */
   &[data-clipping] {
-    padding: 5px;
+    /* a wide mount, wider still under the picture, where the margin says who brought it in */
+    padding: 10px 10px 8px;
     border-radius: 4px;
     outline: 1.5px solid color-mix(in oklch, var(--paper-ink) 55%, transparent);
     outline-offset: -1.5px;
@@ -211,8 +216,9 @@ div {
 
     > a {
       position: absolute;
-      inset-inline-start: 9px;
-      inset-block-end: 9px;
+      inset-inline-start: 14px;
+      inset-block-start: calc(10px + (100% - 20px) * 9 / 16 - 26px);
+      inset-block-end: auto;
       margin: 0;
       background: color-mix(in oklch, var(--paper-ink) 72%, transparent);
       color: var(--paper-white);
@@ -220,11 +226,38 @@ div {
       -webkit-backdrop-filter: blur(6px);
     }
 
-    /* the day under the picture, when it has one */
+    /* the margin under the picture: who brought it in (their color, their name), and the day when it has one */
+    > small {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 16px;
+      margin: 7px 0 0;
+      font-size: var(--font-2xs);
+      font-weight: 700;
+      color: var(--paper-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      > span {
+        flex-shrink: 0;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--who);
+      }
+    }
+
     > time {
       display: block;
       width: fit-content;
-      margin: 6px 2px 1px;
+      margin: 4px 0 0;
+    }
+
+    /* the dot in the corner is said in the margin instead */
+    > span:not([data-handle]) {
+      display: none;
     }
   }
 
