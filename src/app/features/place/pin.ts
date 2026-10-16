@@ -1,4 +1,4 @@
-import { PACKING_TAG, type Memo, type Note } from "../notes/types";
+import { PACKING_TAG, TODO_TAG, type Memo, type Note } from "../notes/types";
 
 import type { LatLng, LngLat } from "./types";
 
@@ -11,8 +11,8 @@ export const isPinned = <T extends Memo>(n: T): n is Pinned<T> => n.pin !== null
 export const pinnedOf = (notes: Note[]): Pinned[] =>
   notes.filter((n): n is Pinned => n.kind === "memo" && isPinned(n));
 
-/** A memo that belongs on the map but has no place yet (packing notes never do) */
+/** A memo that belongs on the map but has no place yet (packing notes and to-dos never do) */
 export const needsPin = (n: Note) =>
-  n.kind === "memo" && !n.tags.includes(PACKING_TAG) && !isPinned(n);
+  n.kind === "memo" && !n.tags.includes(PACKING_TAG) && !n.tags.includes(TODO_TAG) && !isPinned(n);
 
 export const lngLat = (p: LatLng): LngLat => [p.lng, p.lat];

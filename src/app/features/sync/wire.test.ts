@@ -36,6 +36,8 @@ const memo: NewMemo = {
   minutes: null,
   hours: null,
   booking: null,
+  due: null,
+  assignee: null,
 };
 const flight = {
   number: "BR 191",

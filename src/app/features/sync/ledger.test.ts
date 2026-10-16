@@ -39,6 +39,8 @@ const memo = (id: string, title: string): Memo => ({
   minutes: null,
   hours: null,
   booking: null,
+  due: null,
+  assignee: null,
 });
 const room = (...notes: Memo[]): RoomState => ({ notes, trip: null, members: [] });
 const retitle = (id: string, title: string): Mutation => ({

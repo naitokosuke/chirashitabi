@@ -3,27 +3,42 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import { formatMoney } from "../../../shared/money";
 
 import { useI18n } from "../../../i18n/useI18n";
 
+import { usePlace } from "../../../features/canvas/usePlace";
 import People from "../../../features/members/People.vue";
 import { useMembers } from "../../../features/members/useMembers";
-import { PAPERS } from "../../../features/notes/types";
+import type { NoteId } from "../../../features/notes/id";
+import { blankInput } from "../../../features/notes/input";
+import { PAPERS, TODO_TAG } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
+import Todos from "../../../features/todos/Todos.vue";
 import FlightLine from "../../../features/trip/FlightLine.vue";
 import { shortDate, weekday } from "../../../features/trip/format";
 import StayLine from "../../../features/trip/StayLine.vue";
 import TripEditor from "../../../features/trip/TripEditor.vue";
 import { useTrip } from "../../../features/trip/useTrip";
+import { queryOf } from "../url";
 
 const { trip, forDay, budgetOf } = useTrip();
 const { notes } = useNotes();
 const { members } = useMembers();
 const i18n = useI18n();
 const router = useRouter();
+const route = useRoute("/rooms/[roomId=roomId]/home");
+const place = usePlace();
+/** A to-do written on the home goes on the desk like any note, tagged To do */
+const addTodo = (title: string) => void place({ ...blankInput([TODO_TAG], null), title }, "quiet");
+/** Its note opens over the home, where its day and who is to do it are set */
+const openNote = (id: NoteId) =>
+  void router.push({
+    name: "/rooms/[roomId=roomId]/home",
+    params: { roomId: route.params.roomId, ...queryOf({ kind: "edit", id }) },
+  });
 /** Out of the trip (left, or deleted): back to the trips */
 const toTrips = () => void router.replace("/");
 const price = (amount: number) =>
@@ -132,6 +147,8 @@ const allTotal = computed(() => budgetOf(undefined, false));
       <p><small>{{ i18n.t("home.budget") }}</small>{{ price(fixedTotal) }}<small
           v-if="allTotal > fixedTotal"
         >{{ i18n.t("shiori.withMaybes", { total: price(allTotal) }) }}</small></p>
+
+      <Todos @add="addTodo" @open="openNote" />
 
       <People @out="toTrips" />
     </div>

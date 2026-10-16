@@ -98,6 +98,8 @@ type NoteRow = {
   booking_by: IsoDate | null;
   booking_code: string | null;
   booking_url: HttpUrl | null;
+  due: IsoDate | null;
+  assignee: MemberId | null;
 };
 
 /**
@@ -166,6 +168,11 @@ export class Room extends DurableObject<Env> {
     // and whether it has to be booked, once bookings were kept
     if (!cols.some((c) => c.name === "booking_state")) {
       for (const col of ["booking_state", "booking_by", "booking_code", "booking_url"])
+        ctx.storage.sql.exec(`ALTER TABLE notes ADD COLUMN ${col} TEXT`);
+    }
+    // and a to-do's day and who is to do it, once there were to-dos
+    if (!cols.some((c) => c.name === "due")) {
+      for (const col of ["due", "assignee"])
         ctx.storage.sql.exec(`ALTER TABLE notes ADD COLUMN ${col} TEXT`);
     }
     // and text boxes and stickers, once there were any: a CHECK cannot be altered, so the table
@@ -935,6 +942,8 @@ export class Room extends DurableObject<Env> {
                 minutes: null,
                 hours: null,
                 booking: null,
+                due: null,
+                assignee: null,
               };
         // a card shows only a picture the room has
         if (memo.image !== null && !this.hasImage(memo.image))
@@ -942,8 +951,8 @@ export class Room extends DurableObject<Env> {
         sql.exec(
           `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at, body, tags, maps_url,
              pin_lat, pin_lng, sched_date, sched_time, sched_status, budget, checked, image, scale, minutes, hours,
-             booking_state, booking_by, booking_code, booking_url)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             booking_state, booking_by, booking_code, booking_url, due, assignee)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           note.id,
           note.kind,
           note.title,
@@ -968,6 +977,8 @@ export class Room extends DurableObject<Env> {
           memo.minutes,
           memo.hours,
           ...bookingColumns(memo.booking),
+          memo.due,
+          memo.assignee,
         );
         return { ok: true, value: { type: "note:add", note } };
       }
@@ -984,7 +995,7 @@ export class Room extends DurableObject<Env> {
              title = ?, body = ?, tags = ?, color = ?, maps_url = ?, pin_lat = ?, pin_lng = ?,
              sched_date = ?, sched_time = ?, sched_status = ?, budget = ?, checked = ?, image = ?,
              minutes = ?, hours = ?, booking_state = ?, booking_by = ?, booking_code = ?,
-             booking_url = ?, x = ?, y = ?, rot = ?, updated_at = ?
+             booking_url = ?, due = ?, assignee = ?, x = ?, y = ?, rot = ?, updated_at = ?
            WHERE id = ?`,
           has("title") ? p.title : row.title,
           has("body") ? p.body : row.body,
@@ -1004,6 +1015,8 @@ export class Room extends DurableObject<Env> {
           ...(has("booking")
             ? bookingColumns(p.booking ?? null)
             : [row.booking_state, row.booking_by, row.booking_code, row.booking_url]),
+          has("due") ? (p.due ?? null) : row.due,
+          has("assignee") ? (p.assignee ?? null) : row.assignee,
           has("x") ? p.x : row.x,
           has("y") ? p.y : row.y,
           has("rot") ? p.rot : row.rot,
@@ -1032,7 +1045,8 @@ export class Room extends DurableObject<Env> {
           `UPDATE notes SET kind = 'memo', color = '#ffffff', body = '', tags = '[]', maps_url = NULL,
              pin_lat = NULL, pin_lng = NULL, sched_date = NULL, sched_time = NULL, sched_status = NULL,
              budget = NULL, checked = 0, minutes = NULL, hours = NULL, booking_state = NULL, booking_by = NULL,
-             booking_code = NULL, booking_url = NULL, updated_at = ? WHERE id = ?`,
+             booking_code = NULL, booking_url = NULL, due = NULL, assignee = NULL, updated_at = ?
+           WHERE id = ?`,
           now,
           m.id,
         );
@@ -1213,6 +1227,8 @@ const NOTE_COLUMNS = [
   "booking_by",
   "booking_code",
   "booking_url",
+  "due",
+  "assignee",
 ].join(", ");
 
 /** The notes table as it is now, under `name`: memos, suggestions, text boxes and stickers */
@@ -1245,7 +1261,9 @@ const notesTable = (name: string) => `
     booking_state TEXT,
     booking_by TEXT,
     booking_code TEXT,
-    booking_url TEXT
+    booking_url TEXT,
+    due TEXT,
+    assignee TEXT
   )
 `;
 
@@ -1288,6 +1306,8 @@ const fromRow = (r: NoteRow): WireNote => {
     minutes: r.minutes,
     hours: r.hours,
     booking: bookingOf(r),
+    due: r.due,
+    assignee: r.assignee,
   };
 };
 

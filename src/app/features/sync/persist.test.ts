@@ -59,6 +59,8 @@ const memo: Memo = {
   minutes: null,
   hours: null,
   booking: null,
+  due: null,
+  assignee: null,
 };
 const room: RoomState = {
   notes: [memo],

@@ -82,6 +82,8 @@ src/app/            The app
              formatting; settings and TripEditor (name, dates, flights and stays, edited on the home
              tab); FlightLine (a flight); StayLine (a stay); AirportField (an airport, suggested as typed)
     tags/    Tag colors and the tag filter (store, filter bar)
+    todos/   What there is to do before the trip: list (the to-dos, tagged To do, and the plans still to
+             book, the soonest first); Todos (that, on the home tab: written, ticked off, marked booked)
     place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON, from and back to
              the stays (or the airports on a flight's day); how far apart two points are, minutes on foot or
              by a ride; directions between two points; opening hours read (hours.ts: open on a day, a plan

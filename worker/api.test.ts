@@ -793,6 +793,8 @@ describe("the socket", () => {
         minutes: null,
         hours: null,
         booking: null,
+        due: null,
+        assignee: null,
         by: yuki,
         updatedAt: got.updatedAt,
       },
@@ -937,6 +939,8 @@ describe("the socket", () => {
           minutes: null,
           hours: null,
           booking: null,
+          due: null,
+          assignee: null,
         },
       ],
     });
@@ -1019,6 +1023,29 @@ describe("the socket", () => {
     for (const s of [a, b, c, d]) s.ws.close(1000, "done");
   });
 
+  test("a to-do keeps the day it is due by and who is to do it", async () => {
+    const TODO = "todo@example.com";
+    const { roomId, memberId } = await createRoom(TODO);
+    const a = await connect(roomId, TODO);
+    const todo = {
+      ...memo("n1", "Change money"),
+      tags: ["To do"],
+      due: "2026-10-30",
+      assignee: memberId,
+    };
+    a.send({ type: "note:add", note: todo, cid: "c1" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c1" });
+    a.send({ type: "note:update", id: "n1", patch: { due: "2026-02-30" }, cid: "c2" });
+    expect(await a.next()).toEqual({ type: "rejected", reason: "not a mutation", cid: "c2" });
+    const b = await connect(roomId, TODO);
+    expect(b.snapshot.notes).toMatchObject([{ id: "n1", due: "2026-10-30", assignee: memberId }]);
+    a.send({ type: "note:update", id: "n1", patch: { due: null, assignee: null }, cid: "c3" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c3" });
+    const c = await connect(roomId, TODO);
+    expect(c.snapshot.notes).toMatchObject([{ id: "n1", due: null, assignee: null }]);
+    for (const s of [a, b, c]) s.ws.close(1000, "done");
+  });
+
   test("updates, moves, recolors, adoption, deletion and the day intro all land", async () => {
     const { roomId, memberId: yuki } = await createRoom(ME);
     await admit(roomId, ME, PARTNER);
@@ -1074,6 +1101,8 @@ describe("the socket", () => {
         minutes: null,
         hours: null,
         booking: null,
+        due: null,
+        assignee: null,
       },
     ]);
     expect(c.snapshot.trip.days[1]).toEqual({ date: "2026-11-04", intro: "Jiufen day" });
