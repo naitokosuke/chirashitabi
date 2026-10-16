@@ -258,6 +258,25 @@ const agent = [
   }),
   // a short link leads to a point near the trip's center, as maps.app.goo.gl's redirect would;
   // any other link comes back as it was
+  // what a page says of itself: a title and a line from its host; no picture in the mocks
+  http.post("/api/rooms/:roomId/preview", async ({ params, request }) => {
+    const room = open(params.roomId);
+    if (room === undefined) return forbidden();
+    const url = textOf(await request.json(), "url");
+    if (url === null) return badRequest();
+    await wait(THINKING_MS / 2);
+    if (!URL.canParse(url)) return HttpResponse.json({ preview: null });
+    const site = new URL(url).hostname.replace(/^www\./, "");
+    return HttpResponse.json({
+      preview: {
+        url,
+        site,
+        title: `A page on ${site}`,
+        description: "What the page says of itself, in a line",
+        image: null,
+      },
+    });
+  }),
   http.post("/api/rooms/:roomId/expand", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();

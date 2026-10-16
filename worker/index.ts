@@ -10,6 +10,7 @@ import { ASK_LENGTH, draftDay, MODEL, namePlace, proposeTags, suggestNotes } fro
 import { CLEF_MODEL, FITS_AT, judgeTags, MAX_TAGS } from "./clef";
 import { expand, placeName } from "./expand";
 import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
+import { preview } from "./preview";
 import { bookletKey, Room } from "./room";
 import { RoomsIndex } from "./rooms-index";
 import {
@@ -447,6 +448,52 @@ const api = new Hono<ApiEnv>()
         geocoder: { ok: name === null || at !== null },
       });
       return c.json({ url: expanded ?? url, at });
+    },
+  )
+
+  // what a page a note links to says of itself (preview.ts): its title, a line and its picture,
+  // which the room keeps as one of its pictures. The Worker fetches a page the member pasted,
+  // so it is fenced there and budgeted here (docs/auth-and-security.md, "Previewing links")
+  .post(
+    `${ROOM}/preview`,
+    member("preview"),
+    body(v.object({ url: v.pipe(v.string(), v.trim(), v.maxLength(2000)) })),
+    async (c) => {
+      const { email, log, roomId, memberId, room } = c.var;
+      const { url } = c.req.valid("json");
+      const index = c.env.ROOMS.getByName("index");
+      const reserved = await index.reserve(email, roomId);
+      if ("refused" in reserved) {
+        log.set({ budget: { refused: reserved.refused } });
+        return c.text(`Budget: ${reserved.refused}`, 429);
+      }
+      const found = await preview(
+        url,
+        [c.env.APP_HOST, c.env.BOOKLET_HOST],
+        c.env.PREVIEW_BASE_URL,
+      );
+      // the site it was on, never the address: enough to tell which kinds of pages say nothing
+      log.set({
+        preview: { ok: found !== null, site: found?.site ?? null, picture: found?.image !== null },
+      });
+      if (found === null) return c.json({ preview: null });
+      let image: ImageId | null = null;
+      if (found.image !== null) {
+        const { bytes, type } = found.image;
+        const id = await room.addImage(memberId, roomId, type, bytes.byteLength);
+        if (id !== null) {
+          try {
+            await c.env.IMAGES.put(imageKey(roomId, id), bytes, {
+              httpMetadata: { contentType: type },
+            });
+            image = id;
+          } catch {
+            await room.dropImage(id);
+          }
+        }
+      }
+      const { title, description, site } = found;
+      return c.json({ preview: { url: found.url, site, title, description, image } });
     },
   )
 

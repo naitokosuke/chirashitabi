@@ -38,6 +38,7 @@ const memo = (id: string, title: string): Memo => ({
   image: null,
   minutes: null,
   hours: null,
+  link: null,
   booking: null,
   due: null,
   assignee: null,

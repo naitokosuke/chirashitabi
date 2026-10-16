@@ -296,6 +296,8 @@ const memo = {
   due: v.optional(v.nullable(IsoDateSchema), null),
   /** Who is to do it; null for whoever. None from an older client: whoever */
   assignee: v.optional(v.nullable(MemberIdSchema), null),
+  /** The page its idea came from (a blog, a video), any http(s) link; null for none. None from an older client: none */
+  link: v.optional(v.nullable(HttpUrlSchema), null),
 };
 const suggestion = { ...card, kind: v.literal("suggestion") };
 /** Words set straight on the desk, with no paper under them: a heading, a label. `title` is the text */
@@ -339,6 +341,7 @@ const WireMemoPatchSchema = v.strictObject({
   booking: v.optional(v.nullable(BookingSchema)),
   due: v.optional(v.nullable(IsoDateSchema)),
   assignee: v.optional(v.nullable(MemberIdSchema)),
+  link: v.optional(v.nullable(HttpUrlSchema)),
   x: v.optional(memo.x),
   y: v.optional(memo.y),
   rot: v.optional(memo.rot),

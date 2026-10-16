@@ -215,6 +215,22 @@ The Worker is fetching a URL the user typed, so the fetch is fenced.
 This is `worker/expand.ts`, answered at `POST /api/rooms/<id>/expand`.
 Wrangler's test harness follows a redirect even with `redirect: "manual"`, so a runtime that followed is held to the same rule on the URL it ended at; `worker/expand.test.ts` shows how a `Location` is read.
 
+## Previewing links
+
+A note may carry the page its idea came from (a blog post, a video), and the Worker reads that page once for its title, a line and its picture (Open Graph; YouTube through its oEmbed, which takes no key).
+A browser cannot read another site's HTML, so the Worker fetches a URL the member pasted, and the fetch is fenced (`worker/preview.ts`).
+
+- Only an http(s) address with a named host is fetched: no other scheme, no address by number, no bare name (`localhost`, `intranet`), nothing under `.local`, and never the app's or the booklet's host.
+  A redirect is followed at most three times, each hop held to the same rule, and the page is never fetched by a browser's cookies: the Worker has none.
+- The page is read as HTML only, up to 512 KB, with a timeout; its picture only when it is one the room keeps (WebP, JPEG, PNG) and no larger than one it keeps (1 MB), read up to that and no further.
+  The picture then becomes one of the room's pictures, counted against the room's hundred like an upload, and served to members only; nothing on the public booklet links back to the page.
+- What the page said is checked like any other answer: a title cut to 200 characters, a line to 1000, entities decoded, so the note's words are text and never markup.
+- The Worker never fetches Instagram: a post's page shows nothing without a login, and its oEmbed needs a Meta token and gives no title or picture.
+  A note linking to one keeps the link and takes a screenshot as its picture.
+- Each preview counts against the member's budget like any other outbound call; the log keeps the page's site, never its address.
+
+This is `POST /api/rooms/<id>/preview`; `worker/preview.test.ts` holds the fence's rules, `worker/api.test.ts` the route against a stub of the pages.
+
 ## What stays outside Access
 
 Access guards a hostname, so anything meant to be public lives on `shiori.chirashitabi.app`, the second Custom Domain of the same Worker.

@@ -42,6 +42,7 @@ function memo(id: string, status: NoteStatus, extra: Partial<Memo> = {}): Memo {
     image: null,
     minutes: null,
     hours: null,
+    link: null,
     booking: null,
     due: null,
     assignee: null,

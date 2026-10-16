@@ -169,6 +169,8 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
   geocode.ts        OpenStreetMap's geocoder (Nominatim): the places a name finds, with real coordinates,
                     and what is at a pinned point (its name, else its street's)
   expand.ts         A short Google Maps link (maps.app.goo.gl) read as the link its redirect names
+  preview.ts        What a page a note links to says of itself (Open Graph; YouTube's oEmbed): title, a line,
+                    its picture, fetched within a fence (docs/auth-and-security.md, "Previewing links")
   airports.ts       The airports a flight may name (src/contract's airport-codes.ts)
   booklet.ts        The booklet as a public page: one static HTML file written from the room's data, plan only,
                     escaped, no script; served on the booklet host from R2 (index.ts)

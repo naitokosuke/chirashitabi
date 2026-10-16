@@ -90,6 +90,12 @@ export interface WorkerApi {
   ): Promise<Answer<{ url: string; at: LatLng | null }, OverBudget>>;
   /** Have a member order a day's notes and give them times */
   draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<Answer<DayDraft, OverBudget>>;
+  /**
+   * What the page at `url` says of itself, for a note that links to it: its title, a line and
+   * its picture, which the room keeps as one of its pictures. Null when the page says nothing
+   * (or is no page). Budgeted
+   */
+  preview(url: string): Promise<Answer<LinkPreview | null, OverBudget>>;
   /** The room's booklet as a public page while one is up, else null. Free */
   publication(): Promise<Publication | null>;
   /**
@@ -99,6 +105,17 @@ export interface WorkerApi {
   publish(lang: "ja" | "en"): Promise<Answer<Publication, OverBudget>>;
   /** The owner takes the public page down */
   withdraw(): Promise<void>;
+}
+
+/** A page as it describes itself, with its picture already the room's */
+export interface LinkPreview {
+  /** Where the page is, after any redirect */
+  url: HttpUrl;
+  /** Its site, "youtube.com" */
+  site: string;
+  title: string | null;
+  description: string | null;
+  image: ImageId | null;
 }
 
 /** The booklet as a public page: where anyone with the link reads it, and as of when */

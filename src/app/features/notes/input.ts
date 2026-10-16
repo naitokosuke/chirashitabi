@@ -21,6 +21,7 @@ export const inputFromNote = (note: Memo): NoteInput => ({
   image: note.image,
   minutes: note.minutes,
   hours: note.hours,
+  link: note.link,
   booking: note.booking,
   due: note.due,
   assignee: note.assignee,
@@ -37,6 +38,7 @@ export const blankInput = (tags: Iterable<Tag>, pin: LatLng | null): NoteInput =
   image: null,
   minutes: null,
   hours: null,
+  link: null,
   booking: null,
   due: null,
   assignee: null,
@@ -56,6 +58,8 @@ export const duplicateInput = (n: Note): NoteInput => ({
   minutes: n.kind === "memo" ? n.minutes : null,
   // the hours are the place's, which the copy does not keep, and a booking is the one plan's
   hours: null,
+  // where the idea came from goes with the words
+  link: n.kind === "memo" ? n.link : null,
   booking: null,
   // a copied to-do is another one, to be given its own day and someone
   due: null,
@@ -77,6 +81,7 @@ export const adopted = (s: Suggestion): Memo => ({
   image: null,
   minutes: null,
   hours: null,
+  link: null,
   booking: null,
   due: null,
   assignee: null,

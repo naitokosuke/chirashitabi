@@ -54,6 +54,7 @@ const memo = (id: string, extra: Record<string, unknown>) =>
     image: null,
     minutes: null,
     hours: null,
+    link: null,
     booking: null,
     due: null,
     assignee: null,

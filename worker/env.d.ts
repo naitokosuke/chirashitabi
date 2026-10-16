@@ -13,4 +13,6 @@ interface Env {
   GEOCODER_BASE_URL?: string;
   /** Where short Google Maps links are expanded (expand.ts); unset in production, a stub in the tests */
   SHORTLINK_BASE_URL?: string;
+  /** Where pages are fetched for a link's preview (preview.ts); unset in production, a stub in the tests */
+  PREVIEW_BASE_URL?: string;
 }

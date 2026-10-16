@@ -40,6 +40,7 @@ import {
   googleMapsLink,
   httpUrl,
   isShortMapsLink,
+  parseMapsUrl,
   placeFromUrl,
   placeSearchLink,
 } from "../place/google-maps";
@@ -177,6 +178,70 @@ function onMapsUrl() {
 }
 /** A paste is read at once, once the field holds it, without waiting for the field to be left */
 const onMapsPaste = () => setTimeout(onMapsUrl);
+
+// ---- where the idea came from: a page, read by the Worker for its title, line and picture ----
+const link = ref(form.value.link ?? "");
+/** What reading the page is doing, or what it found: the site, or why nothing */
+type LinkState =
+  | { kind: "idle" }
+  | { kind: "fetching" }
+  | { kind: "found"; site: string }
+  | { kind: "none" | "failed" | "place" | "day" | "trip" };
+const linkState = shallowRef<LinkState>({ kind: "idle" });
+const LINK_STATE = {
+  fetching: "form.linkFetching",
+  none: "form.linkNone",
+  failed: "form.linkFailed",
+  place: "form.linkIsPlace",
+  day: "form.tagsLimit",
+  trip: "form.tagsTripLimit",
+} as const satisfies Record<Exclude<LinkState["kind"], "idle" | "found">, string>;
+/** The link last read: leaving the field after a paste is the same one */
+let previewedFrom = "";
+/**
+ * The page behind the link, once: its title and line fill words not written yet, its picture
+ * a card with none. A Google Maps link is the place's, not a page to read
+ */
+function onLink() {
+  const raw = link.value.trim();
+  const url = httpUrl(raw);
+  if (url === null || url === previewedFrom) return;
+  if (
+    isShortMapsLink(url) ||
+    parseMapsUrl(url) !== null ||
+    /(^|\.)google\.[a-z.]+$/.test(new URL(url).hostname)
+  ) {
+    linkState.value = { kind: "place" };
+    return;
+  }
+  const api = worker.api;
+  if (api === null || cut.offline) return;
+  previewedFrom = url;
+  linkState.value = { kind: "fetching" };
+  api
+    .preview(url)
+    .then((answer) => {
+      if (link.value.trim() !== raw) return;
+      if (!answer.ok) {
+        linkState.value = { kind: answer.refused.ceiling };
+        return;
+      }
+      const found = answer.value;
+      if (found === null) {
+        linkState.value = { kind: "none" };
+        return;
+      }
+      link.value = found.url;
+      if (text.value.trim() === "")
+        text.value = [found.title, found.description].filter((s) => s !== null).join("\n");
+      if (form.value.image === null && found.image !== null) form.value.image = found.image;
+      linkState.value = { kind: "found", site: found.site };
+    })
+    .catch(() => {
+      linkState.value = { kind: "failed" };
+    });
+}
+const onLinkPaste = () => setTimeout(onLink);
 const hasPin = () => form.value.pin !== null;
 const text = ref(noteText(form.value));
 const tagInput = ref("");
@@ -529,6 +594,7 @@ function submit() {
     image: form.value.image,
     minutes: form.value.minutes,
     hours: hours.value.trim() === "" ? null : hours.value.trim(),
+    link: httpUrl(link.value.trim()),
     booking: bookingOf(),
     // a day and someone only while it is a to-do (or, for someone, still to book)
     due: isTodo.value && due.value !== "" ? Temporal.PlainDate.from(due.value) : null,
@@ -545,6 +611,9 @@ function submit() {
     form.value = startingInput();
     mapsUrl.value = "";
     hours.value = "";
+    link.value = "";
+    linkState.value = { kind: "idle" };
+    previewedFrom = "";
     clearBooking();
     due.value = "";
     assignee.value = "";
@@ -619,6 +688,25 @@ function submit() {
           <p v-if="tagState !== 'idle'" aria-live="polite">{{ i18n.t(TAG_STATE[tagState]) }}</p>
           <p v-else-if="askByTap && cut.offline">{{ i18n.t("offline.unavailable") }}</p>
         </div>
+      </div>
+      <div>
+        <label :for="`${id}-link`">{{ i18n.t("form.link") }}</label>
+        <input
+          :id="`${id}-link`"
+          v-model="link"
+          inputmode="url"
+          type="url"
+          :placeholder="i18n.t('form.linkPlaceholder')"
+          @change="onLink"
+          @paste="onLinkPaste"
+        />
+        <p v-if="linkState.kind === 'found'" aria-live="polite">{{
+          i18n.t("form.linkFound", { site: linkState.site })
+        }}</p>
+        <p v-else-if="linkState.kind !== 'idle'" aria-live="polite">{{
+          i18n.t(LINK_STATE[linkState.kind])
+        }}</p>
+        <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
       </div>
       <div>
         <label :for="`${id}-maps`">{{ i18n.t("form.place") }}</label>

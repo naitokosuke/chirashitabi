@@ -35,6 +35,7 @@ const memo: NewMemo = {
   image: null,
   minutes: null,
   hours: null,
+  link: null,
   booking: null,
   due: null,
   assignee: null,
