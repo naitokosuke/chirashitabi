@@ -627,208 +627,216 @@ function submit() {
     </button>
     <div>
       <h2 class="title">{{ i18n.t(editing ? "form.titleEdit" : "form.titleNew") }}</h2>
-      <div>
-        <label :for="`${id}-text`">{{ i18n.t("form.note") }}</label>
-        <textarea
-          :id="`${id}-text`"
-          ref="textEl"
-          v-model="text"
-          rows="4"
-          :placeholder="i18n.t('form.notePlaceholder')"
-        ></textarea>
-      </div>
-      <div>
-        <label :for="`${id}-tag`">{{ i18n.t("form.tags") }}</label>
-        <div class="tagbox">
-          <CtChip v-for="t in form.tags" :key="t" selected @click="() => removeTag(t)">#{{ t }} <Icon
-              :size="12"
-              :src="closeIcon"
-            /></CtChip>
+      <!-- on a computer, side by side: what the note is, then the details of the plan -->
+      <div class="what">
+        <div>
+          <label :for="`${id}-text`">{{ i18n.t("form.note") }}</label>
+          <textarea
+            :id="`${id}-text`"
+            ref="textEl"
+            v-model="text"
+            rows="4"
+            :placeholder="i18n.t('form.notePlaceholder')"
+          ></textarea>
+        </div>
+        <div>
+          <label :for="`${id}-tag`">{{ i18n.t("form.tags") }}</label>
+          <div class="tagbox">
+            <CtChip v-for="t in form.tags" :key="t" selected @click="() => removeTag(t)">#{{ t }} <Icon
+                :size="12"
+                :src="closeIcon"
+              /></CtChip>
+            <input
+              :id="`${id}-tag`"
+              v-model="tagInput"
+              enterkeyhint="done"
+              :placeholder="i18n.t('form.tagPlaceholder')"
+              @keydown.enter.prevent="commitTag"
+              @blur="commitTag"
+            />
+          </div>
+          <!-- the tags that fit the words go first; what Clef offered is among them, a new one marked -->
+          <div ref="rowEl" class="recent">
+            <CtChip
+              v-for="o in shown"
+              :key="o.name"
+              :data-flip="o.name"
+              :data-fit="fits(o, text) || undefined"
+              :data-new="o.isNew || undefined"
+              @click="() => addTag(o.name)"
+            >#{{ o.name }}<small v-if="o.isNew">{{ i18n.t("form.newTag") }}</small></CtChip>
+          </div>
+          <!-- Clef looks at the words and the photo; what it finds fitting moves up the row -->
+          <div v-if="worker.api !== null && (askByTap || tagState !== 'idle')" class="suggested">
+            <button
+              v-if="askByTap"
+              type="button"
+              :disabled="tagState === 'asking' || !text.trim() || cut.offline"
+              :aria-busy="tagState === 'asking'"
+              @click="() => askForTags(true)"
+            >{{ i18n.t("form.suggestTags") }}</button>
+            <p v-if="tagState !== 'idle'" aria-live="polite">{{ i18n.t(TAG_STATE[tagState]) }}</p>
+            <p v-else-if="askByTap && cut.offline">{{ i18n.t("offline.unavailable") }}</p>
+          </div>
+        </div>
+        <div>
+          <label :for="`${id}-link`">{{ i18n.t("form.link") }}</label>
           <input
-            :id="`${id}-tag`"
-            v-model="tagInput"
-            enterkeyhint="done"
-            :placeholder="i18n.t('form.tagPlaceholder')"
-            @keydown.enter.prevent="commitTag"
-            @blur="commitTag"
+            :id="`${id}-link`"
+            v-model="link"
+            inputmode="url"
+            type="url"
+            :placeholder="i18n.t('form.linkPlaceholder')"
+            @change="onLink"
+            @paste="onLinkPaste"
           />
-        </div>
-        <!-- the tags that fit the words go first; what Clef offered is among them, a new one marked -->
-        <div ref="rowEl" class="recent">
-          <CtChip
-            v-for="o in shown"
-            :key="o.name"
-            :data-flip="o.name"
-            :data-fit="fits(o, text) || undefined"
-            :data-new="o.isNew || undefined"
-            @click="() => addTag(o.name)"
-          >#{{ o.name }}<small v-if="o.isNew">{{ i18n.t("form.newTag") }}</small></CtChip>
-        </div>
-        <!-- Clef looks at the words and the photo; what it finds fitting moves up the row -->
-        <div v-if="worker.api !== null && (askByTap || tagState !== 'idle')" class="suggested">
-          <button
-            v-if="askByTap"
-            type="button"
-            :disabled="tagState === 'asking' || !text.trim() || cut.offline"
-            :aria-busy="tagState === 'asking'"
-            @click="() => askForTags(true)"
-          >{{ i18n.t("form.suggestTags") }}</button>
-          <p v-if="tagState !== 'idle'" aria-live="polite">{{ i18n.t(TAG_STATE[tagState]) }}</p>
-          <p v-else-if="askByTap && cut.offline">{{ i18n.t("offline.unavailable") }}</p>
-        </div>
-      </div>
-      <div>
-        <label :for="`${id}-link`">{{ i18n.t("form.link") }}</label>
-        <input
-          :id="`${id}-link`"
-          v-model="link"
-          inputmode="url"
-          type="url"
-          :placeholder="i18n.t('form.linkPlaceholder')"
-          @change="onLink"
-          @paste="onLinkPaste"
-        />
-        <p v-if="linkState.kind === 'found'" aria-live="polite">{{
-          i18n.t("form.linkFound", { site: linkState.site })
-        }}</p>
-        <p v-else-if="linkState.kind !== 'idle'" aria-live="polite">{{
-          i18n.t(LINK_STATE[linkState.kind])
-        }}</p>
-        <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
-      </div>
-      <div>
-        <label :for="`${id}-maps`">{{ i18n.t("form.place") }}</label>
-        <input
-          :id="`${id}-maps`"
-          v-model="mapsUrl"
-          inputmode="url"
-          type="url"
-          :placeholder="i18n.t('form.mapsPlaceholder')"
-          @change="onMapsUrl"
-          @paste="onMapsPaste"
-        />
-        <p aria-live="polite">{{
-          i18n.t(
-            naming
-              ? "form.placeNaming"
-              : expanding
-                ? "form.placeExpanding"
-                : hasPin()
-                  ? "form.pinned"
-                  : mapsUrl.trim()
-                    ? worker.api
-                      ? "form.urlNoPinFind"
-                      : "form.urlNoPin"
-                    : worker.api
-                      ? "form.unpinnedFind"
-                      : "form.unpinned",
-          )
-        }}</p>
-        <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
-        <div v-if="worker.api !== null" class="places">
-          <button
-            type="button"
-            :disabled="places.kind === 'asking' || !text.trim() || cut.offline"
-            :aria-busy="places.kind === 'asking'"
-            @click="findPlaces"
-          >{{ i18n.t("form.findPlace") }}</button>
-          <ul v-if="found.length > 0">
-            <li v-for="p in found" :key="`${p.at.lat},${p.at.lng}`">
-              <button type="button" @click="() => choosePlace(p)">
-                <span>{{ p.name }}</span>
-                <small>{{ p.address }}</small>
-              </button>
-            </li>
-          </ul>
-          <p v-if="found.length > 0 || namedByOsm" class="credit">{{
-            i18n.t("form.placesCredit")
+          <p v-if="linkState.kind === 'found'" aria-live="polite">{{
+            i18n.t("form.linkFound", { site: linkState.site })
           }}</p>
-          <p v-if="places.kind !== 'idle'" aria-live="polite">{{
-            i18n.t(PLACE_STATE[places.kind])
+          <p v-else-if="linkState.kind !== 'idle'" aria-live="polite">{{
+            i18n.t(LINK_STATE[linkState.kind])
           }}</p>
           <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
         </div>
-      </div>
-      <div>
-        <label :for="`${id}-hours`">{{ i18n.t("form.hours") }}</label>
-        <input
-          :id="`${id}-hours`"
-          v-model="hours"
-          autocapitalize="off"
-          spellcheck="false"
-          :placeholder="i18n.t('form.hoursPlaceholder')"
-        />
-        <p aria-live="polite">{{ i18n.t(hoursUnread ? "form.hoursUnread" : "form.hoursHint") }}</p>
-      </div>
-      <div>
-        <label :for="`${id}-booking`">{{ i18n.t("form.booking") }}</label>
-        <select :id="`${id}-booking`" :value="bookingState" @change="setBookingState">
-          <option value="none">{{ i18n.t("form.bookingNone") }}</option>
-          <option value="needed">{{ i18n.t("form.bookingNeeded") }}</option>
-          <option value="booked">{{ i18n.t("form.bookingBooked") }}</option>
-        </select>
-      </div>
-      <div v-if="isTodo">
-        <label :for="`${id}-due`">{{ i18n.t("form.due") }}</label>
-        <input :id="`${id}-due`" v-model="due" type="date" />
-      </div>
-      <div v-if="hasAssignee">
-        <label :for="`${id}-assignee`">{{ i18n.t("form.assignee") }}</label>
-        <select :id="`${id}-assignee`" v-model="assignee">
-          <option value="">{{ i18n.t("form.assigneeAnyone") }}</option>
-          <option v-for="m in people" :key="m.id" :value="m.id">{{ m.name }}</option>
-        </select>
-      </div>
-      <div v-if="bookingState === 'needed'">
-        <label :for="`${id}-booking-by`">{{ i18n.t("form.bookingBy") }}</label>
-        <input :id="`${id}-booking-by`" v-model="bookingBy" type="date" />
-      </div>
-      <template v-else-if="bookingState === 'booked'">
-        <div>
-          <label :for="`${id}-booking-code`">{{ i18n.t("form.bookingCode") }}</label>
+        <!-- a phone: the last field, as it was -->
+        <div v-if="worker.api !== null" class="photo">
+          <label :for="`${id}-photo`">{{ i18n.t("form.photo") }}</label>
+          <figure v-if="photoSrc !== null">
+            <img alt="" :src="photoSrc" />
+            <button type="button" @click="removePhoto">{{ i18n.t("form.removePhoto") }}</button>
+          </figure>
           <input
-            :id="`${id}-booking-code`"
-            v-model="bookingCode"
-            autocapitalize="characters"
-            maxlength="100"
-            spellcheck="false"
+            :id="`${id}-photo`"
+            accept="image/*"
+            type="file"
+            :disabled="photo === 'sending' || cut.offline"
+            @change="onPhoto"
           />
+          <p v-if="photo !== 'idle'" aria-live="polite">{{ i18n.t(PHOTO_STATE[photo]) }}</p>
+          <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
         </div>
+      </div>
+      <div class="details">
         <div>
-          <label :for="`${id}-booking-url`">{{ i18n.t("form.bookingUrl") }}</label>
+          <label :for="`${id}-maps`">{{ i18n.t("form.place") }}</label>
           <input
-            :id="`${id}-booking-url`"
-            v-model="bookingUrl"
+            :id="`${id}-maps`"
+            v-model="mapsUrl"
             inputmode="url"
             type="url"
-            :placeholder="i18n.t('form.bookingUrlPlaceholder')"
+            :placeholder="i18n.t('form.mapsPlaceholder')"
+            @change="onMapsUrl"
+            @paste="onMapsPaste"
           />
+          <p aria-live="polite">{{
+            i18n.t(
+              naming
+                ? "form.placeNaming"
+                : expanding
+                  ? "form.placeExpanding"
+                  : hasPin()
+                    ? "form.pinned"
+                    : mapsUrl.trim()
+                      ? worker.api
+                        ? "form.urlNoPinFind"
+                        : "form.urlNoPin"
+                      : worker.api
+                        ? "form.unpinnedFind"
+                        : "form.unpinned",
+            )
+          }}</p>
+          <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
+          <div v-if="worker.api !== null" class="places">
+            <button
+              type="button"
+              :disabled="places.kind === 'asking' || !text.trim() || cut.offline"
+              :aria-busy="places.kind === 'asking'"
+              @click="findPlaces"
+            >{{ i18n.t("form.findPlace") }}</button>
+            <ul v-if="found.length > 0">
+              <li v-for="p in found" :key="`${p.at.lat},${p.at.lng}`">
+                <button type="button" @click="() => choosePlace(p)">
+                  <span>{{ p.name }}</span>
+                  <small>{{ p.address }}</small>
+                </button>
+              </li>
+            </ul>
+            <p v-if="found.length > 0 || namedByOsm" class="credit">{{
+              i18n.t("form.placesCredit")
+            }}</p>
+            <p v-if="places.kind !== 'idle'" aria-live="polite">{{
+              i18n.t(PLACE_STATE[places.kind])
+            }}</p>
+            <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
+          </div>
         </div>
-      </template>
-      <div>
-        <label :for="`${id}-minutes`">{{ i18n.t("shiori.minutes") }}</label>
-        <select :id="`${id}-minutes`" :value="form.minutes ?? ''" @change="setMinutes">
-          <option value="">{{ i18n.t("form.minutesUnset") }}</option>
-          <option v-for="m in durationChoices(form.minutes)" :key="m" :value="m">{{
-            long(m)
-          }}</option>
-        </select>
-      </div>
-      <div v-if="worker.api !== null">
-        <label :for="`${id}-photo`">{{ i18n.t("form.photo") }}</label>
-        <figure v-if="photoSrc !== null">
-          <img alt="" :src="photoSrc" />
-          <button type="button" @click="removePhoto">{{ i18n.t("form.removePhoto") }}</button>
-        </figure>
-        <input
-          :id="`${id}-photo`"
-          accept="image/*"
-          type="file"
-          :disabled="photo === 'sending' || cut.offline"
-          @change="onPhoto"
-        />
-        <p v-if="photo !== 'idle'" aria-live="polite">{{ i18n.t(PHOTO_STATE[photo]) }}</p>
-        <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
+        <div>
+          <label :for="`${id}-hours`">{{ i18n.t("form.hours") }}</label>
+          <input
+            :id="`${id}-hours`"
+            v-model="hours"
+            autocapitalize="off"
+            spellcheck="false"
+            :placeholder="i18n.t('form.hoursPlaceholder')"
+          />
+          <p aria-live="polite">{{
+            i18n.t(hoursUnread ? "form.hoursUnread" : "form.hoursHint")
+          }}</p>
+        </div>
+        <div>
+          <label :for="`${id}-booking`">{{ i18n.t("form.booking") }}</label>
+          <select :id="`${id}-booking`" :value="bookingState" @change="setBookingState">
+            <option value="none">{{ i18n.t("form.bookingNone") }}</option>
+            <option value="needed">{{ i18n.t("form.bookingNeeded") }}</option>
+            <option value="booked">{{ i18n.t("form.bookingBooked") }}</option>
+          </select>
+        </div>
+        <div v-if="isTodo">
+          <label :for="`${id}-due`">{{ i18n.t("form.due") }}</label>
+          <input :id="`${id}-due`" v-model="due" type="date" />
+        </div>
+        <div v-if="hasAssignee">
+          <label :for="`${id}-assignee`">{{ i18n.t("form.assignee") }}</label>
+          <select :id="`${id}-assignee`" v-model="assignee">
+            <option value="">{{ i18n.t("form.assigneeAnyone") }}</option>
+            <option v-for="m in people" :key="m.id" :value="m.id">{{ m.name }}</option>
+          </select>
+        </div>
+        <div v-if="bookingState === 'needed'">
+          <label :for="`${id}-booking-by`">{{ i18n.t("form.bookingBy") }}</label>
+          <input :id="`${id}-booking-by`" v-model="bookingBy" type="date" />
+        </div>
+        <template v-else-if="bookingState === 'booked'">
+          <div>
+            <label :for="`${id}-booking-code`">{{ i18n.t("form.bookingCode") }}</label>
+            <input
+              :id="`${id}-booking-code`"
+              v-model="bookingCode"
+              autocapitalize="characters"
+              maxlength="100"
+              spellcheck="false"
+            />
+          </div>
+          <div>
+            <label :for="`${id}-booking-url`">{{ i18n.t("form.bookingUrl") }}</label>
+            <input
+              :id="`${id}-booking-url`"
+              v-model="bookingUrl"
+              inputmode="url"
+              type="url"
+              :placeholder="i18n.t('form.bookingUrlPlaceholder')"
+            />
+          </div>
+        </template>
+        <div>
+          <label :for="`${id}-minutes`">{{ i18n.t("shiori.minutes") }}</label>
+          <select :id="`${id}-minutes`" :value="form.minutes ?? ''" @change="setMinutes">
+            <option value="">{{ i18n.t("form.minutesUnset") }}</option>
+            <option v-for="m in durationChoices(form.minutes)" :key="m" :value="m">{{
+              long(m)
+            }}</option>
+          </select>
+        </div>
       </div>
     </div>
     <footer>
@@ -910,6 +918,40 @@ form {
     flex-direction: column;
     gap: 16px;
 
+    /* a phone: one column of fields, the photo last */
+    > .what,
+    > .details {
+      display: contents;
+    }
+
+    .photo {
+      order: 1;
+    }
+
+    /*
+     * A computer: two columns as wide as 1100px, what the note is (its words, tags, page and
+     * photo) on the start, the details of the plan on the end, each a column of its own fields
+     */
+    @media (--desktop) {
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      align-content: start;
+      align-items: start;
+      gap: 24px 48px;
+      padding-inline: max(32px, (100% - 1100px) / 2);
+
+      > .title {
+        grid-column: 1 / -1;
+      }
+
+      > .what,
+      > .details {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+    }
+
     > .title {
       margin: 0;
       font-size: var(--font-4xl);
@@ -918,7 +960,7 @@ form {
     }
 
     /* a field's name, above it */
-    > div > label {
+    > :is(.what, .details) > div > label {
       font-size: var(--font-sm);
       font-weight: 700;
       color: var(--muted);
@@ -927,7 +969,7 @@ form {
       padding: 0;
     }
 
-    > div {
+    > :is(.what, .details) > div {
       > textarea {
         width: 100%;
         font: inherit;
@@ -939,6 +981,11 @@ form {
         color: var(--ink);
         resize: none;
         min-height: 120px;
+
+        /* room to write, which a phone could not give */
+        @media (--desktop) {
+          min-height: 240px;
+        }
       }
 
       > .tagbox {
@@ -1257,6 +1304,30 @@ form {
         height: 20px;
         margin: 0;
         accent-color: var(--ink);
+      }
+    }
+
+    /* a computer: one row along the columns' width, the hint at the start, the button at the end */
+    @media (--desktop) {
+      flex-direction: row;
+      align-items: center;
+      gap: 20px;
+      padding-inline: max(32px, (100% - 1100px) / 2);
+
+      > p {
+        order: -1;
+        margin-inline-end: auto;
+        text-align: start;
+      }
+
+      > .again {
+        align-self: center;
+      }
+
+      > button {
+        order: 1;
+        min-width: 240px;
+        padding: 0 32px;
       }
     }
   }
