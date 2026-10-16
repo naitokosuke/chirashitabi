@@ -35,7 +35,6 @@ function memo(id: string, extra: Partial<Memo> = {}): Memo {
     booking: null,
     due: null,
     assignee: null,
-    paid: null,
     ...extra,
   };
 }

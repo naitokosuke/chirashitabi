@@ -38,6 +38,7 @@ export const useNotes = defineQuery(() => {
       rot: Math.random() * 4 - 2,
       scale: 1,
       schedule: null,
+      budget: null,
       checked: false,
       ...input,
     };

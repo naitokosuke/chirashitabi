@@ -60,7 +60,6 @@ import {
   type Booking,
   type NoteColor,
   type NoteInput,
-  type Paid,
   type Tag,
   TODO_TAG,
 } from "./types";
@@ -133,7 +132,7 @@ function clearBooking() {
   bookingUrl.value = "";
 }
 // ---- a to-do: the day it is to be done by, and who is to do it (or to book it) ----
-const { members, me } = useMembers();
+const { members } = useMembers();
 const people = computed(() => (members.value ?? []).filter((m) => m.kind === "person"));
 const isTodo = computed(() => form.value.tags.includes(TODO_TAG));
 /** Someone is to do it: a to-do, or a plan still to book */
@@ -143,21 +142,6 @@ const assignee = ref<string>(form.value.assignee ?? "");
 /** Whom the field names, while they are in the room */
 const assigneeOf = (): MemberId | null =>
   people.value.find((m) => m.id === assignee.value)?.id ?? null;
-// ---- money: what it is likely to cost, and what was actually paid and by whom ----
-const budget = ref(form.value.budget?.toString() ?? "");
-const paidAmount = ref(form.value.paid?.amount.toString() ?? "");
-const paidBy = ref<string>(form.value.paid?.by ?? me.value?.id ?? "");
-/** An amount as written ("1,500" too); blank, or what is no amount the room keeps, is none */
-function amountOf(written: string): number | null {
-  const n = Number(written.replaceAll(",", "").trim());
-  return written.trim() === "" || !Number.isFinite(n) || n <= 0 || n > 1e9 ? null : n;
-}
-/** What was paid, by whom the field names, else by this device's person */
-function paidOf(): Paid | null {
-  const amount = amountOf(paidAmount.value);
-  const by = people.value.find((m) => m.id === paidBy.value)?.id ?? me.value?.id;
-  return amount === null || by === undefined ? null : { amount, by };
-}
 /** Written, but past what the booklet can read: it is kept as it is and checks nothing */
 const hoursUnread = computed(() => hours.value.trim() !== "" && readHours(hours.value) === null);
 /** A short link is on its way to the Worker to be read */
@@ -546,8 +530,6 @@ function submit() {
     // a day and someone only while it is a to-do (or, for someone, still to book)
     due: isTodo.value && due.value !== "" ? Temporal.PlainDate.from(due.value) : null,
     assignee: hasAssignee.value ? assigneeOf() : null,
-    budget: amountOf(budget.value),
-    paid: paidOf(),
   };
   if (target.value.kind === "edit") {
     store.update(target.value.id, input);
@@ -563,9 +545,6 @@ function submit() {
     clearBooking();
     due.value = "";
     assignee.value = "";
-    budget.value = "";
-    paidAmount.value = "";
-    paidBy.value = me.value?.id ?? "";
     text.value = "";
     forgetTags();
     focusText();
@@ -752,20 +731,6 @@ function submit() {
           <option v-for="m in durationChoices(form.minutes)" :key="m" :value="m">{{
             long(m)
           }}</option>
-        </select>
-      </div>
-      <div>
-        <label :for="`${id}-budget`">{{ i18n.t("form.budget") }}</label>
-        <input :id="`${id}-budget`" v-model="budget" inputmode="decimal" />
-      </div>
-      <div>
-        <label :for="`${id}-paid`">{{ i18n.t("form.paid") }}</label>
-        <input :id="`${id}-paid`" v-model="paidAmount" inputmode="decimal" />
-      </div>
-      <div v-if="paidAmount.trim() !== ''">
-        <label :for="`${id}-paid-by`">{{ i18n.t("form.paidBy") }}</label>
-        <select :id="`${id}-paid-by`" v-model="paidBy">
-          <option v-for="m in people" :key="m.id" :value="m.id">{{ m.name }}</option>
         </select>
       </div>
       <div v-if="worker.api !== null">

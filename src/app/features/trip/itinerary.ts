@@ -1,6 +1,5 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import type { MemberId } from "../members/types";
 import {
   PACKING_TAG,
   TODO_TAG,
@@ -59,29 +58,6 @@ export const budgetOf = (notes: Note[], date?: Temporal.PlainDate, onlyFixed = t
     .filter(isMemo)
     .filter((n) => (date === undefined || onDay(n, date)) && (!onlyFixed || isFixed(n)))
     .reduce((s, n) => s + (n.budget ?? 0), 0);
-
-/** What has actually been paid, over the whole trip */
-export const spentOf = (notes: Note[]) =>
-  notes.filter(isMemo).reduce((s, n) => s + (n.paid?.amount ?? 0), 0);
-
-/** Who owes whom how much once the two have split what they paid evenly */
-export interface Settlement {
-  from: MemberId;
-  to: MemberId;
-  amount: number;
-}
-/**
- * How the two settle up, splitting evenly what either paid; null while they are even. What
- * someone no longer among them paid is left out
- */
-export function settle(notes: Note[], [a, b]: readonly [MemberId, MemberId]): Settlement | null {
-  const paidBy = (who: MemberId) =>
-    notes.filter(isMemo).reduce((s, n) => s + (n.paid?.by === who ? n.paid.amount : 0), 0);
-  const half = (paidBy(a) - paidBy(b)) / 2;
-  // what is left of adding up fractions is no debt
-  if (Math.abs(half) < 0.005) return null;
-  return half > 0 ? { from: b, to: a, amount: half } : { from: a, to: b, amount: -half };
-}
 
 export const fixedCount = (notes: Note[]) => notes.filter(isMemo).filter(isFixed).length;
 

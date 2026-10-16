@@ -57,7 +57,6 @@ const memo = (id: string, extra: Record<string, unknown>) =>
     booking: null,
     due: null,
     assignee: null,
-    paid: null,
     ...extra,
   }) as unknown as WireNote;
 

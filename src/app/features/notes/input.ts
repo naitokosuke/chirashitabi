@@ -24,8 +24,6 @@ export const inputFromNote = (note: Memo): NoteInput => ({
   booking: note.booking,
   due: note.due,
   assignee: note.assignee,
-  budget: note.budget,
-  paid: note.paid,
 });
 
 /** A new memo: carries the tags being filtered on, and a pin when written from the map */
@@ -42,8 +40,6 @@ export const blankInput = (tags: Iterable<Tag>, pin: LatLng | null): NoteInput =
   booking: null,
   due: null,
   assignee: null,
-  budget: null,
-  paid: null,
 });
 
 /** A copy keeps the words and the look, not the place */
@@ -64,9 +60,6 @@ export const duplicateInput = (n: Note): NoteInput => ({
   // a copied to-do is another one, to be given its own day and someone
   due: null,
   assignee: null,
-  // what it is likely to cost goes with the plan; what was paid is the one plan's
-  budget: n.kind === "memo" ? n.budget : null,
-  paid: null,
 });
 
 /** What a suggestion becomes once adopted: a plain white memo, nothing planned yet */
@@ -87,7 +80,6 @@ export const adopted = (s: Suggestion): Memo => ({
   booking: null,
   due: null,
   assignee: null,
-  paid: null,
 });
 
 /** Tags shown on a card; suggestions have none */
