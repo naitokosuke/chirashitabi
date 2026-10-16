@@ -1,5 +1,5 @@
 // Ids, colors, money and the rest of the contract's vocabulary, as the Worker takes them
-export type { Brand, brand } from "../src/contract/brand";
+export type { Brand } from "../src/contract/brand";
 export type { HexColor } from "../src/contract/color";
 export {
   isImageId,

@@ -12,9 +12,6 @@ import { expand, placeName } from "./expand";
 import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
 import { Room } from "./room";
 import { RoomsIndex } from "./rooms-index";
-// the API's type carries brands (who is asking is an `Email`): its declaration names their key
-// oxlint-disable-next-line no-unused-vars -- in scope for the declaration, not the code
-import type { brand } from "./types";
 import {
   type HexColor,
   isMemberId,
