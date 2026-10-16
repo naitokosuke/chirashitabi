@@ -96,20 +96,19 @@ const day = computed(() => {
             sync.room === null || note.image === null ? undefined : imageSrc(sync.room, note.image)
           "
         />
-        <a
+      </figure>
+      <!-- the mount's margin, written as a print's is: the site it came from (which opens the page), who brought it in, its day -->
+      <small><a
           :href="safeUrl(note.link)"
           rel="noopener noreferrer"
           target="_blank"
           :aria-label="i18n.t('note.link')"
           @pointerdown.stop
           @click.stop
-        ><Icon :size="12" :src="externalIcon" />{{ siteOf(note.link) }}</a>
-      </figure>
-      <!-- the mount's margin: who brought it in, and its day when it has one -->
-      <small><span aria-hidden="true"></span>{{ author?.name ?? i18n.t("member.someone") }}<time
+        ><Icon :size="11" :src="externalIcon" />{{ siteOf(note.link) }}</a><time
           v-if="note.schedule !== null"
           :datetime="note.schedule.date.toString()"
-        >{{ day }}</time></small>
+        >{{ day }}</time><span aria-hidden="true" :title="author?.name"></span></small>
     </template>
     <!-- a sticky: a strip of adhesive across the top (its author's dot in it), the words under -->
     <template v-else>
@@ -379,58 +378,51 @@ div {
         pointer-events: none;
       }
 
-      > a {
-        position: absolute;
-        inset-inline-start: 6px;
-        inset-block-end: 6px;
-        max-width: calc(100% - 12px);
-        margin: 0;
-        display: inline-flex;
-        align-items: center;
-        gap: 3px;
-        padding: 3px 8px 3px 6px;
-        border-radius: 999px;
-        background: color-mix(in oklch, var(--paper-ink) 72%, transparent);
-        color: var(--paper-white);
-        font-size: var(--font-2xs);
-        font-weight: 700;
-        line-height: 1.2;
-        text-decoration: none;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-      }
     }
 
+    /* the margin: the site in the paper's ink at the start, the day and the author's dot at the end */
     > small {
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       min-height: 18px;
       margin: 6px 1px 0;
       font-size: var(--font-2xs);
       font-weight: 700;
       color: var(--paper-muted);
       white-space: nowrap;
-      overflow: hidden;
 
-      > span {
-        flex-shrink: 0;
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: var(--who);
+      > a {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        background: none;
+        color: var(--paper-ink);
+        text-decoration: none;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       > time {
         margin-inline-start: auto;
-        padding: 0 6px;
-        border-radius: 999px;
         font-variant-numeric: tabular-nums;
-        color: var(--paper-ink);
-        background: color-mix(in oklch, var(--paper-ink) 10%, transparent);
+        color: var(--paper-muted);
+      }
+
+      > span {
+        flex-shrink: 0;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--who);
+
+        /* with no day, the dot alone keeps the end */
+        &:first-of-type:not(time + span) {
+          margin-inline-start: auto;
+        }
       }
     }
   }
@@ -603,11 +595,16 @@ div {
       margin-block-start: 10px;
 
       > button {
-        min-height: var(--tap);
-        padding: 0 12px;
+        flex: 1;
+        min-width: 0;
+        min-height: 30px;
+        padding: 0 8px;
         border-radius: 999px;
         font-size: var(--font-xs);
         font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
 
         /* adopt */
         &:first-child {

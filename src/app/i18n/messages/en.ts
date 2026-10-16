@@ -229,7 +229,7 @@ one {{Claude left {$count} idea here}}
   "canvas.ideasFromHere": "Ideas from this",
 
   "note.suggestion": "suggestion",
-  "note.adopt": "Make it a note",
+  "note.adopt": "Keep it",
 
   "form.titleNew": "New note",
   "form.titleEdit": "Edit note",
