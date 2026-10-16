@@ -279,7 +279,10 @@ function onMove(e: PointerEvent) {
  * intermediate states do not belong in the room's data (docs/data-fetching.md). Letting go
  * writes it once.
  */
-const held = shallowRef<{ id: NoteId; x: number; y: number; shape?: Shape } | null>(null);
+const held = shallowRef<
+  | ({ id: NoteId; x: number; y: number } & ({ kind: "move" } | { kind: "shape"; shape: Shape }))
+  | null
+>(null);
 /** The partner sees a held card change at ~12/s; here it follows every frame */
 function throttled(g: { lastSend: number }, send: () => void) {
   const now = performance.now();
@@ -291,13 +294,13 @@ function throttled(g: { lastSend: number }, send: () => void) {
 function dragTo(g: Drag, p: Pt) {
   const { note, ox, oy } = g.grab;
   const w = toWorld(p.x, p.y);
-  const h = { id: note.id, x: w.x - ox, y: w.y - oy };
+  const h = { kind: "move" as const, id: note.id, x: w.x - ox, y: w.y - oy };
   held.value = h;
   throttled(g, () => store.sendMove(h.id, h.x, h.y));
 }
 function shapeTo(g: Extract<Gesture, { kind: "resize" | "rotate" }>, shape: Shape) {
   const { note } = g.at;
-  held.value = { id: note.id, x: note.x, y: note.y, shape };
+  held.value = { kind: "shape", id: note.id, x: note.x, y: note.y, shape };
   throttled(g, () => store.sendMove(note.id, note.x, note.y, shape));
 }
 
@@ -313,7 +316,7 @@ function onUp(e: PointerEvent) {
   // let go: the one write of where it landed, how it is turned and how large
   const h = held.value;
   if ((g.kind === "drag" || g.kind === "resize" || g.kind === "rotate") && h !== null)
-    store.move(h.id, h.x, h.y, h.shape);
+    store.move(h.id, h.x, h.y, h.kind === "shape" ? h.shape : undefined);
   held.value = null;
   setGesture(IDLE);
 }
@@ -522,7 +525,8 @@ const shownNotes = computed(() =>
     .filter((n) => !pendingDelete.value.has(n.id) && n.id !== writing.value?.id)
     .map((n) => {
       const h = held.value;
-      return h?.id === n.id ? { ...n, x: h.x, y: h.y, ...h.shape } : n;
+      if (h?.id !== n.id) return n;
+      return { ...n, x: h.x, y: h.y, ...(h.kind === "shape" ? h.shape : {}) };
     }),
 );
 function remove(note: Note) {
@@ -553,17 +557,19 @@ const { mutateAsync: suggestAt, isLoading: thinking } = useWorkerCalls().suggest
  * card's toolbar), or none for the whole trip. The words being written are kept apart, so a
  * failed ask keeps them for the next try.
  */
-const asking = ref<{ about: Note | null } | null>(null);
+const asking = shallowRef<{ kind: "closed" } | { kind: "trip" } | { kind: "note"; about: Note }>({
+  kind: "closed",
+});
 const askWords = ref("");
 const askInput = useTemplateRef<HTMLInputElement>("askInput");
 const askId = useId();
 function openAsk(about: Note | null) {
-  asking.value = { about };
+  asking.value = about === null ? { kind: "trip" } : { kind: "note", about };
   void nextTick(() => askInput.value?.focus());
 }
 function toggleAsk() {
-  if (asking.value === null) openAsk(null);
-  else asking.value = null;
+  if (asking.value.kind === "closed") openAsk(null);
+  else asking.value = { kind: "closed" };
 }
 function askFromMenu() {
   const n = menuNote.value;
@@ -573,7 +579,7 @@ function askFromMenu() {
 function onAskKey(e: KeyboardEvent) {
   if (e.key !== "Escape") return;
   e.stopPropagation();
-  asking.value = null;
+  asking.value = { kind: "closed" };
 }
 function onAskSubmit(e: Event) {
   e.preventDefault();
@@ -586,20 +592,20 @@ function onAskSubmit(e: Event) {
  */
 async function askForIdeas() {
   const a = asking.value;
-  if (thinking.value || a === null) return;
+  if (thinking.value || a.kind === "closed") return;
   // the desk is always there while it asks; were it not, its corner
   const r = vp.value?.getBoundingClientRect() ?? { width: 0, height: 0 };
   // the column's middle: a card's width (164px) and a gap past the note's right edge
   const at =
-    a.about === null
+    a.kind === "trip"
       ? toWorld(r.width / 2, r.height / 2)
       : { x: a.about.x + 164 * a.about.scale + 24 + 94, y: a.about.y + 40 };
-  asking.value = null;
+  asking.value = { kind: "closed" };
   try {
     const answer = await suggestAt({
       at: { x: at.x, y: at.y },
       ask: askWords.value,
-      about: a.about?.id ?? null,
+      about: a.kind === "note" ? a.about.id : null,
     });
     if (!answer.ok) {
       const limit =
@@ -748,7 +754,7 @@ watch(
           type="button"
           :disabled="thinking"
           :aria-busy="thinking"
-          :aria-expanded="asking !== null"
+          :aria-expanded="asking.kind !== 'closed'"
           :aria-controls="askId"
           @click="toggleAsk"
         >{{ i18n.t(thinking ? "canvas.thinking" : "canvas.askIdeas") }}</button>
@@ -760,13 +766,13 @@ watch(
       -->
       <Transition name="ask">
         <form
-          v-if="asking !== null"
+          v-if="asking.kind !== 'closed'"
           :id="askId"
           class="ask"
           :aria-label="i18n.t('canvas.askIdeas')"
           @submit="onAskSubmit"
         >
-          <p v-if="asking.about !== null">{{
+          <p v-if="asking.kind === 'note'">{{
             i18n.t("canvas.askFrom", { title: asking.about.title })
           }}</p>
           <input

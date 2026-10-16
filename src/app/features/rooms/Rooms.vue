@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 
 import { CtHoldButton, CtSwipeRow } from "../../../ui/index";
 
@@ -65,7 +65,7 @@ const removeFailed = ref(false);
 async function takeOff(r: RoomSummary) {
   removeFailed.value = false;
   try {
-    await remove({ room: r.id, owner: r.owner });
+    await remove({ room: r.id, action: r.owner ? "delete" : "leave" });
     slid.value = null;
     // the device's own memory of it too, so the root does not reopen it
     if (room.remembered() === r.id) room.leave();
@@ -75,40 +75,36 @@ async function takeOff(r: RoomSummary) {
   }
 }
 
-/** A deleted trip back on the shelf; the one being restored, while it is */
+/**
+ * The deleted shelf, one thing at a time: a trip being brought back or gone for good, or which
+ * of the two did not go through last
+ */
+type Shelf =
+  | { kind: "idle" }
+  | { kind: "restoring" | "purging"; id: RoomId }
+  | { kind: "failed"; what: "restore" | "purge" };
+const shelf = shallowRef<Shelf>({ kind: "idle" });
+const busyWithDeleted = computed(
+  () => shelf.value.kind === "restoring" || shelf.value.kind === "purging",
+);
+const shelfFailed = (what: "restore" | "purge") =>
+  shelf.value.kind === "failed" && shelf.value.what === what;
+async function onShelf(kind: "restoring" | "purging", id: RoomId, run: () => Promise<unknown>) {
+  if (busyWithDeleted.value) return;
+  shelf.value = { kind, id };
+  try {
+    await run();
+    shelf.value = { kind: "idle" };
+  } catch {
+    shelf.value = { kind: "failed", what: kind === "restoring" ? "restore" : "purge" };
+  }
+}
+/** A deleted trip back on the shelf */
 const restore = trips.restore;
-const restoring = ref<RoomId | null>(null);
-const restoreFailed = ref(false);
-async function bringBack(id: RoomId) {
-  if (restoring.value !== null) return;
-  restoring.value = id;
-  restoreFailed.value = false;
-  try {
-    await restore.mutateAsync(id);
-  } catch {
-    restoreFailed.value = true;
-  } finally {
-    restoring.value = null;
-  }
-}
-/** A deleted trip gone for good now, by its owner; the one going, while it is */
+const bringBack = (id: RoomId) => onShelf("restoring", id, () => restore.mutateAsync(id));
+/** A deleted trip gone for good now, by its owner */
 const purge = trips.purge;
-const purging = ref<RoomId | null>(null);
-const purgeFailed = ref(false);
-async function purgeForGood(id: RoomId) {
-  if (purging.value !== null) return;
-  purging.value = id;
-  purgeFailed.value = false;
-  try {
-    await purge.mutateAsync(id);
-  } catch {
-    purgeFailed.value = true;
-  } finally {
-    purging.value = null;
-  }
-}
-/** One thing at a time on the deleted shelf */
-const busyWithDeleted = computed(() => restoring.value !== null || purging.value !== null);
+const purgeForGood = (id: RoomId) => onShelf("purging", id, () => purge.mutateAsync(id));
 const untilLabel = (until: Temporal.PlainDate) =>
   i18n.t("rooms.restoreUntil", { date: shortDate(until, i18n.locale) });
 
@@ -241,10 +237,12 @@ function retry() {
           <!-- trips their owner deleted, kept a while in case it was a slip; either person brings one back -->
           <section v-if="mine !== undefined && mine.deleted.length > 0">
             <h2>{{ i18n.t("rooms.deleted") }}</h2>
-            <p v-if="restoreFailed" class="notice" role="alert">{{
+            <p v-if="shelfFailed('restore')" class="notice" role="alert">{{
               i18n.t("rooms.restoreFailed")
             }}</p>
-            <p v-if="purgeFailed" class="notice" role="alert">{{ i18n.t("rooms.purgeFailed") }}</p>
+            <p v-if="shelfFailed('purge')" class="notice" role="alert">{{
+              i18n.t("rooms.purgeFailed")
+            }}</p>
             <ul class="gone">
               <li v-for="d in mine?.deleted" :key="d.id">
                 <span>

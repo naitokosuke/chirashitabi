@@ -19,6 +19,7 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  shallowRef,
   useId,
   useTemplateRef,
   watch,
@@ -297,37 +298,37 @@ watch(ranked, () => {
 onBeforeUnmount(() => clearTimeout(resort));
 
 // ---- where the memo is: the agent names the place, OpenStreetMap finds it; one is chosen ----
-type PlaceState = "idle" | "asking" | "none" | "failed" | "day" | "trip";
-const placeState = ref<PlaceState>("idle");
+/** The places found to choose from, or what the ask is doing or why it found none */
+type Places =
+  | { kind: "idle"; found: FoundPlace[] }
+  | { kind: "asking" | "none" | "failed" | "day" | "trip" };
+const places = shallowRef<Places>({ kind: "idle", found: [] });
 const PLACE_STATE = {
   asking: "form.placesAsking",
   none: "form.placesNone",
   failed: "form.placesFailed",
   day: "form.tagsLimit",
   trip: "form.tagsTripLimit",
-} as const satisfies Record<Exclude<PlaceState, "idle">, string>;
-const found = ref<FoundPlace[]>([]);
+} as const satisfies Record<Exclude<Places["kind"], "idle">, string>;
+/** What there is to choose from: only once an ask found some */
+const found = computed(() => (places.value.kind === "idle" ? places.value.found : []));
 async function findPlaces() {
   const api = worker.api;
-  if (api === null || placeState.value === "asking") return;
+  if (api === null || places.value.kind === "asking") return;
   const { title, body, tags: inline } = parseNoteText(text.value);
-  placeState.value = "asking";
-  found.value = [];
+  places.value = { kind: "asking" };
   try {
-    const places = await api.findPlaces({
+    const answer = await api.findPlaces({
       title,
       body,
       tags: [...form.value.tags, ...inline],
       lang: i18n.locale === "en" ? "en" : "ja",
     });
-    if (!places.ok) {
-      placeState.value = places.refused.ceiling;
-      return;
-    }
-    found.value = places.value;
-    placeState.value = found.value.length === 0 ? "none" : "idle";
+    if (!answer.ok) places.value = { kind: answer.refused.ceiling };
+    else if (answer.value.length === 0) places.value = { kind: "none" };
+    else places.value = { kind: "idle", found: answer.value };
   } catch {
-    placeState.value = "failed";
+    places.value = { kind: "failed" };
   }
 }
 /**
@@ -342,7 +343,7 @@ function choosePlace(p: FoundPlace) {
     const line = `${i18n.t("form.hours")} ${p.hours}`;
     if (!text.value.includes(line)) text.value = `${text.value.trimEnd()}\n${line}`;
   }
-  found.value = [];
+  places.value = { kind: "idle", found: [] };
 }
 
 /**
@@ -575,8 +576,8 @@ function submit() {
         <div v-if="worker.api !== null" class="places">
           <button
             type="button"
-            :disabled="placeState === 'asking' || !text.trim()"
-            :aria-busy="placeState === 'asking'"
+            :disabled="places.kind === 'asking' || !text.trim()"
+            :aria-busy="places.kind === 'asking'"
             @click="findPlaces"
           >{{ i18n.t("form.findPlace") }}</button>
           <ul v-if="found.length > 0">
@@ -590,8 +591,8 @@ function submit() {
           <p v-if="found.length > 0 || namedByOsm" class="credit">{{
             i18n.t("form.placesCredit")
           }}</p>
-          <p v-if="placeState !== 'idle'" aria-live="polite">{{
-            i18n.t(PLACE_STATE[placeState])
+          <p v-if="places.kind !== 'idle'" aria-live="polite">{{
+            i18n.t(PLACE_STATE[places.kind])
           }}</p>
         </div>
       </div>
