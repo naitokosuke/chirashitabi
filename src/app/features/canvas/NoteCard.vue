@@ -81,20 +81,10 @@ const HOLD_MS = 600;
       <template #default>
         <p class="title" data-lines="5" :data-open="selected || undefined">{{ note.title }}</p>
       </template>
-      <!-- held, not tapped: a thumb down to pass on it, a thumb up to keep it as a memo; the slip
-           goes the moment one is full, so what it says when done is what it does -->
+      <!-- held, not tapped: first a thumb up to keep it as a memo (the primary), then a thumb down
+           to pass on it; the slip goes the moment one is full, so what it says when done is what
+           it does -->
       <template #foot>
-        <CtHoldButton
-          class="dismiss"
-          :done="i18n.t('common.dismiss')"
-          :hold-time="HOLD_MS"
-          :label="i18n.t('common.dismiss')"
-          :title="i18n.t('common.dismiss')"
-          @hold="() => $emit('remove')"
-        >
-          <template #icon><Icon :size="18" :src="thumbsDownIcon" /></template>
-          <template #hint>{{ i18n.t("rooms.hold") }}</template>
-        </CtHoldButton>
         <CtHoldButton
           class="keep"
           :done="i18n.t('note.adopt')"
@@ -104,6 +94,17 @@ const HOLD_MS = 600;
           @hold="() => $emit('adopt')"
         >
           <template #icon><Icon :size="18" :src="thumbsUpIcon" /></template>
+          <template #hint>{{ i18n.t("rooms.hold") }}</template>
+        </CtHoldButton>
+        <CtHoldButton
+          class="dismiss"
+          :done="i18n.t('common.dismiss')"
+          :hold-time="HOLD_MS"
+          :label="i18n.t('common.dismiss')"
+          :title="i18n.t('common.dismiss')"
+          @hold="() => $emit('remove')"
+        >
+          <template #icon><Icon :size="18" :src="thumbsDownIcon" /></template>
           <template #hint>{{ i18n.t("rooms.hold") }}</template>
         </CtHoldButton>
       </template>
@@ -367,15 +368,15 @@ const HOLD_MS = 600;
 
 /*
  * A slip's two answers, as simple as a swipe: two halves of its foot, side by side across the
- * width inside its padding, each held (CtHoldButton) until it fills from its start edge: a thumb
- * down to pass on it, filling in Paper Muted, and a thumb up to keep it, filling in Paper Ink.
- * Both rest as white paper on a hairline, the thumb up in ink. Each is already a thumb's width,
- * so its target is what is drawn and reaches no further, never into the paper's padding.
+ * width inside its padding, each held (CtHoldButton) until it fills from its start edge. First
+ * the primary, a thumb up to keep it: Paper Ink, filling a step lighter. Then the secondary, a
+ * thumb down to pass on it: white paper on a hairline, filling in Paper Muted. Each is already a
+ * thumb's width, so its target is what is drawn and reaches no further, never into the padding.
  */
 .keep,
 .dismiss {
   --room: 0px;
-  /* full, the thumb shows white on the fill, on paper in either theme */
+  /* where the fill has passed, the thumb is white, on paper in either theme */
   --on-ink: var(--paper-white);
   flex: 1;
   display: grid;
@@ -383,18 +384,19 @@ const HOLD_MS = 600;
   height: 36px;
   min-height: 0;
   padding: 0;
-  background: var(--paper-white);
-  box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--paper-ink) 35%, transparent);
 }
 
 .keep {
-  --tone: var(--paper-ink);
-  color: var(--paper-ink);
+  --tone: color-mix(in oklab, var(--paper-ink), var(--paper-white) 30%);
+  background: var(--paper-ink);
+  color: var(--paper-white);
 }
 
 .dismiss {
   --tone: var(--paper-muted);
+  background: var(--paper-white);
   color: var(--paper-muted);
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--paper-ink) 35%, transparent);
 }
 
 /*

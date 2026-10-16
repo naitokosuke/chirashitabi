@@ -10,6 +10,12 @@ body {
   overflow: hidden;
   background: var(--bg);
   color: var(--ink);
+  /*
+   * No grey box from iOS where a finger lifts. It is drawn round whatever WebKit takes for the
+   * clickable thing, and with Vapor's listeners on the document that can be a card or the desk
+   * rather than the button pressed. Every control here shows its own pressed state instead.
+   */
+  -webkit-tap-highlight-color: transparent;
 }
 body {
   /*
