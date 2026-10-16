@@ -1,9 +1,9 @@
 import { sValidator } from "@hono/standard-validator";
-import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { evlog, type EvlogVariables } from "evlog/hono";
 import { initWorkersLogger } from "evlog/workers";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
+import * as v from "valibot";
 
 import { AccessVerifier, Unauthenticated } from "./access";
 import { ASK_LENGTH, draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
@@ -13,29 +13,28 @@ import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
 import { Room } from "./room";
 import { RoomsIndex } from "./rooms-index";
 import {
-  type HexColor,
-  isMemberId,
+  EmailSchema,
   type Email,
-  type MemberId,
   isImageId,
-  isNoteId,
   type ImageId,
-  type NoteId,
+  ImageIdSchema,
+  isShortMapsLink,
+  LatLngSchema,
+  type MemberId,
+  MemberIdSchema,
+  NoteIdSchema,
+  parseMapsUrl,
   roomId as toRoomId,
   type RoomId,
-  isShortMapsLink,
-  parseMapsUrl,
-  parseEmail,
-  isRecord,
+  RoomIdSchema,
 } from "./types";
 import {
   IMAGE_TYPES,
-  isDate,
+  IsoDateSchema,
   MAX_IMAGE_BYTES,
-  parsePoint,
-  parseProfile,
-  parseTrip,
-  type WireTrip,
+  NewTripSchema,
+  PointSchema,
+  ProfileSchema,
 } from "./wire";
 
 export { Room, RoomsIndex };
@@ -58,6 +57,15 @@ const access = (env: Env) =>
 
 /** What the API's handlers have: the bindings, the request's log, and who Access says is asking */
 type ApiEnv = { Bindings: Env; Variables: EvlogVariables["Variables"] & { email: Email } };
+
+/** The language the asker reads, English or else Japanese */
+const lang = v.fallback(v.picklist(["ja", "en"]), "ja");
+/** Words as written, cut to `max` */
+const cut = (max: number) =>
+  v.pipe(
+    v.string(),
+    v.transform((s) => s.slice(0, max)),
+  );
 /** And, in a room, which one and who the asker is in it */
 type InRoom = {
   Bindings: Env;
@@ -216,67 +224,43 @@ const api = new Hono<ApiEnv>()
     return c.json({});
   })
   // who they will be in the room is theirs to say, checked before the seat is taken
-  .post(
-    "/invitations/:roomId/accept",
-    body<{ name: string; color: string }, { name: string; color: HexColor }>(parseProfile),
-    async (c) => {
-      const roomId = toRoomId(c.req.param("roomId"));
-      if (roomId === null) return c.text("Not Found", 404);
-      c.var.log.set({ room: roomId, action: "accept" });
-      const me = c.req.valid("json");
-      const index = c.env.ROOMS.getByName("index");
-      const seat = await index.take(c.var.email, roomId);
-      if (seat === null) return c.text("Not Found", 404);
-      const room = c.env.ROOM.getByName(roomId);
-      const accepted = await room.accept(seat, me);
-      if (!accepted.ok) {
-        c.var.log.set({ refused: accepted.reason });
-        return c.text("Conflict", 409);
-      }
-      const memberId = accepted.member;
-      const added = await index.add(c.var.email, roomId, memberId);
-      if (!added.ok) {
-        c.var.log.set({ refused: added.reason });
-        // at the cap of rooms: the seat is lost, as a declined one would be
-        await room.unaccept(memberId);
-        return c.text("Conflict", 409);
-      }
-      c.var.log.set({ member: memberId });
-      return c.json({ memberId });
-    },
-  )
+  .post("/invitations/:roomId/accept", body(ProfileSchema), async (c) => {
+    const roomId = toRoomId(c.req.param("roomId"));
+    if (roomId === null) return c.text("Not Found", 404);
+    c.var.log.set({ room: roomId, action: "accept" });
+    const me = c.req.valid("json");
+    const index = c.env.ROOMS.getByName("index");
+    const seat = await index.take(c.var.email, roomId);
+    if (seat === null) return c.text("Not Found", 404);
+    const room = c.env.ROOM.getByName(roomId);
+    const accepted = await room.accept(seat, me);
+    if (!accepted.ok) {
+      c.var.log.set({ refused: accepted.reason });
+      return c.text("Conflict", 409);
+    }
+    const memberId = accepted.member;
+    const added = await index.add(c.var.email, roomId, memberId);
+    if (!added.ok) {
+      c.var.log.set({ refused: added.reason });
+      // at the cap of rooms: the seat is lost, as a declined one would be
+      await room.unaccept(memberId);
+      return c.text("Conflict", 409);
+    }
+    c.var.log.set({ member: memberId });
+    return c.json({ memberId });
+  })
 
-  .post(
-    "/rooms",
-    body<
-      {
-        trip: {
-          name: string;
-          days: string[];
-          currency: string;
-          center: { lat: number; lng: number };
-        };
-        me: { name: string; color: string };
-      },
-      { trip: WireTrip; me: { name: string; color: HexColor } }
-    >((v) => {
-      const trip = parseTrip(isRecord(v) ? v.trip : null);
-      const me = parseProfile(isRecord(v) ? v.me : null);
-      return trip === null || me === null ? null : { trip, me };
-    }),
-    async (c) => {
-      const { trip, me } = c.req.valid("json");
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-      const roomId = crypto.randomUUID() as RoomId;
-      const memberId = await c.env.ROOM.getByName(roomId).create(trip, me);
-      const added = await c.env.ROOMS.getByName("index").add(c.var.email, roomId, memberId);
-      if (!added.ok) {
-        c.var.log.set({ refused: added.reason });
-        return c.text("Conflict", 409);
-      }
-      return c.json({ roomId, memberId });
-    },
-  )
+  .post("/rooms", body(v.object({ trip: NewTripSchema, me: ProfileSchema })), async (c) => {
+    const { trip, me } = c.req.valid("json");
+    const roomId = v.parse(RoomIdSchema, crypto.randomUUID());
+    const memberId = await c.env.ROOM.getByName(roomId).create(trip, me);
+    const added = await c.env.ROOMS.getByName("index").add(c.var.email, roomId, memberId);
+    if (!added.ok) {
+      c.var.log.set({ refused: added.reason });
+      return c.text("Conflict", 409);
+    }
+    return c.json({ roomId, memberId });
+  })
 
   // a deleted room resolves nobody, but the people who were in it may take the deletion
   // back, and its owner may have it gone for good at once (the room drops itself from the index)
@@ -309,62 +293,49 @@ const api = new Hono<ApiEnv>()
     );
   })
 
-  .post(
-    `${ROOM}/draft`,
-    member("draft"),
-    body<{ date: string }, string>((v) => (isRecord(v) && isDate(v.date) ? v.date : null)),
-    async (c) => {
-      const { email, log, roomId, memberId, room } = c.var;
-      const date = c.req.valid("json");
-      const day = await room.dayForDraft(memberId, date);
-      if (day === null) return c.text("Bad Request", 400);
-      log.set({ draft: { date, notes: day.notes.length } });
-      // reserve, call, settle (docs/auth-and-security.md): nothing is called past the budget
-      const index = c.env.ROOMS.getByName("index");
-      const reserved = await index.reserve(email, roomId);
-      if ("refused" in reserved) {
-        log.set({ budget: { refused: reserved.refused } });
-        return c.text(`Budget: ${reserved.refused}`, 429);
-      }
-      const result = await draftDay(c.env, { ...day, date });
-      if (!result.ok) {
-        if (result.refund) await index.refund(reserved.id);
-        log.set({
-          claude: { model: MODEL, ok: false, refunded: result.refund, reason: result.reason },
-        });
-        return c.text("Bad Gateway", 502);
-      }
-      await room.recordAgentCall(memberId, "draft", result.usage);
+  .post(`${ROOM}/draft`, member("draft"), body(v.object({ date: IsoDateSchema })), async (c) => {
+    const { email, log, roomId, memberId, room } = c.var;
+    const { date } = c.req.valid("json");
+    const day = await room.dayForDraft(memberId, date);
+    if (day === null) return c.text("Bad Request", 400);
+    log.set({ draft: { date, notes: day.notes.length } });
+    // reserve, call, settle (docs/auth-and-security.md): nothing is called past the budget
+    const index = c.env.ROOMS.getByName("index");
+    const reserved = await index.reserve(email, roomId);
+    if ("refused" in reserved) {
+      log.set({ budget: { refused: reserved.refused } });
+      return c.text(`Budget: ${reserved.refused}`, 429);
+    }
+    const result = await draftDay(c.env, { ...day, date });
+    if (!result.ok) {
+      if (result.refund) await index.refund(reserved.id);
       log.set({
-        claude: { model: MODEL, ok: true, tokens: result.usage, items: result.value.items.length },
+        claude: { model: MODEL, ok: false, refunded: result.refund, reason: result.reason },
       });
-      return c.json({ by: Room.AGENT_ID, ...result.value });
-    },
-  )
+      return c.text("Bad Gateway", 502);
+    }
+    await room.recordAgentCall(memberId, "draft", result.usage);
+    log.set({
+      claude: { model: MODEL, ok: true, tokens: result.usage, items: result.value.items.length },
+    });
+    return c.json({ by: Room.AGENT_ID, ...result.value });
+  })
 
   // the memo as it is being written: its words, the tags it has, and its picture
   .post(
     `${ROOM}/tags`,
     member("tags"),
-    body<
-      { title: string; body: string; chosen: string[]; image: string | null },
-      { title: string; text: string; chosen: string[]; imageId: ImageId | null }
-    >((v) => {
-      if (!isRecord(v) || typeof v.title !== "string") return null;
-      const imageId = v.image ?? null;
-      if (!(imageId === null || isImageId(imageId))) return null;
-      return {
-        title: v.title.slice(0, 200),
-        text: typeof v.body === "string" ? v.body.slice(0, 4000) : "",
-        chosen: Array.isArray(v.chosen)
-          ? v.chosen.filter((t): t is string => typeof t === "string")
-          : [],
-        imageId,
-      };
-    }),
+    body(
+      v.object({
+        title: cut(200),
+        body: v.fallback(cut(4000), ""),
+        chosen: v.optional(v.array(v.string()), []),
+        image: v.optional(v.nullable(ImageIdSchema), null),
+      }),
+    ),
     async (c) => {
       const { email, log, roomId, memberId, room } = c.var;
-      const { title, text, chosen, imageId } = c.req.valid("json");
+      const { title, body: text, chosen, image: imageId } = c.req.valid("json");
 
       const index = c.env.ROOMS.getByName("index");
       const context = await room.tagContext(memberId);
@@ -445,11 +416,7 @@ const api = new Hono<ApiEnv>()
   .post(
     `${ROOM}/expand`,
     member("expand"),
-    body<{ url: string; lang: "ja" | "en" }, { url: string; lang: "ja" | "en" }>((v) =>
-      isRecord(v) && typeof v.url === "string" && v.url.length <= 2000
-        ? { url: v.url, lang: v.lang === "en" ? "en" : "ja" }
-        : null,
-    ),
+    body(v.object({ url: v.pipe(v.string(), v.maxLength(2000)), lang })),
     async (c) => {
       const { email, log, roomId } = c.var;
       const { url, lang } = c.req.valid("json");
@@ -487,12 +454,7 @@ const api = new Hono<ApiEnv>()
   .post(
     `${ROOM}/find`,
     member("find"),
-    body<{ query: string; lang: "ja" | "en" }, { query: string; lang: "ja" | "en" }>((v) => {
-      const query = isRecord(v) && typeof v.query === "string" ? v.query.trim() : "";
-      return query === "" || query.length > 200 || !isRecord(v)
-        ? null
-        : { query, lang: v.lang === "en" ? "en" : "ja" };
-    }),
+    body(v.object({ query: v.pipe(v.string(), v.trim(), v.nonEmpty(), v.maxLength(200)), lang })),
     async (c) => {
       const { query, lang } = c.req.valid("json");
       const found = await geocode(c.env, query, lang);
@@ -506,18 +468,7 @@ const api = new Hono<ApiEnv>()
   .post(
     `${ROOM}/where`,
     member("where"),
-    body<
-      { lat: number; lng: number; lang: "ja" | "en" },
-      { lat: number; lng: number; lang: "ja" | "en" }
-    >((v) =>
-      isRecord(v) &&
-      typeof v.lat === "number" &&
-      typeof v.lng === "number" &&
-      Math.abs(v.lat) <= 90 &&
-      Math.abs(v.lng) <= 180
-        ? { lat: v.lat, lng: v.lng, lang: v.lang === "en" ? "en" : "ja" }
-        : null,
-    ),
+    body(v.object({ ...LatLngSchema.entries, lang })),
     async (c) => {
       const { lat, lng, lang } = c.req.valid("json");
       const found = await reverseGeocode(c.env, { lat, lng }, lang);
@@ -533,22 +484,24 @@ const api = new Hono<ApiEnv>()
   .post(
     `${ROOM}/places`,
     member("places"),
-    body<
-      { title: string; body: string; tags: string[]; lang: "ja" | "en" },
-      { title: string; text: string; tags: string[]; lang: "ja" | "en" }
-    >((v) => {
-      if (!isRecord(v)) return null;
-      const title = typeof v.title === "string" ? v.title.trim().slice(0, 200) : "";
-      const text = typeof v.body === "string" ? v.body.trim().slice(0, 4000) : "";
-      if (title === "" && text === "") return null;
-      const tags = Array.isArray(v.tags)
-        ? v.tags.filter((t): t is string => typeof t === "string").slice(0, 20)
-        : [];
-      return { title, text, tags, lang: v.lang === "en" ? "en" : "ja" };
-    }),
+    body(
+      v.pipe(
+        v.object({
+          title: v.fallback(v.pipe(v.string(), v.trim(), cut(200)), ""),
+          body: v.fallback(v.pipe(v.string(), v.trim(), cut(4000)), ""),
+          tags: v.pipe(
+            v.optional(v.array(v.string()), []),
+            v.transform((tags) => tags.slice(0, 20)),
+          ),
+          lang,
+        }),
+        // a memo with no words names no place
+        v.check(({ title, body }) => title !== "" || body !== ""),
+      ),
+    ),
     async (c) => {
       const { email, log, roomId, memberId, room } = c.var;
-      const { title, text, tags, lang } = c.req.valid("json");
+      const { title, body: text, tags, lang } = c.req.valid("json");
 
       const index = c.env.ROOMS.getByName("index");
       const context = await room.placeContext(memberId);
@@ -595,18 +548,22 @@ const api = new Hono<ApiEnv>()
   .post(
     `${ROOM}/suggest`,
     member("suggest"),
-    body<
-      { at: { x: number; y: number }; ask?: string; about?: string },
-      { at: { x: number; y: number }; ask: string | null; about: NoteId | null }
-    >((v) => {
-      if (!isRecord(v)) return null;
-      const at = parsePoint(v.at);
-      if (at === null) return null;
-      const ask = typeof v.ask === "string" ? v.ask.trim().slice(0, ASK_LENGTH) : "";
-      const about = v.about ?? null;
-      if (!(about === null || isNoteId(about))) return null;
-      return { at, ask: ask === "" ? null : ask, about };
-    }),
+    body(
+      v.object({
+        at: PointSchema,
+        // their words, if they wrote any
+        ask: v.fallback(
+          v.pipe(
+            v.string(),
+            v.trim(),
+            cut(ASK_LENGTH),
+            v.transform((ask) => (ask === "" ? null : ask)),
+          ),
+          null,
+        ),
+        about: v.optional(v.nullable(NoteIdSchema), null),
+      }),
+    ),
     async (c) => {
       const { email, log, roomId, memberId, room } = c.var;
       const { at, ask, about } = c.req.valid("json");
@@ -648,36 +605,31 @@ const api = new Hono<ApiEnv>()
     if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
     return c.json({ invited: await c.env.ROOMS.getByName("index").invited(roomId) });
   })
-  .post(
-    `${ROOM}/invite`,
-    member("invite"),
-    body<{ email: string }, Email>((v) => parseEmail(isRecord(v) ? v.email : null)),
-    async (c) => {
-      const { roomId, memberId, room } = c.var;
-      const invitee = c.req.valid("json");
-      if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
-      const held = await room.openSeat(memberId);
-      if (!held.ok) {
-        c.var.log.set({ refused: held.reason });
-        return c.text("Conflict", 409);
-      }
-      const { seat } = held;
-      const invited = await c.env.ROOMS.getByName("index").invite(invitee, roomId, seat);
-      if (!invited.ok) {
-        await room.closeSeat(seat);
-        c.var.log.set({ refused: invited.reason });
-        return c.text("Conflict", 409);
-      }
-      return c.json({ invited: invitee });
-    },
-  )
+  .post(`${ROOM}/invite`, member("invite"), body(v.object({ email: EmailSchema })), async (c) => {
+    const { roomId, memberId, room } = c.var;
+    const { email: invitee } = c.req.valid("json");
+    if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
+    const held = await room.openSeat(memberId);
+    if (!held.ok) {
+      c.var.log.set({ refused: held.reason });
+      return c.text("Conflict", 409);
+    }
+    const { seat } = held;
+    const invited = await c.env.ROOMS.getByName("index").invite(invitee, roomId, seat);
+    if (!invited.ok) {
+      await room.closeSeat(seat);
+      c.var.log.set({ refused: invited.reason });
+      return c.text("Conflict", 409);
+    }
+    return c.json({ invited: invitee });
+  })
   .post(
     `${ROOM}/uninvite`,
     member("uninvite"),
-    body<{ email: string }, Email>((v) => parseEmail(isRecord(v) ? v.email : null)),
+    body(v.object({ email: EmailSchema })),
     async (c) => {
       const { roomId, memberId, room } = c.var;
-      const invitee = c.req.valid("json");
+      const { email: invitee } = c.req.valid("json");
       if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
       const seat = await c.env.ROOMS.getByName("index").take(invitee, roomId);
       if (seat === null) return c.text("Not Found", 404);
@@ -688,12 +640,10 @@ const api = new Hono<ApiEnv>()
   .post(
     `${ROOM}/remove`,
     member("remove"),
-    body<{ member: string }, MemberId>((v) =>
-      isRecord(v) && isMemberId(v.member) ? v.member : null,
-    ),
+    body(v.object({ member: MemberIdSchema })),
     async (c) => {
       const { roomId, memberId, room } = c.var;
-      const removed = c.req.valid("json");
+      const { member: removed } = c.req.valid("json");
       const out = await room.remove(memberId, removed);
       if (!out.ok) {
         c.var.log.set({ refused: out.reason });
@@ -748,21 +698,10 @@ const booklet = () => new Response("Not Found", { status: 404 });
 const imageKey = (roomId: RoomId, id: ImageId) => `rooms/${roomId}/images/${id}`;
 
 /**
- * The JSON body as `parse` reads it, or 400. `In` is what the app sends, for its client (hc);
- * the handler has `Out`, what `parse` made of it. A Standard Schema keeps the two apart: the
- * app's branded types never have to match a copy of themselves in the Worker's declarations
+ * The JSON body as `schema` reads it, or 400. The app's client (hc) sends the schema's input;
+ * the handler has its output, the brands it checked
  */
-function body<In, Out>(parse: (v: unknown) => Out | null) {
-  const schema: StandardSchemaV1<In, Out> = {
-    "~standard": {
-      version: 1,
-      vendor: "chirashitabi",
-      validate: (v) => {
-        const value = parse(v);
-        return value === null ? { issues: [{ message: "Bad Request" }] } : { value };
-      },
-    },
-  };
+function body<S extends v.GenericSchema>(schema: S) {
   return sValidator("json", schema, (result, c) =>
     result.success ? undefined : c.text("Bad Request", 400),
   );

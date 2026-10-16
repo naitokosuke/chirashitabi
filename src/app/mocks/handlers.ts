@@ -17,6 +17,7 @@ import { CLAUDE, mockMembers, YUKI } from "./members";
 import { mockNotes } from "./notes";
 import { mockTrip } from "./trip";
 import {
+  isAirportCode,
   parseCid,
   parseMutation,
   parsePoint,
@@ -141,7 +142,7 @@ const roomSocket = socket.addEventListener("connection", ({ client, params }) =>
     const cid = parseCid(sent);
     const at = now();
     // checked, and a new note stamped with whose it is and when, as the Worker's room does
-    const mutation = parseMutation(sent, { by: YUKI, updatedAt: stamp(at) });
+    const mutation = parseMutation(sent, { by: YUKI, updatedAt: stamp(at) }, isAirportCode);
     if (mutation === null) {
       send(client, {
         type: "rejected",

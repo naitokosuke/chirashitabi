@@ -1,4 +1,6 @@
-import { httpUrl, parseMapsUrl, type HttpUrl } from "../../../contract/place";
+import * as v from "valibot";
+
+import { httpUrl, HttpUrlSchema, parseMapsUrl, type HttpUrl } from "../../../contract/place";
 
 import type { Pinned } from "./pin";
 import type { LatLng } from "./types";
@@ -7,16 +9,17 @@ import type { LatLng } from "./types";
 export { httpUrl, isShortMapsLink, parseMapsUrl, type HttpUrl } from "../../../contract/place";
 
 export const googleMapsLink = ({ lat, lng }: LatLng): HttpUrl =>
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here: an https link
-  `https://www.google.com/maps?q=${lat},${lng}` as HttpUrl;
+  v.parse(HttpUrlSchema, `https://www.google.com/maps?q=${lat},${lng}`);
 /**
  * A found place as a Google Maps link: a search for its name at its point, so Google opens
  * on the place itself, and the point reads back out of the link (parseMapsUrl) as the pin
  */
 export const placeSearchLink = (name: string, { lat, lng }: LatLng): HttpUrl =>
   // fixed decimals: a whole-degree point still reads back (parseMapsUrl wants a decimal point)
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here: an https link
-  `https://www.google.com/maps/search/${encodeURIComponent(name)}/@${lat.toFixed(6)},${lng.toFixed(6)},17z` as HttpUrl;
+  v.parse(
+    HttpUrlSchema,
+    `https://www.google.com/maps/search/${encodeURIComponent(name)}/@${lat.toFixed(6)},${lng.toFixed(6)},17z`,
+  );
 
 /**
  * A pasted link, or undefined unless it is http(s). Notes come from the other

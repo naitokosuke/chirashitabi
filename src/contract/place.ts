@@ -1,24 +1,32 @@
-import type { Brand } from "./brand";
+import * as v from "valibot";
 
 /**
  * A link as written that is http(s), at most 2000 characters: what a note or a stay may carry.
  * Notes come from the other person in the room, so a `javascript:` URL never reaches an href.
  */
-export type HttpUrl = Brand<string, "HttpUrl">;
+export const HttpUrlSchema = v.pipe(
+  v.string(),
+  v.maxLength(2000),
+  v.check((s) => URL.canParse(s) && ["https:", "http:"].includes(new URL(s).protocol)),
+  v.brand("HttpUrl"),
+);
+
+export type HttpUrl = v.InferOutput<typeof HttpUrlSchema>;
 
 /** The link as written, or null when it is not one a note may carry */
-export const httpUrl = (v: unknown): HttpUrl | null => {
-  if (typeof v !== "string" || v.length > 2000 || !URL.canParse(v)) return null;
-  const { protocol } = new URL(v);
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-  return protocol === "https:" || protocol === "http:" ? (v as HttpUrl) : null;
+export const httpUrl = (value: unknown): HttpUrl | null => {
+  const result = v.safeParse(HttpUrlSchema, value);
+  return result.success ? result.output : null;
 };
 
+/** A point on the map, as a member may send one: both halves, and nothing else */
+export const LatLngSchema = v.strictObject({
+  lat: v.pipe(v.number(), v.finite(), v.minValue(-90), v.maxValue(90)),
+  lng: v.pipe(v.number(), v.finite(), v.minValue(-180), v.maxValue(180)),
+});
+
 /** A point on the map. Always both halves: a latitude alone is not a place */
-export interface LatLng {
-  lat: number;
-  lng: number;
-}
+export type LatLng = v.InferOutput<typeof LatLngSchema>;
 
 /** Pull lat/lng out of a (long) Google Maps URL. Short maps.app.goo.gl links need the Worker to expand them first. */
 export function parseMapsUrl(url: string): LatLng | null {

@@ -11,3 +11,5 @@ export {
   type WireMutation,
   type WireNote,
 } from "../../contract/wire";
+// and the airports a flight must name, as the room holds them to the list
+export { isAirportCode } from "../../contract/airport-codes";

@@ -1,6 +1,8 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { NoteColor, NoteStatus, Tag } from "../../../contract/room";
+import * as v from "valibot";
+
+import { TagSchema, type NoteColor, type NoteStatus, type Tag } from "../../../contract/room";
 import type { MemberId } from "../members/types";
 import type { HttpUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
@@ -123,7 +125,5 @@ export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; i
 export type MemoPatch = Partial<Omit<Memo, "id" | "kind" | "by" | "updatedAt">>;
 
 /** Tags with a meaning of their own: packing notes never need a day or a pin */
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-export const PACKING_TAG = "Packing" as Tag;
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-export const ARRIVAL_TAG = "On arrival" as Tag;
+export const PACKING_TAG = v.parse(TagSchema, "Packing");
+export const ARRIVAL_TAG = v.parse(TagSchema, "On arrival");

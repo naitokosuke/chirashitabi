@@ -1,14 +1,14 @@
 import { defineQuery, useQueryState } from "@pinia/colada";
+import * as v from "valibot";
 
 import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
-import type { ImageId, NoteId } from "./id";
+import { NoteIdSchema, type ImageId, type NoteId } from "./id";
 import { duplicateInput } from "./input";
 import type { MemoPatch, NewMemo, NewSticker, NewText, NoteColor, NoteInput } from "./types";
 
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-const uid = () => Math.random().toString(36).slice(2, 10) as NoteId;
+const uid = () => v.parse(NoteIdSchema, Math.random().toString(36).slice(2, 10));
 
 /** How a card is turned (degrees) and how large it is drawn */
 export interface Shape {

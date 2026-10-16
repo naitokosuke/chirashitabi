@@ -5,7 +5,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 // Each id's type is what its schema puts out. A guard may say `value is` that output only
 // because its schema leaves the value as it is; the e-mail's trims it, so it is a parse
 
-const RoomIdSchema = v.pipe(v.string(), v.regex(UUID), v.brand("RoomId"));
+export const RoomIdSchema = v.pipe(v.string(), v.regex(UUID), v.brand("RoomId"));
 
 /** A room's id, as the Worker mints it: a UUID */
 export type RoomId = v.InferOutput<typeof RoomIdSchema>;
@@ -16,7 +16,7 @@ export const roomId = (value: unknown): RoomId | null => {
   return result.success ? result.output : null;
 };
 
-const MemberIdSchema = v.pipe(
+export const MemberIdSchema = v.pipe(
   v.string(),
   v.check((s) => UUID.test(s) || /^agent:[a-z]+$/.test(s)),
   v.brand("MemberId"),
@@ -28,7 +28,7 @@ export type MemberId = v.InferOutput<typeof MemberIdSchema>;
 export const isMemberId = (value: unknown): value is MemberId =>
   v.safeParse(MemberIdSchema, value).success;
 
-const EmailSchema = v.pipe(
+export const EmailSchema = v.pipe(
   v.string(),
   v.maxLength(254),
   v.trim(),
@@ -49,7 +49,7 @@ export const parseEmail = (value: unknown): Email | null => {
   return result.success ? result.output : null;
 };
 
-const NoteIdSchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{1,64}$/), v.brand("NoteId"));
+export const NoteIdSchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{1,64}$/), v.brand("NoteId"));
 
 export type NoteId = v.InferOutput<typeof NoteIdSchema>;
 
@@ -57,7 +57,7 @@ export type NoteId = v.InferOutput<typeof NoteIdSchema>;
 export const isNoteId = (value: unknown): value is NoteId =>
   v.safeParse(NoteIdSchema, value).success;
 
-const ImageIdSchema = v.pipe(v.string(), v.regex(UUID), v.brand("ImageId"));
+export const ImageIdSchema = v.pipe(v.string(), v.regex(UUID), v.brand("ImageId"));
 
 /** A picture kept by the room (its bytes in R2), as the room minted its id */
 export type ImageId = v.InferOutput<typeof ImageIdSchema>;

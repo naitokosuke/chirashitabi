@@ -3,233 +3,17 @@
  * as the ISO strings `JSON.stringify` makes of them; the app revives them. Ids and codes
  * travel as the brands they are checked into here, so the app takes them as they come.
  * Nothing from the client is trusted: every field is checked here before a room acts.
+ *
+ * Every type here is what its schema puts out, so a type cannot say more than its check.
  */
-import { isAirportCode } from "./airport-codes";
-import type { AirportCode } from "./airports";
-import type { Brand } from "./brand";
-import { hexColor, type HexColor } from "./color";
-import { isImageId, isNoteId, type ImageId, type MemberId, type NoteId } from "./ids";
-import { currencyCode, type CurrencyCode } from "./money";
-import { httpUrl, type HttpUrl } from "./place";
-import { isRecord } from "./record";
-import { COLORS, tagOf, type NoteColor, type NoteStatus, type Tag } from "./room";
+import * as v from "valibot";
 
-/** A day as it travels: YYYY-MM-DD, a day the calendar has (isDate) */
-export type IsoDate = Brand<string, "IsoDate">;
-/** A time of day as it travels: HH:MM or HH:MM:SS (isTime) */
-export type IsoTime = Brand<string, "IsoTime">;
-/** A local date and time as it travels: YYYY-MM-DDTHH:MM, seconds optional (isDateTime) */
-export type IsoDateTime = Brand<string, "IsoDateTime">;
-/** A moment as the room stamps it: an ISO instant in UTC, ending in Z */
-export type IsoInstant = Brand<string, "IsoInstant">;
-/** The client's id for one of its mutations, which the room's answer names */
-export type Cid = Brand<string, "Cid">;
-
-/** A person says whether they made the room; an agent has no say in who is in it */
-export type WireMember =
-  | { id: MemberId; kind: "person"; role: "owner" | "guest"; name: string; color: HexColor }
-  | { id: MemberId; kind: "agent"; name: string; color: HexColor };
-
-/** A room as `/api/me` lists it: the trip at a glance, without its notes */
-export type WireRoomSummary = {
-  name: string;
-  /** The people first, then the agent, as they look: no ids, no roles; who is who stays in the room */
-  members: Pick<WireMember, "kind" | "name" | "color">[];
-  memos: number;
-  /** Whether the person asking made the trip, and so may delete it (false on an invitation) */
-  owner: boolean;
-} & ({ first: null; days: 0 } | { first: IsoDate; days: number }); // the first day, none while it has no days
-
-export interface WireDay {
-  date: IsoDate;
-  intro: string;
-}
-
-export interface WireTrip {
-  name: string;
-  days: WireDay[];
-  currency: CurrencyCode;
-  center: { lat: number; lng: number };
-  /** The flight there and the flight home, each or both not known yet */
-  flights: WireFlights;
-  /** Where the nights are spent, in the order they come */
-  stays: WireStay[];
-}
-
-/** Which flight: the one there, or the one home */
-export type Leg = "out" | "back";
-
-/**
- * A flight as the travellers write it from their ticket: where it leaves from and lands (each an
- * airport's code on the list, airports.ts), and, when they know them, its number and when, in
- * each airport's own local time (YYYY-MM-DDTHH:MM; null for not known yet). The landing may read
- * earlier than the leaving, across time zones, so their order is not checked.
- */
-export interface WireFlight {
-  number: string;
-  from: AirportCode;
-  to: AirportCode;
-  departs: IsoDateTime | null;
-  arrives: IsoDateTime | null;
-}
-
-export type WireFlights = Record<Leg, WireFlight | null>;
-
-/**
- * Where the travellers sleep: a name, the first night (YYYY-MM-DD) and how many, and where it
- * is, as a Google Maps link and the point it names, when they gave one
- */
-export type WireStay = {
-  name: string;
-  checkIn: IsoDate;
-  nights: number;
-} & ({ mapsUrl: null; pin: null } | { mapsUrl: HttpUrl; pin: { lat: number; lng: number } | null });
-
-export interface WireSchedule {
-  date: IsoDate;
-  time: IsoTime | null;
-  status: NoteStatus;
-}
-
-interface WireCard {
-  id: NoteId;
-  title: string;
-  color: NoteColor;
-  x: number;
-  y: number;
-  rot: number;
-  /** How large the card is drawn, 1 being its own size (MIN_SCALE to MAX_SCALE) */
-  scale: number;
-  by: MemberId;
-  updatedAt: IsoInstant;
-}
-
-export interface WireMemo extends WireCard {
-  kind: "memo";
-  body: string;
-  tags: Tag[];
-  mapsUrl: HttpUrl | null;
-  pin: { lat: number; lng: number } | null;
-  schedule: WireSchedule | null;
-  budget: number | null;
-  /** Ticked off on a list (the booklet's appendix); separate from a day's status */
-  checked: boolean;
-  /** A picture on the card: the id of an image stored in the room, or null */
-  image: ImageId | null;
-}
-
-export interface WireSuggestion extends WireCard {
-  kind: "suggestion";
-}
-
-/** Words set straight on the desk, with no paper under them: a heading, a label. `title` is the text */
-export interface WireText extends WireCard {
-  kind: "text";
-}
-
-/** A picture stuck straight on the desk: `image` is what it shows; it has no words */
-export interface WireSticker extends WireCard {
-  kind: "sticker";
-  image: ImageId;
-}
-
-export type WireNote = WireMemo | WireSuggestion | WireText | WireSticker;
-
-/** What a memo's `note:update` may change */
-export type WireMemoPatch = Partial<
-  Pick<
-    WireMemo,
-    | "title"
-    | "body"
-    | "tags"
-    | "checked"
-    | "image"
-    | "color"
-    | "mapsUrl"
-    | "pin"
-    | "schedule"
-    | "budget"
-    | "x"
-    | "y"
-    | "rot"
-  >
->;
-
-/** The app's `Mutation`, as JSON */
-export type WireMutation =
-  | { type: "note:add"; note: WireNote }
-  | { type: "note:update"; id: NoteId; patch: WireMemoPatch }
-  | { type: "note:recolor"; id: NoteId; color: NoteColor }
-  | { type: "note:adopt"; id: NoteId }
-  // what a text box says; empty, it is deleted instead
-  | { type: "text:edit"; id: NoteId; text: string }
-  // where a card is; as it is turned or resized, how it is turned and how large
-  | { type: "note:move"; id: NoteId; x: number; y: number; rot?: number; scale?: number }
-  | { type: "note:delete"; id: NoteId }
-  | { type: "day:intro"; date: IsoDate; intro: string }
-  | { type: "member:profile"; name: string; color: HexColor }
-  // the trip's name, as written on the desk
-  | { type: "trip:rename"; name: string }
-  // when the trip is: its first day and how many; everything planned moves with it
-  | { type: "trip:dates"; first: IsoDate; days: number }
-  // one of its flights, or none
-  | { type: "trip:flight"; leg: Leg; flight: WireFlight | null }
-  // where the nights are spent: the whole list, as the editor saves it
-  | { type: "trip:stays"; stays: WireStay[] };
-
-/**
- * The client sends mutations as they are, with an optional `cid` beside the mutation's own
- * fields. A mutation with a `cid` is answered to its sender only: `ack` once it is applied
- * (with the room's `updatedAt`), or `rejected` with that `cid`. A `note:move` without one
- * (a card's position while it is being dragged) is relayed, not kept, and not answered.
- */
-export type ClientMessage = ClientMutation & { cid?: Cid };
-
-/** A note as its writer sends it in `note:add`: who and when are the room's to stamp */
-export type WireNewNote = WireNote extends infer N
-  ? N extends WireNote
-    ? Omit<N, "by" | "updatedAt">
-    : never
-  : never;
-
-/** A mutation as a client sends it: as the room relays it, but a new note unstamped */
-export type ClientMutation =
-  | Exclude<WireMutation, { type: "note:add" }>
-  | { type: "note:add"; note: WireNewNote };
-
-export type ServerMessage =
-  | { type: "snapshot"; me: MemberId; members: WireMember[]; trip: WireTrip; notes: WireNote[] }
-  | { type: "mutation"; mutation: WireMutation; by: MemberId; updatedAt: IsoInstant }
-  | { type: "ack"; cid: Cid; updatedAt: IsoInstant }
-  // a message the room could not read: it cannot say which of ours it was
-  | { type: "rejected"; reason: UnreadReason }
-  // a mutation it read and refused; the cid when the message had one
-  | { type: "rejected"; reason: RejectReason; cid?: Cid }
-  // someone joined, was removed or left: who is in the room now
-  | { type: "members"; members: WireMember[] }
-  // this socket's person is out of the room, or the room was deleted; the socket closes after
-  | { type: "gone"; reason: GoneReason };
-
-/** Why the room could not read a message at all */
-export type UnreadReason = "text only" | "too large" | "not JSON";
-
-/** Why the room refused a mutation it read */
-export type RejectReason =
-  | "too many messages"
-  | "not a mutation"
-  | "duplicate id"
-  | "no such note"
-  | "no such day"
-  | "no such image"
-  | "not a memo"
-  | "not a text box"
-  | "not a suggestion";
-
-/** Why a member's socket was closed by the room: removed by the owner, left on their own, or the room deleted */
-export type GoneReason = "removed" | "left" | "deleted";
-
-/** The client's id for one of its mutations, if the message carries a valid one */
-export const parseCid = (v: unknown): Cid | null => (isRecord(v) && isCid(v.cid) ? v.cid : null);
+import { AirportCodeSchema, type AirportCode } from "./airports";
+import { HexColorSchema } from "./color";
+import { ImageIdSchema, MemberIdSchema, NoteIdSchema } from "./ids";
+import { CurrencyCodeSchema } from "./money";
+import { HttpUrlSchema, LatLngSchema } from "./place";
+import { COLORS, STATUSES, TagSchema } from "./room";
 
 export const MAX_MESSAGE_BYTES = 32 * 1024;
 
@@ -241,308 +25,451 @@ const BODY = 4000;
 const TAGS = 20;
 const INTRO = 1000;
 const NAME = 60;
-const ID = 64;
 const COORD = 1e6;
 const DAYS = 60;
 const FLIGHT_NO = 20;
 /** Stays in a trip: one a night at most, for a trip as long as it may be */
 const STAYS = DAYS;
 
-// ---- checks ----
-const isText = (v: unknown, max: number): v is string => typeof v === "string" && v.length <= max;
-const isFinite_ = (v: unknown, max = COORD): v is number =>
-  typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= max;
 /** How small and how large a card may be drawn, its own size being 1 */
 export const MIN_SCALE = 0.5;
 export const MAX_SCALE = 3;
-const isScale = (v: unknown): v is number =>
-  typeof v === "number" && Number.isFinite(v) && v >= MIN_SCALE && v <= MAX_SCALE;
 
 /** What a picture may be, as uploaded: the formats every browser shows */
 export const IMAGE_TYPES = ["image/webp", "image/jpeg", "image/png"] as const;
 /** The largest picture, in bytes; the app shrinks one to well under this before sending it */
 export const MAX_IMAGE_BYTES = 1024 * 1024;
 
-const isCid = (v: unknown): v is Cid =>
-  typeof v === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(v) && v.length <= ID;
-const isColor = (v: unknown): v is NoteColor => COLORS.some((c) => c === v);
-const STATUSES: readonly NoteStatus[] = ["idea", "fixed", "done"];
-const isStatus = (v: unknown): v is NoteStatus => STATUSES.some((s) => s === v);
+// ---- pieces ----
+const text = (max: number) => v.pipe(v.string(), v.maxLength(max));
+/** A name as written, at most NAME long, trimmed and not blank */
+const named = () => v.pipe(v.string(), v.maxLength(NAME), v.trim(), v.nonEmpty());
+const finite = (max = COORD) => v.pipe(v.number(), v.finite(), v.minValue(-max), v.maxValue(max));
+const count = (max: number) => v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(max));
+const scale = () => v.pipe(v.number(), v.finite(), v.minValue(MIN_SCALE), v.maxValue(MAX_SCALE));
 
-export const isDate = (v: unknown): v is IsoDate => {
-  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
-  const d = new Date(`${v}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(v);
+/** A day the calendar has, as YYYY-MM-DD */
+const isDay = (s: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(s);
 };
-const isTime = (v: unknown): v is IsoTime => {
-  if (typeof v !== "string") return false;
-  const m = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(v);
+/** A time of day as HH:MM or HH:MM:SS */
+const isTimeOfDay = (s: string) => {
+  const m = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(s);
   return m !== null && Number(m[1]) < 24 && Number(m[2]) < 60 && Number(m[3] ?? 0) < 60;
 };
-const isUrl = (v: unknown): v is HttpUrl => httpUrl(v) !== null;
-const isLatLng = (v: unknown): v is { lat: number; lng: number } =>
-  isRecord(v) && isFinite_(v.lat, 90) && isFinite_(v.lng, 180) && Object.keys(v).length === 2;
-/** A point on the desk, as `{ x, y }` within the canvas's bounds */
-export const parsePoint = (v: unknown): { x: number; y: number } | null =>
-  isRecord(v) && isFinite_(v.x) && isFinite_(v.y) ? { x: v.x, y: v.y } : null;
-const isTags = (v: unknown): v is Tag[] =>
-  Array.isArray(v) && v.length <= TAGS && v.every((t) => tagOf(t) !== null);
-const isSchedule = (v: unknown): v is WireSchedule =>
-  isRecord(v) && isDate(v.date) && (v.time === null || isTime(v.time)) && isStatus(v.status);
-const isBudget = (v: unknown): v is number | null =>
-  v === null || (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1e9);
+
+/** A day as it travels: YYYY-MM-DD, a day the calendar has */
+export const IsoDateSchema = v.pipe(v.string(), v.check(isDay), v.brand("IsoDate"));
+export type IsoDate = v.InferOutput<typeof IsoDateSchema>;
+
+/** A time of day as it travels: HH:MM or HH:MM:SS */
+export const IsoTimeSchema = v.pipe(v.string(), v.check(isTimeOfDay), v.brand("IsoTime"));
+export type IsoTime = v.InferOutput<typeof IsoTimeSchema>;
+
+/** A local date and time as it travels: YYYY-MM-DDTHH:MM, seconds optional (as Temporal writes one) */
+export const IsoDateTimeSchema = v.pipe(
+  v.string(),
+  v.regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/),
+  v.check((s) => isDay(s.slice(0, 10)) && isTimeOfDay(s.slice(11))),
+  v.brand("IsoDateTime"),
+);
+export type IsoDateTime = v.InferOutput<typeof IsoDateTimeSchema>;
+
+/** A moment as the room stamps it: an ISO instant in UTC, ending in Z */
+export const IsoInstantSchema = v.pipe(
+  v.string(),
+  v.isoTimestamp(),
+  v.endsWith("Z"),
+  v.brand("IsoInstant"),
+);
+export type IsoInstant = v.InferOutput<typeof IsoInstantSchema>;
+
+/** The client's id for one of its mutations, which the room's answer names */
+export const CidSchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{1,64}$/), v.brand("Cid"));
+export type Cid = v.InferOutput<typeof CidSchema>;
+
+const ColorSchema = v.picklist(COLORS);
 
 /** The profile a person sets for themselves; the name may be blank, people are told apart by color for now */
-export const parseProfile = (v: unknown): { name: string; color: HexColor } | null => {
-  if (!isRecord(v) || !isText(v.name, NAME)) return null;
-  const color = hexColor(String(v.color).toLowerCase());
-  return color === null ? null : { name: v.name.trim(), color };
+export const ProfileSchema = v.object({
+  name: v.pipe(v.string(), v.maxLength(NAME), v.trim()),
+  color: v.pipe(v.string(), v.toLowerCase(), HexColorSchema),
+});
+
+// ---- members and rooms ----
+
+/** A person says whether they made the room; an agent has no say in who is in it */
+const WireMemberSchema = v.variant("kind", [
+  v.object({
+    id: MemberIdSchema,
+    kind: v.literal("person"),
+    role: v.picklist(["owner", "guest"]),
+    name: v.string(),
+    color: HexColorSchema,
+  }),
+  v.object({
+    id: MemberIdSchema,
+    kind: v.literal("agent"),
+    name: v.string(),
+    color: HexColorSchema,
+  }),
+]);
+export type WireMember = v.InferOutput<typeof WireMemberSchema>;
+
+const summary = {
+  name: v.string(),
+  /** The people first, then the agent, as they look: no ids, no roles; who is who stays in the room */
+  members: v.array(
+    v.object({ kind: v.picklist(["person", "agent"]), name: v.string(), color: HexColorSchema }),
+  ),
+  memos: v.number(),
+  /** Whether the person asking made the trip, and so may delete it (false on an invitation) */
+  owner: v.boolean(),
 };
 
-/** A local date and time, to the minute or the second (as Temporal writes one) */
-export const isDateTime = (v: unknown): v is IsoDateTime =>
-  typeof v === "string" &&
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(v) &&
-  isDate(v.slice(0, 10)) &&
-  isTime(v.slice(11));
+/** A room as `/api/me` lists it: the trip at a glance, without its notes; its first day, none while it has no days */
+export const WireRoomSummarySchema = v.union([
+  v.object({ ...summary, first: v.null(), days: v.literal(0) }),
+  v.object({ ...summary, first: IsoDateSchema, days: v.number() }),
+]);
+export type WireRoomSummary = v.InferOutput<typeof WireRoomSummarySchema>;
+
+// ---- the trip ----
+
+/** A flight's time kept to the minute, as a ticket says it */
+const toMinute = v.pipe(
+  IsoDateTimeSchema,
+  v.transform((t) => t.slice(0, 16)),
+  v.brand("IsoDateTime"),
+);
+
+/** Which flight: the one there, or the one home */
+const LegSchema = v.picklist(["out", "back"]);
+export type Leg = v.InferOutput<typeof LegSchema>;
 
 /**
- * A flight as a member writes it, trimmed; its airports must be on the list, its number may be blank
- * and its times not known yet
+ * A flight as the travellers write it from their ticket: where it leaves from and lands (each an
+ * airport's code on the list, airports.ts), and, when they know them, its number and when, in
+ * each airport's own local time (YYYY-MM-DDTHH:MM; null for not known yet). The landing may read
+ * earlier than the leaving, across time zones, so their order is not checked.
  */
-const parseFlight = (v: unknown): WireFlight | null => {
-  if (!isRecord(v)) return null;
-  const { number, from, to, departs, arrives } = v;
-  // the airports are codes on the list the app suggests from, exactly as it writes them
-  if (!isText(number, FLIGHT_NO) || !isAirportCode(from) || !isAirportCode(to)) return null;
-  if (!(departs === null || isDateTime(departs)) || !(arrives === null || isDateTime(arrives)))
-    return null;
-  // kept to the minute, as a ticket says it
-  return {
-    number: number.trim(),
-    from,
-    to,
-    departs: departs === null ? null : toMinute(departs),
-    arrives: arrives === null ? null : toMinute(arrives),
-  };
+const WireFlightSchema = v.object({
+  /** May be blank; trimmed */
+  number: v.pipe(v.string(), v.maxLength(FLIGHT_NO), v.trim()),
+  from: AirportCodeSchema,
+  to: AirportCodeSchema,
+  departs: v.nullable(toMinute),
+  arrives: v.nullable(toMinute),
+});
+export type WireFlight = v.InferOutput<typeof WireFlightSchema>;
+
+const WireFlightsSchema = v.object({
+  out: v.nullable(WireFlightSchema),
+  back: v.nullable(WireFlightSchema),
+});
+export type WireFlights = v.InferOutput<typeof WireFlightsSchema>;
+
+/**
+ * Where the travellers sleep: a name, the first night (YYYY-MM-DD) and how many, and where it
+ * is, as a Google Maps link and the point it names, when they gave one
+ */
+const WireStaySchema = v.pipe(
+  v.object({
+    name: named(),
+    checkIn: IsoDateSchema,
+    nights: count(DAYS),
+    mapsUrl: v.nullable(HttpUrlSchema),
+    pin: v.nullable(LatLngSchema),
+  }),
+  // no link, no point: a pin is only ever the point a link names
+  v.transform(({ mapsUrl, pin, ...stay }) =>
+    mapsUrl === null ? { ...stay, mapsUrl, pin: null } : { ...stay, mapsUrl, pin },
+  ),
+);
+export type WireStay = v.InferOutput<typeof WireStaySchema>;
+
+const WireDaySchema = v.object({ date: IsoDateSchema, intro: v.string() });
+export type WireDay = v.InferOutput<typeof WireDaySchema>;
+
+const WireTripSchema = v.object({
+  name: v.string(),
+  days: v.array(WireDaySchema),
+  currency: CurrencyCodeSchema,
+  center: LatLngSchema,
+  /** The flight there and the flight home, each or both not known yet */
+  flights: WireFlightsSchema,
+  /** Where the nights are spent, in the order they come */
+  stays: v.array(WireStaySchema),
+});
+export type WireTrip = v.InferOutput<typeof WireTripSchema>;
+
+/** What a room is created with: its name, its days (each once), its money and where it is */
+export const NewTripSchema = v.pipe(
+  v.object({
+    name: named(),
+    days: v.pipe(
+      v.array(IsoDateSchema),
+      v.minLength(1),
+      v.maxLength(DAYS),
+      v.check((days) => new Set(days).size === days.length),
+    ),
+    currency: CurrencyCodeSchema,
+    center: LatLngSchema,
+  }),
+  v.transform(({ name, days, currency, center }): WireTrip => ({
+    name,
+    days: days.map((date) => ({ date, intro: "" })),
+    currency,
+    center,
+    flights: { out: null, back: null },
+    stays: [],
+  })),
+);
+
+// ---- notes ----
+
+const WireScheduleSchema = v.object({
+  date: IsoDateSchema,
+  time: v.nullable(IsoTimeSchema),
+  status: v.picklist(STATUSES),
+});
+export type WireSchedule = v.InferOutput<typeof WireScheduleSchema>;
+
+const TagsSchema = v.pipe(v.array(TagSchema), v.maxLength(TAGS));
+const BudgetSchema = v.nullable(v.pipe(v.number(), v.finite(), v.minValue(0), v.maxValue(1e9)));
+/** A point on the desk, as `{ x, y }` within the canvas's bounds */
+export const PointSchema = v.object({ x: finite(), y: finite() });
+
+const card = {
+  id: NoteIdSchema,
+  title: text(TITLE),
+  color: ColorSchema,
+  x: finite(),
+  y: finite(),
+  rot: finite(360),
+  /** How large the card is drawn, 1 being its own size; a client from before cards could be resized sends none */
+  scale: v.optional(scale(), 1),
 };
 
-/** A checked date and time, cut to the minute: still one */
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
-const toMinute = (t: IsoDateTime): IsoDateTime => t.slice(0, 16) as IsoDateTime;
+/** Who wrote a note and when: the room's to stamp, never the writer's */
+const stamped = { by: MemberIdSchema, updatedAt: IsoInstantSchema };
 
-/** A stay as a member writes it, its name trimmed; its nights within a trip's length */
-const parseStay = (v: unknown): WireStay | null => {
-  if (!isRecord(v)) return null;
-  const { name, checkIn, nights, mapsUrl, pin } = v;
-  if (!isText(name, NAME) || name.trim() === "" || !isDate(checkIn)) return null;
-  if (typeof nights !== "number" || !Number.isInteger(nights) || nights < 1 || nights > DAYS)
-    return null;
-  if (!(mapsUrl === null || isUrl(mapsUrl)) || !(pin === null || isLatLng(pin))) return null;
-  const stay = { name: name.trim(), checkIn, nights };
-  // no link, no point: a pin is only ever the point a link names
-  return mapsUrl === null ? { ...stay, mapsUrl, pin: null } : { ...stay, mapsUrl, pin };
+const memo = {
+  ...card,
+  kind: v.literal("memo"),
+  body: text(BODY),
+  tags: TagsSchema,
+  mapsUrl: v.nullable(HttpUrlSchema),
+  pin: v.nullable(LatLngSchema),
+  schedule: v.nullable(WireScheduleSchema),
+  budget: BudgetSchema,
+  /** Ticked off on a list (the booklet's appendix); separate from a day's status. None from an older client: unticked */
+  checked: v.optional(v.boolean(), false),
+  /** A picture on the card: the id of an image stored in the room, or null. None from an older client: no picture */
+  image: v.optional(v.nullable(ImageIdSchema), null),
+};
+const suggestion = { ...card, kind: v.literal("suggestion") };
+/** Words set straight on the desk, with no paper under them: a heading, a label. `title` is the text */
+const textBox = { ...card, kind: v.literal("text"), title: text(TEXT) };
+/** A picture stuck straight on the desk: `image` is what it shows; it has no words */
+const sticker = { ...card, kind: v.literal("sticker"), image: ImageIdSchema };
+
+/** A note as its writer sends it in `note:add`: who and when are the room's to stamp */
+const WireNewNoteSchema = v.variant("kind", [
+  v.object(memo),
+  v.object(suggestion),
+  v.object(textBox),
+  v.object(sticker),
+]);
+export type WireNewNote = v.InferOutput<typeof WireNewNoteSchema>;
+
+const WireMemoSchema = v.object({ ...memo, ...stamped });
+export type WireMemo = v.InferOutput<typeof WireMemoSchema>;
+const WireNoteSchema = v.variant("kind", [
+  WireMemoSchema,
+  v.object({ ...suggestion, ...stamped }),
+  v.object({ ...textBox, ...stamped }),
+  v.object({ ...sticker, ...stamped }),
+]);
+export type WireNote = v.InferOutput<typeof WireNoteSchema>;
+
+/** What a memo's `note:update` may change; a field it does not know is a bad message, not one to skip */
+const WireMemoPatchSchema = v.strictObject({
+  title: v.optional(memo.title),
+  body: v.optional(memo.body),
+  tags: v.optional(memo.tags),
+  checked: v.optional(v.boolean()),
+  image: v.optional(v.nullable(ImageIdSchema)),
+  color: v.optional(memo.color),
+  mapsUrl: v.optional(memo.mapsUrl),
+  pin: v.optional(memo.pin),
+  schedule: v.optional(memo.schedule),
+  budget: v.optional(memo.budget),
+  x: v.optional(memo.x),
+  y: v.optional(memo.y),
+  rot: v.optional(memo.rot),
+});
+export type WireMemoPatch = v.InferOutput<typeof WireMemoPatchSchema>;
+
+// ---- mutations ----
+
+/** Every mutation but `note:add`, the same from the client and from the room */
+const mutations = [
+  v.object({ type: v.literal("note:update"), id: NoteIdSchema, patch: WireMemoPatchSchema }),
+  v.object({ type: v.literal("note:recolor"), id: NoteIdSchema, color: ColorSchema }),
+  v.object({ type: v.literal("note:adopt"), id: NoteIdSchema }),
+  // what a text box says; empty, it is deleted instead
+  v.object({ type: v.literal("text:edit"), id: NoteIdSchema, text: text(TEXT) }),
+  // where a card is; as it is turned or resized, how it is turned and how large
+  v.object({
+    type: v.literal("note:move"),
+    id: NoteIdSchema,
+    x: finite(),
+    y: finite(),
+    rot: v.optional(finite(360)),
+    scale: v.optional(scale()),
+  }),
+  v.object({ type: v.literal("note:delete"), id: NoteIdSchema }),
+  v.object({ type: v.literal("day:intro"), date: IsoDateSchema, intro: text(INTRO) }),
+  v.object({ type: v.literal("member:profile"), ...ProfileSchema.entries }),
+  // the trip's name, as written on the desk
+  v.object({ type: v.literal("trip:rename"), name: named() }),
+  // when the trip is: its first day and how many; everything planned moves with it
+  v.object({ type: v.literal("trip:dates"), first: IsoDateSchema, days: count(DAYS) }),
+  // one of its flights, or none
+  v.object({
+    type: v.literal("trip:flight"),
+    leg: LegSchema,
+    flight: v.nullable(WireFlightSchema),
+  }),
+  // where the nights are spent: the whole list, as the editor saves it
+  v.object({
+    type: v.literal("trip:stays"),
+    stays: v.pipe(v.array(WireStaySchema), v.maxLength(STAYS)),
+  }),
+] as const;
+
+/** A mutation as a client sends it: as the room relays it, but a new note unstamped */
+const ClientMutationSchema = v.variant("type", [
+  v.object({ type: v.literal("note:add"), note: WireNewNoteSchema }),
+  ...mutations,
+]);
+export type ClientMutation = v.InferOutput<typeof ClientMutationSchema>;
+
+/** The app's `Mutation`, as JSON: as the room relays it, a new note stamped */
+const WireMutationSchema = v.variant("type", [
+  v.object({ type: v.literal("note:add"), note: WireNoteSchema }),
+  ...mutations,
+]);
+export type WireMutation = v.InferOutput<typeof WireMutationSchema>;
+
+/**
+ * The client sends mutations as they are, with an optional `cid` beside the mutation's own
+ * fields. A mutation with a `cid` is answered to its sender only: `ack` once it is applied
+ * (with the room's `updatedAt`), or `rejected` with that `cid`. A `note:move` without one
+ * (a card's position while it is being dragged) is relayed, not kept, and not answered.
+ */
+export type ClientMessage = ClientMutation & { cid?: Cid };
+
+// ---- what the room sends ----
+
+/** Why the room could not read a message at all */
+const UNREAD = ["text only", "too large", "not JSON"] as const;
+export type UnreadReason = (typeof UNREAD)[number];
+
+/** Why the room refused a mutation it read */
+const REJECT = [
+  "too many messages",
+  "not a mutation",
+  "duplicate id",
+  "no such note",
+  "no such day",
+  "no such image",
+  "not a memo",
+  "not a text box",
+  "not a suggestion",
+] as const;
+export type RejectReason = (typeof REJECT)[number];
+
+/** Why a member's socket was closed by the room: removed by the owner, left on their own, or the room deleted */
+const GONE = ["removed", "left", "deleted"] as const;
+export type GoneReason = (typeof GONE)[number];
+
+export const ServerMessageSchema = v.variant("type", [
+  v.object({
+    type: v.literal("snapshot"),
+    me: MemberIdSchema,
+    members: v.array(WireMemberSchema),
+    trip: WireTripSchema,
+    notes: v.array(WireNoteSchema),
+  }),
+  v.object({
+    type: v.literal("mutation"),
+    mutation: WireMutationSchema,
+    by: MemberIdSchema,
+    updatedAt: IsoInstantSchema,
+  }),
+  v.object({ type: v.literal("ack"), cid: CidSchema, updatedAt: IsoInstantSchema }),
+  v.variant("reason", [
+    // a message the room could not read: it cannot say which of ours it was
+    v.object({ type: v.literal("rejected"), reason: v.picklist(UNREAD) }),
+    // a mutation it read and refused; the cid when the message had one
+    v.object({
+      type: v.literal("rejected"),
+      reason: v.picklist(REJECT),
+      cid: v.optional(CidSchema),
+    }),
+  ]),
+  // someone joined, was removed or left: who is in the room now
+  v.object({ type: v.literal("members"), members: v.array(WireMemberSchema) }),
+  // this socket's person is out of the room, or the room was deleted; the socket closes after
+  v.object({ type: v.literal("gone"), reason: v.picklist(GONE) }),
+]);
+export type ServerMessage = v.InferOutput<typeof ServerMessageSchema>;
+
+// ---- checks ----
+
+/** The client's id for one of its mutations, if the message carries a valid one */
+export const parseCid = (value: unknown): Cid | null => {
+  const result = v.safeParse(v.object({ cid: CidSchema }), value);
+  return result.success ? result.output.cid : null;
+};
+
+/** A point on the desk, as `{ x, y }` within the canvas's bounds */
+export const parsePoint = (value: unknown): { x: number; y: number } | null => {
+  const result = v.safeParse(PointSchema, value);
+  return result.success ? result.output : null;
+};
+
+/** The profile a person sets for themselves; the name may be blank, people are told apart by color for now */
+export const parseProfile = (value: unknown): v.InferOutput<typeof ProfileSchema> | null => {
+  const result = v.safeParse(ProfileSchema, value);
+  return result.success ? result.output : null;
 };
 
 /** What a room is created with */
-export const parseTrip = (v: unknown): WireTrip | null => {
-  if (!isRecord(v)) return null;
-  if (!isText(v.name, NAME) || v.name.trim() === "") return null;
-  if (!Array.isArray(v.days) || v.days.length === 0 || v.days.length > DAYS) return null;
-  if (!v.days.every(isDate)) return null;
-  if (new Set(v.days).size !== v.days.length) return null;
-  const currency = typeof v.currency === "string" ? currencyCode(v.currency) : null;
-  if (currency === null) return null;
-  if (!isLatLng(v.center)) return null;
-  return {
-    name: v.name.trim(),
-    days: v.days.map((date) => ({ date, intro: "" })),
-    currency,
-    center: v.center,
-    flights: { out: null, back: null },
-    stays: [],
-  };
+export const parseTrip = (value: unknown): WireTrip | null => {
+  const result = v.safeParse(NewTripSchema, value);
+  return result.success ? result.output : null;
 };
 
-/** A note as the client may send it in `note:add`, stamped by the room */
-const parseNote = (v: unknown, stamp: Pick<WireNote, "by" | "updatedAt">): WireNote | null => {
-  if (!isRecord(v)) return null;
-  const max = v.kind === "text" ? TEXT : TITLE;
-  if (!isNoteId(v.id) || !isText(v.title, max) || !isColor(v.color)) return null;
-  if (!isFinite_(v.x) || !isFinite_(v.y) || !isFinite_(v.rot, 360)) return null;
-  // a client from before cards could be resized sends no scale: its own size
-  if (!(v.scale === undefined || isScale(v.scale))) return null;
-  const card = {
-    id: v.id,
-    title: v.title,
-    color: v.color,
-    x: v.x,
-    y: v.y,
-    rot: v.rot,
-    scale: v.scale ?? 1,
-    ...stamp,
-  };
-  if (v.kind === "suggestion") return { ...card, kind: "suggestion" };
-  if (v.kind === "text") return { ...card, kind: "text" };
-  if (v.kind === "sticker")
-    return isImageId(v.image) ? { ...card, kind: "sticker", image: v.image } : null;
-  if (v.kind !== "memo") return null;
-  if (!isText(v.body, BODY) || !isTags(v.tags)) return null;
-  if (!(v.mapsUrl === null || isUrl(v.mapsUrl))) return null;
-  if (!(v.pin === null || isLatLng(v.pin))) return null;
-  if (!(v.schedule === null || isSchedule(v.schedule))) return null;
-  if (!isBudget(v.budget)) return null;
-  // a client from before `checked` existed sends none: unticked
-  if (!(v.checked === undefined || typeof v.checked === "boolean")) return null;
-  // and one from before pictures sends no image: none
-  if (!(v.image === undefined || v.image === null || isImageId(v.image))) return null;
-  return {
-    ...card,
-    kind: "memo",
-    body: v.body,
-    tags: v.tags,
-    mapsUrl: v.mapsUrl,
-    pin: v.pin,
-    schedule: v.schedule,
-    budget: v.budget,
-    checked: v.checked ?? false,
-    image: v.image ?? null,
-  };
-};
-
-const parsePatch = (v: unknown): WireMemoPatch | null => {
-  if (!isRecord(v)) return null;
-  const p: WireMemoPatch = {};
-  for (const [k, val] of Object.entries(v)) {
-    switch (k) {
-      case "title":
-        if (!isText(val, TITLE)) return null;
-        p.title = val;
-        break;
-      case "body":
-        if (!isText(val, BODY)) return null;
-        p.body = val;
-        break;
-      case "tags":
-        if (!isTags(val)) return null;
-        p.tags = val;
-        break;
-      case "color":
-        if (!isColor(val)) return null;
-        p.color = val;
-        break;
-      case "mapsUrl":
-        if (!(val === null || isUrl(val))) return null;
-        p.mapsUrl = val;
-        break;
-      case "pin":
-        if (!(val === null || isLatLng(val))) return null;
-        p.pin = val;
-        break;
-      case "schedule":
-        if (!(val === null || isSchedule(val))) return null;
-        p.schedule = val;
-        break;
-      case "budget":
-        if (!isBudget(val)) return null;
-        p.budget = val;
-        break;
-      case "checked":
-        if (typeof val !== "boolean") return null;
-        p.checked = val;
-        break;
-      case "image":
-        if (!(val === null || isImageId(val))) return null;
-        p.image = val;
-        break;
-      case "x":
-      case "y":
-        if (!isFinite_(val)) return null;
-        p[k] = val;
-        break;
-      case "rot":
-        if (!isFinite_(val, 360)) return null;
-        p.rot = val;
-        break;
-      default:
-        return null; // an unknown field is a bad message, not something to skip
-    }
-  }
-  return p;
-};
-
-/** A client message as a mutation, or null when it is not one */
+/** A client message as a mutation, or null when it is not one; a new note is stamped by the room */
 export function parseMutation(
-  v: unknown,
+  value: unknown,
   stamp: Pick<WireNote, "by" | "updatedAt">,
+  // the list a flight's airports must be on, passed in so the app never loads it with these checks
+  onList: (code: AirportCode) => boolean,
 ): WireMutation | null {
-  if (!isRecord(v)) return null;
-  switch (v.type) {
-    case "note:add": {
-      const note = parseNote(v.note, stamp);
-      return note === null ? null : { type: "note:add", note };
-    }
-    case "note:update": {
-      const patch = parsePatch(v.patch);
-      return isNoteId(v.id) && patch !== null ? { type: "note:update", id: v.id, patch } : null;
-    }
-    case "note:recolor":
-      return isNoteId(v.id) && isColor(v.color)
-        ? { type: "note:recolor", id: v.id, color: v.color }
-        : null;
-    case "note:adopt":
-      return isNoteId(v.id) ? { type: "note:adopt", id: v.id } : null;
-    case "text:edit":
-      return isNoteId(v.id) && isText(v.text, TEXT)
-        ? { type: "text:edit", id: v.id, text: v.text }
-        : null;
-    case "note:move": {
-      if (!isNoteId(v.id) || !isFinite_(v.x) || !isFinite_(v.y)) return null;
-      if (!(v.rot === undefined || isFinite_(v.rot, 360))) return null;
-      if (!(v.scale === undefined || isScale(v.scale))) return null;
-      return {
-        type: "note:move",
-        id: v.id,
-        x: v.x,
-        y: v.y,
-        ...(v.rot === undefined ? {} : { rot: v.rot }),
-        ...(v.scale === undefined ? {} : { scale: v.scale }),
-      };
-    }
-    case "note:delete":
-      return isNoteId(v.id) ? { type: "note:delete", id: v.id } : null;
-    case "day:intro":
-      return isDate(v.date) && isText(v.intro, INTRO)
-        ? { type: "day:intro", date: v.date, intro: v.intro }
-        : null;
-    case "member:profile": {
-      const profile = parseProfile(v);
-      return profile === null ? null : { type: "member:profile", ...profile };
-    }
-    case "trip:dates":
-      return isDate(v.first) &&
-        typeof v.days === "number" &&
-        Number.isInteger(v.days) &&
-        v.days >= 1 &&
-        v.days <= DAYS
-        ? { type: "trip:dates", first: v.first, days: v.days }
-        : null;
-    case "trip:flight": {
-      if (v.leg !== "out" && v.leg !== "back") return null;
-      if (v.flight === null) return { type: "trip:flight", leg: v.leg, flight: null };
-      const flight = parseFlight(v.flight);
-      return flight === null ? null : { type: "trip:flight", leg: v.leg, flight };
-    }
-    case "trip:stays": {
-      if (!Array.isArray(v.stays) || v.stays.length > STAYS) return null;
-      const stays = v.stays.map(parseStay);
-      return stays.every((s) => s !== null) ? { type: "trip:stays", stays } : null;
-    }
-    case "trip:rename":
-      return isText(v.name, NAME) && v.name.trim() !== ""
-        ? { type: "trip:rename", name: v.name.trim() }
-        : null;
-    default:
-      return null;
-  }
+  const result = v.safeParse(ClientMutationSchema, value);
+  if (!result.success) return null;
+  const m = result.output;
+  if (
+    m.type === "trip:flight" &&
+    m.flight !== null &&
+    !(onList(m.flight.from) && onList(m.flight.to))
+  )
+    return null;
+  return m.type === "note:add" ? { type: "note:add", note: { ...m.note, ...stamp } } : m;
 }
