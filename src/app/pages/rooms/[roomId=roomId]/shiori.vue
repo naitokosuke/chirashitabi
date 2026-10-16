@@ -28,6 +28,7 @@ import {
 } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
 import { directionsLink, safeUrl } from "../../../features/place/google-maps";
+import { clockText, fitHours, openOn, readHours, spansText } from "../../../features/place/hours";
 import {
   distanceKm,
   rideMinutes,
@@ -173,6 +174,33 @@ function legWarning(way: Way) {
   return t.kind === "overlap"
     ? i18n.t("shiori.overlap", { minutes: t.minutes })
     : i18n.t("shiori.tight", { gap: t.gap, way: t.way });
+}
+/** The memo's place's week, read, or null when it says none or cannot be read */
+const weekOf = (n: Scheduled) => (n.hours === null ? null : readHours(n.hours));
+/** Weekday `date` is, Monday 0, as the hours count them */
+const weekday = (date: Temporal.PlainDate) => date.dayOfWeek - 1;
+/**
+ * When the place is open on the memo's day, or its hours as written when they cannot be read;
+ * "" for none, or for a day it is closed, which the warning says
+ */
+function hoursOn(n: Scheduled) {
+  if (n.hours === null) return "";
+  const week = weekOf(n);
+  if (week === null) return i18n.t("shiori.hours", { hours: n.hours });
+  const spans = openOn(week, weekday(n.schedule.date));
+  return spans.length === 0 ? "" : i18n.t("shiori.hours", { hours: spansText(spans) });
+}
+/** Why the plan falls while the place is shut, or "" when it does not, or nothing can tell */
+function shutWarning(n: Scheduled) {
+  const week = weekOf(n);
+  if (week === null) return "";
+  const day = weekday(n.schedule.date);
+  const time = n.schedule.time;
+  // closed all day is worth saying with a time or without
+  const fit = fitHours(week, day, time === null ? null : time.hour * 60 + time.minute, n.minutes);
+  if (fit.kind === "closed") return i18n.t("shiori.closedDay");
+  if (fit.kind === "shut") return i18n.t("shiori.shut", { hours: spansText(openOn(week, day)) });
+  return fit.kind === "closes" ? i18n.t("shiori.closes", { time: clockText(fit.at) }) : "";
 }
 /** "–14:00" under the time it starts, or "" while it does not say when it ends */
 function until(n: Scheduled) {
@@ -487,6 +515,9 @@ function adoptDraft() {
                 <div>
                   <p>{{ n.title }}</p>
                   <p v-if="n.body !== ''">{{ n.body }}</p>
+                  <!-- when its place is open that day, and whether the plan falls while it is shut -->
+                  <p v-if="hoursOn(n) !== ''" class="hours">{{ hoursOn(n) }}</p>
+                  <p v-if="shutWarning(n) !== ''" class="warn">{{ shutWarning(n) }}</p>
                   <div v-if="editing">
                     <button
                       type="button"
@@ -1046,8 +1077,25 @@ article {
               overflow-wrap: anywhere;
             }
 
+            /* when its place is open that day */
+            > .hours {
+              margin: 4px 0 0;
+              font-size: var(--font-xs);
+              font-weight: 700;
+              font-variant-numeric: tabular-nums;
+              color: var(--paper-muted);
+            }
+
+            /* the plan falls while the place is shut: the one color that means trouble, darkened for the paper */
+            > .warn {
+              margin: 4px 0 0;
+              font-size: var(--font-xs);
+              font-weight: 700;
+              color: oklch(from var(--danger) min(l, 0.5) c h);
+            }
+
             /* the body */
-            > p:not(:first-child, .meta) {
+            > p:not(:first-child, .meta, .hours, .warn) {
               margin: 2px 0 0;
               font-size: var(--font-sm);
               color: var(--paper-muted);

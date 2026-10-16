@@ -79,6 +79,7 @@ const describe = (n: WireMemo) => ({
   status: n.schedule?.status,
   budget: n.budget,
   minutes: n.minutes,
+  hours: n.hours,
 });
 
 /** Asks Claude to order a day; the answer is checked against the notes it was given */

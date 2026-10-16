@@ -48,6 +48,7 @@ const n = (p: Partial<Memo> & Pick<Memo, "title" | "x" | "y">): Memo => ({
   checked: false,
   image: null,
   minutes: null,
+  hours: null,
   ...p,
 });
 const suggest = (p: Partial<Suggestion> & Pick<Suggestion, "title" | "x" | "y">): Suggestion => ({
@@ -68,6 +69,7 @@ export const mockNotes = (): Note[] => [
     by: KEN,
     schedule: on("2026-11-03", "12:30", "fixed"),
     minutes: 60,
+    hours: "Mo-Fr 11:00-20:30; Sa,Su 10:30-21:00",
     budget: 700,
     mapsUrl: link("https://maps.google.com/?q=Din+Tai+Fung"),
   }),
@@ -88,6 +90,7 @@ export const mockNotes = (): Note[] => [
     title: "Taihu Brewing",
     pin: pin(25.0378, 121.5629),
     body: "Xinyi. Stop by after the night market",
+    hours: "We-Su 17:00-24:00",
     tags: tags("Beer"),
     x: 60,
     y: 210,

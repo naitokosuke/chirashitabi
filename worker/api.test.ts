@@ -788,7 +788,7 @@ describe("the socket", () => {
     const c = await connect(roomId, PARTNER);
     // a memo from a client that does not say how long it takes takes no time it was not given
     expect(c.snapshot.notes).toEqual([
-      { ...memo("n1"), minutes: null, by: yuki, updatedAt: got.updatedAt },
+      { ...memo("n1"), minutes: null, hours: null, by: yuki, updatedAt: got.updatedAt },
     ]);
     for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
@@ -920,7 +920,17 @@ describe("the socket", () => {
 
     const a = await connect(roomId, owner);
     expect(a.snapshot).toMatchObject({
-      notes: [{ id: "old", title: "Kept", tags: ["Food"], checked: true, rot: 3, minutes: null }],
+      notes: [
+        {
+          id: "old",
+          title: "Kept",
+          tags: ["Food"],
+          checked: true,
+          rot: 3,
+          minutes: null,
+          hours: null,
+        },
+      ],
     });
     const box = {
       id: "t2",
@@ -954,6 +964,23 @@ describe("the socket", () => {
     expect(await a.next()).toMatchObject({ type: "ack", cid: "c4" });
     const c = await connect(roomId, LONG);
     expect(c.snapshot.notes).toMatchObject([{ id: "n1", minutes: null }]);
+    for (const s of [a, b, c]) s.ws.close(1000, "done");
+  });
+
+  test("when a memo's place is open is kept as written, trimmed; blank is refused", async () => {
+    const OPEN = "hours@example.com";
+    const { roomId } = await createRoom(OPEN);
+    const a = await connect(roomId, OPEN);
+    a.send({ type: "note:add", note: { ...memo("n1"), hours: " Mo-Fr 10:00-20:00 " }, cid: "c1" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c1" });
+    a.send({ type: "note:update", id: "n1", patch: { hours: "  " }, cid: "c2" });
+    expect(await a.next()).toEqual({ type: "rejected", reason: "not a mutation", cid: "c2" });
+    const b = await connect(roomId, OPEN);
+    expect(b.snapshot.notes).toMatchObject([{ id: "n1", hours: "Mo-Fr 10:00-20:00" }]);
+    a.send({ type: "note:update", id: "n1", patch: { hours: null }, cid: "c3" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c3" });
+    const c = await connect(roomId, OPEN);
+    expect(c.snapshot.notes).toMatchObject([{ id: "n1", hours: null }]);
     for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
 
@@ -1010,6 +1037,7 @@ describe("the socket", () => {
         checked: false,
         image: null,
         minutes: null,
+        hours: null,
       },
     ]);
     expect(c.snapshot.trip.days[1]).toEqual({ date: "2026-11-04", intro: "Jiufen day" });
