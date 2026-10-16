@@ -7,5 +7,13 @@ const { creating, hrefOf, newHref, open, create, close, created } = useTrips();
 </script>
 
 <template>
-  <Rooms :creating :href-of :new-href @open="open" @create="create" @close="close" @created="created" />
+  <Rooms
+    :creating
+    :href-of
+    :new-href
+    @open="open"
+    @create="create"
+    @close="close"
+    @created="created"
+  />
 </template>

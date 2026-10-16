@@ -288,7 +288,11 @@ function retry() {
     </div>
 
     <Transition name="ct-slide">
-      <NewTrip v-if="creating" @close="() => emit('close')" @created="(id) => emit('created', id)" />
+      <NewTrip
+        v-if="creating"
+        @close="() => emit('close')"
+        @created="(id) => emit('created', id)"
+      />
     </Transition>
   </div>
 </template>

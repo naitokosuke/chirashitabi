@@ -522,7 +522,11 @@ function adoptDraft() {
               :leg="f.leg"
               :on="f.day"
             />
-            <StayLine v-if="tonight !== undefined" :label="i18n.t('stay.tonight')" :stay="tonight" />
+            <StayLine
+              v-if="tonight !== undefined"
+              :label="i18n.t('stay.tonight')"
+              :stay="tonight"
+            />
           </div>
           <template v-if="editing">
             <textarea

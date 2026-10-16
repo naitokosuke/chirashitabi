@@ -75,7 +75,13 @@ const HOLD_MS = 600;
         : undefined"
   >
     <!-- a slip from the agent, cut square: what it is in the strip, the proposal, what to do with it -->
-    <CtPaper v-if="note.kind === 'suggestion'" variant="proposal" :lifted="dragging" :paper :selected>
+    <CtPaper
+      v-if="note.kind === 'suggestion'"
+      variant="proposal"
+      :lifted="dragging"
+      :paper
+      :selected
+    >
       <template #strip>{{ i18n.t("note.suggestion") }}</template>
       <!-- five lines of it on the desk; picked, all of it -->
       <template #default>

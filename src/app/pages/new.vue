@@ -8,5 +8,13 @@ const { creating, hrefOf, newHref, open, create, close, created } = useTrips();
 
 <template>
   <!-- the trips, with the sheet making a new one over them (Rooms.vue) -->
-  <Rooms :creating :href-of :new-href @open="open" @create="create" @close="close" @created="created" />
+  <Rooms
+    :creating
+    :href-of
+    :new-href
+    @open="open"
+    @create="create"
+    @close="close"
+    @created="created"
+  />
 </template>
