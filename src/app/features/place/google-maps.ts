@@ -28,6 +28,17 @@ export const placeSearchLink = (name: string, { lat, lng }: LatLng): HttpUrl =>
   );
 
 /**
+ * Google Maps' directions between two points (its Maps URLs, no key): on foot for a walk, else
+ * by public transport, which Google times with the real lines
+ */
+export const directionsLink = (from: LatLng, to: LatLng, walk: boolean): HttpUrl =>
+  v.parse(
+    HttpUrlSchema,
+    // the comma between the coordinates written %2C, as the Maps URLs documentation asks
+    `https://www.google.com/maps/dir/?api=1&origin=${from.lat}%2C${from.lng}&destination=${to.lat}%2C${to.lng}&travelmode=${walk ? "walking" : "transit"}`,
+  );
+
+/**
  * A pasted link, or undefined unless it is http(s). Notes come from the other
  * person in the room, so a `javascript:` URL must never reach an href.
  */

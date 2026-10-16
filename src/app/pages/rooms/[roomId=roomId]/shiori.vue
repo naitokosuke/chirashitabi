@@ -27,17 +27,34 @@ import {
   type Scheduled,
 } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
-import { safeUrl } from "../../../features/place/google-maps";
-import { distanceKm, WALKABLE_KM, walkMinutes } from "../../../features/place/route";
+import { directionsLink, safeUrl } from "../../../features/place/google-maps";
+import {
+  distanceKm,
+  rideMinutes,
+  WALKABLE_KM,
+  walkMinutes,
+  wayMinutes,
+} from "../../../features/place/route";
+import type { LatLng } from "../../../features/place/types";
 import FlightLine from "../../../features/trip/FlightLine.vue";
-import { fromHhmm, hhmm, longDate, shortDate } from "../../../features/trip/format";
+import {
+  durationChoices,
+  durationMessage,
+  fromHhmm,
+  hhmm,
+  longDate,
+  shortDate,
+} from "../../../features/trip/format";
 import {
   assignTo,
   cycleStatus,
   draftUpdates,
+  endOf,
   flightDays,
   stayOn,
+  timing,
   wakeAt,
+  type Timing,
 } from "../../../features/trip/itinerary";
 import StayLine from "../../../features/trip/StayLine.vue";
 import { useTrip } from "../../../features/trip/useTrip";
@@ -91,36 +108,81 @@ const shown = computed(() => {
   if (d === null) return [];
   return editing.value ? forDay(d) : forDay(d).filter((n) => n.schedule.status !== "idea");
 });
+/** The way up to a sticky: from where, how far, and whether it can start when it says */
+interface Way {
+  /** From the last place before it, when both have one */
+  place: { from: LatLng; to: LatLng; km: number; fromStay: boolean } | null;
+  /** It starts before the one before ends, or too soon to get there; null when it works */
+  timing: Timing | null;
+}
 /**
- * How far each sticky with a place is from the last place before it on the strip, the first
- * from the stay the day wakes at; and from the last one to where the night is spent
+ * The way to each sticky: how far it is from the last place before it on the strip (the first
+ * from the stay the day wakes at), and whether it can start when it says after the one just
+ * before ends and the way between them; and from the last place to where the night is spent
  */
 const legs = computed(() => {
   const d = day.value;
-  const before = new Map<NoteId, { km: number; fromStay: boolean }>();
+  const before = new Map<NoteId, Way>();
   if (d === null) return { before, toStay: null };
   let at = wakeAt(trip.value?.stays ?? [], d)?.pin ?? null;
   let fromStay = at !== null;
+  let prev: Scheduled | null = null;
   for (const n of shown.value) {
-    if (n.pin === null) continue;
-    if (at !== null) before.set(n.id, { km: distanceKm(at, n.pin), fromStay });
-    at = n.pin;
-    fromStay = false;
+    const place =
+      n.pin === null || at === null
+        ? null
+        : { from: at, to: n.pin, km: distanceKm(at, n.pin), fromStay };
+    // the way counts only from the one just before; from further back, or unknown, it is none
+    const way = place !== null && !fromStay && prev?.pin === at ? wayMinutes(place.km) : 0;
+    const t = prev === null ? null : timing(prev, n, way);
+    if (place !== null || t !== null) before.set(n.id, { place, timing: t });
+    if (n.pin !== null) {
+      at = n.pin;
+      fromStay = false;
+    }
+    prev = n;
   }
   const night = tonight.value?.pin ?? null;
   const toStay = night === null || at === null || fromStay ? null : distanceKm(at, night);
   return { before, toStay };
 });
-/** A leg as it reads: minutes on foot when it is a walk, else how far */
+/** The strip as it is laid down: each sticky with the way up to it, when there is one to say */
+const strip = computed(() =>
+  shown.value.map((n) => ({ n, way: legs.value.before.get(n.id) ?? null })),
+);
+/** A leg as it reads: minutes on foot when it is a walk, else how far and a guess at a ride */
 const far = (km: number) =>
   km < WALKABLE_KM
     ? i18n.t("shiori.walk", { minutes: walkMinutes(km) })
-    : i18n.t("shiori.far", { km: km.toFixed(1) });
+    : i18n.t("shiori.ride", { km: km.toFixed(1), minutes: rideMinutes(km) });
 /** The leg up to a sticky, said from the stay when the day starts there */
-function legTo(id: NoteId) {
-  const leg = legs.value.before.get(id);
-  if (leg === undefined) return "";
-  return leg.fromStay ? `${i18n.t("shiori.fromStay")} · ${far(leg.km)}` : far(leg.km);
+function legTo(way: Way) {
+  if (way.place === null) return "";
+  const said = far(way.place.km);
+  return way.place.fromStay ? `${i18n.t("shiori.fromStay")} · ${said}` : said;
+}
+/** Google Maps' directions for the leg, which know the real lines and times */
+const legLink = (way: Way) =>
+  way.place === null
+    ? undefined
+    : safeUrl(directionsLink(way.place.from, way.place.to, way.place.km < WALKABLE_KM));
+/** Why it cannot start when it says, or "" when it can */
+function legWarning(way: Way) {
+  const t = way.timing;
+  if (t === null) return "";
+  return t.kind === "overlap"
+    ? i18n.t("shiori.overlap", { minutes: t.minutes })
+    : i18n.t("shiori.tight", { gap: t.gap, way: t.way });
+}
+/** "–14:00" under the time it starts, or "" while it does not say when it ends */
+function until(n: Scheduled) {
+  const end = endOf(n);
+  return end === null ? "" : `–${hhmm(end)}`;
+}
+/** "1 h 30 min" */
+function long(minutes: number) {
+  const d = durationMessage(minutes);
+  return i18n.t(d.id, d.params);
 }
 /** The day the tabs and the heading show, ahead of the page by the time it takes to turn */
 const pickedDay = computed(() => dayOfTab(picked.value));
@@ -219,6 +281,10 @@ function setTime(n: Scheduled, e: Event) {
   if (!(e.target instanceof HTMLInputElement)) return;
   const time = fromHhmm(e.target.value);
   store.update(n.id, { schedule: { ...n.schedule, time } });
+}
+function setMinutes(n: Scheduled, e: Event) {
+  if (!(e.target instanceof HTMLSelectElement)) return;
+  store.update(n.id, { minutes: e.target.value === "" ? null : Number(e.target.value) });
 }
 function onIntroChange(e: Event) {
   if (day.value === null) return;
@@ -371,9 +437,19 @@ function adoptDraft() {
 
           <!-- the day is a strip of the same stickies as the canvas, pinned in time order -->
           <ol>
-            <template v-for="n in shown" :key="n.id">
-              <!-- how far it is from the place before it: a guess as the crow flies, to plan by -->
-              <li v-if="legs.before.has(n.id)" class="leg" data-turn>{{ legTo(n.id) }}</li>
+            <template v-for="{ n, way } in strip" :key="n.id">
+              <!-- how far it is from the place before it (a guess as the crow flies, to plan by),
+                   Google's directions for it, and whether it can start when it says -->
+              <li v-if="way !== null" class="leg" data-turn>
+                <span v-if="legTo(way) !== ''">{{ legTo(way) }}</span>
+                <a
+                  v-if="legLink(way) !== undefined"
+                  :href="legLink(way)"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >{{ i18n.t("shiori.route") }}</a>
+                <strong v-if="legWarning(way) !== ''">{{ legWarning(way) }}</strong>
+              </li>
               <li
                 data-turn
                 :data-status="n.schedule.status"
@@ -381,16 +457,32 @@ function adoptDraft() {
                 :data-stamp="i18n.t('status.done')"
               >
                 <div>
-                  <input
-                    v-if="editing"
-                    type="time"
-                    :aria-label="i18n.t('shiori.time')"
-                    :value="n.schedule.time ? hhmm(n.schedule.time) : ''"
-                    @change="(e) => setTime(n, e)"
-                  />
-                  <span v-else>{{
-                    n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime")
-                  }}</span>
+                  <template v-if="editing">
+                    <input
+                      type="time"
+                      :aria-label="i18n.t('shiori.time')"
+                      :value="n.schedule.time ? hhmm(n.schedule.time) : ''"
+                      @change="(e) => setTime(n, e)"
+                    />
+                    <select
+                      :aria-label="i18n.t('shiori.minutes')"
+                      :value="n.minutes ?? ''"
+                      @change="(e) => setMinutes(n, e)"
+                    >
+                      <option value="">{{ i18n.t("duration.unset") }}</option>
+                      <option v-for="m in durationChoices(n.minutes)" :key="m" :value="m">{{
+                        long(m)
+                      }}</option>
+                    </select>
+                  </template>
+                  <template v-else>
+                    <span>{{
+                      n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime")
+                    }}</span>
+                    <!-- when it ends, or with no time, how long it takes -->
+                    <small v-if="until(n) !== ''">{{ until(n) }}</small>
+                    <small v-else-if="n.minutes !== null">{{ long(n.minutes) }}</small>
+                  </template>
                 </div>
                 <div>
                   <p>{{ n.title }}</p>
@@ -457,7 +549,9 @@ function adoptDraft() {
                   i18n.t("shiori.draft")
                 }}</small></div>
               <p>{{ draft.reason }}</p>
-              <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}</li></ol>
+              <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}<small
+                    v-if="it.minutes !== null"
+                  >{{ ` · ${long(it.minutes)}` }}</small></li></ol>
               <div><button type="button" @click="adoptDraft">{{
                   i18n.t("shiori.adoptDraft")
                 }}</button><button type="button" @click="() => (draft = null)">{{
@@ -817,6 +911,27 @@ article {
           font-size: var(--font-xs);
           font-weight: 700;
           font-variant-numeric: tabular-nums;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          column-gap: 10px;
+
+          > a {
+            /* a text link, but a thumb-sized one */
+            display: inline-flex;
+            align-items: center;
+            min-height: var(--tap);
+            margin-block: -8px;
+            color: var(--ink);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+          }
+
+          /* it cannot start when it says: said in the one color that means trouble */
+          > strong {
+            flex-basis: 100%;
+            color: var(--danger);
+          }
         }
 
         /* A sticky, the same paper as on the canvas, with a time tab along its left edge; level, for reading (only the desk tilts) */
@@ -857,8 +972,9 @@ article {
             flex-shrink: 0;
             width: 76px;
             display: flex;
-            align-items: flex-start;
-            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
             padding: 10px 6px;
             border-radius: 6px 0 0 6px;
             /* a darker fold of the same paper: lightness only, so a yellow fold stays yellow */
@@ -884,12 +1000,35 @@ article {
               }
             }
 
+            /* how long it takes, under the time: a quieter field of the same make */
+            > select {
+              width: 100%;
+              min-height: var(--tap);
+              font: inherit;
+              font-size: var(--font-xs);
+              font-weight: 700;
+              padding: 2px;
+              border: 1px solid color-mix(in oklch, var(--paper-ink) 20%, transparent);
+              border-radius: 10px;
+              background: color-mix(in oklch, var(--paper-white) 55%, transparent);
+              color: var(--paper-ink);
+              text-align: center;
+            }
+
             > span {
               padding-block-start: 2px;
               font-weight: 700;
               font-variant-numeric: tabular-nums;
               color: var(--paper-ink);
               font-size: var(--font-md);
+            }
+
+            /* when it ends, or how long it takes */
+            > small {
+              font-size: var(--font-xs);
+              font-weight: 700;
+              font-variant-numeric: tabular-nums;
+              color: var(--paper-muted);
             }
           }
 

@@ -239,6 +239,8 @@ export type WireSchedule = v.InferOutput<typeof WireScheduleSchema>;
 
 const TagsSchema = v.pipe(v.array(TagSchema), v.maxLength(TAGS));
 const BudgetSchema = v.nullable(v.pipe(v.number(), v.finite(), v.minValue(0), v.maxValue(1e9)));
+/** How long a memo's plan takes there, in whole minutes: a day at most */
+const MinutesSchema = v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(24 * 60));
 /** A point on the desk, as `{ x, y }` within the canvas's bounds */
 export const PointSchema = v.object({ x: finite(), y: finite() });
 
@@ -269,6 +271,8 @@ const memo = {
   checked: v.optional(v.boolean(), false),
   /** A picture on the card: the id of an image stored in the room, or null. None from an older client: no picture */
   image: v.optional(v.nullable(ImageIdSchema), null),
+  /** How long it takes there, in minutes; null for not said. None from an older client: not said */
+  minutes: v.optional(v.nullable(MinutesSchema), null),
 };
 const suggestion = { ...card, kind: v.literal("suggestion") };
 /** Words set straight on the desk, with no paper under them: a heading, a label. `title` is the text */
@@ -307,6 +311,7 @@ const WireMemoPatchSchema = v.strictObject({
   pin: v.optional(memo.pin),
   schedule: v.optional(memo.schedule),
   budget: v.optional(memo.budget),
+  minutes: v.optional(v.nullable(MinutesSchema)),
   x: v.optional(memo.x),
   y: v.optional(memo.y),
   rot: v.optional(memo.rot),

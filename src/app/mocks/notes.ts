@@ -47,6 +47,7 @@ const n = (p: Partial<Memo> & Pick<Memo, "title" | "x" | "y">): Memo => ({
   budget: null,
   checked: false,
   image: null,
+  minutes: null,
   ...p,
 });
 const suggest = (p: Partial<Suggestion> & Pick<Suggestion, "title" | "x" | "y">): Suggestion => ({
@@ -66,6 +67,7 @@ export const mockNotes = (): Note[] => [
     rot: -2,
     by: KEN,
     schedule: on("2026-11-03", "12:30", "fixed"),
+    minutes: 60,
     budget: 700,
     mapsUrl: link("https://maps.google.com/?q=Din+Tai+Fung"),
   }),
@@ -79,6 +81,7 @@ export const mockNotes = (): Note[] => [
     y: 52,
     rot: 1.5,
     schedule: on("2026-11-03", "16:00", "fixed"),
+    minutes: 240,
     mapsUrl: link("https://maps.google.com/?q=Jiufen"),
   }),
   n({

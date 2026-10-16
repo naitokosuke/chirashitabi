@@ -786,7 +786,10 @@ describe("the socket", () => {
     a.idle(); // the sender applied it locally and hears nothing back
 
     const c = await connect(roomId, PARTNER);
-    expect(c.snapshot.notes).toEqual([{ ...memo("n1"), by: yuki, updatedAt: got.updatedAt }]);
+    // a memo from a client that does not say how long it takes takes no time it was not given
+    expect(c.snapshot.notes).toEqual([
+      { ...memo("n1"), minutes: null, by: yuki, updatedAt: got.updatedAt },
+    ]);
     for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
 
@@ -917,7 +920,7 @@ describe("the socket", () => {
 
     const a = await connect(roomId, owner);
     expect(a.snapshot).toMatchObject({
-      notes: [{ id: "old", title: "Kept", tags: ["Food"], checked: true, rot: 3 }],
+      notes: [{ id: "old", title: "Kept", tags: ["Food"], checked: true, rot: 3, minutes: null }],
     });
     const box = {
       id: "t2",
@@ -932,6 +935,26 @@ describe("the socket", () => {
     a.send({ type: "note:add", note: box, cid: "c1" });
     expect(await a.next()).toMatchObject({ type: "ack", cid: "c1" });
     a.ws.close(1000, "done");
+  });
+
+  test("how long a memo takes is kept, changed and taken back; past a day it is refused", async () => {
+    const LONG = "minutes@example.com";
+    const { roomId } = await createRoom(LONG);
+    const a = await connect(roomId, LONG);
+    a.send({ type: "note:add", note: { ...memo("n1"), minutes: 90 }, cid: "c1" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c1" });
+    a.send({ type: "note:update", id: "n1", patch: { minutes: 1441 }, cid: "c2" });
+    expect(await a.next()).toEqual({ type: "rejected", reason: "not a mutation", cid: "c2" });
+    a.send({ type: "note:update", id: "n1", patch: { body: "lunch" }, cid: "c3" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c3" });
+    const b = await connect(roomId, LONG);
+    // a patch that does not name it keeps it
+    expect(b.snapshot.notes).toMatchObject([{ id: "n1", minutes: 90, body: "lunch" }]);
+    a.send({ type: "note:update", id: "n1", patch: { minutes: null }, cid: "c4" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c4" });
+    const c = await connect(roomId, LONG);
+    expect(c.snapshot.notes).toMatchObject([{ id: "n1", minutes: null }]);
+    for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
 
   test("updates, moves, recolors, adoption, deletion and the day intro all land", async () => {
@@ -986,6 +1009,7 @@ describe("the socket", () => {
         budget: null,
         checked: false,
         image: null,
+        minutes: null,
       },
     ]);
     expect(c.snapshot.trip.days[1]).toEqual({ date: "2026-11-04", intro: "Jiufen day" });
@@ -1344,10 +1368,10 @@ describe("the agent's draft of a day", () => {
         reason: "Lunch first, the market after dark.",
         intro: "Dumplings, then the night market.",
         items: [
-          { id: "lunch", time: "12:30" },
-          { id: "night", time: "19:00" },
-          { id: "not-on-this-day", time: "09:00" },
-          { id: "lunch", time: "13:00" },
+          { id: "lunch", time: "12:30", minutes: 60 },
+          { id: "night", time: "19:00", minutes: 1.5 },
+          { id: "not-on-this-day", time: "09:00", minutes: 30 },
+          { id: "lunch", time: "13:00", minutes: 45 },
         ],
       });
     const before = asked.length;
@@ -1357,9 +1381,10 @@ describe("the agent's draft of a day", () => {
       by: "agent:claude",
       reason: "Lunch first, the market after dark.",
       intro: "Dumplings, then the night market.",
+      // minutes that are not whole are none
       items: [
-        { id: "lunch", time: "12:30" },
-        { id: "night", time: "19:00" },
+        { id: "lunch", time: "12:30", minutes: 60 },
+        { id: "night", time: "19:00", minutes: null },
       ],
     });
     expect(asked.length).toBe(before + 1);

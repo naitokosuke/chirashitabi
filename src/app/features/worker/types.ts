@@ -10,7 +10,8 @@ export interface DayDraft {
   /** Who drafted it, as the Worker names them: an id to find among the members; null when it named none */
   by: MemberId | null;
   reason: string; // why this order
-  items: { note: Scheduled; time: Temporal.PlainTime | null }[];
+  /** Each note in order, when it starts and how long it takes there (null: not said) */
+  items: { note: Scheduled; time: Temporal.PlainTime | null; minutes: number | null }[];
   intro: string;
 }
 

@@ -76,6 +76,8 @@ export interface Memo extends CardBase {
   checked: boolean;
   /** A picture on the card, kept by the room; null for none */
   image: ImageId | null;
+  /** How long it takes there, in minutes; null for not said. With a time, the booklet says when it ends */
+  minutes: number | null;
 }
 
 /** A suggestion waits to be adopted (becoming a memo) or dismissed; anyone can make one */
@@ -119,7 +121,7 @@ export type NewMemo = Omit<Memo, "by" | "updatedAt">;
 /** What the form writes */
 export type NoteInput = Pick<
   Memo,
-  "title" | "body" | "tags" | "color" | "mapsUrl" | "pin" | "image"
+  "title" | "body" | "tags" | "color" | "mapsUrl" | "pin" | "image" | "minutes"
 >;
 
 /**

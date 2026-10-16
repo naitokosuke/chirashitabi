@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 
 import {
+  directionsLink,
   isShortMapsLink,
   parseMapsUrl,
   placeFromUrl,
@@ -65,5 +66,22 @@ describe("placeFromUrl", () => {
   test("what is not a link a note may carry sets none, and the pin stays", () => {
     expect(placeFromUrl("Din Tai Fung", pin)).toEqual({ mapsUrl: null, pin });
     expect(placeFromUrl("javascript:alert(1)", pin)).toEqual({ mapsUrl: null, pin });
+  });
+});
+
+describe("directionsLink", () => {
+  const from = { lat: 25.0335, lng: 121.5301 };
+  const to = { lat: 25.1094, lng: 121.8453 };
+
+  test("asks Google for the way between the points, on foot or by public transport", () => {
+    const transit = new URL(directionsLink(from, to, false));
+    expect(transit.origin + transit.pathname).toBe("https://www.google.com/maps/dir/");
+    expect(Object.fromEntries(transit.searchParams)).toEqual({
+      api: "1",
+      origin: "25.0335,121.5301",
+      destination: "25.1094,121.8453",
+      travelmode: "transit",
+    });
+    expect(new URL(directionsLink(from, to, true)).searchParams.get("travelmode")).toBe("walking");
   });
 });

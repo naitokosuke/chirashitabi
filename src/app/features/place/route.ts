@@ -40,6 +40,13 @@ export const WALKABLE_KM = 1.5;
  * a person walks about 4.8 km an hour; a guess to plan by, never less than a minute
  */
 export const walkMinutes = (km: number) => Math.max(1, Math.round(((km * 1.3) / 4.8) * 60));
+/**
+ * Minutes by train, bus or taxi for a straight line of `km`: ten to reach a station or a car
+ * and wait, then the winding way (a third longer) at 30 km an hour; a guess to plan by
+ */
+export const rideMinutes = (km: number) => 10 + Math.round(((km * 1.3) / 30) * 60);
+/** The way between two places: on foot when it is a walk, else a ride */
+export const wayMinutes = (km: number) => (km < WALKABLE_KM ? walkMinutes(km) : rideMinutes(km));
 
 /** A line through the stops, or nothing while there are fewer than two */
 export const routeLine = (stops: LngLat[]): FeatureCollection => ({

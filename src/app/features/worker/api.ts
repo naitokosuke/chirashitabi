@@ -174,7 +174,15 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
           reason: v.fallback(v.string(), ""),
           intro: v.fallback(v.string(), ""),
           items: listOf(
-            v.object({ id: v.string(), time: v.fallback(v.nullable(v.string()), null) }),
+            v.object({
+              id: v.string(),
+              time: v.fallback(v.nullable(v.string()), null),
+              // a Worker from before drafts said how long sends none
+              minutes: v.fallback(
+                v.nullable(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(24 * 60))),
+                null,
+              ),
+            }),
           ),
         }),
       ),
@@ -185,7 +193,7 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
         // the draft names the notes it was given; one that has since gone is left out
         items: d.items.flatMap((it) => {
           const note = notes.find((n) => n.id === it.id);
-          return note === undefined ? [] : [{ note, time: timeOf(it.time) }];
+          return note === undefined ? [] : [{ note, time: timeOf(it.time), minutes: it.minutes }];
         }),
       }),
     );
