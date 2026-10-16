@@ -78,7 +78,8 @@ src/app/            The app
     theme/   Light or dark: the device's until picked (useTheme, remembered); ThemeSwitch, the dock's
              sun and moon, whose new colors spread from it like ink
     trip/    The room's trip (name, days, currency, map center, flights, stays); itinerary (notes on a
-             day, status, budgets, assigning a day, adopting a draft, where a night is spent);
+             day, status, budgets, assigning a day, adopting a draft, where a night is spent, when a
+             note ends and whether the next can start); calendar (the plan as an iCalendar file);
              formatting; settings and TripEditor (name, dates, flights and stays, edited on the home
              tab); FlightLine (a flight); StayLine (a stay); AirportField (an airport, suggested as typed)
     tags/    Tag colors and the tag filter (store, filter bar)
