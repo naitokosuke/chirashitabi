@@ -186,7 +186,7 @@ const agent = [
       by: CLAUDE,
       reason: "Given the locations and opening hours, this order means the least walking.",
       intro: "Xiaolongbao for lunch, Jiufen in the evening, then beer in Xinyi.",
-      items: items.map((id, i) => ({ id, time: SLOTS[i] ?? null })),
+      items: items.map((id, i) => ({ id, time: SLOTS[i] ?? null, minutes: 90 })),
     });
   }),
   http.post("/api/rooms/:roomId/suggest", async ({ params, request }) => {

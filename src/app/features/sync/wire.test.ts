@@ -33,6 +33,7 @@ const memo: NewMemo = {
   budget: 1500,
   checked: false,
   image: null,
+  minutes: null,
 };
 const flight = {
   number: "BR 191",

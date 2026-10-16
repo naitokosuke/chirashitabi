@@ -83,7 +83,8 @@ src/app/            The app
              tab); FlightLine (a flight); StayLine (a stay); AirportField (an airport, suggested as typed)
     tags/    Tag colors and the tag filter (store, filter bar)
     place/   Google Maps links: parsing, safe hrefs; pins; a day's route as GeoJSON, from and back to
-             the stays (or the airports on a flight's day); how far apart two points are, and a walk's minutes;
+             the stays (or the airports on a flight's day); how far apart two points are, minutes on foot or
+             by a ride; directions between two points;
              airports (airports.json from OurAirports, fetched when first needed; suggestions as typed)
     canvas/  Sticky note card (a text box and a sticker too); TextField (words being written on the desk); transform
              (screen <-> world, zoom, pinch, fit); useViewport (the animated view); usePlace (adding

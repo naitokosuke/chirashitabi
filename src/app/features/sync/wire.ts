@@ -89,6 +89,8 @@ export function reviveNote(n: WireNote): Note {
     checked: n.checked,
     // a note kept on a device before pictures has none
     image: n.image ?? null,
+    // nor one kept before a memo said how long it takes
+    minutes: n.minutes ?? null,
   };
 }
 

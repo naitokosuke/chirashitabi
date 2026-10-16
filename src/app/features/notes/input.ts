@@ -19,6 +19,7 @@ export const inputFromNote = (note: Memo): NoteInput => ({
   mapsUrl: note.mapsUrl,
   pin: note.pin,
   image: note.image,
+  minutes: note.minutes,
 });
 
 /** A new memo: carries the tags being filtered on, and a pin when written from the map */
@@ -30,6 +31,7 @@ export const blankInput = (tags: Iterable<Tag>, pin: LatLng | null): NoteInput =
   mapsUrl: null,
   pin,
   image: null,
+  minutes: null,
 });
 
 /** A copy keeps the words and the look, not the place */
@@ -42,6 +44,8 @@ export const duplicateInput = (n: Note): NoteInput => ({
   pin: null,
   // the picture stays the room's; the copy shows the same one
   image: n.kind === "memo" ? n.image : null,
+  // and how long it takes, which goes with the words
+  minutes: n.kind === "memo" ? n.minutes : null,
 });
 
 /** What a suggestion becomes once adopted: a plain white memo, nothing planned yet */
@@ -57,6 +61,7 @@ export const adopted = (s: Suggestion): Memo => ({
   budget: null,
   checked: false,
   image: null,
+  minutes: null,
 });
 
 /** Tags shown on a card; suggestions have none */

@@ -90,6 +90,30 @@ export const stayOn = (stays: Stay[], date: Temporal.PlainDate) =>
 export const wakeAt = (stays: Stay[], date: Temporal.PlainDate) =>
   stayOn(stays, date.subtract({ days: 1 }));
 
+const minuteOfDay = (t: Temporal.PlainTime) => t.hour * 60 + t.minute;
+
+/** When a memo on a day ends, while it says both when it starts and how long it takes */
+export const endOf = (n: Scheduled): Temporal.PlainTime | null =>
+  n.schedule.time === null || n.minutes === null
+    ? null
+    : n.schedule.time.add({ minutes: n.minutes });
+
+/** Why a memo cannot start when it says: it overlaps the one before, or the way there is longer than the gap */
+export type Timing =
+  | { kind: "overlap"; minutes: number }
+  | { kind: "tight"; gap: number; way: number };
+/**
+ * Whether `next` can start when it says after `prev`, with `way` minutes between their places
+ * (0 when that is not known); null when it can, or when either does not say enough to tell
+ */
+export function timing(prev: Scheduled, next: Scheduled, way: number): Timing | null {
+  const [start, then] = [prev.schedule.time, next.schedule.time];
+  if (start === null || then === null || prev.minutes === null) return null;
+  const gap = minuteOfDay(then) - (minuteOfDay(start) + prev.minutes);
+  if (gap < 0) return { kind: "overlap", minutes: -gap };
+  return gap < way ? { kind: "tight", gap, way } : null;
+}
+
 /** Put a memo on a day (keeping its time and status), or take it off the itinerary */
 export const assignTo = (n: Memo, date: Temporal.PlainDate | null): MemoPatch => ({
   schedule:
@@ -98,15 +122,15 @@ export const assignTo = (n: Memo, date: Temporal.PlainDate | null): MemoPatch =>
       : { date, time: n.schedule?.time ?? null, status: n.schedule?.status ?? "idea" },
 });
 
-/** Adopting a draft confirms every item it gave a time */
+/**
+ * Adopting a draft confirms every item it gave a time, and gives how long it takes to each that
+ * did not say (one the travellers set stays theirs)
+ */
 export const draftUpdates = (draft: DayDraft) =>
-  draft.items.flatMap(({ note, time }) =>
-    time !== null
-      ? [
-          {
-            id: note.id,
-            patch: { schedule: { ...note.schedule, time, status: "fixed" } } satisfies MemoPatch,
-          },
-        ]
-      : [],
-  );
+  draft.items.flatMap(({ note, time, minutes }) => {
+    const patch: MemoPatch = {
+      ...(time === null ? {} : { schedule: { ...note.schedule, time, status: "fixed" } }),
+      ...(note.minutes === null && minutes !== null ? { minutes } : {}),
+    };
+    return Object.keys(patch).length === 0 ? [] : [{ id: note.id, patch }];
+  });

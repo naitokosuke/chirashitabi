@@ -4,10 +4,11 @@ import { describe, expect, test } from "vite-plus/test";
 
 import type { MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
-import type { Memo, NoteStatus } from "../notes/types";
+import type { Memo, NoteStatus, Scheduled } from "../notes/types";
 import type { AirportCode } from "../place/airports";
+import type { DayDraft } from "../worker/types";
 
-import { flightDays, forDay, stayOn, wakeAt } from "./itinerary";
+import { draftUpdates, endOf, flightDays, forDay, stayOn, timing, wakeAt } from "./itinerary";
 import type { Stay } from "./types";
 
 const day = Temporal.PlainDate.from("2026-11-03");
@@ -32,10 +33,90 @@ function memo(id: string, time: string | null, status: NoteStatus, editedAt: str
     budget: null,
     checked: false,
     image: null,
+    minutes: null,
   };
 }
 
 const ids = (notes: Memo[]) => notes.map((n) => n.id);
+
+/** A confirmed memo on the day at `time`, taking `minutes` */
+const planned = (id: string, time: string | null, minutes: number | null): Scheduled => {
+  const n = memo(id, time, "fixed", "2026-10-01T00:00:00Z");
+  return {
+    ...n,
+    minutes,
+    schedule: { date: day, time: n.schedule?.time ?? null, status: "fixed" },
+  };
+};
+
+describe("endOf", () => {
+  test("a memo ends its minutes after it starts, past midnight on the clock", () => {
+    expect(endOf(planned("lunch", "12:30", 90))?.toString()).toBe("14:00:00");
+    expect(endOf(planned("late", "23:30", 60))?.toString()).toBe("00:30:00");
+  });
+
+  test("without a time or minutes there is no end to say", () => {
+    expect(endOf(planned("anytime", null, 90))).toBeNull();
+    expect(endOf(planned("open", "12:30", null))).toBeNull();
+  });
+});
+
+describe("timing", () => {
+  test("starting before the one before ends is an overlap, by how much", () => {
+    expect(timing(planned("a", "10:00", 90), planned("b", "11:00", 30), 0)).toEqual({
+      kind: "overlap",
+      minutes: 30,
+    });
+  });
+
+  test("a gap shorter than the way between is tight; as long or longer works", () => {
+    const a = planned("a", "10:00", 60);
+    expect(timing(a, planned("b", "11:15", 30), 20)).toEqual({ kind: "tight", gap: 15, way: 20 });
+    expect(timing(a, planned("b", "11:20", 30), 20)).toBeNull();
+  });
+
+  test("nothing is said when a time or the first one's minutes are missing", () => {
+    expect(timing(planned("a", "10:00", null), planned("b", "10:05", 30), 20)).toBeNull();
+    expect(timing(planned("a", null, 60), planned("b", "10:05", 30), 20)).toBeNull();
+    expect(timing(planned("a", "10:00", 60), planned("b", null, 30), 20)).toBeNull();
+  });
+});
+
+describe("draftUpdates", () => {
+  const draftOf = (items: DayDraft["items"]): DayDraft => ({
+    by: null,
+    reason: "",
+    intro: "",
+    items,
+  });
+  const at = (t: string) => Temporal.PlainTime.from(t);
+
+  test("a time confirms the item; minutes go only where the memo said none", () => {
+    const open = planned("open", null, null);
+    const set = planned("set", null, 45);
+    const updates = draftUpdates(
+      draftOf([
+        { note: open, time: at("10:00"), minutes: 60 },
+        { note: set, time: at("12:00"), minutes: 90 },
+      ]),
+    );
+    expect(updates).toEqual([
+      {
+        id: open.id,
+        patch: { schedule: { date: day, time: at("10:00"), status: "fixed" }, minutes: 60 },
+      },
+      { id: set.id, patch: { schedule: { date: day, time: at("12:00"), status: "fixed" } } },
+    ]);
+  });
+
+  test("an item with no time keeps its schedule but still learns how long it takes", () => {
+    const loose = planned("loose", null, null);
+    expect(draftUpdates(draftOf([{ note: loose, time: null, minutes: 30 }]))).toEqual([
+      { id: loose.id, patch: { minutes: 30 } },
+    ]);
+    expect(draftUpdates(draftOf([{ note: loose, time: null, minutes: null }]))).toEqual([]);
+  });
+});
 
 describe("forDay", () => {
   test("orders by time, untimed last", () => {

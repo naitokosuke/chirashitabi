@@ -16,7 +16,7 @@ const MAX_TOKENS = 2000;
 export interface DraftProposal {
   reason: string;
   intro: string;
-  items: { id: string; time: string | null }[];
+  items: { id: string; time: string | null; minutes: number | null }[];
 }
 
 export interface Usage {
@@ -54,8 +54,13 @@ const DRAFT_TOOL = {
               type: ["string", "null"],
               description: "Start time as HH:MM (24h), or null when any time works.",
             },
+            minutes: {
+              type: ["integer", "null"],
+              description:
+                "How many minutes to plan there, travel not included: the note's own when it has one, else your estimate.",
+            },
           },
-          required: ["id", "time"],
+          required: ["id", "time", "minutes"],
         },
       },
     },
@@ -73,6 +78,7 @@ const describe = (n: WireMemo) => ({
   time: n.schedule?.time?.slice(0, 5) ?? null,
   status: n.schedule?.status,
   budget: n.budget,
+  minutes: n.minutes,
 });
 
 /** Asks Claude to order a day; the answer is checked against the notes it was given */
@@ -88,6 +94,7 @@ export async function draftDay(
     "",
     "Order these notes into a realistic plan for the day: travel between places, opening hours,",
     "meals at meal times. Keep a time the travellers already set unless it cannot work.",
+    "`minutes` is how long they plan to spend at a note; leave time to get from one place to the next.",
     "Write `reason` and `intro` in the language the notes are written in.",
   ].join("\n");
 
@@ -388,6 +395,11 @@ const ProposalSchema = v.object({
           id: v.string(),
           // a time that is not HH:MM is no time
           time: v.fallback(v.nullable(v.pipe(v.string(), v.regex(TIME))), null),
+          // and minutes that are not a whole number within a day are none
+          minutes: v.fallback(
+            v.nullable(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(24 * 60))),
+            null,
+          ),
         }),
       ),
       null,
@@ -397,7 +409,7 @@ const ProposalSchema = v.object({
 
 /**
  * Claude's answer as a draft, or null. Only notes of the day, each once; a time that is not
- * HH:MM is no time. Exported for the tests.
+ * HH:MM is no time, and minutes outside a day are none. Exported for the tests.
  */
 export function checkProposal(input: unknown, ids: ReadonlySet<string>): DraftProposal | null {
   const answer = v.safeParse(ProposalSchema, input);
@@ -408,7 +420,7 @@ export function checkProposal(input: unknown, ids: ReadonlySet<string>): DraftPr
   for (const it of answer.output.items) {
     if (it === null || !ids.has(it.id) || seen.has(it.id)) continue;
     seen.add(it.id);
-    items.push({ id: it.id, time: it.time });
+    items.push({ id: it.id, time: it.time, minutes: it.minutes });
   }
   return { reason, intro, items };
 }

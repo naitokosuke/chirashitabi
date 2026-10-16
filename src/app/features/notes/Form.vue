@@ -42,6 +42,7 @@ import type { FoundPlace } from "../place/types";
 import { useSync } from "../sync/useSync";
 import { FITS_AT, fits, likeness, rankTags, type TagOption } from "../tags/rank";
 import { useTags } from "../tags/useTags";
+import { durationChoices, durationMessage } from "../trip/format";
 import { useWorker } from "../worker/useWorker";
 
 import { imageSrc, shrinkImage } from "./image";
@@ -449,6 +450,16 @@ function removeTag(t: Tag) {
 function setColor(c: NoteColor) {
   form.value.color = c;
 }
+/** How long it takes there; the booklet says when it ends from it */
+function setMinutes(e: Event) {
+  if (!(e.target instanceof HTMLSelectElement)) return;
+  form.value.minutes = e.target.value === "" ? null : Number(e.target.value);
+}
+/** "1 h 30 min" */
+function long(minutes: number) {
+  const d = durationMessage(minutes);
+  return i18n.t(d.id, d.params);
+}
 
 function submit() {
   commitTag();
@@ -462,6 +473,7 @@ function submit() {
     mapsUrl: form.value.mapsUrl,
     pin: form.value.pin,
     image: form.value.image,
+    minutes: form.value.minutes,
   };
   if (target.value.kind === "edit") {
     store.update(target.value.id, input);
@@ -595,6 +607,15 @@ function submit() {
             i18n.t(PLACE_STATE[places.kind])
           }}</p>
         </div>
+      </div>
+      <div>
+        <label :for="`${id}-minutes`">{{ i18n.t("shiori.minutes") }}</label>
+        <select :id="`${id}-minutes`" :value="form.minutes ?? ''" @change="setMinutes">
+          <option value="">{{ i18n.t("form.minutesUnset") }}</option>
+          <option v-for="m in durationChoices(form.minutes)" :key="m" :value="m">{{
+            long(m)
+          }}</option>
+        </select>
       </div>
       <div v-if="worker.api !== null">
         <label :for="`${id}-photo`">{{ i18n.t("form.photo") }}</label>
@@ -937,7 +958,8 @@ form {
         }
       }
 
-      > input {
+      > input,
+      > select {
         width: 100%;
         font: inherit;
         font-size: var(--font-base);
