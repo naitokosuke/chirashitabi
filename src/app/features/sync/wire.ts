@@ -91,6 +91,8 @@ export function reviveNote(n: WireNote): Note {
     image: n.image ?? null,
     // nor one kept before a memo said how long it takes
     minutes: n.minutes ?? null,
+    // nor one kept before its opening hours were its own
+    hours: n.hours ?? null,
   };
 }
 

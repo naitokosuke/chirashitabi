@@ -78,6 +78,8 @@ export interface Memo extends CardBase {
   image: ImageId | null;
   /** How long it takes there, in minutes; null for not said. With a time, the booklet says when it ends */
   minutes: number | null;
+  /** When its place is open, as OpenStreetMap writes it (place/hours.ts reads it); null for not said */
+  hours: string | null;
 }
 
 /** A suggestion waits to be adopted (becoming a memo) or dismissed; anyone can make one */
@@ -121,7 +123,7 @@ export type NewMemo = Omit<Memo, "by" | "updatedAt">;
 /** What the form writes */
 export type NoteInput = Pick<
   Memo,
-  "title" | "body" | "tags" | "color" | "mapsUrl" | "pin" | "image" | "minutes"
+  "title" | "body" | "tags" | "color" | "mapsUrl" | "pin" | "image" | "minutes" | "hours"
 >;
 
 /**

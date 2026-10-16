@@ -92,6 +92,7 @@ type NoteRow = {
   checked: number;
   image: ImageId | null;
   minutes: number | null;
+  hours: string | null;
 };
 
 /**
@@ -152,6 +153,10 @@ export class Room extends DurableObject<Env> {
     // and how long a memo takes, once the booklet said when each thing ends
     if (!cols.some((c) => c.name === "minutes")) {
       ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN minutes INTEGER");
+    }
+    // and when its place is open, once that was its own rather than a line of its words
+    if (!cols.some((c) => c.name === "hours")) {
+      ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN hours TEXT");
     }
     // and text boxes and stickers, once there were any: a CHECK cannot be altered, so the table
     // is copied once into one whose CHECK lets them in, every column by name
@@ -918,14 +923,15 @@ export class Room extends DurableObject<Env> {
                 // a sticker is its picture
                 image: note.kind === "sticker" ? note.image : null,
                 minutes: null,
+                hours: null,
               };
         // a card shows only a picture the room has
         if (memo.image !== null && !this.hasImage(memo.image))
           return { ok: false, reason: "no such image" };
         sql.exec(
           `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at, body, tags, maps_url,
-             pin_lat, pin_lng, sched_date, sched_time, sched_status, budget, checked, image, scale, minutes)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             pin_lat, pin_lng, sched_date, sched_time, sched_status, budget, checked, image, scale, minutes, hours)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           note.id,
           note.kind,
           note.title,
@@ -948,6 +954,7 @@ export class Room extends DurableObject<Env> {
           memo.image,
           note.scale,
           memo.minutes,
+          memo.hours,
         );
         return { ok: true, value: { type: "note:add", note } };
       }
@@ -963,7 +970,7 @@ export class Room extends DurableObject<Env> {
           `UPDATE notes SET
              title = ?, body = ?, tags = ?, color = ?, maps_url = ?, pin_lat = ?, pin_lng = ?,
              sched_date = ?, sched_time = ?, sched_status = ?, budget = ?, checked = ?, image = ?,
-             minutes = ?, x = ?, y = ?, rot = ?, updated_at = ?
+             minutes = ?, hours = ?, x = ?, y = ?, rot = ?, updated_at = ?
            WHERE id = ?`,
           has("title") ? p.title : row.title,
           has("body") ? p.body : row.body,
@@ -979,6 +986,7 @@ export class Room extends DurableObject<Env> {
           has("checked") ? (p.checked === true ? 1 : 0) : row.checked,
           has("image") ? (p.image ?? null) : row.image,
           has("minutes") ? (p.minutes ?? null) : row.minutes,
+          has("hours") ? (p.hours ?? null) : row.hours,
           has("x") ? p.x : row.x,
           has("y") ? p.y : row.y,
           has("rot") ? p.rot : row.rot,
@@ -1006,7 +1014,7 @@ export class Room extends DurableObject<Env> {
         sql.exec(
           `UPDATE notes SET kind = 'memo', color = '#ffffff', body = '', tags = '[]', maps_url = NULL,
              pin_lat = NULL, pin_lng = NULL, sched_date = NULL, sched_time = NULL, sched_status = NULL,
-             budget = NULL, checked = 0, minutes = NULL, updated_at = ? WHERE id = ?`,
+             budget = NULL, checked = 0, minutes = NULL, hours = NULL, updated_at = ? WHERE id = ?`,
           now,
           m.id,
         );
@@ -1182,6 +1190,7 @@ const NOTE_COLUMNS = [
   "image",
   "scale",
   "minutes",
+  "hours",
 ].join(", ");
 
 /** The notes table as it is now, under `name`: memos, suggestions, text boxes and stickers */
@@ -1209,7 +1218,8 @@ const notesTable = (name: string) => `
     checked INTEGER NOT NULL DEFAULT 0,
     image TEXT,
     scale REAL NOT NULL DEFAULT 1,
-    minutes INTEGER
+    minutes INTEGER,
+    hours TEXT
   )
 `;
 
@@ -1250,6 +1260,7 @@ const fromRow = (r: NoteRow): WireNote => {
     checked: r.checked === 1,
     image: r.image ?? null,
     minutes: r.minutes,
+    hours: r.hours,
   };
 };
 

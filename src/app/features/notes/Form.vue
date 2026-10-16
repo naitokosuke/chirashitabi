@@ -38,6 +38,7 @@ import {
   placeFromUrl,
   placeSearchLink,
 } from "../place/google-maps";
+import { readHours } from "../place/hours";
 import type { FoundPlace } from "../place/types";
 import { useSync } from "../sync/useSync";
 import { FITS_AT, fits, likeness, rankTags, type TagOption } from "../tags/rank";
@@ -86,6 +87,10 @@ const startingInput = (): NoteInput => {
 };
 const form = ref<NoteInput>(startingInput());
 const mapsUrl = ref(form.value.mapsUrl ?? "");
+/** When the place is open, as written (OpenStreetMap's way); blank for not said */
+const hours = ref(form.value.hours ?? "");
+/** Written, but past what the booklet can read: it is kept as it is and checks nothing */
+const hoursUnread = computed(() => hours.value.trim() !== "" && readHours(hours.value) === null);
 /** A short link is on its way to the Worker to be read */
 const expanding = ref(false);
 /** The short link last sent to be read: a paste reads it at once, and leaving the field after is the same one */
@@ -333,17 +338,13 @@ async function findPlaces() {
   }
 }
 /**
- * The chosen place becomes the memo's link, and its point the pin, as a pasted link would; when
- * OpenStreetMap knows its opening hours they go under the memo's words, once, for the booklet
+ * The chosen place becomes the memo's link, and its point the pin, as a pasted link would; its
+ * opening hours, when OpenStreetMap knows them, become the memo's, for the booklet to check
  */
 function choosePlace(p: FoundPlace) {
   mapsUrl.value = placeSearchLink(p.name, p.at);
   onMapsUrl();
-  if (p.hours !== null) {
-    // the label from the messages, the hours as they are: the memo's words keep no isolating marks
-    const line = `${i18n.t("form.hours")} ${p.hours}`;
-    if (!text.value.includes(line)) text.value = `${text.value.trimEnd()}\n${line}`;
-  }
+  if (p.hours !== null) hours.value = p.hours;
   places.value = { kind: "idle", found: [] };
 }
 
@@ -372,11 +373,8 @@ function nameThePin() {
         mapsUrl.value = placeSearchLink(place.name, at);
         onMapsUrl();
       }
-      if (text.value.trim() === "")
-        text.value =
-          place.hours === null
-            ? place.name
-            : `${place.name}\n${i18n.t("form.hours")} ${place.hours}`;
+      if (text.value.trim() === "") text.value = place.name;
+      if (place.hours !== null && hours.value.trim() === "") hours.value = place.hours;
       namedByOsm.value = true;
     })
     .catch(() => {
@@ -474,6 +472,7 @@ function submit() {
     pin: form.value.pin,
     image: form.value.image,
     minutes: form.value.minutes,
+    hours: hours.value.trim() === "" ? null : hours.value.trim(),
   };
   if (target.value.kind === "edit") {
     store.update(target.value.id, input);
@@ -485,6 +484,7 @@ function submit() {
     // a fresh sheet for the next one
     form.value = startingInput();
     mapsUrl.value = "";
+    hours.value = "";
     text.value = "";
     forgetTags();
     focusText();
@@ -607,6 +607,17 @@ function submit() {
             i18n.t(PLACE_STATE[places.kind])
           }}</p>
         </div>
+      </div>
+      <div>
+        <label :for="`${id}-hours`">{{ i18n.t("form.hours") }}</label>
+        <input
+          :id="`${id}-hours`"
+          v-model="hours"
+          autocapitalize="off"
+          spellcheck="false"
+          :placeholder="i18n.t('form.hoursPlaceholder')"
+        />
+        <p aria-live="polite">{{ i18n.t(hoursUnread ? "form.hoursUnread" : "form.hoursHint") }}</p>
       </div>
       <div>
         <label :for="`${id}-minutes`">{{ i18n.t("shiori.minutes") }}</label>

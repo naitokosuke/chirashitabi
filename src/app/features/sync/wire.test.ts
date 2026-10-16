@@ -34,6 +34,7 @@ const memo: NewMemo = {
   checked: false,
   image: null,
   minutes: null,
+  hours: null,
 };
 const flight = {
   number: "BR 191",
