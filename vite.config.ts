@@ -67,6 +67,9 @@ export default defineConfig({
         })
       : []),
   ],
+  // the licenses of every dependency bundled into the build, as dist/.vite/license.md:
+  // their notices travel with the code that carries them
+  build: { license: true },
   compiler: { vapor: true },
   typecheck: true,
   // the tests run in Node, but a `*.browser.test.ts` in a real Chromium: what a pointer does

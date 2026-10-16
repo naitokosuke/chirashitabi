@@ -213,3 +213,9 @@ Currencies and member colors arrive as plain strings too; `currencyCode` and `he
   (`worker/expand.ts`), and the point comes from where it leads.
 - When there are no coordinates, long-press the map to place the note.
 - Google Maps is only an "open" link; no Google key ever ships to the browser (see `docs/auth-and-security.md`).
+
+## Thanks
+
+The design system in `src/ui/` leans heavily on [React Bits](https://reactbits.dev) and [Vue Bits](https://vue-bits.dev), by David Haz.
+Much of how its components move and feel was learned from theirs, and some are built after one by name (the hold button after React Bits' Hold Button, the indicator after its Rubber Segment, the swipe row after its Swipe Row).
+Thank you.
