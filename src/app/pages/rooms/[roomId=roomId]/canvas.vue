@@ -70,6 +70,8 @@ import {
 import { useViewport } from "../../../features/canvas/useViewport";
 import type { NoteId } from "../../../features/notes/id";
 import { shrinkImage, STICKER_SIDE } from "../../../features/notes/image";
+import { blankInput } from "../../../features/notes/input";
+import { siteOf } from "../../../features/notes/links";
 import {
   COLOR_NAMES,
   COLORS,
@@ -80,6 +82,12 @@ import {
   type TextBox,
 } from "../../../features/notes/types";
 import { useNotes, type Shape } from "../../../features/notes/useNotes";
+import {
+  httpUrl,
+  isShortMapsLink,
+  placeFromUrl,
+  type HttpUrl,
+} from "../../../features/place/google-maps";
 import { useOffline } from "../../../features/sync/useOffline";
 import FilterBar from "../../../features/tags/FilterBar.vue";
 import { useTags } from "../../../features/tags/useTags";
@@ -663,17 +671,58 @@ function onStickerPicked(e: Event) {
 const pictureIn = (files: FileList | undefined) =>
   [...(files ?? [])].find((f) => f.type.startsWith("image/"));
 /**
- * A picture pasted on a computer becomes a sticker in the middle of the desk; pasted into words
- * being written (a form, a text box), it is theirs
+ * A picture pasted on a computer becomes a sticker in the middle of the desk, and a link a card
+ * there; pasted into words being written (a form, a text box), they are theirs
  */
 function onPaste(e: ClipboardEvent) {
   const target = e.target;
   if (target instanceof Element && target.closest("input, textarea, [contenteditable]") !== null)
     return;
   const file = pictureIn(e.clipboardData?.files);
-  if (file === undefined) return;
+  if (file !== undefined) {
+    e.preventDefault();
+    void stick(file);
+    return;
+  }
+  const url = httpUrl(e.clipboardData?.getData("text/plain").trim());
+  if (url === null) return;
   e.preventDefault();
-  void stick(file);
+  void linkCard(url);
+}
+/**
+ * A link on the desk: a Google Maps one is a note at that place; any other is a card named
+ * after its site at once, which the page's title, line and picture then fill in, when the page
+ * says and the Worker can be asked, as long as nobody has written on the card meanwhile
+ */
+async function linkCard(url: HttpUrl) {
+  const place = placeFromUrl(url, null);
+  if (place.pin !== null || isShortMapsLink(url)) {
+    placeAtCenter(
+      { ...blankInput(tags.selected, place.pin), title: i18n.t("canvas.pastedPlace"), ...place },
+      "pop",
+    );
+    return;
+  }
+  const site = siteOf(url);
+  const n = placeAtCenter({ ...blankInput(tags.selected, null), title: site, link: url }, "pop");
+  const api = worker.api;
+  if (api === null || cut.offline) return;
+  try {
+    const answer = await api.preview(url);
+    if (!answer.ok || answer.value === null) return;
+    const found = answer.value;
+    const now = store.notes.value?.find((x) => x.id === n.id);
+    // written on, or gone, meanwhile: the page's words are not wanted
+    if (now?.kind !== "memo" || now.title !== site || now.body !== "") return;
+    store.update(n.id, {
+      link: found.url,
+      title: found.title ?? site,
+      body: found.description ?? "",
+      ...(now.image === null && found.image !== null ? { image: found.image } : {}),
+    });
+  } catch {
+    // the card is on the desk with its link; the page's words were a nicety
+  }
 }
 /** Only a dragged file is taken; a picture dropped on the desk is stuck where it lands */
 function onDragOver(e: DragEvent) {

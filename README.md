@@ -68,7 +68,8 @@ src/app/            The app
              an invitation, restoring); when (days to go, under way, over); TripTag (a trip as a luggage
              tag); NewTrip (the sheet that makes one, with its tag drawn live); Invitation (one to answer);
              Rooms (the list itself, each trip a luggage tag, coming up then been)
-    notes/   Notes: store, types; input (the form's text -> title, body, tags); image (a photo or sticker
+    notes/   Notes: store, types; input (the form's text -> title, body, tags); links (a link's site, the
+             links in a note's words); image (a photo or sticker
              shrunk on the device, and where a room's picture is shown from); Form (the note form, new or
              edit, Google Maps link -> coordinates: the memo tab, and a sheet over anything)
     sync/    useSync (the session: which room, who this device is in it, where changes go); keys
