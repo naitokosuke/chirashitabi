@@ -15,5 +15,7 @@
 @custom-media --dark (prefers-color-scheme: dark);
 /* Wide enough for a 648px page column with margins (tokens.css: --page-margin) */
 @custom-media --wide (width >= 680px);
+/* Wide enough for a page in two columns, a main one and one beside it (the home) */
+@custom-media --desktop (width >= 960px);
 /* The rest: a phone's width, where a row of tabs runs past the screen */
 @custom-media --narrow (width < 680px);
