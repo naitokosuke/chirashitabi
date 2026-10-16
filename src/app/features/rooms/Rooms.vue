@@ -9,6 +9,7 @@ import { useI18n } from "../../i18n/useI18n";
 
 import Icon from "../../icons/Icon.vue";
 import plusIcon from "../../icons/plus.svg";
+import { useOffline } from "../sync/useOffline";
 import { useRoom } from "../sync/useRoom";
 import { useSync } from "../sync/useSync";
 import { shortDate } from "../trip/format";
@@ -38,6 +39,8 @@ const emit = defineEmits<{
   created: [room: RoomId];
 }>();
 const i18n = useI18n();
+/** Cut off: what needs the Worker is not offered */
+const cut = useOffline();
 const room = useRoom();
 const sync = useSync();
 const today = Temporal.Now.plainDateISO();
@@ -197,7 +200,12 @@ function retry() {
                     </a>
                   </template>
                   <template #actions>
-                    <button class="off" type="button" :disabled="removing" @click="() => takeOff(r)">
+                    <button
+                      class="off"
+                      type="button"
+                      :disabled="removing || cut.offline"
+                      @click="() => takeOff(r)"
+                    >
                       {{ r.owner ? i18n.t("rooms.delete") : i18n.t("rooms.leave") }}
                     </button>
                   </template>
@@ -225,7 +233,12 @@ function retry() {
                     </a>
                   </template>
                   <template #actions>
-                    <button class="off" type="button" :disabled="removing" @click="() => takeOff(r)">
+                    <button
+                      class="off"
+                      type="button"
+                      :disabled="removing || cut.offline"
+                      @click="() => takeOff(r)"
+                    >
                       {{ r.owner ? i18n.t("rooms.delete") : i18n.t("rooms.leave") }}
                     </button>
                   </template>
@@ -253,7 +266,7 @@ function retry() {
                 <CtHoldButton
                   :label="i18n.t('rooms.restore')"
                   :done="i18n.t('rooms.restored')"
-                  :disabled="busyWithDeleted"
+                  :disabled="busyWithDeleted || cut.offline"
                   @hold="() => bringBack(d.id)"
                 >
                   <template #hint>{{ i18n.t("rooms.hold") }}</template>
@@ -262,7 +275,7 @@ function retry() {
                   danger
                   :label="i18n.t('rooms.purge')"
                   :done="i18n.t('rooms.purged')"
-                  :disabled="busyWithDeleted"
+                  :disabled="busyWithDeleted || cut.offline"
                   @hold="() => purgeForGood(d.id)"
                 >
                   <template #hint>{{ i18n.t("rooms.hold") }}</template>

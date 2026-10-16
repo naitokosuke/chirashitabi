@@ -101,11 +101,44 @@ const MineSchema = v.fallback(
   { rooms: [], invitations: [], deleted: [] },
 );
 
-/** A response that is not 2xx is an error the caller's state can hold */
+/** The list as the Worker last answered it, kept so the trips still show when it cannot be asked */
+const KEPT_LIST = "chirashitabi:me";
+
+/**
+ * A response that is not 2xx is an error the caller's state can hold; when the Worker cannot be
+ * reached at all (cut off), the list as it was last answered stands in, if this device kept it
+ */
 export async function listMine(): Promise<Mine> {
-  const res = await api.me.$post();
-  if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
-  return v.parse(MineSchema, await res.json());
+  let raw: unknown;
+  try {
+    const res = await api.me.$post();
+    if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
+    raw = await res.json();
+  } catch (e) {
+    const kept = keptList();
+    if (kept === null) throw e;
+    return v.parse(MineSchema, kept);
+  }
+  keepList(raw);
+  return v.parse(MineSchema, raw);
+}
+
+function keepList(raw: unknown) {
+  try {
+    localStorage.setItem(KEPT_LIST, JSON.stringify(raw));
+  } catch {
+    // nothing kept this time; the list still shows
+  }
+}
+
+/** The kept answer, or null: never kept, or not JSON */
+function keptList(): unknown {
+  try {
+    const raw = localStorage.getItem(KEPT_LIST);
+    return raw === null ? null : JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 /** A call to the API whose answer is only whether it went */

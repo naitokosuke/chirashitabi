@@ -7,6 +7,8 @@ import { CtSwatches } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
+import { useOffline } from "../sync/useOffline";
+
 import { datesLabel, whenLabel } from "./label";
 import { MEMBER_COLORS, profileOf } from "./newRoom";
 import TripTag from "./TripTag.vue";
@@ -24,6 +26,8 @@ const props = defineProps<{ room: RoomSummary }>();
 const emit = defineEmits<{ joined: [room: RoomId] }>();
 
 const i18n = useI18n();
+/** Cut off: what needs the Worker is not offered */
+const cut = useOffline();
 const today = Temporal.Now.plainDateISO();
 
 const taken = new Set(props.room.members.map((m) => m.color.toLowerCase()));
@@ -81,10 +85,12 @@ async function no() {
       {{ i18n.t(failed === "join" ? "rooms.joinFailed" : "rooms.declineFailed") }}
     </p>
     <div class="answer">
-      <button class="primary" type="submit" :disabled="busy || profile === null">
+      <button class="primary" type="submit" :disabled="busy || profile === null || cut.offline">
         {{ i18n.t(accept.isLoading.value ? "rooms.joining" : "rooms.join") }}
       </button>
-      <button type="button" :disabled="busy" @click="no">{{ i18n.t("rooms.decline") }}</button>
+      <button type="button" :disabled="busy || cut.offline" @click="no">{{
+        i18n.t("rooms.decline")
+      }}</button>
     </div>
   </form>
 </template>

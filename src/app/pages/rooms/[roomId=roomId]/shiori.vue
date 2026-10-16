@@ -37,6 +37,7 @@ import {
   wayMinutes,
 } from "../../../features/place/route";
 import type { LatLng } from "../../../features/place/types";
+import { useOffline } from "../../../features/sync/useOffline";
 import { useSync } from "../../../features/sync/useSync";
 import { calendarOf } from "../../../features/trip/calendar";
 import FlightLine from "../../../features/trip/FlightLine.vue";
@@ -76,6 +77,8 @@ const sync = useSync();
 const calls = useWorkerCalls();
 const { members, me } = useMembers();
 const i18n = useI18n();
+/** Cut off: what needs the Worker is not offered */
+const cut = useOffline();
 type Tab = Temporal.PlainDate | "appendix" | null;
 /**
  * A picked day, the appendix, or null for "today if the trip is on, else the first day".
@@ -690,10 +693,11 @@ function adoptDraft() {
               <button
                 data-turn
                 type="button"
-                :disabled="drafting"
+                :disabled="drafting || cut.offline"
                 :aria-busy="drafting && askedHere"
                 @click="askForDraft"
               >{{ i18n.t(drafting && askedHere ? "shiori.drafting" : "shiori.askDraft") }}</button>
+              <p v-if="cut.offline" data-turn>{{ i18n.t("offline.unavailable") }}</p>
               <p v-if="draftFailure !== null && askedHere && !drafting" aria-live="polite">{{
                 i18n.t(draftFailure)
               }}</p>
@@ -748,7 +752,7 @@ function adoptDraft() {
               <div v-if="isOwner" class="actions" data-turn>
                 <button
                   type="button"
-                  :disabled="publish.isLoading.value"
+                  :disabled="publish.isLoading.value || cut.offline"
                   :aria-busy="publish.isLoading.value"
                   @click="publishNow"
                 >{{
@@ -763,13 +767,14 @@ function adoptDraft() {
                 <button
                   v-if="published !== null"
                   type="button"
-                  :disabled="withdraw.isLoading.value"
+                  :disabled="withdraw.isLoading.value || cut.offline"
                   @click="() => withdraw.mutate()"
                 >{{ i18n.t("shiori.withdraw") }}</button>
               </div>
               <p v-if="publishFailure !== null" aria-live="polite" class="failed">{{
                 i18n.t(publishFailure)
               }}</p>
+              <p v-else-if="isOwner && cut.offline">{{ i18n.t("offline.unavailable") }}</p>
             </template>
           </section>
         </template>

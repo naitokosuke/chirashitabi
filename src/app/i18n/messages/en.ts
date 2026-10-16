@@ -89,6 +89,7 @@ one {{{$count} note}}
 
   "room.reconnecting": "Connecting… showing the room as of {$time}",
   "offline.out": "Offline",
+  "offline.unavailable": "Not available while offline",
   "offline.in": "Offline · showing the trip as of {$time}",
   "room.refused": "The room did not take a change, so it was undone",
   "room.gone.removed": "You were removed from the trip",

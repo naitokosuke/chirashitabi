@@ -18,6 +18,7 @@ import { useI18n } from "../../i18n/useI18n";
 
 import backIcon from "../../icons/back.svg";
 import Icon from "../../icons/Icon.vue";
+import { useOffline } from "../sync/useOffline";
 import { longDate } from "../trip/format";
 
 import { datesLabel, whenLabel } from "./label";
@@ -30,6 +31,8 @@ import { whenOf } from "./when";
 const emit = defineEmits<{ close: []; created: [room: RoomId] }>();
 
 const i18n = useI18n();
+/** Cut off: what needs the Worker is not offered */
+const cut = useOffline();
 const id = useId();
 const today = Temporal.Now.plainDateISO();
 
@@ -156,7 +159,8 @@ onMounted(() => nameEl.value?.focus());
 
     <footer>
       <p v-if="error !== null" role="alert">{{ i18n.t("rooms.createFailed") }}</p>
-      <button class="primary" type="submit" :disabled="busy || filled === null">
+      <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
+      <button class="primary" type="submit" :disabled="busy || filled === null || cut.offline">
         {{ i18n.t(busy ? "rooms.creating" : "rooms.create") }}
       </button>
     </footer>
