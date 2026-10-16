@@ -140,6 +140,14 @@ export default defineConfig({
         },
       },
       {
+        // no-unsafe-type-assertion needs type information, which oxlint has for .ts only, and
+        // Vize has no rule for `as`: in a .vue script no assertion is made at all (`as const` is not one)
+        files: ["**/*.vue"],
+        rules: {
+          "typescript/consistent-type-assertions": ["error", { assertionStyle: "never" }],
+        },
+      },
+      {
         // plain JavaScript (the service worker, scripts/): nothing in it is typed to check
         files: ["**/*.js", "**/*.mjs"],
         rules: {

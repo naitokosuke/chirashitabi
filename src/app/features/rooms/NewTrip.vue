@@ -134,8 +134,7 @@ onMounted(() => nameEl.value?.focus());
           <em v-if="dates.end === null" aria-live="polite">{{ i18n.t("rooms.pickLast") }}</em>
         </span>
         <CtCalendar
-          v-model="dates"
-          range
+          v-model:range="dates"
           :max-days="MAX_DAYS"
           :locale="i18n.locale"
           :prev-label="i18n.t('rooms.prevMonth')"

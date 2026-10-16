@@ -9,7 +9,7 @@ defineArt("./CtCalendar.vue", {
   title: "CtCalendar",
   category: "Choices",
   description:
-    "A month of days to pick one from; with range, a first day and a last, the days between banded",
+    "A month of days to pick one from, or with v-model:range a first day and a last, the days between banded",
   status: "ready",
 });
 
@@ -21,8 +21,7 @@ const dates = ref<DateRange>({ start, end: start.add({ days: 3 }) });
 <art>
   <variant default name="Range">
     <CtCalendar
-      v-model="dates"
-      range
+      v-model:range="dates"
       :max-days="60"
       locale="ja"
       next-label="次の月"
@@ -30,6 +29,6 @@ const dates = ref<DateRange>({ start, end: start.add({ days: 3 }) });
     />
   </variant>
   <variant name="One day">
-    <CtCalendar v-model="day" locale="ja" next-label="次の月" prev-label="前の月" />
+    <CtCalendar v-model:day="day" locale="ja" next-label="次の月" prev-label="前の月" />
   </variant>
 </art>

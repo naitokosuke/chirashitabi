@@ -8,8 +8,7 @@ import { state } from "./harness";
 <template>
   <CtCalendar
     v-if="state.range"
-    v-model="state.dates"
-    range
+    v-model:range="state.dates"
     :max-days="60"
     locale="en"
     next-label="Next month"
@@ -17,7 +16,7 @@ import { state } from "./harness";
   />
   <CtCalendar
     v-else
-    v-model="state.day"
+    v-model:day="state.day"
     locale="en"
     next-label="Next month"
     prev-label="Previous month"
