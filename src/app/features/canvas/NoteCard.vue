@@ -184,6 +184,19 @@ const HOLD_MS = 600;
 <style scoped>
 @import "../../../ui/styles/media.css";
 
+/* typed, so a change of them eases (an untyped variable only swaps) */
+@property --lift {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --tilt {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
 /*
  * The card on the desk: where it is, how it is turned and how large. What it looks like is the
  * paper's (CtPaper); only the words written on it, and the two things that are not paper (words
@@ -195,19 +208,41 @@ const HOLD_MS = 600;
   inset-inline-start: 0;
   inset-block-start: 0;
   width: 164px;
-  /* the card's place and tilt live in variables so the pop can scale it where it lands */
-  transform: translate(var(--x), var(--y)) rotate(var(--rot)) scale(var(--scale, 1));
+  /*
+   * the card's place and tilt live in variables so the pop can scale it where it lands; a held
+   * card is lifted on top of them (`--lift`, `--tilt`), which alone are eased: the place follows
+   * the finger every frame
+   */
+  transform: translate(var(--x), var(--y)) rotate(calc(var(--rot) + var(--tilt)))
+    scale(calc(var(--scale, 1) * var(--lift)));
   transform-origin: center;
-  transition: opacity .2s, filter .2s;
+  /* let go, it settles back onto the desk */
+  transition:
+    opacity .2s,
+    filter var(--duration-swap) var(--ease-morph),
+    --lift var(--duration-swap) var(--ease-morph),
+    --tilt var(--duration-swap) var(--ease-morph);
 
   @media (--reduced-motion) {
     transition: none;
   }
 
+  /* held: it comes up off the desk a little larger and askew, with one small overshoot */
   &[data-dragging] {
+    --lift: 1.05;
+    --tilt: -2deg;
     z-index: var(--z-drag);
     will-change: transform;
-    transition: none;
+    transition:
+      filter var(--duration-swap) var(--ease-spring),
+      --lift var(--duration-swap) var(--ease-spring),
+      --tilt var(--duration-swap) var(--ease-spring);
+
+    /* only its shadow says it is held */
+    @media (--reduced-motion) {
+      --lift: 1;
+      --tilt: 0deg;
+    }
   }
 
   &[data-visibility="dimmed"] {
