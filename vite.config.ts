@@ -43,12 +43,14 @@ const serviceWorker: Plugin = {
 export default defineConfig({
   plugins: [
     // the routes are the files in src/app/pages, typed in src/app/typed-router.d.ts; every page
-    // is in the bundle, so moving between them never waits on a chunk. A folder named `__*` is
-    // not a route; `__params` holds the param parsers (`[roomId=roomId]`), beside the pages
+    // is in the bundle, so moving between them never waits on a chunk, but the map: MapLibre is
+    // over half the bundle, so it is a chunk of its own, loaded when the map is first opened (the
+    // service worker keeps it with the rest). A folder named `__*` is not a route; `__params`
+    // holds the param parsers (`[roomId=roomId]`), beside the pages
     VueRouter({
       routesFolder: "src/app/pages",
       dts: "src/app/typed-router.d.ts",
-      importMode: "sync",
+      importMode: (filepath) => (filepath.endsWith("/map.vue") ? "async" : "sync"),
       exclude: ["**/__*/**"],
       experimental: { paramParsers: { dir: "src/app/pages/__params" } },
     }),
