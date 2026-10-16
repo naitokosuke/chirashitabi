@@ -1,5 +1,7 @@
-// exported only so declarations that carry a brand (the Worker's API type) can name it
-export declare const brand: unique symbol;
+import type * as v from "valibot";
 
-/** A `T` that only the code which checked or minted it can produce */
-export type Brand<T, B extends string> = T & { readonly [brand]: B };
+/**
+ * A `T` that only the code which checked or minted it can produce: Valibot's brand, so a type
+ * written here and one a schema puts out with `v.brand` are the same kind
+ */
+export type Brand<T, B extends string> = T & v.Brand<B>;
