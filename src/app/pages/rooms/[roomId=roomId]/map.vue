@@ -32,7 +32,9 @@ import { formatMoney } from "../../../shared/money";
 
 import { useI18n } from "../../../i18n/useI18n";
 
-import { PAPERS, type FormTarget, type Memo, type Note } from "../../../features/notes/types";
+import { paperOf } from "../../../features/members/paper";
+import { useMembers } from "../../../features/members/useMembers";
+import type { FormTarget, Memo, Note } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
 import { findAirport, type Airport } from "../../../features/place/airports";
 import { placeLink, safeUrl } from "../../../features/place/google-maps";
@@ -62,6 +64,9 @@ const openSheet = (form: FormTarget) =>
   });
 const write = (pin: LatLng | null) => void openSheet({ kind: "new", pin });
 const { notes } = useNotes();
+const { members } = useMembers();
+/** A note's paper: whoever wrote it */
+const paperFor = (n: Note) => paperOf(members.value?.find((m) => m.id === n.by)?.color);
 const tags = useTags();
 const { trip, forDay } = useTrip();
 const i18n = useI18n();
@@ -218,8 +223,8 @@ function syncMarkers() {
     e.classList.toggle("dim", visibility === "dimmed");
     e.style.display = visibility === "hidden" ? "none" : "";
     e.classList.toggle("on", selected.value?.id === n.id);
-    // the pin is the note's own paper, so a card on the desk and its pin are told apart by nothing
-    e.style.setProperty("--pin", PAPERS[n.color]);
+    // the pin is the note's own paper (whoever wrote it), as its card on the desk is
+    e.style.setProperty("--pin", paperFor(n));
     const label = e.querySelector(".lbl");
     if (label !== null) label.textContent = n.title;
   }
@@ -257,13 +262,8 @@ function syncRoute() {
 }
 // re-sync whenever notes, filter or selection change (cheap: a dozen DOM toggles)
 watchEffect(() => {
-  void pinnedOf(notes.value ?? []).map((n) => [
-    n.pin.lat,
-    n.pin.lng,
-    n.title,
-    n.color,
-    n.tags.length,
-  ]);
+  void pinnedOf(notes.value ?? []).map((n) => [n.pin.lat, n.pin.lng, n.title, n.by, n.tags.length]);
+  void members.value;
   void tags.mode;
   void [...tags.selected];
   void selected.value;
@@ -400,7 +400,7 @@ function fitAll() {
           :src="plusIcon"
         /></CtFab>
 
-      <article v-if="selected !== null" :style="`--card:${PAPERS[selected.color]}`">
+      <article v-if="selected !== null" :style="`--card:${paperFor(selected)}`">
         <h2>{{ selected.title }}</h2>
         <p v-if="selected.body !== ''">{{ selected.body }}</p>
         <footer>

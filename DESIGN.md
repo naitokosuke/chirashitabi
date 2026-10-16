@@ -9,11 +9,6 @@ colors:
   muted: "oklch(0.48 0.01 260)"
   line: "oklch(0.905 0.004 260)"
   danger: "oklch(0.53 0.19 27)"
-  paper-yellow: "oklch(0.95 0.07 100)"
-  paper-pink: "oklch(0.935 0.035 12)"
-  paper-mint: "oklch(0.94 0.035 165)"
-  paper-sky: "oklch(0.935 0.033 245)"
-  paper-lilac: "oklch(0.935 0.035 300)"
   paper-white: "oklch(0.995 0 0)"
   paper-ink: "oklch(0.23 0.01 260)"
   paper-muted: "oklch(0.45 0.01 260)"
@@ -108,27 +103,24 @@ components:
     padding: "10px 12px"
   paper:
     component: "CtPaper (src/ui/components/paper)"
-    backgroundColor: "{colors.paper-white}"
+    backgroundColor: "the writer's paper: their member color at 28% in paper-white (oklab)"
     textColor: "{colors.paper-ink}"
     typography: "{typography.note}"
     rounded: "{rounded.note}"
     width: "164px"
-    strip: "18px, paper-ink at 9%, the author's dot at its end"
-    body: "9px 12px 0"
-    foot: "0 12px 12px"
+    body: "12px 12px 0"
+    foot: "8px 12px 12px"
   paper-note:
     variant: "note"
-    backgroundColor: "one of the six paper stocks"
   paper-proposal:
     variant: "proposal"
-    backgroundColor: "{colors.paper-white}"
-    strip: "paper-ink at 5%, its lower edge 1px dashed paper-ink at 35%, naming who proposed it"
+    rounded: "0"
+    strip: '20px, paper-ink at 5%, its lower edge 1px dashed paper-ink at 35%, saying "suggestion"'
   paper-print:
     variant: "print"
-    rounded: "3px"
-    padding: "8px 8px 7px"
-    outline: "1px solid paper-ink at 35%"
-    margin: "18px under the picture: the site, the day, the author's dot"
+    width: "220px"
+    mount: "16px of the paper round the picture"
+    outline: "1px solid paper-ink at 35%, round the picture"
   toast:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.tool-white}"
@@ -142,9 +134,9 @@ components:
 
 **Creative North Star: "Graphite on Paper" (紙と鉛筆)**
 
-The screen is a desk, and the desk is neutral: a cool, almost colorless gray with the faint dot grid of graph paper. On it, paper, and each thing on the desk is a thing you could pick up: an idea is a sticky, tinted stock with a strip of adhesive across its top and a small dot in the strip saying whose hand it came from; a page brought in from outside is a print in a mount of that stock, edged in ink, the site on the picture; the agent's proposals are slips of white stock cut with a dashed edge; words written straight on the desk are lettering with no paper; a cut-out picture is a sticker edged in white. Everything that is not paper is a tool drawn in one ink: white chips and panels on a hairline, and filled ink tiles for putting something new down (writing, and on the canvas a sticker). Color belongs to the paper and to nobody else; the tools stay graphite so the notes are what you see.
+The screen is a desk, and the desk is neutral: a cool, almost colorless gray with the faint dot grid of graph paper. On it, paper, and each thing on the desk is a thing you could pick up: every sheet is its writer's paper, their color washed into white stock, so whose it is reads off the whole sheet, and its outline says what it is: an idea is a sticky with a soft corner; a picture brought onto the desk (a page's, or a photo of a note's) is a wider print, the picture in a wide mount of the paper and framed in ink, the words under it; the agent's proposals are slips cut square, a perforated strip across the top; words written straight on the desk are lettering with no paper; a cut-out picture is a sticker edged in white. Everything that is not paper is a tool drawn in one ink: white chips and panels on a hairline, and filled ink tiles for putting something new down (writing, and on the canvas a sticker). Color belongs to the paper, and the paper to whoever wrote it; the tools stay graphite so the notes are what you see.
 
-The voice is quiet. One ink, one neutral desk, one family of paper, and one moment of play when a new note pops onto the desk. This is an Operate surface, two people getting a trip planned, and the tool should disappear into the task. Density is relaxed on the canvas and tighter in the booklet; the memo tab is the note form and nothing else, always open for the next thought.
+The voice is quiet. One ink, one neutral desk, paper in its writers' colors, and one moment of play when a new note pops onto the desk. This is an Operate surface, two people getting a trip planned, and the tool should disappear into the task. Density is relaxed on the canvas and tighter in the booklet; the memo tab is the note form and nothing else, always open for the next thought.
 
 **Key Characteristics:**
 
@@ -174,24 +166,24 @@ A neutral desk, white tools, one ink, and tinted paper. Nothing in the chrome is
 
 ### Paper
 
-- **Yellow, Pink, Mint, Sky, Lilac, White** (`--paper-*`): six stocks at one lightness and an equal, low chroma, so they read as one family. Yellow carries a little more chroma and leans toward green, because at low chroma a warm yellow turns into cream. On the dark desk each steps down in lightness so it does not glare; it stays light.
+- **Paper White** (`--paper-white`): the one stock. On the dark desk it steps down in lightness so it does not glare; it stays light.
+- **A member's paper**: their member color at 28% in Paper White, mixed in oklab (`paperOf` in `features/members/paper.ts`; oklch would swing the hue on its way from white). Every note, suggestion, print, pin and booklet card is drawn on its writer's paper; someone who has left the room leaves white paper. There is no paper to pick: the color a note was given before is still stored and no longer shown.
 - **Paper Ink** and **Paper Muted** (`--paper-ink`, `--paper-muted`): text on paper, always dark, in either theme.
-- The room stores a paper as one of six hex values (`COLORS` in `notes/types.ts`). The screen paints the theme's token for it (`PAPERS`), so the palette can change without touching stored notes.
 
 ### Signal
 
 - **Danger** (`--danger`): the text of a delete, or the fill of a row's way off the list slid out from under it. Nowhere else.
-- **Member colors**: a member's dot on their notes, suggestions and drafts. A dot, never a fill, a border or text.
+- **Member colors**: a member's paper (above), and their dot or face where a member is named (the home's faces, a trip tag, a to-do, a draft). Never a border or text.
 
 ### Named Rules
 
 **The Paper Is the Color Rule.** Tinted surfaces are paper and nothing else. Tags, statuses, links, the stamp, headings and buttons are ink or muted ink.
 
+**The Whose-Paper Rule.** Color says whose; the outline says what. A person's paper has a soft corner, the agent's is cut square, a print has a wide mount; no name or dot is written on paper.
+
 **The One Ink Rule.** There is no accent hue. Selected is ink; primary is an ink fill; a link is ink with an underline.
 
 **The Red Means Gone Rule.** `--danger` is spent on deleting. Not on writing, not on the current tab, not on a heading.
-
-**The Whose-Hand Rule.** A member's color says "by whom" as a small dot, and nothing else.
 
 ## Typography
 
@@ -238,7 +230,7 @@ Paper lifts; tools barely do. Shadows are neutral (a dark gray, never a hue), of
 
 ## Shapes
 
-A person's sticky has a small radius (6px); the agent's suggestion and draft are square (0) with a dashed hairline inset from the edge, so a machine's note is told from a person's by its corners. Tools are pills when they are a single row (chips, switches, buttons), panels at 10–14px when they hold several things (inputs 10px, menus, the toast and the tray 14px). The write button is an 18px-radius tile, not a circle. Stickies keep a slight rotation (±2°) on the desk; in the booklet they are level.
+A person's sticky has a small radius (6px); the agent's suggestion and draft are square (0), so a machine's note is told from a person's by its corners; a print keeps a person's corner and is told by its wide mount. Tools are pills when they are a single row (chips, switches, buttons), panels at 10–14px when they hold several things (inputs 10px, menus, the toast and the tray 14px). The write button is an 18px-radius tile, not a circle. Stickies keep a slight rotation (±2°) on the desk; in the booklet they are level.
 
 ## Components
 
@@ -258,11 +250,11 @@ The canvas's top row is the tag chips. While a tag is picked, two chips appear p
 
 ### Text on the desk
 
-Words set straight on the desk, where a note would be too much: a heading over a pile, a day's label, an arrow's caption. A double click (a double tap) on the bare desk writes there, the caret about where the click landed; a double click on a text box rewrites it in place. Enter or leaving it is done, Shift+Enter starts a new line, Escape gives up; nothing is made from blank words, and a box emptied goes like a deleted card, with the toast's undo. It has no paper, no shadow and no author's dot: the desk's own ink at 24px and 700 (`--text-box-size`), so it reads in either theme, as wide as its longest line up to 560px. Otherwise it is a card: picked with a tap and framed in ink, moved, resized (that is how a heading gets large) and turned with the same handles, duplicated or deleted from its toolbar, which offers Edit in place of the paper colors. The tag filter leaves it be; the map, the booklet and the counts never see it.
+Words set straight on the desk, where a note would be too much: a heading over a pile, a day's label, an arrow's caption. A double click (a double tap) on the bare desk writes there, the caret about where the click landed; a double click on a text box rewrites it in place. Enter or leaving it is done, Shift+Enter starts a new line, Escape gives up; nothing is made from blank words, and a box emptied goes like a deleted card, with the toast's undo. It has no paper, no shadow and no author's dot: the desk's own ink at 24px and 700 (`--text-box-size`), so it reads in either theme, as wide as its longest line up to 560px. Otherwise it is a card: picked with a tap and framed in ink, moved, resized (that is how a heading gets large) and turned with the same handles, duplicated or deleted from its toolbar, which offers Edit in place of the trip's days. The tag filter leaves it be; the map, the booklet and the counts never see it.
 
 ### Stickers
 
-A picture stuck straight on the desk, for the fun of it: a subject lifted from a photo on the iPhone, a cut-out. The sticker's tile picks one from the photos: the write button's 56px ink tile, stacked over it, with a peeling sticker in `--on-ink`; on a computer one is also pasted onto the desk (not into words being written) or dropped where it should go. It lands in the middle of the desk (or where it was dropped) a few degrees askew, with the pop and the toast's undo; meanwhile the tile fades to half and is named "Sticking…". It is the picture alone, 160px wide at its own size (`--sticker-size`), its see-through parts kept: no paper and no author's dot, its outline traced by a 2px white edge (`--sticker-edge`, the white paper's color) and a soft shadow that follows the cut, lifting further while it is dragged. A picture with no see-through parts is stuck as the rectangle it is. Otherwise it is a card, as a text box is: picked and framed in ink, moved, resized and turned with the same handles, duplicated or deleted from its toolbar, which has no paper colors. The tag filter leaves it be; the map, the booklet, the counts and Claude's ideas never see it.
+A picture stuck straight on the desk, for the fun of it: a subject lifted from a photo on the iPhone, a cut-out. The sticker's tile picks one from the photos: the write button's 56px ink tile, stacked over it, with a peeling sticker in `--on-ink`; on a computer one is also pasted onto the desk (not into words being written) or dropped where it should go. It lands in the middle of the desk (or where it was dropped) a few degrees askew, with the pop and the toast's undo; meanwhile the tile fades to half and is named "Sticking…". It is the picture alone, 160px wide at its own size (`--sticker-size`), its see-through parts kept: no paper and no author's dot, its outline traced by a 2px white edge (`--sticker-edge`, the white paper's color) and a soft shadow that follows the cut, lifting further while it is dragged. A picture with no see-through parts is stuck as the rectangle it is. Otherwise it is a card, as a text box is: picked and framed in ink, moved, resized and turned with the same handles, duplicated or deleted from its toolbar, which has no days. The tag filter leaves it be; the map, the booklet, the counts and Claude's ideas never see it.
 
 ### Home
 
@@ -298,17 +290,23 @@ A wash-colored track; the chosen option is a white pill with a hairline and a to
 
 ### Sticky note
 
-164px, 6px radius, one of the six stocks, 12px padding; title in Note, body in Caption (Paper Muted), tags as `#tag` in Paper Muted, an 8px dot of the author's color at the top end. Dimmed to 22% and desaturated when filtered out.
+164px, 6px radius, on its writer's paper, 12px padding; where it came from (a site, with the arrow that means elsewhere) above the title, title in Note, body in Caption (Paper Muted), tags as `#tag` in Paper Muted, its day as a stamp at the end of its foot. No strip, dot or name: the paper says whose it is. A memo with a photo is a print (below). Dimmed to 22% and desaturated when filtered out. Every card on the desk is a cut of `CtPaper`.
 
-Handled like an object, as in a native whiteboard. A tap picks it: an ink frame, a round handle above the middle to turn it (Shift snaps to 15°), one at the bottom-end corner to resize it (0.6× to 2.5×, text and picture with it), and its toolbar (paper colors, duplicate, delete) below, clear of the handles. A second tap soon after (or a double-click) opens it; a drag moves it and picks it; a long press picks it and shows the toolbar; a tap on the bare desk lets go. The handles keep their size on screen whatever the card's scale and the desk's zoom. With the keyboard, Enter opens a focused card, Delete removes it (the toast offers the undo), Esc closes the toolbar, then lets go.
+A link on paper, and a slip's two actions, aim at a touch 24px across on screen: the target reaches past what is drawn by what the card's scale and the desk's zoom took off it, but only into the room around it (6px; 2px for a link among words), never over the words beside it, the next action or off the paper. Zoomed far out, a card is picked and dragged rather than pressed through.
+
+Handled like an object, as in a native whiteboard. A tap picks it: an ink frame, a round handle above the middle to turn it (Shift snaps to 15°), one at the bottom-end corner to resize it (0.6× to 2.5×, text and picture with it), and its toolbar (the trip's days, duplicate, delete) below, clear of the handles. A second tap soon after (or a double-click) opens it; a drag moves it and picks it; a long press picks it and shows the toolbar; a tap on the bare desk lets go. The handles keep their size on screen whatever the card's scale and the desk's zoom. With the keyboard, Enter opens a focused card, Delete removes it (the toast offers the undo), Esc closes the toolbar, then lets go.
 
 ### Suggestion
 
-186px, square, Paper White with a dashed hairline inset 5px; a header of the author's dot and name with "suggestion" in Paper Muted; two pills: adopt (Paper Ink fill) and dismiss (hairline).
+A slip: 164px, on the agent's paper, cut square (no radius, where every person's paper is rounded); a strip across its top saying "suggestion", its lower edge perforated (dashed). The proposal in Note, five lines of it, all of it once picked. Its two answers, as simple as a swipe: two halves of its foot, 36px tall pills side by side across it inside its padding, 8px apart: each held, not tapped (`CtHoldButton`, 600ms), filling from its start edge: a thumb down to pass on it, filling in Paper Muted, and a thumb up to keep it as a memo, filling in Paper Ink; both rest as white on a hairline. Let go early and nothing happens. Named for a screen reader and on hover.
+
+### Print
+
+A memo with a picture (a page's, brought in with its link, or a photo), unlike a sticky on purpose: 220px, a person's 6px corner, on its writer's paper, the picture at 16:9 in an ink-edged frame inside a wide 16px mount of the paper; under it, as on a sticky, the site, the title (two lines), the tags and the day's stamp. A page's own line stays off its print (it is the note's, for the booklet); a photo's memo keeps its words.
 
 ### Map pin
 
-The note's own paper as the pin's fill, a 2px Paper Ink edge, its title on a white label. A day's route is a dashed Paper Ink line. The tiles are light in both themes. A long press on the map with a finger (500ms) opens the note form pinned at that point; while it is held, a Paper Ink ring fills around the point, so holding visibly does something, and moving or dragging cancels it. With a mouse it is a right click; a held mouse button only drags the map. The form it opens already has the point's Google Maps link; a moment later OpenStreetMap's name for what is there (a shop or a sight, else the street, never a bare house number) names the link and fills an empty title, with "looking up what is here" under the field meanwhile and OpenStreetMap credited after; nothing typed or pasted meanwhile is overwritten. Notes without a place are counted at the top; they get one from the form (a pasted link, or "Find the place"), not from the map.
+The note's writer's paper as the pin's fill, a 2px Paper Ink edge, its title on a white label. A day's route is a dashed Paper Ink line. The tiles are light in both themes. A long press on the map with a finger (500ms) opens the note form pinned at that point; while it is held, a Paper Ink ring fills around the point, so holding visibly does something, and moving or dragging cancels it. With a mouse it is a right click; a held mouse button only drags the map. The form it opens already has the point's Google Maps link; a moment later OpenStreetMap's name for what is there (a shop or a sight, else the street, never a bare house number) names the link and fills an empty title, with "looking up what is here" under the field meanwhile and OpenStreetMap credited after; nothing typed or pasted meanwhile is overwritten. Notes without a place are counted at the top; they get one from the form (a pasted link, or "Find the place"), not from the map.
 
 ### Booklet
 

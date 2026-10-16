@@ -18,13 +18,6 @@ export const ja: Messages = {
 
   "member.someone": "だれか",
 
-  "color.yellow": "きいろ",
-  "color.pink": "ピンク",
-  "color.mint": "ミント",
-  "color.sky": "みずいろ",
-  "color.lilac": "ライラック",
-  "color.white": "しろ",
-
   "rooms.coming": "これからの旅",
   "rooms.been": "終わった旅",
   "rooms.none": "まだ旅がありません。荷札を一枚書いて、最初の旅を始めましょう",
@@ -187,8 +180,7 @@ export const ja: Messages = {
   "canvas.write": "メモを書く",
   "canvas.added": "「{$title}」を追加しました",
   "canvas.addedAway": "「{$title}」をキャンバスに貼りました",
-  "canvas.addedDrag":
-    "「{$title}」を追加しました。タップで選んで大きさ・傾き・色、ダブルタップで編集",
+  "canvas.addedDrag": "「{$title}」を追加しました。タップで選んで大きさ・傾き、ダブルタップで編集",
   "canvas.deleted": "「{$title}」を削除しました",
   "canvas.empty":
     "まだ何もない机です。＋ から最初の思いつきを散らすか、ダブルクリックで机に直接書きましょう",
@@ -253,7 +245,6 @@ export const ja: Messages = {
   "form.hoursPlaceholder": "Mo-Fr 10:00-20:00; Sa,Su 09:00-21:00",
   "form.hoursHint": "OpenStreetMap の書き方で曜日と時刻を書くと、しおりで予定と照らし合わせます",
   "form.hoursUnread": "この書き方は読めないため、そのまま残し、しおりでは照らし合わせません",
-  "form.color": "色",
   "form.minutesUnset": "未定",
   "form.due": "いつまでに",
   "form.assignee": "担当",

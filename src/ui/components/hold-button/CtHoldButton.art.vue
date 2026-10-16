@@ -23,6 +23,12 @@ const held = ref(0);
       <template #hint>Press and hold</template>
     </CtHoldButton>
   </variant>
+  <variant name="Icon">
+    <CtHoldButton done="Kept" label="Keep it" @hold="() => held++">
+      <template #icon>👍</template>
+      <template #hint>Press and hold</template>
+    </CtHoldButton>
+  </variant>
   <variant name="Disabled">
     <CtHoldButton disabled done="Deleted" label="Delete forever" />
   </variant>

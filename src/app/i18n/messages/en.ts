@@ -20,13 +20,6 @@ export const en = {
 
   "member.someone": "Someone",
 
-  "color.yellow": "Yellow",
-  "color.pink": "Pink",
-  "color.mint": "Mint",
-  "color.sky": "Sky",
-  "color.lilac": "Lilac",
-  "color.white": "White",
-
   "rooms.coming": "Coming up",
   "rooms.been": "Been there",
   "rooms.none": "No trips yet. Write a tag to start the first one.",
@@ -207,7 +200,7 @@ one {{From {$date} · {$count} night}}
   "canvas.write": "Write a note",
   "canvas.added": "Added “{$title}”",
   "canvas.addedAway": "Added “{$title}” to the canvas",
-  "canvas.addedDrag": "Added “{$title}”. Tap to resize, turn or recolor it; double-tap to edit",
+  "canvas.addedDrag": "Added “{$title}”. Tap to resize or turn it; double-tap to edit",
   "canvas.deleted": "Deleted “{$title}”",
   "canvas.empty":
     "An empty desk. Tap + to scatter the first idea, or double-click to write on the desk itself",
@@ -279,7 +272,6 @@ one {{Claude left {$count} idea here}}
     "Weekdays and times, as OpenStreetMap writes them; the booklet checks the plan against them",
   "form.hoursUnread":
     "Kept as written; the booklet cannot read this one, so it checks nothing against it",
-  "form.color": "Color",
   "form.minutesUnset": "Not decided",
   "form.due": "Do by",
   "form.assignee": "Who",

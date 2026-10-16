@@ -1,12 +1,13 @@
 <script setup lang="ts" vapor>
-import { onBeforeUnmount, ref, useId } from "vue";
+import { onBeforeUnmount, ref, useId, useSlots } from "vue";
 
 /**
  * A button held down to act, for what cannot be taken back: pressed, it fills from its start
  * edge over `holdTime`; let go before it is full, the fill drains back and nothing happens;
  * full, it acts (`hold`) and shows `done` for a moment. A pointer holds it (and gives up by
  * drifting off it), and so do Space and Enter; Escape lets go. After React Bits' Hold Button.
- * `danger` fills it in the danger color, for something that goes for good.
+ * `danger` fills it in the danger color, for something that goes for good. With an `icon`,
+ * the icon is what is shown and `label` / `done` are what a screen reader is told.
  */
 const props = withDefaults(
   defineProps<{
@@ -19,6 +20,7 @@ const props = withDefaults(
   { holdTime: 1200 },
 );
 const emit = defineEmits<{ hold: [] }>();
+const slots = useSlots();
 
 /** How long the fill takes to drain once let go, and how long `done` stays */
 const RELEASE = 200;
@@ -153,7 +155,10 @@ onBeforeUnmount(() => {
     @click="click"
   >
     <span aria-hidden="true" class="fill"></span>
-    <span :id="`${id}-label`" class="label">{{ state === "done" ? done : label }}</span>
+    <span v-if="slots.icon !== undefined" aria-hidden="true" class="icon"><slot name="icon"></slot></span>
+    <span :id="`${id}-label`" class="label" :data-unseen="slots.icon !== undefined || undefined">{{
+      state === "done" ? done : label
+    }}</span>
     <span :id="`${id}-hint`" class="hint">
       <slot name="hint"></slot>
     </span>
@@ -214,12 +219,19 @@ button {
     }
   }
 
-  > .label {
+  > .label,
+  > .icon {
     position: relative;
   }
 
-  /* what a screen reader is told: that the button is held, not tapped */
-  > .hint {
+  > .icon {
+    display: grid;
+    place-items: center;
+  }
+
+  /* what a screen reader is told: that the button is held, not tapped; and, beside an icon, what it does */
+  > .hint,
+  > .label[data-unseen] {
     position: absolute;
     width: 1px;
     height: 1px;

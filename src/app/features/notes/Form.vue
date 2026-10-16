@@ -55,16 +55,7 @@ import { useWorker } from "../worker/useWorker";
 
 import { imageSrc, shrinkImage } from "./image";
 import { blankInput, inputFromNote, normalizeTag, noteText, parseNoteText } from "./input";
-import {
-  COLOR_NAMES,
-  COLORS,
-  PAPERS,
-  type Booking,
-  type NoteColor,
-  type NoteInput,
-  type Tag,
-  TODO_TAG,
-} from "./types";
+import { type Booking, type NoteInput, type Tag, TODO_TAG } from "./types";
 import { useNotes } from "./useNotes";
 
 const props = defineProps<{ mode: FormMode }>();
@@ -566,9 +557,6 @@ function commitTag() {
 function removeTag(t: Tag) {
   form.value.tags.splice(form.value.tags.indexOf(t), 1);
 }
-function setColor(c: NoteColor) {
-  form.value.color = c;
-}
 /** How long it takes there; the booklet says when it ends from it */
 function setMinutes(e: Event) {
   if (!(e.target instanceof HTMLSelectElement)) return;
@@ -842,20 +830,6 @@ function submit() {
         <p v-if="photo !== 'idle'" aria-live="polite">{{ i18n.t(PHOTO_STATE[photo]) }}</p>
         <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
       </div>
-      <fieldset>
-        <legend>{{ i18n.t("form.color") }}</legend>
-        <div>
-          <button
-            v-for="c in COLORS"
-            :key="c"
-            type="button"
-            :style="`background:${PAPERS[c]}`"
-            :aria-label="i18n.t(COLOR_NAMES[c])"
-            :aria-pressed="form.color === c"
-            @click="() => setColor(c)"
-          ></button>
-        </div>
-      </fieldset>
     </div>
     <footer>
       <label v-if="!docked && !editing" class="again"><input v-model="keepOpen" type="checkbox" />{{ i18n.t("form.addAnother") }}</label>
@@ -944,8 +918,7 @@ form {
     }
 
     /* a field's name, above it */
-    > div > label,
-    > fieldset > legend {
+    > div > label {
       font-size: var(--font-sm);
       font-weight: 700;
       color: var(--muted);
@@ -1231,31 +1204,6 @@ form {
         margin: 6px 0 0;
         font-size: var(--font-xs);
         color: var(--muted);
-      }
-    }
-
-    > fieldset {
-      min-inline-size: 0;
-      margin: 0;
-      padding: 0;
-      border: 0;
-
-      > div {
-        display: flex;
-        gap: 10px;
-
-        > button {
-          width: var(--tap);
-          height: var(--tap);
-          border-radius: 50%;
-          /* a hairline keeps white paper visible on a light desk */
-          box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
-
-          &[aria-pressed="true"] {
-            outline: 2px solid var(--ink);
-            outline-offset: 2px;
-          }
-        }
       }
     }
   }

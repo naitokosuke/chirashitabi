@@ -10,11 +10,12 @@ import { formatMoney } from "../../../shared/money";
 import { useI18n } from "../../../i18n/useI18n";
 
 import { usePlace } from "../../../features/canvas/usePlace";
+import { paperOf } from "../../../features/members/paper";
 import People from "../../../features/members/People.vue";
 import { useMembers } from "../../../features/members/useMembers";
 import type { NoteId } from "../../../features/notes/id";
 import { blankInput } from "../../../features/notes/input";
-import { PAPERS, TODO_TAG } from "../../../features/notes/types";
+import { TODO_TAG, type Note } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
 import Todos from "../../../features/todos/Todos.vue";
 import FlightLine from "../../../features/trip/FlightLine.vue";
@@ -27,6 +28,8 @@ import { queryOf } from "../url";
 const { trip, forDay, budgetOf } = useTrip();
 const { notes } = useNotes();
 const { members } = useMembers();
+/** A note's paper: whoever wrote it */
+const paperFor = (n: Note) => paperOf(members.value?.find((m) => m.id === n.by)?.color);
 const i18n = useI18n();
 const router = useRouter();
 const route = useRoute("/rooms/[roomId=roomId]/home");
@@ -115,7 +118,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
               v-for="n in forDay(d.date)"
               :key="n.id"
               :data-maybe="n.schedule.status === 'idea' || undefined"
-              :style="`background: ${PAPERS[n.color]}`"
+              :style="`background: ${paperFor(n)}`"
             ></span>
           </div>
           <time aria-hidden="true" :datetime="d.date.toString()">{{ short(d.date) }}<small>{{
