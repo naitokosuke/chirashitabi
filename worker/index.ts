@@ -10,7 +10,7 @@ import { ASK_LENGTH, draftDay, MODEL, namePlace, proposeTags, suggestNotes } fro
 import { CLEF_MODEL, FITS_AT, judgeTags, MAX_TAGS } from "./clef";
 import { expand, placeName } from "./expand";
 import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
-import { Room } from "./room";
+import { bookletKey, Room } from "./room";
 import { RoomsIndex } from "./rooms-index";
 import {
   EmailSchema,
@@ -594,6 +594,48 @@ const api = new Hono<ApiEnv>()
     },
   )
 
+  // The booklet as a public page (docs/auth-and-security.md): every member sees whether it is
+  // up and its link; only the owner puts it up (again, under a new link) or takes it down.
+  .post(`${ROOM}/publication`, member("publication"), async (c) => {
+    const p = await c.var.room.publication(c.var.memberId);
+    return c.json({
+      publication: p === null ? null : { url: bookletUrl(c.env, p.slug), at: p.at },
+    });
+  })
+  .post(`${ROOM}/publish`, member("publish"), body(v.object({ lang })), async (c) => {
+    const { email, log, roomId, memberId, room } = c.var;
+    // refused before the budget is touched
+    if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
+    // each publish writes to R2 at a rate the member chooses, so it counts like a paid call
+    const index = c.env.ROOMS.getByName("index");
+    const reserved = await index.reserve(email, roomId);
+    if ("refused" in reserved) {
+      log.set({ budget: { refused: reserved.refused } });
+      return c.text(`Budget: ${reserved.refused}`, 429);
+    }
+    let published: Awaited<ReturnType<Room["publish"]>>;
+    try {
+      published = await room.publish(memberId, c.req.valid("json").lang);
+    } catch (e) {
+      await index.refund(reserved.id);
+      throw e;
+    }
+    if (!published.ok) {
+      await index.refund(reserved.id);
+      return c.text("Forbidden", 403);
+    }
+    log.set({ publish: { at: published.at } });
+    return c.json({ publication: { url: bookletUrl(c.env, published.slug), at: published.at } });
+  })
+  .post(`${ROOM}/withdraw`, member("withdraw"), async (c) => {
+    const out = await c.var.room.withdraw(c.var.memberId);
+    if (!out.ok) {
+      c.var.log.set({ refused: out.reason });
+      return c.text("Forbidden", 403);
+    }
+    return c.json({});
+  })
+
   // Who is in a room, and who is asked in: the owner invites, takes an invitation back, removes
   // someone and deletes the room; anyone else may leave. The room decides who may; the index
   // keeps the e-mails.
@@ -683,7 +725,7 @@ export type Api = typeof api;
 export default new Hono<{ Bindings: Env }>()
   .use(async (c, next) => {
     const host = new URL(c.req.url).host;
-    if (host === c.env.BOOKLET_HOST) return booklet();
+    if (host === c.env.BOOKLET_HOST) return booklet(c.env, c.req.raw);
     // `wrangler dev` presents requests under the first custom domain, so this holds locally too
     if (host !== c.env.APP_HOST) return c.text("Not Found", 404);
     await next();
@@ -691,8 +733,51 @@ export default new Hono<{ Bindings: Env }>()
   .route("/", api)
   .all("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
-/** Published booklets only; nothing here is behind Access, so nothing here may cost anything */
-const booklet = () => new Response("Not Found", { status: 404 });
+/** A published booklet's public address */
+const bookletUrl = (env: Env, slug: string) => `https://${env.BOOKLET_HOST}/r/${slug}/shiori`;
+
+/** A slug as newSlug() makes one; anything else is no booklet, and R2 is not asked */
+const SLUG = /^[A-Za-z0-9_-]{22}$/;
+
+/** What every answer on the public host says: not for search engines, not for sniffing */
+const PUBLIC_HEADERS = {
+  "X-Robots-Tag": "noindex, nofollow",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+};
+
+/**
+ * Published booklets only (docs/auth-and-security.md). Nothing here is behind Access, so
+ * nothing here may cost anything: a file read from R2, or nothing. The page has no script, and
+ * its CSP allows none, nor anything fetched; its style is its own, inline.
+ */
+async function booklet(env: Env, req: Request): Promise<Response> {
+  const notFound = () =>
+    new Response("Not Found", {
+      status: 404,
+      headers: { ...PUBLIC_HEADERS, "Content-Type": "text/plain" },
+    });
+  if (req.method !== "GET" && req.method !== "HEAD") return notFound();
+  const { pathname } = new URL(req.url);
+  if (pathname === "/robots.txt")
+    return new Response("User-agent: *\nDisallow: /\n", {
+      headers: { ...PUBLIC_HEADERS, "Content-Type": "text/plain; charset=utf-8" },
+    });
+  const slug = /^\/r\/([^/]+)\/shiori$/.exec(pathname)?.[1];
+  if (slug === undefined || !SLUG.test(slug)) return notFound();
+  const object = await env.IMAGES.get(bookletKey(slug));
+  if (object === null) return notFound();
+  return new Response(req.method === "HEAD" ? null : object.body, {
+    headers: {
+      ...PUBLIC_HEADERS,
+      "Content-Type": "text/html; charset=utf-8",
+      "Content-Security-Policy":
+        "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      // a withdrawn or replaced booklet is gone from caches within the minute
+      "Cache-Control": "public, max-age=60",
+    },
+  });
+}
 
 /** The room's own folder in the bucket: one room's ids never reach another's pictures */
 const imageKey = (roomId: RoomId, id: ImageId) => `rooms/${roomId}/images/${id}`;

@@ -22,7 +22,7 @@ format.ts                compiles a message once per locale; format() -> string,
         │
 useI18n.ts               Pinia store: locale, setLocale(), t(), parts()
         │
-templates                {{ i18n.t("shiori.export") }}
+templates                {{ i18n.t("shiori.publish") }}
 Message.vue              <Message id="shiori.dayHeading"> with one slot per markup name
 ```
 

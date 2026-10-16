@@ -187,7 +187,7 @@ These are ordinary queries and mutations.
 - The rooms list is `useQuery` on `["me", "rooms"]` with the default `staleTime`, refetched on focus so a room the partner created appears.
 - Creating a room is `useMutation`, invalidating `["me", "rooms"]` in `onSettled`.
 - `draftDay` is `useMutation`, and the booklet shows its `isLoading` on the "ask for a draft" button.
-- `exportBooklet` is `useMutation`.
+- The public booklet is `useQuery` (`usePublication`), and putting it up or down `useMutation`.
 
 No mutation retries.
 `draftDay` is a paid call, and `docs/auth-and-security.md` bounds what one person can spend; a retry must be the person's tap, never the library's.

@@ -352,6 +352,20 @@ one {{{$count} note has no place · open it and use “Find the place”}}
   "shiori.calendarHint":
     "The confirmed notes, the flights and the stays, at the times the booklet says; open the file to add them to the phone’s calendar.",
   "shiori.calendarStay": "Stay:",
+  "shiori.publicTitle": "A page to share",
+  "shiori.publicHint":
+    "Anyone with the link can read the plan, with no sign-in: the days, the flights, the stays and the confirmed notes. Budgets, booking numbers, photos and who is in the trip are left out. Putting it up again changes the link, and the old one stops working.",
+  "shiori.notPublished": "Not up yet.",
+  "shiori.ownerPublishes": "Not up yet. The person who made the trip can put it up.",
+  "shiori.publish": "Put it up",
+  "shiori.republish": "Put it up again (new link)",
+  "shiori.publishing": "Putting it up…",
+  "shiori.withdraw": "Take it down",
+  "shiori.publishedAt": "As of {$at}",
+  "shiori.copyLink": "Copy the link",
+  "shiori.copied": "Copied",
+  "shiori.publishFailed": "That did not go through. Try again.",
+  "shiori.publishLimit": "That is all for today. Try again tomorrow.",
   "duration.unset": "– min",
   "duration.m": "{$m :integer} min",
   "duration.h": "{$h :integer} h",
@@ -368,7 +382,4 @@ one {{{$count} note has no place · open it and use “Find the place”}}
   "shiori.draftTripLimit": "This trip has used all the drafts it can ask for.",
   "shiori.dayTotal": "Budget for the day {$total}",
   "shiori.tagEmpty": "No notes with this tag yet",
-  "shiori.export": "Export",
-  "shiori.exporting": "Exporting…",
-  "shiori.exportFailed": "Could not export. Try again.",
 } satisfies Record<string, string>;

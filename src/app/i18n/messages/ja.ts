@@ -315,6 +315,20 @@ export const ja: Messages = {
   "shiori.calendarHint":
     "確定したメモ、フライト、宿を、しおりの時刻のまま書き出します。ファイルを開くとスマホのカレンダーに追加できます。",
   "shiori.calendarStay": "宿:",
+  "shiori.publicTitle": "共有用のページ",
+  "shiori.publicHint":
+    "リンクを知っている人なら誰でも、ログインなしで予定（日程、フライト、宿、確定したメモ）を見られます。予算、予約番号、写真、メンバーは載りません。作り直すとリンクが変わり、前のリンクは見られなくなります。",
+  "shiori.notPublished": "まだ公開していません。",
+  "shiori.ownerPublishes": "まだ公開されていません。旅を作った人が公開できます。",
+  "shiori.publish": "公開する",
+  "shiori.republish": "作り直す（リンクが変わります）",
+  "shiori.publishing": "公開しています…",
+  "shiori.withdraw": "公開をやめる",
+  "shiori.publishedAt": "{$at} 時点",
+  "shiori.copyLink": "リンクをコピー",
+  "shiori.copied": "コピーしました",
+  "shiori.publishFailed": "うまくいきませんでした。もう一度お試しください。",
+  "shiori.publishLimit": "今日はここまでです。明日またお試しください。",
   "duration.unset": "– 分",
   "duration.m": "{$m :integer}分",
   "duration.h": "{$h :integer}時間",
@@ -331,7 +345,4 @@ export const ja: Messages = {
   "shiori.draftTripLimit": "この旅で頼める下書きはここまでです。",
   "shiori.dayTotal": "この日の予算 {$total}",
   "shiori.tagEmpty": "このタグのメモはまだありません",
-  "shiori.export": "書き出す",
-  "shiori.exporting": "書き出しています…",
-  "shiori.exportFailed": "書き出せませんでした。もう一度お試しください。",
 };

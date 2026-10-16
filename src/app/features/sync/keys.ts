@@ -4,6 +4,7 @@ import type { Email, Member } from "../members/types";
 import type { Note } from "../notes/types";
 import type { RoomId } from "../rooms/types";
 import type { TripSnapshot } from "../trip/types";
+import type { Publication } from "../worker/types";
 
 /**
  * A slice's key, tagged with what the slice holds: reading or writing it is typed. Out of a
@@ -28,4 +29,6 @@ export const roomKeys = {
    * only (useMembers), refreshed when the members change
    */
   invited: slice<Email[]>("invited"),
+  /** Not a slice of the socket's either: the public booklet, fetched over HTTP (usePublication) */
+  publication: slice<Publication | null>("publication"),
 };

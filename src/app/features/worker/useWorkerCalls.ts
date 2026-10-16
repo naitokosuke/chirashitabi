@@ -25,14 +25,6 @@ export const useWorkerCalls = defineQuery(() => {
       mutation: ({ date, notes }: { date: Temporal.PlainDate; notes: Scheduled[] }) =>
         api().draftDay(date, notes),
     }),
-    /** Publishes the booklet as a static page */
-    exportBooklet: useMutation({
-      mutation: () => {
-        const publish = api().exportBooklet;
-        if (publish === null) throw new Error("The Worker cannot publish yet");
-        return publish();
-      },
-    }),
     /** The room's agent leaves a few ideas on the desk around `at`, along what was asked */
     suggest: useMutation({
       mutation: (request: Parameters<WorkerApi["suggest"]>[0]) => api().suggest(request),

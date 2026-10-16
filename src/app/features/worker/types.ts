@@ -3,6 +3,7 @@ import type { Temporal } from "temporal-polyfill-lite";
 import type { MemberId } from "../members/types";
 import type { ImageId, NoteId } from "../notes/id";
 import type { Scheduled, Tag } from "../notes/types";
+import type { HttpUrl } from "../place/google-maps";
 import type { FoundPlace, LatLng } from "../place/types";
 
 /** A suggested order and times for one day, from whichever member drafted it */
@@ -89,9 +90,19 @@ export interface WorkerApi {
   ): Promise<Answer<{ url: string; at: LatLng | null }, OverBudget>>;
   /** Have a member order a day's notes and give them times */
   draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<Answer<DayDraft, OverBudget>>;
+  /** The room's booklet as a public page while one is up, else null. Free */
+  publication(): Promise<Publication | null>;
   /**
-   * Publish the booklet as a static page at /r/<slug>/shiori, with a fresh slug each time;
-   * null while the Worker cannot, and the UI hides it
+   * The owner puts the booklet up as a public page as it is now, in `lang`, at a new link; the
+   * link before stops answering. Budgeted
    */
-  exportBooklet: (() => Promise<void>) | null;
+  publish(lang: "ja" | "en"): Promise<Answer<Publication, OverBudget>>;
+  /** The owner takes the public page down */
+  withdraw(): Promise<void>;
+}
+
+/** The booklet as a public page: where anyone with the link reads it, and as of when */
+export interface Publication {
+  url: HttpUrl;
+  at: Temporal.Instant;
 }

@@ -94,7 +94,8 @@ src/app/            The app
              (screen <-> world, zoom, pinch, fit); useViewport (the animated view); usePlace (adding
              a note on the canvas, placed even before the canvas is opened)
     worker/  WorkerApi: by the room's agent, drafting a day (POST /api/rooms/<id>/draft) and leaving ideas
-             on the canvas (POST /api/rooms/<id>/suggest); booklet export
+             on the canvas (POST /api/rooms/<id>/suggest); usePublication (the booklet as a public page:
+             whether it is up and where; the owner puts it up or takes it down)
 
   shared/  Types every feature can use: Brand; CurrencyCode and formatMoney; HexColor (the types from
            src/contract)
@@ -166,6 +167,8 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
                     and what is at a pinned point (its name, else its street's)
   expand.ts         A short Google Maps link (maps.app.goo.gl) read as the link its redirect names
   airports.ts       The airports a flight may name (src/contract's airport-codes.ts)
+  booklet.ts        The booklet as a public page: one static HTML file written from the room's data, plan only,
+                    escaped, no script; served on the booklet host from R2 (index.ts)
   room.ts           Room: the trip, its notes and members in SQLite, and which pictures it has (their bytes
                     in the R2 bucket chirashitabi-images); the socket: snapshot on connect,
                     mutations checked, stamped (by, updatedAt), written and sent to the other sockets

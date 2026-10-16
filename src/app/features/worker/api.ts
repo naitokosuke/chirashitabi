@@ -9,10 +9,11 @@ import type { Api } from "../../../../.worker-types/worker";
 import { MemberIdSchema } from "../members/types";
 import { ImageIdSchema } from "../notes/id";
 import { TagSchema } from "../notes/types";
+import { HttpUrlSchema } from "../place/google-maps";
 import type { FoundPlace } from "../place/types";
 import type { RoomId } from "../rooms/types";
 
-import type { Answer, OverBudget, WorkerApi } from "./types";
+import type { Answer, OverBudget, Publication, WorkerApi } from "./types";
 
 /** A room's calls; every one says JSON, as the Worker's gate wants, even one with no body */
 const inRoom = hc<Api>("/", { headers: { "Content-Type": "application/json" } }).api.rooms[
@@ -77,6 +78,12 @@ const PlaceSchema = v.pipe(
     at: { lat, lng },
     hours,
   })),
+);
+
+/** The public booklet as the Worker says where it is: an https link on its own host, and when */
+const PublicationSchema = v.pipe(
+  v.object({ url: HttpUrlSchema, at: v.pipe(v.string(), v.isoTimestamp()) }),
+  v.transform(({ url, at }): Publication => ({ url, at: Temporal.Instant.from(at) })),
 );
 
 /** HH:MM as a time, or null when it is none or not one */
@@ -198,5 +205,23 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
       }),
     );
   },
-  exportBooklet: null,
+  async publication() {
+    const { publication } = await free(
+      inRoom.publication.$post({ param: { roomId: room } }),
+      v.object({ publication: v.nullable(PublicationSchema) }),
+    );
+    return publication;
+  },
+  async publish(lang) {
+    return read(
+      await budgeted(
+        inRoom.publish.$post({ param: { roomId: room }, json: { lang } }),
+        v.object({ publication: PublicationSchema }),
+      ),
+      ({ publication }) => publication,
+    );
+  },
+  async withdraw() {
+    await free(inRoom.withdraw.$post({ param: { roomId: room } }), v.object({}));
+  },
 });

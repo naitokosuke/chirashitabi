@@ -54,7 +54,7 @@ The agent (Claude) drafts a day's order, times, how long each takes (for the not
 While writing a note, the tags in use and the candidates Claude proposed once for the trip line up in the order they fit its words, as they are typed. Once the words settle, Clef (Workers AI) judges how likely each fits its words and photo, and the row reorders by it; it asks by itself at most twice a note, again only when the words have much changed or the photo has, and in a room with no tags yet the first ask is a tap.
 And when asked, Claude names the place a note is about and OpenStreetMap finds it, so a note can get its Google Maps link, its pin and its opening hours without leaving the app. A note started at a point on the map gets that point's link at once, and OpenStreetMap's name for what is there as its title when it has none.
 A shared short `maps.app.goo.gl` link is read by the Worker as soon as it is pasted (budgeted like a paid call), so a stay or a note pasted from a phone gets its place; a stay can also be found by its name on OpenStreetMap (free) and chosen from the places found.
-Planned, not built: publishing the booklet as a public read-only page.
+The trip's owner can put the booklet up as a public read-only page, on its own host, at a secret link anyone with it can read without signing in: the plan only (no budgets, booking numbers, pictures or members), a snapshot until it is put up again at a new link, and taken down with a tap. Every member sees whether it is up and its link.
 
 Terminology: a note is a 付箋/sticky; the booklet is しおり/shiori; the people and the agent are members; a trip's shared space is a room.
 
