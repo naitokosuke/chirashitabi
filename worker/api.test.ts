@@ -890,7 +890,6 @@ describe("the socket", () => {
         booking: null,
         due: null,
         assignee: null,
-        paid: null,
         by: yuki,
         updatedAt: got.updatedAt,
       },
@@ -1037,7 +1036,6 @@ describe("the socket", () => {
           booking: null,
           due: null,
           assignee: null,
-          paid: null,
         },
       ],
     });
@@ -1143,31 +1141,6 @@ describe("the socket", () => {
     for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
 
-  test("a memo keeps what was paid for it and who paid, and nothing that is no amount", async () => {
-    const PAY = "pay@example.com";
-    const { roomId, memberId } = await createRoom(PAY);
-    const a = await connect(roomId, PAY);
-    const paid = { amount: 1250.5, by: memberId };
-    a.send({ type: "note:add", note: { ...memo("n1"), budget: 1000, paid }, cid: "c1" });
-    expect(await a.next()).toMatchObject({ type: "ack", cid: "c1" });
-    const b = await connect(roomId, PAY);
-    expect(b.snapshot.notes).toMatchObject([{ id: "n1", budget: 1000, paid }]);
-    for (const amount of [0, -5]) {
-      const patch = { paid: { amount, by: memberId } };
-      a.send({ type: "note:update", id: "n1", patch, cid: `bad${amount}` });
-      expect(await a.next()).toEqual({
-        type: "rejected",
-        reason: "not a mutation",
-        cid: `bad${amount}`,
-      });
-    }
-    a.send({ type: "note:update", id: "n1", patch: { paid: null }, cid: "c2" });
-    expect(await a.next()).toMatchObject({ type: "ack", cid: "c2" });
-    const c = await connect(roomId, PAY);
-    expect(c.snapshot.notes).toMatchObject([{ id: "n1", budget: 1000, paid: null }]);
-    for (const s of [a, b, c]) s.ws.close(1000, "done");
-  });
-
   test("updates, moves, recolors, adoption, deletion and the day intro all land", async () => {
     const { roomId, memberId: yuki } = await createRoom(ME);
     await admit(roomId, ME, PARTNER);
@@ -1225,7 +1198,6 @@ describe("the socket", () => {
         booking: null,
         due: null,
         assignee: null,
-        paid: null,
       },
     ]);
     expect(c.snapshot.trip.days[1]).toEqual({ date: "2026-11-04", intro: "Jiufen day" });

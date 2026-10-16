@@ -63,7 +63,7 @@ interface CardBase {
   updatedAt: Temporal.Instant;
 }
 
-/** An ordinary note: it can carry tags, a place, a day, a budget and what was paid */
+/** An ordinary note: it can carry tags, a place, a day and a budget */
 export interface Memo extends CardBase {
   kind: "memo";
   body: string;
@@ -86,14 +86,6 @@ export interface Memo extends CardBase {
   due: Temporal.PlainDate | null;
   /** Who is to do it or book it; null for whoever */
   assignee: MemberId | null;
-  /** What was actually paid for it and who paid; null for nothing yet */
-  paid: Paid | null;
-}
-
-/** An amount actually paid, in the trip's currency, and the member who paid it */
-export interface Paid {
-  amount: number;
-  by: MemberId;
 }
 
 /**
@@ -157,8 +149,6 @@ export type NoteInput = Pick<
   | "booking"
   | "due"
   | "assignee"
-  | "budget"
-  | "paid"
 >;
 
 /**

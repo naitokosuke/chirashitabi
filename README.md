@@ -55,7 +55,7 @@ src/app/            The app
     rooms/[roomId=roomId]/
       canvas.vue   Pan / pinch; pick a card (tap), move, resize and turn it (handles), open it (double tap),
                    its toolbar (color, day, duplicate, delete); writing on the desk
-      home.vue     The trip at a glance: dates, flights, the piles, the budget, what was spent, who is in
+      home.vue     The trip at a glance: dates, flights, the piles, the budget, who is in
       memo.vue     The memo form as a tab: each save goes on the canvas
       map.vue      MapLibre + OpenFreeMap: pins, a day's route, long-press to add
       shiori.vue   The booklet (edit / read, appendix, a member's draft of a day)
@@ -78,9 +78,9 @@ src/app/            The app
     theme/   Light or dark: the device's until picked (useTheme, remembered); ThemeSwitch, the dock's
              sun and moon, whose new colors spread from it like ink
     trip/    The room's trip (name, days, currency, map center, flights, stays); itinerary (notes on a
-             day, status, budgets, what was spent and how the two settle up, assigning a day, adopting
-             a draft, where a night is spent, when a note ends and whether the next can start);
-             calendar (the plan as an iCalendar file); formatting; settings and TripEditor (name, dates, flights and stays, edited on the home
+             day, status, budgets, assigning a day, adopting a draft, where a night is spent, when a
+             note ends and whether the next can start); calendar (the plan as an iCalendar file);
+             formatting; settings and TripEditor (name, dates, flights and stays, edited on the home
              tab); FlightLine (a flight); StayLine (a stay); AirportField (an airport, suggested as typed)
     tags/    Tag colors and the tag filter (store, filter bar)
     todos/   What there is to do before the trip: list (the to-dos, tagged To do, and the plans still to
