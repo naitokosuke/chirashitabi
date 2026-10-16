@@ -1,11 +1,14 @@
 <script setup lang="ts" vapor>
 import { computed } from "vue";
 
+import { CtPaper } from "../../../ui/index";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import externalIcon from "../../icons/external.svg";
 import Icon from "../../icons/Icon.vue";
 import { useMembers } from "../members/useMembers";
+import type { ImageId } from "../notes/id";
 import { imageSrc } from "../notes/image";
 import { segments, siteOf } from "../notes/links";
 import { PAPERS, type Note } from "../notes/types";
@@ -14,6 +17,11 @@ import { useSync } from "../sync/useSync";
 import type { Visibility } from "../tags/types";
 import { hhmm, shortDate } from "../trip/format";
 
+/**
+ * A card on the desk, placed, turned and scaled where the note says. Paper (a memo, the
+ * agent's suggestion, a page's picture) is drawn by CtPaper in one of its cuts; words written
+ * on the desk and a sticker are not paper and draw themselves.
+ */
 const props = defineProps<{
   note: Note;
   dragging: boolean;
@@ -29,7 +37,7 @@ const author = computed(() => members.value?.find((m) => m.id === props.note.by)
 const sync = useSync();
 const i18n = useI18n();
 /** A page's picture with its link: the picture is the card, the words stay in the note */
-const clipping = computed(
+const print = computed(
   () => props.note.kind === "memo" && props.note.link !== null && props.note.image !== null,
 );
 /** "11/3 12:30", or the date alone when it has no time; nothing off the itinerary */
@@ -39,21 +47,20 @@ const day = computed(() => {
   const date = shortDate(s.date, i18n.locale);
   return s.time === null ? date : `${date} ${hhmm(s.time)}`;
 });
+/** Where a picture of the room is shown from, once the room is known */
+const picture = (id: ImageId) => (sync.room === null ? undefined : imageSrc(sync.room, id));
 </script>
 
 <template>
   <div
     v-show="visibility !== 'hidden'"
+    class="card"
     :data-kind="note.kind"
-    :data-link="(note.kind === 'memo' && note.link !== null) || undefined"
-    :data-clipping="clipping || undefined"
     :data-dragging="dragging || undefined"
     :data-pop="pop || undefined"
     :data-selected="selected || undefined"
     :data-visibility="visibility"
-    :style="
-      `--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}; --card: ${PAPERS[note.color]}; --who: ${author?.color ?? 'var(--muted)'}`
-    "
+    :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}`"
     :data-id="note.id"
     :tabindex="note.kind !== 'suggestion' && visibility !== 'dimmed' ? 0 : undefined"
     :role="note.kind !== 'suggestion' ? 'button' : undefined"
@@ -63,76 +70,89 @@ const day = computed(() => {
         ? note.title
         : undefined"
   >
-    <!-- a slip from the agent: white stock cut with a dashed edge, who proposed it at its head -->
-    <template v-if="note.kind === 'suggestion'">
-      <header>
-        <span aria-hidden="true"></span>
-        {{ author?.name ?? i18n.t("member.someone") }}<small>{{ i18n.t("note.suggestion") }}</small>
-      </header>
-      <p>{{ note.title }}</p>
-      <footer><button type="button" @click.stop="() => $emit('adopt')">{{
+    <!-- a slip from the agent: who proposed it in the strip, the proposal, what to do with it -->
+    <CtPaper
+      v-if="note.kind === 'suggestion'"
+      variant="proposal"
+      :lifted="dragging"
+      :selected
+      :who="author?.color"
+    >
+      <template #strip>{{ author?.name ?? i18n.t("member.someone") }} · {{ i18n.t("note.suggestion") }}</template>
+      <p class="title">{{ note.title }}</p>
+      <template #foot>
+        <button class="keep" type="button" @click.stop="() => $emit('adopt')">{{
           i18n.t("note.adopt")
-        }}</button><button type="button" @click.stop="() => $emit('remove')">{{
+        }}</button>
+        <button type="button" @click.stop="() => $emit('remove')">{{
           i18n.t("common.dismiss")
-        }}</button></footer>
-    </template>
-    <!-- words on the desk itself: no paper, no author's dot -->
+        }}</button>
+      </template>
+    </CtPaper>
+    <!-- words on the desk itself: no paper -->
     <p v-else-if="note.kind === 'text'">{{ note.title }}</p>
     <!-- a cut-out picture on the desk itself: edged in white, no paper -->
-    <img
-      v-else-if="note.kind === 'sticker'"
-      alt=""
-      draggable="false"
-      :src="sync.room === null ? undefined : imageSrc(sync.room, note.image)"
-    />
-    <!-- a clipping from a page: the picture is the card, in a mount; the site on the picture opens the page -->
-    <template v-else-if="clipping">
-      <figure>
+    <img v-else-if="note.kind === 'sticker'" alt="" draggable="false" :src="picture(note.image)" />
+    <!-- a page brought in: its picture in a mount, the site in the margin, which opens the page -->
+    <CtPaper
+      v-else-if="print"
+      variant="print"
+      :lifted="dragging"
+      :paper="PAPERS[note.color]"
+      :selected
+      :who="author?.color"
+    >
+      <template #picture>
         <img
           alt=""
+          class="shot"
           draggable="false"
           loading="lazy"
-          :src="
-            sync.room === null || note.image === null ? undefined : imageSrc(sync.room, note.image)
-          "
+          :src="note.image === null ? undefined : picture(note.image)"
         />
-      </figure>
-      <!-- the mount's margin, written as a print's is: the site it came from (which opens the page), who brought it in, its day -->
-      <small><a
+      </template>
+      <template #margin>
+        <a
+          class="from"
           :href="safeUrl(note.link)"
           rel="noopener noreferrer"
           target="_blank"
           :aria-label="i18n.t('note.link')"
           @pointerdown.stop
           @click.stop
-        ><Icon :size="11" :src="externalIcon" />{{ siteOf(note.link) }}</a><time
-          v-if="note.schedule !== null"
-          :datetime="note.schedule.date.toString()"
-        >{{ day }}</time><span aria-hidden="true" :title="author?.name"></span></small>
-    </template>
-    <!-- a sticky: a strip of adhesive across the top (its author's dot in it), the words under -->
-    <template v-else>
-      <!-- the card's picture, across its top; the card is still what a finger holds -->
+        ><Icon :size="11" :src="externalIcon" />{{ siteOf(note.link) }}</a>
+        <time v-if="note.schedule !== null" class="when" :datetime="note.schedule.date.toString()">{{
+          day
+        }}</time>
+      </template>
+    </CtPaper>
+    <!-- a sticky: the picture across the top when it has one, the words, the tags, the day -->
+    <CtPaper v-else :lifted="dragging" :paper="PAPERS[note.color]" :selected :who="author?.color">
       <img
         v-if="note.image !== null"
         alt=""
+        class="band"
         draggable="false"
         loading="lazy"
-        :src="sync.room === null ? undefined : imageSrc(sync.room, note.image)"
+        :src="picture(note.image)"
       />
       <!-- where the idea came from, when the page gave no picture: its site, which opens the page -->
       <a
         v-if="safeUrl(note.link) !== undefined"
+        class="site"
         :href="safeUrl(note.link)"
         rel="noopener noreferrer"
         target="_blank"
         :aria-label="i18n.t('note.link')"
         @pointerdown.stop
         @click.stop
-      ><Icon :size="12" :src="externalIcon" />{{ siteOf(note.link) }}</a>
-      <p>{{ note.title }}</p>
+      ><Icon :size="11" :src="externalIcon" />{{ siteOf(note.link) }}</a>
+      <p class="title">{{ note.title }}</p>
       <!-- the words, a few lines of them; a link in them is its site, tapped -->
-      <p v-if="note.body !== ''"><template v-for="(s, i) in segments(note.body)" :key="i"><a
+      <p v-if="note.body !== ''" class="body"><template
+          v-for="(s, i) in segments(note.body)"
+          :key="i"
+        ><a
             v-if="s.kind === 'link'"
             :href="s.url"
             rel="noopener noreferrer"
@@ -143,10 +163,13 @@ const day = computed(() => {
             s.text
           }}</template></template></p>
       <ul v-if="note.tags.length > 0"><li v-for="t in note.tags" :key="t">#{{ t }}</li></ul>
-      <!-- its day on the trip, once it has one: the desk shows how far the plan has come -->
-      <time v-if="note.schedule !== null" :datetime="note.schedule.date.toString()">{{ day }}</time>
-      <span></span>
-    </template>
+      <template #foot>
+        <!-- its day on the trip, once it has one: the desk shows how far the plan has come -->
+        <time v-if="note.schedule !== null" :datetime="note.schedule.date.toString()">{{
+          day
+        }}</time>
+      </template>
+    </CtPaper>
     <!-- picked: a handle above to turn it, one at the corner to resize it (the canvas drives both) -->
     <template v-if="selected">
       <span aria-hidden="true" data-handle="rotate"></span>
@@ -158,16 +181,12 @@ const day = computed(() => {
 <style scoped>
 @import "../../../ui/styles/media.css";
 
-div {
+/* the root is .card: CtPaper's own root carries this component's scope too, and a bare div rule would reach it */
+.card {
   position: absolute;
   inset-inline-start: 0;
   inset-block-start: 0;
   width: 164px;
-  padding: 12px;
-  border-radius: 6px;
-  background: var(--card, var(--paper-white));
-  color: var(--paper-ink);
-  box-shadow: var(--shadow-paper);
   /* the card's place and tilt live in variables so the pop can scale it where it lands */
   transform: translate(var(--x), var(--y)) rotate(var(--rot)) scale(var(--scale, 1));
   transform-origin: center;
@@ -178,7 +197,6 @@ div {
   }
 
   &[data-dragging] {
-    box-shadow: var(--shadow-lift);
     z-index: var(--z-drag);
     will-change: transform;
     transition: none;
@@ -198,68 +216,25 @@ div {
     }
   }
 
-  /*
-   * ---- a sticky ----
-   * A strip of adhesive across the top, the paper a shade deeper there, is what says "sticky"
-   * at a glance; its author's dot sits in the strip. The words under it are few: a title, a
-   * few lines, the tags on one line, the day as a small stamp.
-   */
-  &[data-kind="memo"] {
-    padding: 18px 12px 12px;
-    background:
-      linear-gradient(
-        color-mix(in oklch, var(--paper-ink) 9%, transparent) 0 12px,
-        transparent 12px
-      ),
-      var(--card, var(--paper-white));
-
-    /* with a picture, the picture crosses the top instead */
-    &:has(> img) {
-      padding-block-start: 12px;
-      background: var(--card, var(--paper-white));
-    }
+  &[data-selected] {
+    z-index: var(--z-float);
   }
 
-  /* the picture, edge to edge across the top; touches go to the card under it */
-  > img {
+  /* ---- what is written on paper: one type scale for a sticky and a slip alike ---- */
+
+  /* the picture, edge to edge across the top, under the strip; touches go to the card under it */
+  .band {
     display: block;
     width: calc(100% + 24px);
-    height: 110px;
-    margin: -12px -12px 10px;
+    height: 100px;
+    margin: -9px -12px 10px;
     object-fit: cover;
-    border-radius: 6px 6px 0 0;
     background: color-mix(in oklch, var(--paper-ink) 6%, transparent);
     pointer-events: none;
   }
 
-  /* a page's picture (a video's frame, a post's cover) is made for 16:9: shown whole at that, not cut to the band */
-  &[data-link] > img {
-    height: auto;
-    aspect-ratio: 16 / 9;
-  }
-
-  /* the page's site, a small tag above the title, with the arrow that means "elsewhere" */
-  > a {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    max-width: 100%;
-    margin: 0 0 5px;
-    padding: 2px 7px 2px 5px;
-    border-radius: 999px;
-    background: color-mix(in oklch, var(--paper-ink) 8%, transparent);
-    color: var(--paper-muted);
-    font-size: var(--font-2xs);
-    font-weight: 700;
-    line-height: 1.2;
-    text-decoration: none;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
   /* the title: three lines at most on the desk, the rest in the note */
-  > p:first-of-type {
+  .title {
     margin: 0;
     font-size: var(--font-base);
     font-weight: 700;
@@ -272,7 +247,7 @@ div {
   }
 
   /* the body, under the title: three lines at most; a link in it is its site, as a small tag */
-  > p + p {
+  .body {
     margin: 4px 0 0;
     font-size: var(--font-xs);
     line-height: 1.45;
@@ -297,8 +272,28 @@ div {
     }
   }
 
+  /* the page's site above the title, when the page gave no picture to be the card */
+  .site {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    max-width: 100%;
+    margin: 0 0 5px;
+    padding: 2px 7px 2px 5px;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--paper-ink) 8%, transparent);
+    color: var(--paper-muted);
+    font-size: var(--font-2xs);
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* the tags, on one line */
-  > ul {
+  ul {
     margin: 6px 0 0;
     padding: 0;
     list-style: none;
@@ -319,120 +314,83 @@ div {
     }
   }
 
-  /* its day, a small stamp under the tags */
-  > time {
-    display: inline-block;
-    margin-block-start: 7px;
-    padding: 1px 7px;
+  /* the foot: a day as a small stamp, or a slip's two actions, of one height */
+  time,
+  .keep,
+  .keep + button {
+    min-height: 26px;
+    margin-block-start: 8px;
+    padding: 0 9px;
     border-radius: 999px;
     font-size: var(--font-xs);
     font-weight: 700;
-    line-height: 1.4;
+    line-height: 26px;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  time {
+    display: inline-block;
     background: color-mix(in oklch, var(--paper-ink) 10%, transparent);
   }
 
-  /* who wrote it: in the strip (the handles are spans too, and come after) */
-  > span:not([data-handle]) {
-    position: absolute;
-    inset-block-start: 2px;
-    inset-inline-end: 8px;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--who);
+  /* the two actions: keeping it takes the room, and is never cut; dismissing it only what its word needs */
+  .keep {
+    flex: 1 1 auto;
+    min-width: fit-content;
+    padding: 0 8px;
   }
 
-  /* with a picture the strip is under it: the dot moves to the picture's corner */
-  &:has(> img) > span:not([data-handle]) {
-    inset-block-start: 8px;
-    width: 8px;
-    height: 8px;
-    box-shadow: 0 0 0 2px var(--paper-white);
+  /* dismissing is a word, not a button: the same quiet text as taking a day off a note */
+  .keep + button {
+    flex: 0 0 auto;
+    padding: 0 2px;
   }
 
-  /*
-   * ---- a clipping ----
-   * A page's picture is the card: a print in a mount of the paper, edged in ink so it reads as
-   * something brought in from outside. The site sits on the picture with the arrow that means
-   * "elsewhere", and the mount's margin says who brought it in, and its day when it has one.
-   */
-  &[data-clipping] {
-    padding: 8px 8px 7px;
-    border-radius: 3px;
-    background: var(--card, var(--paper-white));
-    outline: 1px solid color-mix(in oklch, var(--paper-ink) 35%, transparent);
-    outline-offset: -1px;
-
-    > figure {
-      position: relative;
-      margin: 0;
-
-      > img {
-        display: block;
-        width: 100%;
-        aspect-ratio: 16 / 9;
-        object-fit: cover;
-        border-radius: 2px;
-        background: color-mix(in oklch, var(--paper-ink) 6%, transparent);
-        pointer-events: none;
-      }
-
-    }
-
-    /* the margin: the site in the paper's ink at the start, the day and the author's dot at the end */
-    > small {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-height: 18px;
-      margin: 6px 1px 0;
-      font-size: var(--font-2xs);
-      font-weight: 700;
-      color: var(--paper-muted);
-      white-space: nowrap;
-
-      > a {
-        display: inline-flex;
-        align-items: center;
-        gap: 2px;
-        min-width: 0;
-        margin: 0;
-        padding: 0;
-        background: none;
-        color: var(--paper-ink);
-        text-decoration: none;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      > time {
-        margin-inline-start: auto;
-        font-variant-numeric: tabular-nums;
-        color: var(--paper-muted);
-      }
-
-      > span {
-        flex-shrink: 0;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--who);
-
-        /* with no day, the dot alone keeps the end */
-        &:first-of-type:not(time + span) {
-          margin-inline-start: auto;
-        }
-      }
-    }
+  /* a proposal is a sentence: it may run longer than a sticky's title */
+  &[data-kind="suggestion"] .title {
+    -webkit-line-clamp: 5;
   }
 
-  /* picked: framed in ink, lifted a little above the rest */
-  &[data-selected] {
-    z-index: var(--z-float);
-    box-shadow:
-      var(--shadow-float),
-      0 0 0 2px var(--ink);
+  .keep {
+    background: var(--paper-ink);
+    color: var(--paper-white);
+  }
+
+  .keep + button {
+    color: var(--paper-muted);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* ---- a print: the picture, and the margin's caption ---- */
+  .shot {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    pointer-events: none;
+  }
+
+  .from {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    color: var(--paper-ink);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* in the margin the day is written, not stamped, at the end */
+  .when {
+    min-height: 0;
+    margin: 0 0 0 auto;
+    padding: 0;
+    line-height: 1;
+    background: none;
+    color: var(--paper-muted);
   }
 
   /*
@@ -483,19 +441,14 @@ div {
     max-width: 560px;
     padding: var(--text-box-pad);
     border-radius: 4px;
-    background: transparent;
-    box-shadow: none;
     color: var(--ink);
-
-    &[data-dragging] {
-      box-shadow: none;
-    }
 
     &[data-selected] {
       box-shadow: 0 0 0 2px var(--ink);
     }
 
     > p {
+      margin: 0;
       font-size: var(--text-box-size);
       font-weight: 700;
       line-height: 1.3;
@@ -511,113 +464,22 @@ div {
    */
   &[data-kind="sticker"] {
     width: var(--sticker-size);
-    padding: 0;
     border-radius: 4px;
-    background: transparent;
-    box-shadow: none;
 
-    &[data-dragging] {
-      box-shadow: none;
-
-      > img {
-        filter: var(--sticker-edge) drop-shadow(0 8px 10px rgb(0 0 0 / .22));
-      }
+    &[data-dragging] > img {
+      filter: var(--sticker-edge) drop-shadow(0 8px 10px rgb(0 0 0 / .22));
     }
 
     &[data-selected] {
       box-shadow: 0 0 0 2px var(--ink);
     }
 
-    /* the whole picture, its own shape: none of a memo's picture band across the top */
     > img {
+      display: block;
       width: 100%;
       height: auto;
-      margin: 0;
-      border-radius: 0;
-      background: none;
       object-fit: contain;
       filter: var(--sticker-edge) drop-shadow(0 2px 3px rgb(0 0 0 / .2));
-    }
-  }
-
-  /*
-   * ---- a slip from the agent ----
-   * White stock cut straight, with a dashed edge all round like a perforation, lying flatter
-   * than a pad of paper: never a person's soft corner, never their tinted stock. Who proposed
-   * it heads it, and the two things to do with it foot it.
-   */
-  &[data-kind="suggestion"] {
-    width: 180px;
-    padding: 10px 12px 12px;
-    border-radius: 0;
-    background: var(--paper-white);
-    border: 1px dashed color-mix(in oklch, var(--paper-ink) 45%, transparent);
-    box-shadow: var(--shadow-tool);
-
-    > header {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-block-end: 6px;
-      font-size: var(--font-sm);
-      font-weight: 700;
-
-      /* who suggested it */
-      > span {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--who);
-      }
-
-      > small {
-        margin-inline-start: auto;
-        font-size: var(--font-2xs);
-        font-weight: 400;
-        color: var(--paper-muted);
-      }
-    }
-
-    > p {
-      font-size: var(--font-sm);
-      font-weight: 400;
-      line-height: 1.45;
-      overflow-wrap: anywhere;
-      display: -webkit-box;
-      -webkit-line-clamp: 6;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    > footer {
-      display: flex;
-      gap: 6px;
-      margin-block-start: 10px;
-
-      > button {
-        flex: 1;
-        min-width: 0;
-        min-height: 30px;
-        padding: 0 8px;
-        border-radius: 999px;
-        font-size: var(--font-xs);
-        font-weight: 700;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-
-        /* adopt */
-        &:first-child {
-          background: var(--paper-ink);
-          color: var(--paper-white);
-        }
-
-        /* dismiss */
-        &:last-child {
-          color: var(--paper-muted);
-          box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 18%, transparent);
-        }
-      }
     }
   }
 }
