@@ -7,7 +7,7 @@ import { currencyCode } from "../../shared/money";
 
 import type { MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
-import type { Memo } from "../notes/types";
+import type { Memo, Tag } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 import type { HttpUrl } from "../place/google-maps";
 
@@ -43,7 +43,7 @@ const memo: Memo = {
   by: "yuki" as MemberId,
   updatedAt: at,
   body: "",
-  tags: ["Food"],
+  tags: ["Food" as Tag],
   mapsUrl: null,
   pin: { lat: 25.03, lng: 121.56 },
   schedule: {

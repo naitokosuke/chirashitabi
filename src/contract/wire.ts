@@ -12,7 +12,7 @@ import { isImageId, isNoteId, type ImageId, type MemberId, type NoteId } from ".
 import { currencyCode, type CurrencyCode } from "./money";
 import { httpUrl, type HttpUrl } from "./place";
 import { isRecord } from "./record";
-import { COLORS, type NoteColor, type NoteStatus } from "./room";
+import { COLORS, tagOf, type NoteColor, type NoteStatus, type Tag } from "./room";
 
 /** A day as it travels: YYYY-MM-DD, a day the calendar has (isDate) */
 export type IsoDate = Brand<string, "IsoDate">;
@@ -107,7 +107,7 @@ interface WireCard {
 export interface WireMemo extends WireCard {
   kind: "memo";
   body: string;
-  tags: string[];
+  tags: Tag[];
   mapsUrl: HttpUrl | null;
   pin: { lat: number; lng: number } | null;
   schedule: WireSchedule | null;
@@ -238,7 +238,6 @@ const TITLE = 200;
 /** A text box's words: a few lines at most */
 const TEXT = 1000;
 const BODY = 4000;
-const TAG = 40;
 const TAGS = 20;
 const INTRO = 1000;
 const NAME = 60;
@@ -286,8 +285,8 @@ const isLatLng = (v: unknown): v is { lat: number; lng: number } =>
 /** A point on the desk, as `{ x, y }` within the canvas's bounds */
 export const parsePoint = (v: unknown): { x: number; y: number } | null =>
   isRecord(v) && isFinite_(v.x) && isFinite_(v.y) ? { x: v.x, y: v.y } : null;
-const isTags = (v: unknown): v is string[] =>
-  Array.isArray(v) && v.length <= TAGS && v.every((t) => isText(t, TAG) && t !== "");
+const isTags = (v: unknown): v is Tag[] =>
+  Array.isArray(v) && v.length <= TAGS && v.every((t) => tagOf(t) !== null);
 const isSchedule = (v: unknown): v is WireSchedule =>
   isRecord(v) && isDate(v.date) && (v.time === null || isTime(v.time)) && isStatus(v.status);
 const isBudget = (v: unknown): v is number | null =>

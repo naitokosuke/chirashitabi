@@ -4,7 +4,7 @@ import { computed } from "vue";
 
 import { defineQuery, useQueryState } from "@pinia/colada";
 
-import type { NoteStatus } from "../notes/types";
+import type { NoteStatus, Tag } from "../notes/types";
 import { useNotes } from "../notes/useNotes";
 import { MAX_NAME } from "../rooms/newRoom";
 import { roomKeys } from "../sync/keys";
@@ -26,7 +26,7 @@ export const useTrip = defineQuery(() => {
   const unassigned = computed(() => itinerary.unassigned(notes.value ?? []));
   const forDay = (date: Temporal.PlainDate, status?: NoteStatus) =>
     itinerary.forDay(notes.value ?? [], date, status);
-  const byTag = (tag: string) => itinerary.byTag(notes.value ?? [], tag);
+  const byTag = (tag: Tag) => itinerary.byTag(notes.value ?? [], tag);
   const budgetOf = (date?: Temporal.PlainDate, onlyFixed = true) =>
     itinerary.budgetOf(notes.value ?? [], date, onlyFixed);
   const fixedCount = computed(() => itinerary.fixedCount(notes.value ?? []));

@@ -8,6 +8,7 @@ import {
   type NoteStatus,
   type Schedule,
   type Scheduled,
+  type Tag,
 } from "../notes/types";
 import type { DayDraft } from "../worker/types";
 
@@ -43,7 +44,7 @@ export const forDay = (notes: Note[], date: Temporal.PlainDate, status?: NoteSta
     )
     .sort(byTime);
 
-export const byTag = (notes: Note[], tag: string) =>
+export const byTag = (notes: Note[], tag: Tag) =>
   notes.filter(isMemo).filter((n) => n.tags.includes(tag));
 
 /** The sum of budgets, for one day or the whole trip; by default only what is confirmed */

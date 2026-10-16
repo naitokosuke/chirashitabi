@@ -2,7 +2,7 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import type { MemberId } from "../members/types";
 import type { ImageId, NoteId } from "../notes/id";
-import type { Scheduled } from "../notes/types";
+import type { Scheduled, Tag } from "../notes/types";
 import type { FoundPlace, LatLng } from "../place/types";
 
 /** A suggested order and times for one day, from whichever member drafted it */
@@ -52,13 +52,13 @@ export interface WorkerApi {
     title: string;
     body: string;
     image: ImageId | null;
-    chosen: string[];
-  }): Promise<Answer<{ tag: string; p: number; isNew: boolean }[], OverBudget>>;
+    chosen: Tag[];
+  }): Promise<Answer<{ tag: Tag; p: number; isNew: boolean }[], OverBudget>>;
   /**
    * The trip's candidate tags the agent proposed, none before the first ask for tags; free,
    * so the form ranks them with the tags in use as the words are typed
    */
-  tagCandidates(): Promise<string[]>;
+  tagCandidates(): Promise<Tag[]>;
   /**
    * Where a memo is: the room's agent names the place from its words, and OpenStreetMap finds
    * it, so the points are real ones. Up to three to choose from, none when the memo is not

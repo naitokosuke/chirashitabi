@@ -9,6 +9,7 @@ import {
   type NoteStatus,
   type Schedule,
   type Suggestion,
+  type Tag,
 } from "../features/notes/types";
 import type { HttpUrl } from "../features/place/google-maps";
 
@@ -21,6 +22,8 @@ const on = (date: string, time: string, status: NoteStatus): Schedule => ({
   status,
 });
 const pin = (lat: number, lng: number) => ({ lat, lng });
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+const tags = (...names: string[]) => names as Tag[];
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
 const link = (url: string) => url as HttpUrl;
 
@@ -58,7 +61,7 @@ export const mockNotes = (): Note[] => [
     title: "Din Tai Fung xiaolongbao",
     pin: pin(25.0335, 121.5301),
     body: "The main shop has a queue; the Taipei 101 branch is fine",
-    tags: ["Food"],
+    tags: tags("Food"),
     x: 40,
     y: 40,
     rot: -2,
@@ -71,7 +74,7 @@ export const mockNotes = (): Note[] => [
     title: "Jiufen at dusk",
     pin: pin(25.1094, 121.8453),
     body: "Aim for when the lanterns come on. The bus back gets crowded",
-    tags: ["Jiufen", "Want to go"],
+    tags: tags("Jiufen", "Want to go"),
     color: "#ffd9de",
     x: 230,
     y: 52,
@@ -83,7 +86,7 @@ export const mockNotes = (): Note[] => [
     title: "Taihu Brewing",
     pin: pin(25.0378, 121.5629),
     body: "Xinyi. Stop by after the night market",
-    tags: ["Beer"],
+    tags: tags("Beer"),
     x: 60,
     y: 210,
     rot: 1,
@@ -94,7 +97,7 @@ export const mockNotes = (): Note[] => [
     title: "Shilin Night Market",
     pin: pin(25.0881, 121.5244),
     body: "Pepper buns and sausage-in-sausage",
-    tags: ["Food", "Want to go"],
+    tags: tags("Food", "Want to go"),
     color: "#ffffff",
     x: 240,
     y: 190,
@@ -107,7 +110,7 @@ export const mockNotes = (): Note[] => [
     title: "Dried goods on Dihua Street",
     pin: pin(25.0557, 121.51),
     body: "Mullet roe, tea",
-    tags: ["Shopping"],
+    tags: tags("Shopping"),
     color: "#d8f0e6",
     x: 50,
     y: 360,
@@ -119,7 +122,7 @@ export const mockNotes = (): Note[] => [
     title: "Taipei 101 observatory",
     pin: pin(25.0339, 121.5645),
     body: "Depends on the weather",
-    tags: ["Want to go"],
+    tags: tags("Want to go"),
     color: "#ffffff",
     x: 240,
     y: 370,
@@ -132,7 +135,7 @@ export const mockNotes = (): Note[] => [
     title: "Smoothie House shaved ice",
     pin: pin(25.033, 121.5297),
     body: "Yongkang Street. One bowl to share",
-    tags: ["Sweets"],
+    tags: tags("Sweets"),
     x: 250,
     y: 510,
     rot: 0.5,
@@ -149,7 +152,7 @@ export const mockNotes = (): Note[] => [
     title: "Le Blé d'Or honey lager",
     pin: pin(25.0415, 121.546),
     body: "Supposedly sweet. One glass is enough",
-    tags: ["Beer"],
+    tags: tags("Beer"),
     x: 480,
     y: 60,
     rot: 1,

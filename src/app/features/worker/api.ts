@@ -7,6 +7,7 @@ import { isRecord } from "../../shared/record";
 import type { Api } from "../../../../.worker-types/worker";
 import { isMemberId } from "../members/types";
 import { isImageId } from "../notes/id";
+import { tagOf } from "../notes/types";
 import type { FoundPlace } from "../place/types";
 import type { RoomId } from "../rooms/types";
 
@@ -97,16 +98,16 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
     return read(
       await budgeted(inRoom.tags.$post({ param: { roomId: room }, json: memo })),
       ({ tags }) =>
-        listOf(tags, (t) =>
-          isRecord(t) && text(t.tag) && number(t.p) && typeof t.isNew === "boolean"
-            ? { tag: t.tag, p: t.p, isNew: t.isNew }
-            : null,
-        ),
+        listOf(tags, (t) => {
+          if (!isRecord(t) || !number(t.p) || typeof t.isNew !== "boolean") return null;
+          const tag = tagOf(t.tag);
+          return tag === null ? null : { tag, p: t.p, isNew: t.isNew };
+        }),
     );
   },
   async tagCandidates() {
     const { tags } = await free(inRoom.candidates.$post({ param: { roomId: room } }));
-    return listOf(tags, (t) => (text(t) ? t : null));
+    return listOf(tags, tagOf);
   },
   async findPlaces(memo) {
     return read(

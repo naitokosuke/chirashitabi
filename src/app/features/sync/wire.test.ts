@@ -5,7 +5,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { hexColor } from "../../shared/color";
 
 import type { NoteId } from "../notes/id";
-import type { NewMemo } from "../notes/types";
+import type { NewMemo, Tag } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 
 import type { Mutation } from "./types";
@@ -17,7 +17,7 @@ const memo: NewMemo = {
   kind: "memo",
   title: "Din Tai Fung",
   body: "",
-  tags: ["food"],
+  tags: ["food" as Tag],
   color: "#fff1b8",
   x: 10,
   y: 20,

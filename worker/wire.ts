@@ -28,4 +28,4 @@ export {
   type WireStay,
   type WireTrip,
 } from "../src/contract/wire";
-export { SEATS, type NoteColor, type NoteStatus } from "../src/contract/room";
+export { SEATS, tagOf, type NoteColor, type NoteStatus, type Tag } from "../src/contract/room";

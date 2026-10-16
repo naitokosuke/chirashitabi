@@ -1,3 +1,5 @@
+import type { Brand } from "./brand";
+
 // Values both sides name, apart from wire.ts so the app can take them without the checks (and
 // the airports list the checks load)
 
@@ -9,3 +11,11 @@ export const COLORS = ["#fff1b8", "#ffd9de", "#d8f0e6", "#dbe7ff", "#ead9ff", "#
 export type NoteColor = (typeof COLORS)[number];
 
 export type NoteStatus = "idea" | "fixed" | "done";
+
+/** A tag on a memo, as the room keeps it: at most 40 characters, never empty */
+export type Tag = Brand<string, "Tag">;
+
+/** The tag, or null when the room would not keep it */
+export const tagOf = (v: unknown): Tag | null =>
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand is minted here
+  typeof v === "string" && v !== "" && v.length <= 40 ? (v as Tag) : null;

@@ -14,6 +14,8 @@ import type {
 } from "./types";
 import {
   SEATS,
+  tagOf,
+  type Tag,
   type Cid,
   type IsoDate,
   type IsoDateTime,
@@ -1179,9 +1181,9 @@ const notesTable = (name: string) => `
 `;
 
 /** A note's tags as its column keeps them: a JSON array of strings */
-const tagsOf = (column: string): string[] => {
+const tagsOf = (column: string): Tag[] => {
   const tags: unknown = JSON.parse(column);
-  return Array.isArray(tags) ? tags.filter((t) => typeof t === "string") : [];
+  return Array.isArray(tags) ? tags.flatMap((t: unknown) => tagOf(t) ?? []) : [];
 };
 
 const fromRow = (r: NoteRow): WireNote => {

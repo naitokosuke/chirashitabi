@@ -46,7 +46,7 @@ import { useWorker } from "../worker/useWorker";
 
 import { imageSrc, shrinkImage } from "./image";
 import { blankInput, inputFromNote, normalizeTag, noteText, parseNoteText } from "./input";
-import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteInput } from "./types";
+import { COLOR_NAMES, COLORS, PAPERS, type NoteColor, type NoteInput, type Tag } from "./types";
 import { useNotes } from "./useNotes";
 
 const props = defineProps<{ mode: FormMode }>();
@@ -163,7 +163,7 @@ const TAG_STATE = {
   day: "form.tagsLimit",
   trip: "form.tagsTripLimit",
 } as const satisfies Record<Exclude<TagState, "idle">, string>;
-const offered = ref<{ tag: string; p: number; isNew: boolean }[]>([]);
+const offered = ref<{ tag: Tag; p: number; isNew: boolean }[]>([]);
 /**
  * In a room with no tags yet, the first ask has the agent propose the trip's tags too, so it
  * waits for a tap; after that Clef is asked by itself
@@ -241,7 +241,7 @@ function forgetTags() {
 }
 // ---- the tags to add: those in use and the trip's, in the order they fit the words as typed ----
 /** The trip's candidate tags the agent proposed; read once the Worker is there, free */
-const candidates = ref<string[]>([]);
+const candidates = ref<Tag[]>([]);
 watch(
   () => worker.api,
   (api) => {
@@ -435,7 +435,7 @@ const hintKey = computed(() =>
 
 function addTag(raw: string) {
   const t = normalizeTag(raw);
-  if (t !== "" && !form.value.tags.includes(t)) form.value.tags.push(t);
+  if (t !== null && !form.value.tags.includes(t)) form.value.tags.push(t);
 }
 function commitTag() {
   if (tagInput.value.trim() !== "") {
@@ -443,7 +443,7 @@ function commitTag() {
     tagInput.value = "";
   }
 }
-function removeTag(t: string) {
+function removeTag(t: Tag) {
   form.value.tags.splice(form.value.tags.indexOf(t), 1);
 }
 function setColor(c: NoteColor) {
