@@ -226,7 +226,7 @@ Content that is read or filled in (the booklet, the form) sits in a 648px column
 
 Paper lifts; tools barely do. Shadows are neutral (a dark gray, never a hue), offset downward with a soft blur. The four steps are tokens: `--shadow-tool` (a chip resting, a hairline lift), `--shadow-paper` (a sticky on the desk), `--shadow-lift` (a card being dragged, a hovered write button), `--shadow-float` (menus, the toast, the write button). The dark theme uses black at higher alpha.
 
-**The Lift Means Pick-Up Rule.** Dragging raises the shadow and nothing else; the card does not scale or glow.
+**The Lift Means Pick-Up Rule.** A card under a finger is lifted off the desk: its shadow falls far and soft (`--shadow-lift`, over its ink frame when it is the one picked), it grows 5% and turns 2° anticlockwise, coming up with one small overshoot (`--ease-spring`) and settling back when let go (`--ease-morph`), both over `--duration-swap`. It never glows. Under reduced motion only the shadow changes.
 
 ## Shapes
 

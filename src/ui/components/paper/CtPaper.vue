@@ -61,15 +61,22 @@ withDefaults(
     transition: none;
   }
 
-  &[data-lifted] {
-    box-shadow: var(--shadow-lift);
-    transition: none;
-  }
-
   /* picked: framed in ink */
   &[data-selected] {
     box-shadow:
       var(--shadow-float),
+      0 0 0 2px var(--ink);
+  }
+
+  /* held: off the desk, its shadow fallen far and soft; still framed if it is the one picked */
+  &[data-lifted] {
+    box-shadow: var(--shadow-lift);
+    transition-timing-function: var(--ease-spring);
+  }
+
+  &[data-lifted][data-selected] {
+    box-shadow:
+      var(--shadow-lift),
       0 0 0 2px var(--ink);
   }
 
