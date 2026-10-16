@@ -1,11 +1,12 @@
 import { hc, type ClientResponse } from "hono/client";
+import * as v from "valibot";
 
-import { isRecord } from "../../shared/record";
+import { listOf } from "../../shared/list";
 
 import type { Api } from "../../../../.worker-types/worker";
 import type { RoomId } from "../rooms/types";
 
-import { parseEmail, type Email, type MemberId } from "./types";
+import { EmailSchema, type Email, type MemberId } from "./types";
 
 /** A room's calls; every one says JSON, as the Worker's gate wants, even one with no body */
 const inRoom = hc<Api>("/", { headers: { "Content-Type": "application/json" } }).api.rooms[
@@ -21,8 +22,8 @@ async function call<R extends ClientResponse<unknown>>(request: Promise<R>): Pro
 
 /** `/invited` as the app holds it: the e-mails, and nothing that is not one */
 export function invitedOf(raw: unknown): Email[] {
-  const list = isRecord(raw) ? raw.invited : null;
-  return Array.isArray(list) ? list.flatMap((e: unknown) => parseEmail(e) ?? []) : [];
+  const answer = v.safeParse(v.object({ invited: listOf(EmailSchema) }), raw);
+  return answer.success ? answer.output.invited : [];
 }
 
 /** Whom the owner has invited and is waiting on; the room answers its owner only */

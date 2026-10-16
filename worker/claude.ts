@@ -1,4 +1,5 @@
-import { isRecord } from "./types";
+import * as v from "valibot";
+
 import type { WireMemo } from "./wire";
 
 /**
@@ -94,6 +95,31 @@ export async function draftDay(
   return ask(env, DRAFT_TOOL, prompt, (input) => checkProposal(input, ids), "a draft");
 }
 
+/** The API's refusal: what kind, and its message */
+const ErrorSchema = v.object({
+  error: v.object({ type: v.fallback(v.string(), ""), message: v.fallback(v.string(), "") }),
+});
+
+const tokens = v.fallback(v.number(), 0);
+/** The API's answer: what it used, and what it said; an answer that is neither used nothing and said nothing */
+const AnswerSchema = v.fallback(
+  v.object({
+    usage: v.fallback(v.object({ input_tokens: tokens, output_tokens: tokens }), {
+      input_tokens: 0,
+      output_tokens: 0,
+    }),
+    content: v.fallback(v.array(v.unknown()), []),
+  }),
+  { usage: { input_tokens: 0, output_tokens: 0 }, content: [] },
+);
+
+/** A tool call in the answer: which tool, and what Claude passed it */
+const ToolUseSchema = v.object({
+  type: v.literal("tool_use"),
+  name: v.string(),
+  input: v.unknown(),
+});
+
 /**
  * One call: Claude answers by calling `tool`, and `check` turns its input into the value, or
  * null when it is not one. Every way it can fail says whether anything was spent.
@@ -134,22 +160,19 @@ async function ask<T>(
   }
   if (!res.ok) {
     // the API's own words (type and message, never the request) say what it refused
-    const err: unknown = await res.json().catch(() => null);
-    const error = isRecord(err) && isRecord(err.error) ? err.error : null;
-    const said = (v: unknown) => (typeof v === "string" ? v : "");
-    const why = error !== null ? `: ${said(error.type)} ${said(error.message)}`.trimEnd() : "";
+    const err = v.safeParse(ErrorSchema, await res.json().catch(() => null));
+    const why = err.success
+      ? `: ${err.output.error.type} ${err.output.error.message}`.trimEnd()
+      : "";
     return { ok: false, refund: true, reason: `Claude answered ${res.status}${why}` };
   }
 
-  const body: unknown = await res.json();
-  const answer = isRecord(body) ? body : {};
-  const used = isRecord(answer.usage) ? answer.usage : {};
-  const tokens = (v: unknown) => (typeof v === "number" ? v : 0);
-  const usage = { input: tokens(used.input_tokens), output: tokens(used.output_tokens) };
-  const call = (Array.isArray(answer.content) ? answer.content : []).find(
-    (c: unknown) => isRecord(c) && c.type === "tool_use" && c.name === tool.name,
-  );
-  const value = check(isRecord(call) ? call.input : undefined);
+  const answer = v.parse(AnswerSchema, await res.json());
+  const usage = { input: answer.usage.input_tokens, output: answer.usage.output_tokens };
+  const call = answer.content
+    .map((c) => v.safeParse(ToolUseSchema, c))
+    .find((c) => c.success && c.output.name === tool.name);
+  const value = check(call?.success === true ? call.output.input : undefined);
   return value === null
     ? { ok: false, refund: false, reason: `Claude's answer was not ${what}` }
     : { ok: true, value, usage };
@@ -205,12 +228,25 @@ export async function proposeTags(env: Env, room: TagContext): Promise<ClaudeRes
 }
 
 /** Claude's tags, trimmed of '#' and space, short, new, no repeats; or null */
-export function checkTags(v: unknown, taken: ReadonlySet<string>): string[] | null {
-  if (!isRecord(v) || !Array.isArray(v.tags)) return null;
+export function checkTags(input: unknown, taken: ReadonlySet<string>): string[] | null {
+  const answer = v.safeParse(
+    v.object({
+      tags: v.array(
+        v.fallback(
+          v.pipe(
+            v.string(),
+            v.transform((t) => t.replace(/^#+/, "").trim()),
+          ),
+          "",
+        ),
+      ),
+    }),
+    input,
+  );
+  if (!answer.success) return null;
   const out: string[] = [];
   const seen = new Set(taken);
-  for (const t of v.tags) {
-    const tag = typeof t === "string" ? t.replace(/^#+/, "").trim() : "";
+  for (const tag of answer.output.tags) {
     if (tag === "" || tag.length > CANDIDATE || seen.has(tag.toLowerCase())) continue;
     seen.add(tag.toLowerCase());
     out.push(tag);
@@ -305,13 +341,26 @@ export async function suggestNotes(
  * Claude's ideas as titles, or null. Trimmed, at most the card's length, none the notes
  * already have, no repeats, at most MAX_SUGGESTIONS; an empty list is a fine answer.
  */
-export function checkSuggestions(v: unknown, taken: ReadonlySet<string>): string[] | null {
-  if (!isRecord(v) || !Array.isArray(v.suggestions)) return null;
+export function checkSuggestions(input: unknown, taken: ReadonlySet<string>): string[] | null {
+  const answer = v.safeParse(
+    v.object({
+      suggestions: v.array(
+        v.fallback(
+          v.pipe(
+            v.object({ title: text(SUGGESTION_TITLE) }),
+            v.transform(({ title }) => title),
+          ),
+          "",
+        ),
+      ),
+    }),
+    input,
+  );
+  if (!answer.success) return null;
   const out: string[] = [];
   const seen = new Set(taken);
-  for (const s of v.suggestions) {
-    const title = isRecord(s) ? text(s.title, SUGGESTION_TITLE) : null;
-    if (title === null || title === "" || seen.has(title.toLowerCase())) continue;
+  for (const title of answer.output.suggestions) {
+    if (title === "" || seen.has(title.toLowerCase())) continue;
     seen.add(title.toLowerCase());
     out.push(title);
     if (out.length === MAX_SUGGESTIONS) break;
@@ -320,26 +369,46 @@ export function checkSuggestions(v: unknown, taken: ReadonlySet<string>): string
 }
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : null);
+/** Words as Claude wrote them, trimmed and cut to `max` */
+const text = (max: number) =>
+  v.pipe(
+    v.string(),
+    v.trim(),
+    v.transform((s) => s.slice(0, max)),
+  );
+
+/** Claude's draft of a day: why, a line for the day, and the notes in order with their times */
+const ProposalSchema = v.object({
+  reason: text(500),
+  intro: text(500),
+  items: v.array(
+    v.fallback(
+      v.nullable(
+        v.object({
+          id: v.string(),
+          // a time that is not HH:MM is no time
+          time: v.fallback(v.nullable(v.pipe(v.string(), v.regex(TIME))), null),
+        }),
+      ),
+      null,
+    ),
+  ),
+});
 
 /**
  * Claude's answer as a draft, or null. Only notes of the day, each once; a time that is not
  * HH:MM is no time. Exported for the tests.
  */
-export function checkProposal(v: unknown, ids: ReadonlySet<string>): DraftProposal | null {
-  if (!isRecord(v) || !Array.isArray(v.items)) return null;
-  const reason = text(v.reason, 500);
-  const intro = text(v.intro, 500);
-  if (reason === null || intro === null) return null;
+export function checkProposal(input: unknown, ids: ReadonlySet<string>): DraftProposal | null {
+  const answer = v.safeParse(ProposalSchema, input);
+  if (!answer.success) return null;
+  const { reason, intro } = answer.output;
   const seen = new Set<string>();
   const items: DraftProposal["items"] = [];
-  for (const it of v.items) {
-    if (!isRecord(it) || typeof it.id !== "string" || !ids.has(it.id) || seen.has(it.id)) continue;
+  for (const it of answer.output.items) {
+    if (it === null || !ids.has(it.id) || seen.has(it.id)) continue;
     seen.add(it.id);
-    items.push({
-      id: it.id,
-      time: typeof it.time === "string" && TIME.test(it.time) ? it.time : null,
-    });
+    items.push({ id: it.id, time: it.time });
   }
   return { reason, intro, items };
 }
@@ -401,12 +470,15 @@ export async function namePlace(
 }
 
 /** Claude's search strings, trimmed, short, no repeats, at most MAX_PLACE_QUERIES; or null */
-export function checkQueries(v: unknown): string[] | null {
-  if (!isRecord(v) || !Array.isArray(v.queries)) return null;
+export function checkQueries(input: unknown): string[] | null {
+  const answer = v.safeParse(
+    v.object({ queries: v.array(v.fallback(text(PLACE_QUERY), "")) }),
+    input,
+  );
+  if (!answer.success) return null;
   const out: string[] = [];
-  for (const q of v.queries) {
-    const query = text(q, PLACE_QUERY);
-    if (query === null || query === "" || out.includes(query)) continue;
+  for (const query of answer.output.queries) {
+    if (query === "" || out.includes(query)) continue;
     out.push(query);
     if (out.length === MAX_PLACE_QUERIES) break;
   }

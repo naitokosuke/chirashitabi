@@ -1,11 +1,12 @@
 import { Temporal } from "temporal-polyfill-lite";
 
 import { http, HttpResponse, ws, type WebSocketHandlerConnection } from "msw";
+import * as v from "valibot";
 
-import { isRecord } from "../shared/record";
+import { listOf } from "../shared/list";
 
 import { SEATS, type Member } from "../features/members/types";
-import type { NoteId } from "../features/notes/id";
+import { NoteIdSchema, type NoteId } from "../features/notes/id";
 import { tagOf, type Note } from "../features/notes/types";
 import { isShortMapsLink } from "../features/place/google-maps";
 import { roomId, type RoomId } from "../features/rooms/types";
@@ -18,11 +19,11 @@ import { mockNotes } from "./notes";
 import { mockTrip } from "./trip";
 import {
   isAirportCode,
+  NewTripSchema,
   parseCid,
   parseMutation,
-  parsePoint,
-  parseProfile,
-  parseTrip,
+  PointSchema,
+  ProfileSchema,
   type IsoInstant,
   type ServerMessage,
   type WireMutation,
@@ -89,8 +90,8 @@ const find = (id: unknown) => {
 
 /** A field of a request's JSON body, when it is a string */
 const textOf = (body: unknown, field: string): string | null => {
-  const v = isRecord(body) ? body[field] : null;
-  return typeof v === "string" ? v : null;
+  const read = v.safeParse(v.object({ [field]: v.string() }), body);
+  return read.success ? (read.output[field] ?? null) : null;
 };
 
 const summary = (id: RoomId, { state }: MockRoom) => ({
@@ -190,12 +191,14 @@ const agent = [
     const id = roomId(params.roomId);
     const room = open(params.roomId);
     if (id === null || room === undefined) return forbidden();
-    const body: unknown = await request.json();
-    const at = parsePoint(isRecord(body) ? body.at : null);
-    if (at === null) return badRequest();
+    const body = v.safeParse(
+      v.object({ at: PointSchema, about: v.optional(v.nullable(NoteIdSchema), null) }),
+      await request.json(),
+    );
+    if (!body.success) return badRequest();
     // the note asked from must still be on the desk, as the Worker checks
-    const about = isRecord(body) ? body.about : undefined;
-    if (about !== undefined && !room.state.notes.some((n) => n.id === about)) {
+    const { at, about } = body.output;
+    if (about !== null && !room.state.notes.some((n) => n.id === about)) {
       return new HttpResponse("Not Found", { status: 404 });
     }
     await wait(THINKING_MS);
@@ -224,8 +227,8 @@ const agent = [
   http.post("/api/rooms/:roomId/tags", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const body: unknown = await request.json();
-    const chosen: unknown[] = isRecord(body) && Array.isArray(body.chosen) ? body.chosen : [];
+    const body = v.safeParse(v.object({ chosen: listOf(v.string()) }), await request.json());
+    const chosen = body.success ? body.output.chosen : [];
     const inUse = new Set(room.state.notes.flatMap((n) => (n.kind === "memo" ? n.tags : [])));
     // every tag judged, the likeliest first: the in-use ones, then the trip's candidates
     const tags = [...inUse, ...CANDIDATES.filter((t) => !inUse.has(t))].filter(
@@ -373,11 +376,13 @@ const mine = [
   }),
   http.post("/api/rooms", async ({ request }) => {
     // checked as the Worker checks them
-    const body: unknown = await request.json();
-    const trip = parseTrip(isRecord(body) ? body.trip : null);
-    const me = parseProfile(isRecord(body) ? body.me : null);
+    const body = v.safeParse(
+      v.object({ trip: NewTripSchema, me: ProfileSchema }),
+      await request.json(),
+    );
     const id = roomId(crypto.randomUUID());
-    if (trip === null || me === null || id === null) return badRequest();
+    if (!body.success || id === null) return badRequest();
+    const { trip, me } = body.output;
     const creator = reviveMember({ id: YUKI, kind: "person", role: "owner", ...me });
     rooms.set(id, {
       state: {

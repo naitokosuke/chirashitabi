@@ -1,15 +1,17 @@
 import { Temporal } from "temporal-polyfill-lite";
 
 import { hc, type ClientResponse } from "hono/client";
+import * as v from "valibot";
 
-import { hexColor } from "../../shared/color";
-import { isRecord } from "../../shared/record";
+import { HexColorSchema } from "../../shared/color";
+import { listOf } from "../../shared/list";
 
 import type { Api } from "../../../../.worker-types/worker";
+import { IsoDateSchema } from "../../../contract/wire";
 
 import { toWire } from "./newRoom";
 import {
-  roomId,
+  RoomIdSchema,
   type DeletedRoom,
   type Mine,
   type NewRoom,
@@ -21,85 +23,89 @@ import {
 /** The Worker's API; every call says JSON, as the Worker's gate wants, even one with no body */
 const { api } = hc<Api>("/", { headers: { "Content-Type": "application/json" } });
 
-/** The answer's JSON as a record, its fields still to check; a response that is not 2xx is an error the caller's state can hold */
-async function json(res: ClientResponse<unknown>): Promise<Record<string, unknown>> {
-  if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
-  return record(await res.json());
-}
-
-const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {});
-const count = (value: unknown) =>
-  typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
-function date(value: unknown): Temporal.PlainDate | null {
-  if (typeof value !== "string") return null;
-  try {
-    return Temporal.PlainDate.from(value);
-  } catch {
-    return null;
-  }
-}
+const count = v.fallback(v.pipe(v.number(), v.integer(), v.minValue(0)), 0);
 
 /**
- * One entry of `/api/me` as the list shows it, or null without a room id or a name. What the
- * glance adds (days, members, memos) is taken where it is sound and left empty where it is not:
- * a trip with an odd field still opens.
+ * One entry of `/api/me` as the list shows it: a room id and a name. What the glance adds (days,
+ * members, memos) is taken where it is sound and left empty where it is not: a trip with an odd
+ * field still opens.
  */
-export function summaryOf(raw: unknown): RoomSummary | null {
-  const r = record(raw);
-  const id = roomId(r.id);
-  if (id === null || typeof r.name !== "string") return null;
-  const members = (Array.isArray(r.members) ? r.members : []).flatMap((m: unknown) => {
-    const { kind, name, color } = record(m);
-    const hex = typeof color === "string" ? hexColor(color) : null;
-    if ((kind !== "person" && kind !== "agent") || typeof name !== "string" || hex === null)
-      return [];
-    return [{ kind, name, color: hex } as const];
-  });
-  const glance = {
-    id,
-    name: r.name,
-    members,
-    memos: count(r.memos),
+const RoomSummarySchema = v.pipe(
+  v.object({
+    id: RoomIdSchema,
+    name: v.string(),
+    members: listOf(
+      v.object({ kind: v.picklist(["person", "agent"]), name: v.string(), color: HexColorSchema }),
+    ),
+    memos: count,
     // a Worker from before says nothing: not the owner, so the list offers leaving at most
-    owner: r.owner === true,
-  };
+    owner: v.fallback(v.boolean(), false),
+    first: v.fallback(
+      v.nullable(
+        v.pipe(
+          IsoDateSchema,
+          v.transform((d) => Temporal.PlainDate.from(d)),
+        ),
+      ),
+      null,
+    ),
+    days: count,
+  }),
   // a trip with no first day has no days to count
-  const first = date(r.first);
-  const days = count(r.days);
-  return first === null ? { ...glance, first, days: 0 } : { ...glance, first, days };
+  v.transform(({ first, days, ...glance }): RoomSummary =>
+    first === null ? { ...glance, first, days: 0 } : { ...glance, first, days },
+  ),
+);
+
+/** One entry of `/api/me` as the list shows it, or null without a room id or a name */
+export function summaryOf(raw: unknown): RoomSummary | null {
+  const summary = v.safeParse(RoomSummarySchema, raw);
+  return summary.success ? summary.output : null;
 }
 
 /** How long the room keeps a deleted trip (worker/room.ts, DELETE_AFTER) */
 export const KEPT_DAYS = 30;
 
+/** One deleted trip of `/api/me`: a room id, a name and when it was deleted */
+const DeletedRoomSchema = v.pipe(
+  v.object({ id: RoomIdSchema, name: v.string(), deletedAt: v.string() }),
+  v.rawTransform(({ dataset, addIssue, NEVER }): DeletedRoom => {
+    const { id, name, deletedAt } = dataset.value;
+    try {
+      const at = Temporal.Instant.from(deletedAt).toZonedDateTimeISO(Temporal.Now.timeZoneId());
+      return { id, name, until: at.toPlainDate().add({ days: KEPT_DAYS }) };
+    } catch {
+      addIssue({ message: "not an instant" });
+      return NEVER;
+    }
+  }),
+);
+
 /** One deleted trip of `/api/me`, or null without a room id, a name or when it was deleted */
 export function deletedOf(raw: unknown): DeletedRoom | null {
-  const r = record(raw);
-  const id = roomId(r.id);
-  if (id === null || typeof r.name !== "string" || typeof r.deletedAt !== "string") return null;
-  try {
-    const at = Temporal.Instant.from(r.deletedAt).toZonedDateTimeISO(Temporal.Now.timeZoneId());
-    return { id, name: r.name, until: at.toPlainDate().add({ days: KEPT_DAYS }) };
-  } catch {
-    return null;
-  }
+  const deleted = v.safeParse(DeletedRoomSchema, raw);
+  return deleted.success ? deleted.output : null;
 }
-
-const list = <T>(value: unknown, of: (raw: unknown) => T | null): T[] =>
-  (Array.isArray(value) ? value : []).flatMap((r: unknown) => of(r) ?? []);
 
 /**
  * What the signed-in person has: their rooms, the invitations waiting for them and the trips
  * they deleted; an entry that is not one is left out, and a Worker from before invitations
  * answers with none of the other two.
  */
+const MineSchema = v.fallback(
+  v.object({
+    rooms: listOf(RoomSummarySchema),
+    invitations: listOf(RoomSummarySchema),
+    deleted: listOf(DeletedRoomSchema),
+  }),
+  { rooms: [], invitations: [], deleted: [] },
+);
+
+/** A response that is not 2xx is an error the caller's state can hold */
 export async function listMine(): Promise<Mine> {
-  const r = await json(await api.me.$post());
-  return {
-    rooms: list(r.rooms, summaryOf),
-    invitations: list(r.invitations, summaryOf),
-    deleted: list(r.deleted, deletedOf),
-  };
+  const res = await api.me.$post();
+  if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
+  return v.parse(MineSchema, await res.json());
 }
 
 /** A call to the API whose answer is only whether it went */
@@ -123,7 +129,9 @@ export const purgeRoom = (room: RoomId) =>
 
 /** Creates a room with its trip and its first member; resolves with the new room's id */
 export async function createRoom(room: NewRoom): Promise<RoomId> {
-  const id = roomId((await json(await api.rooms.$post({ json: toWire(room) }))).roomId);
-  if (id === null) throw new Error("/api/rooms answered without a room id");
-  return id;
+  const res = await api.rooms.$post({ json: toWire(room) });
+  if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
+  const answer = v.safeParse(v.object({ roomId: RoomIdSchema }), await res.json());
+  if (!answer.success) throw new Error("/api/rooms answered without a room id");
+  return answer.output.roomId;
 }

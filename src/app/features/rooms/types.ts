@@ -7,7 +7,7 @@ import type { RoomId } from "../../../contract/ids";
 import type { LatLng } from "../place/types";
 
 // a room's id, as the app takes it from the contract
-export { roomId, type RoomId } from "../../../contract/ids";
+export { roomId, RoomIdSchema, type RoomId } from "../../../contract/ids";
 
 /**
  * A room as the list of a person's trips shows it: the trip at a glance. `first` is null while

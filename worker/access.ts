@@ -4,7 +4,9 @@
  * A missing token is never "development": local runs sign their own token (see README).
  */
 
-import { isRecord, parseEmail, type Email } from "./types";
+import * as v from "valibot";
+
+import { listOf, parseEmail, type Email } from "./types";
 
 export interface AccessConfig {
   /** `<team>.cloudflareaccess.com`: the issuer, and where the signing keys are served */
@@ -24,20 +26,19 @@ const KEYS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 /** An unknown `kid` refetches the keys, but not more often than this */
 const REFETCH_MIN_INTERVAL_MS = 60 * 1000;
 
-interface Jwk {
-  kid: string;
-  kty: "RSA";
-  n: string;
-  e: string;
-}
-
 /** A signing key of the certs, as one Access signs with: RSA, with its id */
-const isRsaJwk = (v: unknown): v is Jwk =>
-  isRecord(v) &&
-  v.kty === "RSA" &&
-  typeof v.kid === "string" &&
-  typeof v.n === "string" &&
-  typeof v.e === "string";
+const RsaJwkSchema = v.object({
+  kid: v.string(),
+  kty: v.literal("RSA"),
+  n: v.string(),
+  e: v.string(),
+});
+
+/** The certs as Access serves them: the keys Access signs with; any other key is left out */
+const CertsSchema = v.fallback(v.object({ keys: listOf(RsaJwkSchema) }), { keys: [] });
+
+/** A token's header as Access writes it: RS256, and which key signed it */
+const HeaderSchema = v.object({ alg: v.literal("RS256"), kid: v.string() });
 
 interface Keys {
   fetchedAt: number;
@@ -66,11 +67,9 @@ export class AccessVerifier {
     if (h === undefined || p === undefined || s === undefined || rest.length > 0)
       throw new Unauthenticated("malformed token");
 
-    const header = json(h);
-    if (header.alg !== "RS256" || typeof header.kid !== "string") {
-      throw new Unauthenticated("unexpected token header");
-    }
-    const key = await this.key(header.kid);
+    const header = v.safeParse(HeaderSchema, json(h));
+    if (!header.success) throw new Unauthenticated("unexpected token header");
+    const key = await this.key(header.output.kid);
     const signed = new TextEncoder().encode(`${h}.${p}`);
     const ok = await crypto.subtle.verify({ name: "RSASSA-PKCS1-v1_5" }, key, bytes(s), signed);
     if (!ok) throw new Unauthenticated("bad signature");
@@ -114,11 +113,9 @@ export class AccessVerifier {
     const url = this.config.certsUrl ?? `https://${this.config.teamDomain}/cdn-cgi/access/certs`;
     const res = await this.fetchImpl(url);
     if (!res.ok) throw new Error(`certs ${res.status}`);
-    const body: unknown = await res.json();
-    const keys: unknown[] = isRecord(body) && Array.isArray(body.keys) ? body.keys : [];
+    const { keys } = v.parse(CertsSchema, await res.json());
     const byKid = new Map<string, CryptoKey>();
     for (const jwk of keys) {
-      if (!isRsaJwk(jwk)) continue;
       const key = await crypto.subtle.importKey(
         "jwk",
         { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: "RS256", ext: true },
@@ -137,11 +134,13 @@ const bytes = (b64url: string): Uint8Array => {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 };
 
+/** A part of a token as the JSON object it is, its fields still to be checked */
 const json = (b64url: string): Record<string, unknown> => {
   try {
-    const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes(b64url)));
-    if (!isRecord(parsed)) throw new Error();
-    return parsed;
+    return v.parse(
+      v.record(v.string(), v.unknown()),
+      JSON.parse(new TextDecoder().decode(bytes(b64url))),
+    );
   } catch {
     throw new Unauthenticated("malformed token");
   }

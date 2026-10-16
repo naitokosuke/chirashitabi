@@ -3,7 +3,14 @@ import type { HexColor } from "../../shared/color";
 import type { MemberId } from "../../../contract/ids";
 
 // the room's member ids and seats, as the app takes them from the contract
-export { isMemberId, parseEmail, type Email, type MemberId } from "../../../contract/ids";
+export {
+  EmailSchema,
+  isMemberId,
+  MemberIdSchema,
+  parseEmail,
+  type Email,
+  type MemberId,
+} from "../../../contract/ids";
 export { SEATS } from "../../../contract/room";
 
 export type Role = "owner" | "guest";

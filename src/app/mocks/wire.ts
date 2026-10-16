@@ -1,11 +1,11 @@
 // the room's checks, as the mocks take them from the contract to answer as the Worker would;
 // apart from features/sync/wire.ts, so they load only with the mocks
 export {
+  NewTripSchema,
   parseCid,
   parseMutation,
-  parsePoint,
-  parseProfile,
-  parseTrip,
+  PointSchema,
+  ProfileSchema,
   type IsoInstant,
   type ServerMessage,
   type WireMutation,
