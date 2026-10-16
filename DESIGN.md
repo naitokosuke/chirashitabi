@@ -220,7 +220,7 @@ Changing tabs cross-fades the kept views as layers (180ms): the one coming up fa
 
 A page whose content is replaced, the booklet's day or its edit/read, never cross-fades: two different pages seen through each other read as a flicker. It **turns** (`usePageTurn`): the tabs and the heading answer the tap at once, the old page clears (120ms), and the new day's pieces (`data-turn`: the intro, each sticky, the draft, the total) are laid down from the top one after another, each rising 10px into place (280ms, 35ms apart, at most eight steps). Under reduced motion, without the API, or with the page hidden, the change simply happens. The note form appears two ways: as the memo tab, a page with a large title like home, and as the one sheet, opened by the write button on the canvas or the map, which slides in over everything with its way back floating at the top; the dock sinks out of the way while a sheet is up.
 
-Content that is read or filled in (the booklet, the form) sits in a 648px column centered on wide screens; the canvas and the map use the whole box; the home, on a computer, is a two-column dashboard up to 1200px wide (Home, below). Spacing is a small set of steps (4, 6, 10, 12, 16, 20px), 16px gutters. The write button sits at the bottom end, 16px from the edge and 16px above the dock's footprint, with the sticker's tile 12px over it; the fit button sits at the bottom start, level with its middle.
+Content that is read or filled in (the booklet, the form) sits in a 648px column centered on wide screens; the canvas and the map use the whole box; the home, on a computer, is a two-column dashboard up to 1200px wide (Home, below), and the note form two columns up to 1100px (Memo tab, below). Spacing is a small set of steps (4, 6, 10, 12, 16, 20px), 16px gutters. The write button sits at the bottom end, 16px from the edge and 16px above the dock's footprint, with the sticker's tile 12px over it; the fit button sits at the bottom start, level with its middle.
 
 ## Elevation & Depth
 
@@ -324,6 +324,8 @@ Text that changes in place without being replaced. The old and new strings are m
 ### Memo tab
 
 The note form, docked as a view: the form's title as the large title, then the same fields and the same "save to canvas" button as the sheet. The note field takes focus whenever the tab comes up. Saving puts the note on the canvas (the toast says so and offers the undo) and empties the form for the next one; the tab itself never shows stickies, only the canvas does.
+
+On a computer (960px and wider), the form, as the tab or as the sheet, is two columns up to 1100px wide under its title: on the start (the wider, 7 to 5), what the note is (its words, given 240px to be written in, its tags, the page it came from and its photo); on the end, the details of the plan (the place, the hours, the booking, the to-do's day and who, how long it takes). Its footer is one row along the same width: the hint at the start, the button at the end at least 240px wide, "add another" before it. On a phone the fields stay one column, the photo last.
 
 ### Inputs
 
