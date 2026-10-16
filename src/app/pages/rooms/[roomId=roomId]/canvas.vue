@@ -944,7 +944,7 @@ section {
       align-items: center;
       gap: 6px;
       min-height: var(--top-row);
-      padding: env(safe-area-inset-top, 0px) 12px 0 0;
+      padding: var(--top-inset) 12px 0 0;
       pointer-events: none;
 
       > * {

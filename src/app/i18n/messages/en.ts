@@ -88,7 +88,8 @@ one {{{$count} note}}
   "rooms.restoreFailed": "Could not restore the trip. Try again.",
 
   "room.reconnecting": "Connecting… showing the room as of {$time}",
-  "room.unreachable": "Offline · as of {$time}",
+  "offline.out": "Offline",
+  "offline.in": "Offline · showing the trip as of {$time}",
   "room.refused": "The room did not take a change, so it was undone",
   "room.gone.removed": "You were removed from the trip",
   "room.gone.left": "You left the trip",

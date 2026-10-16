@@ -7,10 +7,8 @@ import { useI18n } from "../../i18n/useI18n";
 
 import { hhmm, shortDate } from "../trip/format";
 
-import { useRoom } from "./useRoom";
 import { useSync } from "./useSync";
 
-const room = useRoom();
 const sync = useSync();
 const i18n = useI18n();
 
@@ -29,17 +27,13 @@ const since = computed(() => {
 
 <template>
   <!--
-    Inside a room, whenever what is on screen is not live: opening from what this device kept,
-    coming back after a drop, or unreachable. The data stays usable meanwhile, so this is a
-    quiet chip over the view, never a cover.
+    Inside a room, while the socket is on its way: opening from what this device kept, or
+    coming back after a drop. The data stays usable meanwhile, so this is a quiet chip over the
+    view, never a cover. Once the socket gives up, the band along the top says so (Offline.vue).
   -->
   <div aria-live="polite">
     <p v-if="link === 'connecting' || link === 'reconnecting'">
       <span aria-hidden="true"></span>{{ i18n.t("room.reconnecting", { time: since }) }}
-    </p>
-    <p v-else-if="link === 'failed'">
-      {{ i18n.t("room.unreachable", { time: since }) }}
-      <button type="button" @click="() => room.reconnect()">{{ i18n.t("rooms.retry") }}</button>
     </p>
   </div>
 </template>
@@ -86,14 +80,6 @@ div {
       }
     }
 
-    > button {
-      min-height: 32px;
-      padding: 0 4px;
-      color: var(--ink);
-      font-weight: 700;
-      text-decoration: underline;
-      text-underline-offset: 3px;
-    }
   }
 }
 

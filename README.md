@@ -74,7 +74,9 @@ src/app/            The app
     sync/    useSync (the session: which room, who this device is in it, where changes go); keys
              (the room's cache keys); useRoom (the socket to a room, written into the cache); ledger
              (confirmed state and our unanswered changes); persist (the room kept on the device);
-             wire (the room's JSON back into the app's types)
+             wire (the room's JSON back into the app's types); useOffline (cut off: the browser said so,
+             or the socket gave up) and Offline (the band along the top of every screen while it is);
+             Connection (the chip while the socket is on its way)
     theme/   Light or dark: the device's until picked (useTheme, remembered); ThemeSwitch, the dock's
              sun and moon, whose new colors spread from it like ink
     trip/    The room's trip (name, days, currency, map center, flights, stays); itinerary (notes on a

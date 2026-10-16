@@ -807,7 +807,7 @@ form {
   > .back {
     position: absolute;
     inset-inline-start: 12px;
-    inset-block-start: calc(env(safe-area-inset-top, 0px) + (var(--top-row) - var(--tap)) / 2);
+    inset-block-start: calc(var(--top-inset) + (var(--top-row) - var(--tap)) / 2);
     z-index: var(--z-chrome);
     min-height: var(--tap);
     padding: 0 12px 0 8px;
