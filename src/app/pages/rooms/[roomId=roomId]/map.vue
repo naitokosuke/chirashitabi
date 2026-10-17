@@ -260,14 +260,23 @@ function syncRoute() {
     });
   }
 }
-// re-sync whenever notes, filter or selection change (cheap: a dozen DOM toggles)
-watchEffect(() => {
-  void pinnedOf(notes.value ?? []).map((n) => [n.pin.lat, n.pin.lng, n.title, n.by, n.tags.length]);
-  void members.value;
-  void tags.mode;
-  void [...tags.selected];
-  void selected.value;
-  syncMarkers();
+// re-sync whenever notes, filter or selection change (cheap: a dozen DOM toggles), once there
+// is a page to put pins on
+onMounted(() => {
+  watchEffect(() => {
+    void pinnedOf(notes.value ?? []).map((n) => [
+      n.pin.lat,
+      n.pin.lng,
+      n.title,
+      n.by,
+      n.tags.length,
+    ]);
+    void members.value;
+    void tags.mode;
+    void [...tags.selected];
+    void selected.value;
+    syncMarkers();
+  });
 });
 const scheduleKey = (n: Note) =>
   n.kind === "memo" && n.schedule !== null

@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { computed, ref, shallowRef, useId } from "vue";
+import { computed, onMounted, ref, shallowRef, useId } from "vue";
 
 import { encode } from "uqr";
 
@@ -90,11 +90,16 @@ const deleteTrip = () => run(() => membership.deleteRoom.mutateAsync(), out);
 
 const isMe = (m: MemberId) => sync.me === m;
 
-// one square per dark module, inside the quiet zone of four the QR spec asks for
-const qr = encode(location.origin, { border: 4 });
-const qrPath = qr.data
-  .flatMap((row, y) => row.map((dark, x) => (dark ? `M${x} ${y}h1v1h-1z` : "")))
-  .join("");
+// one square per dark module, inside the quiet zone of four the QR spec asks for; drawn once
+// mounted, in the page whose address it is
+const qr = shallowRef<{ size: number; path: string } | null>(null);
+onMounted(() => {
+  const { size, data } = encode(location.origin, { border: 4 });
+  const path = data
+    .flatMap((row, y) => row.map((dark, x) => (dark ? `M${x} ${y}h1v1h-1z` : "")))
+    .join("");
+  qr.value = { size, path };
+});
 </script>
 
 <template>
@@ -175,13 +180,14 @@ const qrPath = qr.data
       <details class="qr">
         <summary>{{ i18n.t("people.qr") }}</summary>
         <svg
+          v-if="qr !== null"
           role="img"
           :aria-label="i18n.t('people.qrLabel')"
           :viewBox="`0 0 ${qr.size} ${qr.size}`"
           shape-rendering="crispEdges"
         >
           <rect fill="#fff" :width="qr.size" :height="qr.size" />
-          <path fill="#000" :d="qrPath" />
+          <path fill="#000" :d="qr.path" />
         </svg>
         <p class="hint">{{ i18n.t("people.qrHint") }}</p>
       </details>

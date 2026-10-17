@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, watchEffect } from "vue";
+import { computed, onMounted, watch } from "vue";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -21,11 +21,13 @@ const room = useRoom();
 const sync = useSync();
 const i18n = useI18n();
 
-watchEffect(() => {
+const mark = (offline: boolean) => {
   const root = document.documentElement;
-  if (cut.offline) root.dataset.offline = "";
+  if (offline) root.dataset.offline = "";
   else delete root.dataset.offline;
-});
+};
+onMounted(() => mark(cut.offline));
+watch(() => cut.offline, mark);
 
 /** "12:30", or "11/2 12:30" from another day: when what is on screen was last the room's; "" out of a room */
 const since = computed(() => {

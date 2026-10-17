@@ -18,6 +18,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import {
   computed,
   nextTick,
+  onBeforeMount,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -511,14 +512,18 @@ function onKey(e: KeyboardEvent) {
   if (e.key === "Escape") emit("close");
 }
 // Focus goes back where it came from once the sheet is gone and the layer under it is live again
-const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+let opener: HTMLElement | null = null;
+onBeforeMount(() => {
+  if (document.activeElement instanceof HTMLElement) opener = document.activeElement;
+});
 onMounted(() => {
   if (!docked.value) window.addEventListener("keydown", onKey);
 });
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKey);
-  if (!docked.value && opener !== null && opener !== document.body)
-    setTimeout(() => opener.isConnected && opener.focus());
+  const back = opener;
+  if (!docked.value && back !== null && back !== document.body)
+    setTimeout(() => back.isConnected && back.focus());
 });
 
 /** From the map with a place: the note is a pin there (and a card on the desk) */
