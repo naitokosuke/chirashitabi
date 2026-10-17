@@ -42,7 +42,7 @@ export async function geocode(env: Env, query: string, lang: "ja" | "en"): Promi
   });
   let res: Response;
   try {
-    res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/search?${params}`, {
+    res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/search?${params.toString()}`, {
       headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
     });
   } catch {
@@ -125,7 +125,7 @@ export async function reverseGeocode(
   });
   let res: Response;
   try {
-    res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/reverse?${params}`, {
+    res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/reverse?${params.toString()}`, {
       headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
     });
   } catch {
