@@ -445,7 +445,7 @@ section {
 
   /* marker elements are built with innerHTML inside the map container */
   :deep(.pin) {
-    /* the white under a pin's name and round an ink badge, over the map in either theme */
+    /* the white under a pin's name, and round and on an ink badge, over the map in either theme */
     --halo: rgb(255 255 255 / 0.92);
     display: flex;
     flex-direction: column;
@@ -499,7 +499,7 @@ section {
         transform: none;
         background: var(--paper-ink);
         border-color: var(--halo);
-        color: var(--paper-white);
+        color: var(--halo);
         font-size: var(--font-2xs);
         line-height: 1;
       }
