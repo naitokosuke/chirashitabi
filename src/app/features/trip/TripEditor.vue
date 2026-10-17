@@ -76,6 +76,14 @@ function addStay() {
   form.stays.push(newStay(form.stays, first));
 }
 const removeStay = (i: number) => form.stays.splice(i, 1);
+/** Which row each stay is, so the rows after one taken out keep their own inputs */
+const rows = new WeakMap<StayForm, number>();
+let lastRow = 0;
+function rowOf(s: StayForm) {
+  let row = rows.get(s);
+  if (row === undefined) rows.set(s, (row = ++lastRow));
+  return row;
+}
 
 /** The stays whose short link is on its way to the Worker to be read */
 const expanding = reactive(new Set<StayForm>());
@@ -260,7 +268,7 @@ function save() {
     <!-- where the nights are spent: each a few fields, in the order they come -->
     <fieldset>
       <legend>{{ i18n.t("stay.title") }}</legend>
-      <div v-for="(s, i) in form.stays" :key="i" class="stay card">
+      <div v-for="(s, i) in form.stays" :key="rowOf(s)" class="stay card">
         <p class="head">{{ i18n.t("stay.nth", { n: i + 1 }) }}</p>
         <button class="remove" type="button" @click="() => removeStay(i)">{{
           i18n.t("stay.remove")
