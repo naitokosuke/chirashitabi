@@ -597,7 +597,7 @@ function adoptDraft() {
                 </div>
                 <div>
                   <p>{{ n.title }}</p>
-                  <p v-if="n.body !== ''"><template v-for="(s, i) in segments(n.body)" :key="i"><a
+                  <p v-if="n.body !== ''"><template v-for="s in segments(n.body)" :key="s.at"><a
                         v-if="s.kind === 'link'"
                         :href="safeUrl(s.url)"
                         rel="noopener noreferrer"

@@ -153,8 +153,8 @@ const HOLD_MS = 600;
         <!-- the words, a few lines of them (a page's own line stays off its print, for the
              booklet); a link in them is its site, as every link on the desk is -->
         <p v-if="note.body !== '' && !(print && note.link !== null)" class="words"><template
-            v-for="(s, i) in segments(note.body)"
-            :key="i"
+            v-for="s in segments(note.body)"
+            :key="s.at"
           ><a
               v-if="s.kind === 'link'"
               class="link"
