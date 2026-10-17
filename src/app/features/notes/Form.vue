@@ -95,13 +95,15 @@ const startingInput = (): NoteInput => {
       : inputFromNote(editingNote.value);
   return blankInput(docked.value ? [] : tags.selected, t.pin);
 };
-const form = ref<NoteInput>(startingInput());
-const mapsUrl = ref(form.value.mapsUrl ?? "");
+/** What the inputs start from; from here on they are the form's */
+const start = startingInput();
+const form = ref<NoteInput>(start);
+const mapsUrl = ref(start.mapsUrl ?? "");
 /** When the place is open, as written (OpenStreetMap's way); blank for not said */
-const hours = ref(form.value.hours ?? "");
+const hours = ref(start.hours ?? "");
 // ---- whether it has to be booked: none, still to book (by a day), or booked (its number and page) ----
 type BookingState = "none" | Booking["state"];
-const startBooking = form.value.booking;
+const startBooking = start.booking;
 const bookingState = ref<BookingState>(startBooking?.state ?? "none");
 const bookingBy = ref(startBooking?.state === "needed" ? (startBooking.by?.toString() ?? "") : "");
 const bookingCode = ref(startBooking?.state === "booked" ? startBooking.code : "");
