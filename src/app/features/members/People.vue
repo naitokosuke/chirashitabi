@@ -105,26 +105,108 @@ onMounted(() => {
 <template>
   <!-- a div: the home's own scoped styles are on every section it holds -->
   <!-- once the room has said who this device is in it -->
-  <div v-if="me !== undefined" class="people" role="group" :aria-labelledby="`${id}-title`">
-    <h2 :id="`${id}-title`">{{ i18n.t("people.title") }}</h2>
-    <p v-if="invited.status.value === 'error'" class="note" role="alert">
-      {{ i18n.t("people.loadFailed") }}
-      <button type="button" @click="() => invited.refetch()">{{ i18n.t("rooms.retry") }}</button>
-    </p>
+  <div v-show="me !== undefined" class="people" role="group" :aria-labelledby="`${id}-title`">
+    <template v-if="me !== undefined">
+      <h2 :id="`${id}-title`">{{ i18n.t("people.title") }}</h2>
+      <p v-if="invited.status.value === 'error'" class="note" role="alert">
+        {{ i18n.t("people.loadFailed") }}
+        <button type="button" @click="() => invited.refetch()">{{ i18n.t("rooms.retry") }}</button>
+      </p>
 
-    <ul>
-      <li v-for="m in persons" :key="m.id" :style="`--who: ${m.color}`">
-        <span aria-hidden="true" class="face">{{ m.name.slice(0, 1) }}</span>
-        <span class="who">
-          <b>{{ m.name }}</b>
-          <small v-if="m.role === 'owner'">{{ i18n.t("people.owner") }}</small>
-          <small v-if="isMe(m.id)">{{ i18n.t("people.you") }}</small>
-        </span>
-        <!-- the owner may take the other person out; twice, the second time naming them -->
-        <span v-if="me.role === 'owner' && m.role !== 'owner'" class="acts">
-          <template v-if="asked({ kind: 'remove', member: m.id })">
-            <button class="danger" type="button" @click="() => remove(m.id)">
-              {{ i18n.t("people.removeConfirm") }}
+      <ul>
+        <li v-for="m in persons" :key="m.id" :style="`--who: ${m.color}`">
+          <span aria-hidden="true" class="face">{{ m.name.slice(0, 1) }}</span>
+          <span class="who">
+            <b>{{ m.name }}</b>
+            <small v-if="m.role === 'owner'">{{ i18n.t("people.owner") }}</small>
+            <small v-if="isMe(m.id)">{{ i18n.t("people.you") }}</small>
+          </span>
+          <!-- the owner may take the other person out; twice, the second time naming them -->
+          <span v-if="me.role === 'owner' && m.role !== 'owner'" class="acts">
+            <template v-if="asked({ kind: 'remove', member: m.id })">
+              <button class="danger" type="button" @click="() => remove(m.id)">
+                {{ i18n.t("people.removeConfirm") }}
+              </button>
+              <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
+            </template>
+            <button
+              v-else
+              type="button"
+              :disabled="cut.offline"
+              @click="() => ask({ kind: 'remove', member: m.id })"
+            >
+              {{ i18n.t("people.remove") }}
+            </button>
+          </span>
+        </li>
+        <!-- a seat held for someone invited: a blank face until they answer (the owner's only) -->
+        <li v-for="address in invited.data.value" :key="address" class="pending">
+          <span aria-hidden="true" class="face"></span>
+          <span class="who">
+            <b>{{ address }}</b>
+            <small>{{ i18n.t("people.pending") }}</small>
+          </span>
+          <span class="acts">
+            <button type="button" :disabled="cut.offline" @click="() => uninvite(address)">{{
+              i18n.t("people.uninvite")
+            }}</button>
+          </span>
+        </li>
+      </ul>
+
+      <form v-if="me.role === 'owner' && open" class="invite" @submit.prevent="sendInvite">
+        <label :for="`${id}-email`">{{ i18n.t("people.email") }}</label>
+        <div>
+          <input
+            :id="`${id}-email`"
+            v-model="email"
+            autocapitalize="off"
+            autocomplete="off"
+            enterkeyhint="send"
+            inputmode="email"
+            maxlength="254"
+            required
+            spellcheck="false"
+            type="email"
+          />
+          <button
+            class="primary"
+            type="submit"
+            :disabled="invite.isLoading.value || email.trim() === '' || cut.offline"
+          >
+            {{ i18n.t(invite.isLoading.value ? "people.inviting" : "people.invite") }}
+          </button>
+        </div>
+        <p class="hint">{{ i18n.t(cut.offline ? "offline.unavailable" : "people.inviteHint") }}</p>
+        <details class="qr">
+          <summary>{{ i18n.t("people.qr") }}</summary>
+          <svg
+            v-if="qr !== null"
+            role="img"
+            :aria-label="i18n.t('people.qrLabel')"
+            :viewBox="`0 0 ${qr.size} ${qr.size}`"
+            shape-rendering="crispEdges"
+          >
+            <rect fill="#fff" :width="qr.size" :height="qr.size" />
+            <path fill="#000" :d="qr.path" />
+          </svg>
+          <p class="hint">{{ i18n.t("people.qrHint") }}</p>
+        </details>
+      </form>
+      <p v-else-if="me.role === 'owner'" class="hint">
+        {{ i18n.t("people.full", { count: SEATS }) }}
+      </p>
+
+      <p v-if="failed !== null" class="note" role="alert">
+        {{ i18n.t(failed === "invite" ? "people.inviteFailed" : "people.failed") }}
+      </p>
+
+      <!-- the way out: the owner deletes the trip, a guest leaves it -->
+      <div class="out">
+        <template v-if="me.role === 'owner'">
+          <template v-if="asked({ kind: 'delete' })">
+            <button class="danger" type="button" @click="deleteTrip">
+              {{ i18n.t("people.deleteConfirm", { count: KEPT_DAYS }) }}
             </button>
             <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
           </template>
@@ -132,99 +214,29 @@ onMounted(() => {
             v-else
             type="button"
             :disabled="cut.offline"
-            @click="() => ask({ kind: 'remove', member: m.id })"
+            @click="() => ask({ kind: 'delete' })"
           >
-            {{ i18n.t("people.remove") }}
+            {{ i18n.t("people.delete") }}
           </button>
-        </span>
-      </li>
-      <!-- a seat held for someone invited: a blank face until they answer (the owner's only) -->
-      <li v-for="address in invited.data.value" :key="address" class="pending">
-        <span aria-hidden="true" class="face"></span>
-        <span class="who">
-          <b>{{ address }}</b>
-          <small>{{ i18n.t("people.pending") }}</small>
-        </span>
-        <span class="acts">
-          <button type="button" :disabled="cut.offline" @click="() => uninvite(address)">{{
-            i18n.t("people.uninvite")
-          }}</button>
-        </span>
-      </li>
-    </ul>
-
-    <form v-if="me.role === 'owner' && open" class="invite" @submit.prevent="sendInvite">
-      <label :for="`${id}-email`">{{ i18n.t("people.email") }}</label>
-      <div>
-        <input
-          :id="`${id}-email`"
-          v-model="email"
-          autocapitalize="off"
-          autocomplete="off"
-          enterkeyhint="send"
-          inputmode="email"
-          maxlength="254"
-          required
-          spellcheck="false"
-          type="email"
-        />
-        <button
-          class="primary"
-          type="submit"
-          :disabled="invite.isLoading.value || email.trim() === '' || cut.offline"
-        >
-          {{ i18n.t(invite.isLoading.value ? "people.inviting" : "people.invite") }}
-        </button>
+        </template>
+        <template v-else>
+          <template v-if="asked({ kind: 'leave' })">
+            <button class="danger" type="button" @click="leave">{{
+              i18n.t("people.leaveConfirm")
+            }}</button>
+            <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
+          </template>
+          <button
+            v-else
+            type="button"
+            :disabled="cut.offline"
+            @click="() => ask({ kind: 'leave' })"
+          >
+            {{ i18n.t("people.leave") }}
+          </button>
+        </template>
       </div>
-      <p class="hint">{{ i18n.t(cut.offline ? "offline.unavailable" : "people.inviteHint") }}</p>
-      <details class="qr">
-        <summary>{{ i18n.t("people.qr") }}</summary>
-        <svg
-          v-if="qr !== null"
-          role="img"
-          :aria-label="i18n.t('people.qrLabel')"
-          :viewBox="`0 0 ${qr.size} ${qr.size}`"
-          shape-rendering="crispEdges"
-        >
-          <rect fill="#fff" :width="qr.size" :height="qr.size" />
-          <path fill="#000" :d="qr.path" />
-        </svg>
-        <p class="hint">{{ i18n.t("people.qrHint") }}</p>
-      </details>
-    </form>
-    <p v-else-if="me.role === 'owner'" class="hint">
-      {{ i18n.t("people.full", { count: SEATS }) }}
-    </p>
-
-    <p v-if="failed !== null" class="note" role="alert">
-      {{ i18n.t(failed === "invite" ? "people.inviteFailed" : "people.failed") }}
-    </p>
-
-    <!-- the way out: the owner deletes the trip, a guest leaves it -->
-    <div class="out">
-      <template v-if="me.role === 'owner'">
-        <template v-if="asked({ kind: 'delete' })">
-          <button class="danger" type="button" @click="deleteTrip">
-            {{ i18n.t("people.deleteConfirm", { count: KEPT_DAYS }) }}
-          </button>
-          <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
-        </template>
-        <button v-else type="button" :disabled="cut.offline" @click="() => ask({ kind: 'delete' })">
-          {{ i18n.t("people.delete") }}
-        </button>
-      </template>
-      <template v-else>
-        <template v-if="asked({ kind: 'leave' })">
-          <button class="danger" type="button" @click="leave">{{
-            i18n.t("people.leaveConfirm")
-          }}</button>
-          <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
-        </template>
-        <button v-else type="button" :disabled="cut.offline" @click="() => ask({ kind: 'leave' })">
-          {{ i18n.t("people.leave") }}
-        </button>
-      </template>
-    </div>
+    </template>
   </div>
 </template>
 

@@ -41,7 +41,7 @@ const since = computed(() => {
 </script>
 
 <template>
-  <div v-if="cut.offline" role="status">
+  <div v-show="cut.offline" role="status">
     <span>{{ since === "" ? i18n.t("offline.out") : i18n.t("offline.in", { time: since }) }}</span>
     <button v-if="since !== ''" type="button" @click="() => room.reconnect()">{{
       i18n.t("rooms.retry")
