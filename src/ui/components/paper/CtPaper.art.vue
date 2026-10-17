@@ -8,7 +8,7 @@ defineArt("./CtPaper.vue", {
 });
 </script>
 
-<style scoped>
+<style>
 .title {
   margin: 0;
   font-weight: 700;
@@ -25,7 +25,7 @@ defineArt("./CtPaper.vue", {
 }
 
 /* a stand-in for a page's picture */
-.picture {
+.photo {
   aspect-ratio: 16 / 9;
   background: linear-gradient(135deg, #5b8def, #e36d7a);
 }
@@ -51,7 +51,7 @@ defineArt("./CtPaper.vue", {
   </variant>
   <variant name="Print">
     <CtPaper paper="color-mix(in oklab, #d7263d 28%, var(--paper-white))" variant="print">
-      <template #picture><div class="picture"></div></template>
+      <template #picture><div class="photo"></div></template>
       <template #default><b>A night market walk in Shilin</b></template>
       <template #foot><span>youtube.com</span></template>
     </CtPaper>

@@ -19,7 +19,7 @@ const open = ref(true);
 const away = ref(false);
 </script>
 
-<style scoped>
+<style>
 .screen {
   height: 220px;
   transform: translate(0);

@@ -13,7 +13,7 @@ const TRIPS = ["Taiwan trip", "Kyoto weekend", "Seoul in winter"];
 const open = ref<string | null>(null);
 </script>
 
-<style scoped>
+<style>
 .trips {
   display: grid;
   gap: 8px;

@@ -16,7 +16,7 @@ const parts = computed(() => [
 ]);
 </script>
 
-<style scoped>
+<style>
 .row {
   display: flex;
   align-items: center;

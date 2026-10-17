@@ -14,7 +14,7 @@ const TAGS = ["Food", "Sights", "Shopping", "Cafe", "Night market", "Temple", "H
 const picked = ref("Food");
 </script>
 
-<style scoped>
+<style>
 /* narrower than the chips, so the row has to scroll */
 .frame {
   display: flex;

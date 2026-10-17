@@ -16,7 +16,7 @@ const day = ref("d1");
 const label = computed(() => DAYS.find((d) => d.value === day.value)?.label);
 </script>
 
-<style scoped>
+<style>
 /* narrower than the days, so the row has to scroll */
 .frame {
   max-width: 360px;
