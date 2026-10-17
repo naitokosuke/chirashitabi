@@ -8,7 +8,7 @@ defineArt("./CtPaper.vue", {
 });
 </script>
 
-<style>
+<style scoped>
 .title {
   margin: 0;
   font-weight: 700;

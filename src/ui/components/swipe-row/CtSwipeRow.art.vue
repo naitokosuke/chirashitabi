@@ -13,7 +13,7 @@ const TRIPS = ["Taiwan trip", "Kyoto weekend", "Seoul in winter"];
 const open = ref<string | null>(null);
 </script>
 
-<style>
+<style scoped>
 .trips {
   display: grid;
   gap: 8px;
@@ -43,7 +43,12 @@ const open = ref<string | null>(null);
   <variant default name="A list of trips">
     <ul class="trips">
       <li v-for="t in TRIPS" :key="t">
-        <CtSwipeRow :open="open === t" @toggle="(o) => (open = o ? t : null)">
+        <CtSwipeRow
+          :open="open === t"
+          @toggle="function (o) {
+            open = o ? t : null;
+          }"
+        >
           <a class="trip" href="#trip">{{ t }}</a>
           <template #actions>
             <button class="delete" type="button">Delete</button>

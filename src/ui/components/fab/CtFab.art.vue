@@ -7,7 +7,7 @@ defineArt("./CtFab.vue", {
 });
 </script>
 
-<style>
+<style scoped>
 .view {
   position: relative;
   height: 240px;

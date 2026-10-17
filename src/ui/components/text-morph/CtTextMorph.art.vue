@@ -16,7 +16,7 @@ const parts = computed(() => [
 ]);
 </script>
 
-<style>
+<style scoped>
 .row {
   display: flex;
   align-items: center;
@@ -31,9 +31,19 @@ const parts = computed(() => [
 <art>
   <variant default name="A day heading">
     <div class="row">
-      <button type="button" @click="() => (day = Math.max(1, day - 1))">‹</button>
+      <button
+        type="button"
+        @click="function () {
+          day = Math.max(1, day - 1);
+        }"
+      >‹</button>
       <h2><CtTextMorph :parts /></h2>
-      <button type="button" @click="() => day++">›</button>
+      <button
+        type="button"
+        @click="function () {
+          day++;
+        }"
+      >›</button>
     </div>
   </variant>
 </art>
