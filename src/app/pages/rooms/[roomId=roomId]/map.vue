@@ -26,7 +26,7 @@ import { Map as MLMap, Marker } from "maplibre-gl";
 import { useRoute, useRouter } from "vue-router";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { CtChip, CtChipRow, CtFab } from "../../../../ui/index";
+import { CtChip, CtChipRow, CtFab, safeUrl } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
 
@@ -37,7 +37,7 @@ import { useMembers } from "../../../features/members/useMembers";
 import type { FormTarget, Memo, Note } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
 import { findAirport, type Airport } from "../../../features/place/airports";
-import { placeLink, safeUrl } from "../../../features/place/google-maps";
+import { placeLink } from "../../../features/place/google-maps";
 import { lngLat, needsPin, pinnedOf, type Pinned } from "../../../features/place/pin";
 import { boundsOf, dayStops, routeLine } from "../../../features/place/route";
 import { guardMissingProperties } from "../../../features/place/style";

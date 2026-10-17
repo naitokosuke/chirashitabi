@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, shallowRef } from "vue";
 
-import { CtHoldButton, CtSwipeRow } from "../../../ui/index";
+import { CtHoldButton, CtSwipeRow, safeUrl } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -195,7 +195,11 @@ function retry() {
                 <!-- the tag slides aside (a finger, a mouse, ←) to show the way off the list -->
                 <CtSwipeRow :open="slid === r.id" @toggle="(open) => slide(r.id, open)">
                   <template #default>
-                    <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
+                    <a
+                      :href="safeUrl(hrefOf(r.id))"
+                      :aria-label="labelOf(r)"
+                      @click="(e) => enter(e, r.id)"
+                    >
                       <TripTag v-bind="tagOf(r)" />
                     </a>
                   </template>
@@ -213,7 +217,7 @@ function retry() {
               </li>
               <!-- a blank tag: the next trip starts by writing one -->
               <li>
-                <a class="blank" :href="newHref" @click="startCreating">
+                <a class="blank" :href="safeUrl(newHref)" @click="startCreating">
                   <span aria-hidden="true" class="hole"></span>
                   <Icon :size="18" :src="plusIcon" />{{ i18n.t("rooms.new") }}
                 </a>
@@ -228,7 +232,11 @@ function retry() {
                 <!-- the tag slides aside (a finger, a mouse, ←) to show the way off the list -->
                 <CtSwipeRow :open="slid === r.id" @toggle="(open) => slide(r.id, open)">
                   <template #default>
-                    <a :href="hrefOf(r.id)" :aria-label="labelOf(r)" @click="(e) => enter(e, r.id)">
+                    <a
+                      :href="safeUrl(hrefOf(r.id))"
+                      :aria-label="labelOf(r)"
+                      @click="(e) => enter(e, r.id)"
+                    >
                       <TripTag v-bind="tagOf(r)" past />
                     </a>
                   </template>

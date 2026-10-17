@@ -8,6 +8,7 @@ import {
   CtTabList,
   CtTabPanel,
   CtTextMorph,
+  safeUrl,
   usePageTurn,
   type CtMorphPart,
   type CtOption,
@@ -23,7 +24,7 @@ import type { NoteId } from "../../../features/notes/id";
 import { segments, siteOf } from "../../../features/notes/links";
 import { ARRIVAL_TAG, PACKING_TAG, type Memo, type Scheduled } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
-import { directionsLink, safeUrl } from "../../../features/place/google-maps";
+import { directionsLink } from "../../../features/place/google-maps";
 import { clockText, fitHours, openOn, readHours, spansText } from "../../../features/place/hours";
 import {
   distanceKm,
@@ -171,7 +172,7 @@ function legTo(way: Way) {
 const legLink = (way: Way) =>
   way.place === null
     ? undefined
-    : safeUrl(directionsLink(way.place.from, way.place.to, way.place.km < WALKABLE_KM));
+    : directionsLink(way.place.from, way.place.to, way.place.km < WALKABLE_KM);
 /** Why it cannot start when it says, or "" when it can */
 function legWarning(way: Way) {
   const t = way.timing;
@@ -221,8 +222,7 @@ function bookingLine(n: Scheduled) {
   if (b.by === null) return i18n.t("shiori.bookingNeeded");
   return i18n.t(bookingLate(n) ? "shiori.bookingLate" : "shiori.bookingBy", { date: short(b.by) });
 }
-const bookingPage = (n: Scheduled) =>
-  n.booking?.state === "booked" ? safeUrl(n.booking.url) : undefined;
+const bookingPage = (n: Scheduled) => (n.booking?.state === "booked" ? n.booking.url : null);
 /** Booked, from the strip: the number and page can be written in the note later */
 function markBooked(n: Scheduled) {
   store.update(n.id, { booking: { state: "booked", code: "", url: null } });
@@ -554,8 +554,8 @@ function adoptDraft() {
               <li v-if="way !== null" class="leg" data-turn>
                 <span v-if="legTo(way) !== ''">{{ legTo(way) }}</span>
                 <a
-                  v-if="legLink(way) !== undefined"
-                  :href="legLink(way)"
+                  v-if="safeUrl(legLink(way)) !== undefined"
+                  :href="safeUrl(legLink(way))"
                   rel="noopener noreferrer"
                   target="_blank"
                 >{{ i18n.t("shiori.route") }}</a>
@@ -599,7 +599,7 @@ function adoptDraft() {
                   <p>{{ n.title }}</p>
                   <p v-if="n.body !== ''"><template v-for="(s, i) in segments(n.body)" :key="i"><a
                         v-if="s.kind === 'link'"
-                        :href="s.url"
+                        :href="safeUrl(s.url)"
                         rel="noopener noreferrer"
                         target="_blank"
                       >{{ s.url }}</a><template v-else>{{ s.text }}</template></template></p>
@@ -614,8 +614,8 @@ function adoptDraft() {
                   >
                     <span>{{ bookingLine(n) }}</span>
                     <a
-                      v-if="bookingPage(n) !== undefined"
-                      :href="bookingPage(n)"
+                      v-if="safeUrl(bookingPage(n)) !== undefined"
+                      :href="safeUrl(bookingPage(n))"
                       rel="noopener noreferrer"
                       target="_blank"
                     >{{ i18n.t("shiori.bookingPage") }}</a>
@@ -750,7 +750,7 @@ function adoptDraft() {
               <h3 data-turn>{{ i18n.t("shiori.publicTitle") }}</h3>
               <p data-turn>{{ i18n.t("shiori.publicHint") }}</p>
               <div v-if="published !== null" class="link" data-turn>
-                <a :href="published.url" rel="noopener noreferrer" target="_blank">{{
+                <a :href="safeUrl(published.url)" rel="noopener noreferrer" target="_blank">{{
                   published.url
                 }}</a>
                 <small>{{ i18n.t("shiori.publishedAt", { at: publishedOn }) }}</small>

@@ -1,9 +1,11 @@
 <script setup lang="ts" vapor>
 import { computed } from "vue";
 
+import { safeUrl } from "../../../ui/index";
+
 import { useI18n } from "../../i18n/useI18n";
 
-import { googleMapsLink, safeUrl } from "../place/google-maps";
+import { googleMapsLink } from "../place/google-maps";
 
 import { longDate } from "./format";
 import type { Stay } from "./types";
@@ -30,7 +32,7 @@ const href = computed(() => {
       }}</small>
     </p>
     <p class="name">{{ stay.name }}</p>
-    <a v-if="href !== undefined" :href rel="noopener noreferrer" target="_blank">{{
+    <a v-if="href !== undefined" :href="safeUrl(href)" rel="noopener noreferrer" target="_blank">{{
       i18n.t("stay.open")
     }}</a>
   </div>

@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { computed } from "vue";
 
-import { CtHoldButton, CtPaper } from "../../../ui/index";
+import { CtHoldButton, CtPaper, safeUrl } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -15,7 +15,6 @@ import type { ImageId } from "../notes/id";
 import { imageSrc } from "../notes/image";
 import { segments, siteOf } from "../notes/links";
 import type { Note } from "../notes/types";
-import { safeUrl } from "../place/google-maps";
 import { useSync } from "../sync/useSync";
 import type { Visibility } from "../tags/types";
 import { hhmm, shortDate } from "../trip/format";
@@ -159,7 +158,7 @@ const HOLD_MS = 600;
           ><a
               v-if="s.kind === 'link'"
               class="link"
-              :href="s.url"
+              :href="safeUrl(s.url)"
               rel="noopener noreferrer"
               target="_blank"
               @pointerdown.stop
