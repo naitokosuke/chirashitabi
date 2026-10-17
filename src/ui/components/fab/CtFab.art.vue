@@ -7,10 +7,19 @@ defineArt("./CtFab.vue", {
 });
 </script>
 
+<style scoped>
+.view {
+  position: relative;
+  height: 240px;
+  border-radius: 12px;
+  background: var(--wash);
+}
+</style>
+
 <art>
   <variant default name="On a view">
     <!-- the view it sits in; CtFab places itself against it -->
-    <div style="position: relative; height: 240px; border-radius: 12px; background: var(--wash)">
+    <div class="view">
       <CtFab label="Write a note">
         <svg
           aria-hidden="true"

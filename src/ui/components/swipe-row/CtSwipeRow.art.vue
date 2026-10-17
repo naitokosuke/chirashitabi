@@ -13,20 +13,40 @@ const TRIPS = ["Taiwan trip", "Kyoto weekend", "Seoul in winter"];
 const open = ref<string | null>(null);
 </script>
 
+<style scoped>
+.trips {
+  display: grid;
+  gap: 8px;
+  max-width: 360px;
+  padding: 0;
+  list-style: none;
+}
+
+.trip {
+  display: block;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+.delete {
+  padding: 0 16px;
+  border-radius: 12px;
+  background: var(--danger);
+  color: var(--on-ink);
+}
+</style>
+
 <art>
   <variant default name="A list of trips">
-    <ul style="display: grid; gap: 8px; max-width: 360px; padding: 0; list-style: none">
+    <ul class="trips">
       <li v-for="t in TRIPS" :key="t">
         <CtSwipeRow :open="open === t" @toggle="(o) => (open = o ? t : null)">
-          <a
-            href="#"
-            style="display: block; padding: 16px; border-radius: 12px; background: var(--surface); color: inherit; text-decoration: none"
-          >{{ t }}</a>
+          <a class="trip" href="#trip">{{ t }}</a>
           <template #actions>
-            <button
-              style="padding: 0 16px; border-radius: 12px; background: var(--danger); color: var(--on-ink)"
-              type="button"
-            >Delete</button>
+            <button class="delete" type="button">Delete</button>
           </template>
         </CtSwipeRow>
       </li>

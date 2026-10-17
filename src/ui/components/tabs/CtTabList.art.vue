@@ -16,12 +16,23 @@ const day = ref("d1");
 const label = computed(() => DAYS.find((d) => d.value === day.value)?.label);
 </script>
 
+<style scoped>
+/* narrower than the days, so the row has to scroll */
+.frame {
+  max-width: 360px;
+}
+
+.plan {
+  padding: 16px 4px;
+}
+</style>
+
 <art>
   <variant default name="With a panel">
-    <div style="max-width: 360px">
+    <div class="frame">
       <CtTabList v-model="day" :tabs="DAYS" label="Days" />
       <CtTabPanel>
-        <p style="padding: 16px 4px">{{ label }}'s plan</p>
+        <p class="plan">{{ label }}'s plan</p>
       </CtTabPanel>
     </div>
   </variant>
