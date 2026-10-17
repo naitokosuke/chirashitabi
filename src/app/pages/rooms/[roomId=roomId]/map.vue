@@ -445,6 +445,8 @@ section {
 
   /* marker elements are built with innerHTML inside the map container */
   :deep(.pin) {
+    /* the white under a pin's name and round an ink badge, over the map in either theme */
+    --halo: rgb(255 255 255 / 0.92);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -473,7 +475,7 @@ section {
       font-size: var(--font-2xs);
       font-weight: 700;
       color: var(--paper-ink);
-      background: rgb(255 255 255 / 0.92);
+      background: var(--halo);
       padding: 1px 6px;
       border-radius: 999px;
       box-shadow: 0 1px 2px rgb(17 19 24 / 0.12);
@@ -496,9 +498,9 @@ section {
         border-radius: 50%;
         transform: none;
         background: var(--paper-ink);
-        border-color: rgb(255 255 255 / 0.92);
-        color: #fff;
-        font-size: 12px;
+        border-color: var(--halo);
+        color: var(--paper-white);
+        font-size: var(--font-2xs);
         line-height: 1;
       }
     }
@@ -512,7 +514,7 @@ section {
         border-radius: 4px;
         transform: none;
         background: var(--paper-ink);
-        border-color: rgb(255 255 255 / 0.92);
+        border-color: var(--halo);
       }
     }
 

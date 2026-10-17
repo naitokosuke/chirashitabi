@@ -380,9 +380,11 @@ const HOLD_MS = 600;
   }
 }
 
-/* a link in the words has the lines beside it, and nothing else */
-.words > .link {
-  --room: 2px;
+.words {
+  /* a link in the words has the lines beside it, and nothing else */
+  > .link {
+    --room: 2px;
+  }
 }
 
 /* above a memo's title, on its own line */
@@ -443,38 +445,40 @@ const HOLD_MS = 600;
  * The handles: a thumb-sized target with a small dot in it, the same size on screen whatever
  * the card's scale and the desk's zoom (both undone by their own scale)
  */
-.card > [data-handle] {
-  position: absolute;
-  width: var(--tap);
-  height: var(--tap);
-  display: grid;
-  place-items: center;
-  scale: calc(1 / (var(--scale, 1) * var(--zoom, 1)));
-  touch-action: none;
+.card {
+  > [data-handle] {
+    position: absolute;
+    width: var(--tap);
+    height: var(--tap);
+    display: grid;
+    place-items: center;
+    scale: calc(1 / (var(--scale, 1) * var(--zoom, 1)));
+    touch-action: none;
 
-  &::before {
-    content: "";
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--surface);
-    box-shadow:
-      0 0 0 2px var(--ink),
-      var(--shadow-tool);
-  }
+    &::before {
+      content: "";
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--surface);
+      box-shadow:
+        0 0 0 2px var(--ink),
+        var(--shadow-tool);
+    }
 
-  /* at the bottom-end corner: dragged away from the middle, the card grows */
-  &[data-handle="resize"] {
-    inset-block-end: calc(var(--tap) / -2);
-    inset-inline-end: calc(var(--tap) / -2);
-    cursor: nwse-resize;
-  }
+    /* at the bottom-end corner: dragged away from the middle, the card grows */
+    &[data-handle="resize"] {
+      inset-block-end: calc(var(--tap) / -2);
+      inset-inline-end: calc(var(--tap) / -2);
+      cursor: nwse-resize;
+    }
 
-  /* above the middle of the top edge: dragged around the middle, the card turns */
-  &[data-handle="rotate"] {
-    inset-block-start: calc(var(--tap) * -1.4);
-    inset-inline-start: calc(50% - var(--tap) / 2);
-    cursor: grab;
+    /* above the middle of the top edge: dragged around the middle, the card turns */
+    &[data-handle="rotate"] {
+      inset-block-start: calc(var(--tap) * -1.4);
+      inset-inline-start: calc(50% - var(--tap) / 2);
+      cursor: grab;
+    }
   }
 }
 

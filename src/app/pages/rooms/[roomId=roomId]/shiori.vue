@@ -843,6 +843,8 @@ article {
       min-width: 0;
       padding: 2px;
       border-block-end: 0;
+      /* the days float over their pill here, and no further */
+      isolation: isolate;
 
       /* on a phone the days run past the screen: the row fades out at its end, saying so */
       @media (--narrow) {
@@ -851,14 +853,13 @@ article {
       }
 
       > :deep(button) {
-        z-index: 1;
+        z-index: var(--z-float);
         min-height: 32px;
         padding: 0 14px;
         border-radius: 999px;
       }
 
       > :deep(span) {
-        z-index: 0;
         border: 0;
         border-radius: 999px;
         background: var(--surface);
