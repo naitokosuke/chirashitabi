@@ -11,16 +11,19 @@ import { onBeforeUnmount, onMounted, ref, useId, useSlots, useTemplateRef } from
  * `danger` fills it in the danger color, for something that goes for good. With an `icon`,
  * the icon is what is shown and `label` / `done` are what a screen reader is told.
  */
-const props = withDefaults(
-  defineProps<{
-    label: string;
-    done: string;
-    holdTime?: number;
-    danger?: boolean;
-    disabled?: boolean;
-  }>(),
-  { holdTime: 1200 },
-);
+const {
+  label,
+  done,
+  holdTime = 1200,
+  danger,
+  disabled,
+} = defineProps<{
+  label: string;
+  done: string;
+  holdTime?: number;
+  danger?: boolean;
+  disabled?: boolean;
+}>();
 const emit = defineEmits<{ hold: [] }>();
 const slots = useSlots();
 
@@ -62,7 +65,7 @@ function watchAway(on: boolean) {
 function fill() {
   stop();
   const from = p.value;
-  const left = props.holdTime * (1 - from);
+  const left = holdTime * (1 - from);
   const t0 = performance.now();
   const step = (now: number) => {
     p.value = Math.min(1, from + (now - t0) / left);
@@ -98,7 +101,7 @@ function drain() {
 }
 
 function begin(pointer: number | null, rect: DOMRect | null) {
-  if (props.disabled || state.value !== "idle" || held !== null) return;
+  if (disabled || state.value !== "idle" || held !== null) return;
   held = { pointer, rect };
   state.value = "holding";
   watchAway(true);
@@ -266,6 +269,15 @@ button {
     }
   }
 
+  /* done: its ring goes out (.pulse) */
+  &[data-state="done"] > .pulse {
+    animation: ring 600ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+
+    @media (--reduced-motion) {
+      animation: none;
+    }
+  }
+
   &:disabled {
     opacity: 0.35;
   }
@@ -324,11 +336,11 @@ button {
     calc(-1 * var(--p) * 1.2 * var(--h));
 
   @media (--reduced-motion) {
-    display: none;
+    visibility: hidden;
   }
 
   &:dir(rtl) {
-    display: none;
+    visibility: hidden;
   }
 }
 
@@ -339,14 +351,6 @@ button {
   border-radius: var(--radius);
   pointer-events: none;
   opacity: 0;
-}
-
-button[data-state="done"] > .pulse {
-  animation: ring 600ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
-
-  @media (--reduced-motion) {
-    animation: none;
-  }
 }
 
 @keyframes ring {
