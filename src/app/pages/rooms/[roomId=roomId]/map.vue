@@ -26,7 +26,7 @@ import { Map as MLMap, Marker } from "maplibre-gl";
 import { useRoute, useRouter } from "vue-router";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { CtChip, CtChipRow, CtFab } from "../../../../ui/index";
+import { CtChip, CtChipRow, CtFab, safeUrl } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
 
@@ -37,7 +37,7 @@ import { useMembers } from "../../../features/members/useMembers";
 import type { FormTarget, Memo, Note } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
 import { findAirport, type Airport } from "../../../features/place/airports";
-import { placeLink, safeUrl } from "../../../features/place/google-maps";
+import { placeLink } from "../../../features/place/google-maps";
 import { lngLat, needsPin, pinnedOf, type Pinned } from "../../../features/place/pin";
 import { boundsOf, dayStops, routeLine } from "../../../features/place/route";
 import { guardMissingProperties } from "../../../features/place/style";
@@ -260,14 +260,23 @@ function syncRoute() {
     });
   }
 }
-// re-sync whenever notes, filter or selection change (cheap: a dozen DOM toggles)
-watchEffect(() => {
-  void pinnedOf(notes.value ?? []).map((n) => [n.pin.lat, n.pin.lng, n.title, n.by, n.tags.length]);
-  void members.value;
-  void tags.mode;
-  void [...tags.selected];
-  void selected.value;
-  syncMarkers();
+// re-sync whenever notes, filter or selection change (cheap: a dozen DOM toggles), once there
+// is a page to put pins on
+onMounted(() => {
+  watchEffect(() => {
+    void pinnedOf(notes.value ?? []).map((n) => [
+      n.pin.lat,
+      n.pin.lng,
+      n.title,
+      n.by,
+      n.tags.length,
+    ]);
+    void members.value;
+    void tags.mode;
+    void [...tags.selected];
+    void selected.value;
+    syncMarkers();
+  });
 });
 const scheduleKey = (n: Note) =>
   n.kind === "memo" && n.schedule !== null
@@ -436,6 +445,8 @@ section {
 
   /* marker elements are built with innerHTML inside the map container */
   :deep(.pin) {
+    /* the white under a pin's name, and round and on an ink badge, over the map in either theme */
+    --halo: rgb(255 255 255 / 0.92);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -464,7 +475,7 @@ section {
       font-size: var(--font-2xs);
       font-weight: 700;
       color: var(--paper-ink);
-      background: rgb(255 255 255 / 0.92);
+      background: var(--halo);
       padding: 1px 6px;
       border-radius: 999px;
       box-shadow: 0 1px 2px rgb(17 19 24 / 0.12);
@@ -487,9 +498,9 @@ section {
         border-radius: 50%;
         transform: none;
         background: var(--paper-ink);
-        border-color: rgb(255 255 255 / 0.92);
-        color: #fff;
-        font-size: 12px;
+        border-color: var(--halo);
+        color: var(--halo);
+        font-size: var(--font-2xs);
         line-height: 1;
       }
     }
@@ -503,7 +514,7 @@ section {
         border-radius: 4px;
         transform: none;
         background: var(--paper-ink);
-        border-color: rgb(255 255 255 / 0.92);
+        border-color: var(--halo);
       }
     }
 

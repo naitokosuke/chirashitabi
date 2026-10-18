@@ -19,14 +19,27 @@ const open = ref(true);
 const away = ref(false);
 </script>
 
+<style scoped>
+.screen {
+  height: 220px;
+  transform: translate(0);
+}
+</style>
+
 <art>
   <variant default name="In a trip">
     <!-- a screen of its own: the transform makes it the box the fixed dock sits at the bottom of -->
-    <div style="height: 220px; transform: translate(0)">
+    <div class="screen">
       <label><input v-model="open" type="checkbox" /> Group open</label>
       <label><input v-model="away" type="checkbox" /> Away</label>
       <CtDock label="Menu" :away>
-        <CtDockItem label="Trips" :current="current === 'Trips'" @click="() => (current = 'Trips')">
+        <CtDockItem
+          label="Trips"
+          :current="current === 'Trips'"
+          @click="function () {
+            current = 'Trips';
+          }"
+        >
           <svg
             aria-hidden="true"
             fill="none"
@@ -43,7 +56,9 @@ const away = ref(false);
             :key="t"
             :label="t"
             :current="current === t"
-            @click="() => (current = t)"
+            @click="function () {
+              current = t;
+            }"
           >
             <svg
               aria-hidden="true"

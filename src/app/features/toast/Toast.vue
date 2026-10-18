@@ -8,17 +8,20 @@ const i18n = useI18n();
 </script>
 
 <template>
-  <div v-if="toast.current !== null" role="status">
-    <span>{{ toast.current.text }}</span>
-    <button v-if="toast.current.undo !== undefined" type="button" @click="() => toast.undo()">{{
-      i18n.t("canvas.undo")
-    }}</button>
+  <!-- the live region stays, so what lands in it is read out -->
+  <div role="status">
+    <div v-if="toast.current !== null" class="toast">
+      <span>{{ toast.current.text }}</span>
+      <button v-if="toast.current.undo !== undefined" type="button" @click="() => toast.undo()">{{
+        i18n.t("canvas.undo")
+      }}</button>
+    </div>
   </div>
 </template>
 
 <style scoped>
 /* Above the view and its write button's row, below a sheet: wherever the user is, a write confirms there */
-div {
+.toast {
   position: absolute;
   inset-inline: 16px;
   inset-block-end: calc(var(--dock-clear) + 84px);

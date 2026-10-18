@@ -117,8 +117,8 @@ const allTotal = computed(() => budgetOf(undefined, false));
               :on="trip.days.at(-1)?.date"
             />
             <StayLine
-              v-for="(s, i) in trip?.stays"
-              :key="i"
+              v-for="s in trip?.stays"
+              :key="`${s.checkIn.toString()} ${s.name}`"
               :label="i18n.t('stay.title')"
               :stay="s"
             />

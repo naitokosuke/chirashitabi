@@ -131,9 +131,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <!-- the row only hears what its content's finger and keys do: it is no control of its own -->
   <div
     ref="root"
     class="row"
+    role="presentation"
     :data-sliding="drag !== null || undefined"
     :style
     @pointerdown="down"

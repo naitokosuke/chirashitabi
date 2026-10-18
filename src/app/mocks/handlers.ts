@@ -6,7 +6,7 @@ import * as v from "valibot";
 import { listOf } from "../shared/list";
 
 import { SEATS, type Member } from "../features/members/types";
-import { NoteIdSchema, type NoteId } from "../features/notes/id";
+import { NoteIdSchema } from "../features/notes/id";
 import { tagOf, type Note } from "../features/notes/types";
 import { isShortMapsLink } from "../features/place/google-maps";
 import { roomId, RoomIdSchema, type RoomId } from "../features/rooms/types";

@@ -39,16 +39,6 @@ export const directionsLink = (from: LatLng, to: LatLng, walk: boolean): HttpUrl
   );
 
 /**
- * A pasted link, or undefined unless it is http(s). Notes come from the other
- * person in the room, so a `javascript:` URL must never reach an href.
- */
-export function safeUrl(url: string | null): string | undefined {
-  if (url === null || !URL.canParse(url)) return undefined;
-  const u = new URL(url);
-  return u.protocol === "https:" || u.protocol === "http:" ? u.href : undefined;
-}
-
-/**
  * What a pasted link sets on a note: the link itself (blank clears it), and the pin when it can
  * be read from it. Unreadable links keep the current pin; what is not a link a note may carry
  * sets none, as the room would refuse it.

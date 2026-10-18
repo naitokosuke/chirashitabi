@@ -18,6 +18,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import {
   computed,
   nextTick,
+  onBeforeMount,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -94,13 +95,15 @@ const startingInput = (): NoteInput => {
       : inputFromNote(editingNote.value);
   return blankInput(docked.value ? [] : tags.selected, t.pin);
 };
-const form = ref<NoteInput>(startingInput());
-const mapsUrl = ref(form.value.mapsUrl ?? "");
+/** What the inputs start from; from here on they are the form's */
+const start = startingInput();
+const form = ref<NoteInput>(start);
+const mapsUrl = ref(start.mapsUrl ?? "");
 /** When the place is open, as written (OpenStreetMap's way); blank for not said */
-const hours = ref(form.value.hours ?? "");
+const hours = ref(start.hours ?? "");
 // ---- whether it has to be booked: none, still to book (by a day), or booked (its number and page) ----
 type BookingState = "none" | Booking["state"];
-const startBooking = form.value.booking;
+const startBooking = start.booking;
 const bookingState = ref<BookingState>(startBooking?.state ?? "none");
 const bookingBy = ref(startBooking?.state === "needed" ? (startBooking.by?.toString() ?? "") : "");
 const bookingCode = ref(startBooking?.state === "booked" ? startBooking.code : "");
@@ -511,14 +514,18 @@ function onKey(e: KeyboardEvent) {
   if (e.key === "Escape") emit("close");
 }
 // Focus goes back where it came from once the sheet is gone and the layer under it is live again
-const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+let opener: HTMLElement | null = null;
+onBeforeMount(() => {
+  if (document.activeElement instanceof HTMLElement) opener = document.activeElement;
+});
 onMounted(() => {
   if (!docked.value) window.addEventListener("keydown", onKey);
 });
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKey);
-  if (!docked.value && opener !== null && opener !== document.body)
-    setTimeout(() => opener.isConnected && opener.focus());
+  const back = opener;
+  if (!docked.value && back !== null && back !== document.body)
+    setTimeout(() => back.isConnected && back.focus());
 });
 
 /** From the map with a place: the note is a pin there (and a card on the desk) */

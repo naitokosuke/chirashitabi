@@ -12,30 +12,30 @@ import { computed, ref, watch } from "vue";
  * `ready` once the first box has been painted, so it appears in place rather than
  * stretching in from the corner (useIndicator).
  */
-const props = withDefaults(
-  defineProps<{
-    box: { x: number; y: number; width: number; height: number } | null;
-    ready: boolean;
-    pad?: number;
-    look?: "ink" | "ring" | "surface";
-  }>(),
-  { pad: 0, look: "ink" },
-);
+const {
+  box,
+  ready,
+  pad = 0,
+  look = "ink",
+} = defineProps<{
+  box: { x: number; y: number; width: number; height: number } | null;
+  ready: boolean;
+  pad?: number;
+  look?: "ink" | "ring" | "surface";
+}>();
 
 /** Which way the pill is going, which says which edge leads */
 const dir = ref<"forward" | "back">("forward");
 watch(
-  () => props.box?.x,
+  () => box?.x,
   (x, was) => {
     if (x !== undefined && was !== undefined && x !== was) dir.value = x > was ? "forward" : "back";
   },
 );
 /** The pill's edges, from the parent's padding edge: the start inset and the end inset, the top and the height */
 const edges = computed(() => {
-  const b = props.box;
-  if (b === null) return undefined;
-  const p = props.pad;
-  return `--l: ${b.x - p}px; --r: ${b.x + b.width + p}px; --t: ${b.y - p}px; --h: ${b.height + p * 2}px`;
+  if (box === null) return undefined;
+  return `--l: ${box.x - pad}px; --r: ${box.x + box.width + pad}px; --t: ${box.y - pad}px; --h: ${box.height + pad * 2}px`;
 });
 </script>
 

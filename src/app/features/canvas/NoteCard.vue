@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
-import { computed } from "vue";
+import { computed, useId } from "vue";
 
-import { CtHoldButton, CtPaper } from "../../../ui/index";
+import { CtHoldButton, CtPaper, safeUrl } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -15,7 +15,6 @@ import type { ImageId } from "../notes/id";
 import { imageSrc } from "../notes/image";
 import { segments, siteOf } from "../notes/links";
 import type { Note } from "../notes/types";
-import { safeUrl } from "../place/google-maps";
 import { useSync } from "../sync/useSync";
 import type { Visibility } from "../tags/types";
 import { hhmm, shortDate } from "../trip/format";
@@ -39,6 +38,7 @@ const { members } = useMembers();
 const paper = computed(() => paperOf(members.value?.find((m) => m.id === props.note.by)?.color));
 const sync = useSync();
 const i18n = useI18n();
+const id = useId();
 /** A memo with a picture is a print: the picture mounted, its words under it */
 const print = computed(() => props.note.kind === "memo" && props.note.image !== null);
 /** "11/3 12:30", or the date alone when it has no time; nothing off the itinerary */
@@ -67,14 +67,16 @@ const HOLD_MS = 600;
     :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}`"
     :data-id="note.id"
     :tabindex="note.kind !== 'suggestion' && visibility !== 'dimmed' ? 0 : undefined"
-    :role="note.kind !== 'suggestion' ? 'button' : undefined"
+    :role="note.kind !== 'suggestion' ? 'button' : 'group'"
     :aria-label="note.kind === 'sticker'
       ? i18n.t('canvas.sticker')
       : note.kind !== 'suggestion'
         ? note.title
         : undefined"
+    :aria-labelledby="note.kind === 'suggestion' ? `${id}-strip ${id}-title` : undefined"
   >
-    <!-- a slip from the agent, cut square: what it is in the strip, the proposal, what to do with it -->
+    <!-- a slip from the agent, cut square: what it is in the strip, the proposal, what to do with it;
+         its two answers are told whose they are by the slip they sit on (the group's name) -->
     <CtPaper
       v-if="note.kind === 'suggestion'"
       variant="proposal"
@@ -82,10 +84,12 @@ const HOLD_MS = 600;
       :paper
       :selected
     >
-      <template #strip>{{ i18n.t("note.suggestion") }}</template>
+      <template #strip><span :id="`${id}-strip`">{{ i18n.t("note.suggestion") }}</span></template>
       <!-- five lines of it on the desk; picked, all of it -->
       <template #default>
-        <p class="title" data-lines="5" :data-open="selected || undefined">{{ note.title }}</p>
+        <p :id="`${id}-title`" class="title" data-lines="5" :data-open="selected || undefined">{{
+          note.title
+        }}</p>
       </template>
       <!-- held, not tapped: first a thumb up to keep it as a memo (the primary), then a thumb down
            to pass on it; the slip goes the moment one is full, so what it says when done is what
@@ -154,12 +158,12 @@ const HOLD_MS = 600;
         <!-- the words, a few lines of them (a page's own line stays off its print, for the
              booklet); a link in them is its site, as every link on the desk is -->
         <p v-if="note.body !== '' && !(print && note.link !== null)" class="words"><template
-            v-for="(s, i) in segments(note.body)"
-            :key="i"
+            v-for="s in segments(note.body)"
+            :key="s.at"
           ><a
               v-if="s.kind === 'link'"
               class="link"
-              :href="s.url"
+              :href="safeUrl(s.url)"
               rel="noopener noreferrer"
               target="_blank"
               @pointerdown.stop
@@ -381,9 +385,11 @@ const HOLD_MS = 600;
   }
 }
 
-/* a link in the words has the lines beside it, and nothing else */
-.words > .link {
-  --room: 2px;
+.words {
+  /* a link in the words has the lines beside it, and nothing else */
+  > .link {
+    --room: 2px;
+  }
 }
 
 /* above a memo's title, on its own line */
@@ -444,38 +450,40 @@ const HOLD_MS = 600;
  * The handles: a thumb-sized target with a small dot in it, the same size on screen whatever
  * the card's scale and the desk's zoom (both undone by their own scale)
  */
-.card > [data-handle] {
-  position: absolute;
-  width: var(--tap);
-  height: var(--tap);
-  display: grid;
-  place-items: center;
-  scale: calc(1 / (var(--scale, 1) * var(--zoom, 1)));
-  touch-action: none;
+.card {
+  > [data-handle] {
+    position: absolute;
+    width: var(--tap);
+    height: var(--tap);
+    display: grid;
+    place-items: center;
+    scale: calc(1 / (var(--scale, 1) * var(--zoom, 1)));
+    touch-action: none;
 
-  &::before {
-    content: "";
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--surface);
-    box-shadow:
-      0 0 0 2px var(--ink),
-      var(--shadow-tool);
-  }
+    &::before {
+      content: "";
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--surface);
+      box-shadow:
+        0 0 0 2px var(--ink),
+        var(--shadow-tool);
+    }
 
-  /* at the bottom-end corner: dragged away from the middle, the card grows */
-  &[data-handle="resize"] {
-    inset-block-end: calc(var(--tap) / -2);
-    inset-inline-end: calc(var(--tap) / -2);
-    cursor: nwse-resize;
-  }
+    /* at the bottom-end corner: dragged away from the middle, the card grows */
+    &[data-handle="resize"] {
+      inset-block-end: calc(var(--tap) / -2);
+      inset-inline-end: calc(var(--tap) / -2);
+      cursor: nwse-resize;
+    }
 
-  /* above the middle of the top edge: dragged around the middle, the card turns */
-  &[data-handle="rotate"] {
-    inset-block-start: calc(var(--tap) * -1.4);
-    inset-inline-start: calc(50% - var(--tap) / 2);
-    cursor: grab;
+    /* above the middle of the top edge: dragged around the middle, the card turns */
+    &[data-handle="rotate"] {
+      inset-block-start: calc(var(--tap) * -1.4);
+      inset-inline-start: calc(50% - var(--tap) / 2);
+      cursor: grab;
+    }
   }
 }
 

@@ -1,4 +1,6 @@
 <script setup lang="ts" vapor>
+import { safeUrl } from "../../url";
+
 /**
  * One icon in the dock (`CtDock`). The icon says what it is; its name shows above it under
  * a hovering pointer and is the accessible name everywhere. `current` marks it as the one
@@ -15,7 +17,7 @@ const onClick = (e: MouseEvent) => emit("click", e);
   <a
     v-if="href !== undefined"
     data-dock-item
-    :href
+    :href="safeUrl(href)"
     :aria-label="label"
     :aria-current="current ? 'page' : undefined"
     @click="onClick"

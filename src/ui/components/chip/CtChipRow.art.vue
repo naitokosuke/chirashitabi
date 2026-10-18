@@ -14,11 +14,26 @@ const TAGS = ["Food", "Sights", "Shopping", "Cafe", "Night market", "Temple", "H
 const picked = ref("Food");
 </script>
 
+<style scoped>
+/* narrower than the chips, so the row has to scroll */
+.frame {
+  display: flex;
+  max-width: 360px;
+}
+</style>
+
 <art>
   <variant default name="Overflowing">
-    <div style="display: flex; max-width: 360px">
+    <div class="frame">
       <CtChipRow>
-        <CtChip v-for="t in TAGS" :key="t" :selected="t === picked" @click="() => (picked = t)">{{
+        <CtChip
+          v-for="t in TAGS"
+          :key="t"
+          :selected="t === picked"
+          @click="function () {
+            picked = t;
+          }"
+        >{{
           t
         }}</CtChip>
       </CtChipRow>

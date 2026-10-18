@@ -1,12 +1,13 @@
 import { describe, expect, test } from "vite-plus/test";
 
+import { safeUrl } from "../../../ui/index";
+
 import {
   directionsLink,
   isShortMapsLink,
   parseMapsUrl,
   placeFromUrl,
   placeSearchLink,
-  safeUrl,
 } from "./google-maps";
 
 describe("placeSearchLink", () => {

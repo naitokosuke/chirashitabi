@@ -13,15 +13,17 @@
  *
  * `selected` frames it in ink, `lifted` raises it as a finger holds it.
  */
-withDefaults(
-  defineProps<{
-    variant?: "note" | "proposal" | "print";
-    paper?: string;
-    selected?: boolean;
-    lifted?: boolean;
-  }>(),
-  { variant: "note", paper: "var(--paper-white)" },
-);
+const {
+  variant = "note",
+  paper = "var(--paper-white)",
+  selected,
+  lifted,
+} = defineProps<{
+  variant?: "note" | "proposal" | "print";
+  paper?: string;
+  selected?: boolean;
+  lifted?: boolean;
+}>();
 </script>
 
 <template>
@@ -83,11 +85,33 @@ withDefaults(
   /* the agent's slip is cut square: a machine's paper, never a person's soft corner */
   &[data-variant="proposal"] {
     border-radius: 0;
+
+    > .body:not(:empty) {
+      padding-block-start: 10px;
+    }
+
+    /* a slip's answers, side by side across it */
+    > .foot {
+      gap: 8px;
+      padding-block-start: 10px;
+    }
   }
 
   /* a print: a person's soft corner, wider, the picture in a wide mount */
   &[data-variant="print"] {
     width: 220px;
+
+    > .body:not(:empty) {
+      padding: 12px 16px 0;
+    }
+
+    > .foot {
+      padding: 8px 16px 16px;
+
+      &:empty {
+        padding: 0 0 16px;
+      }
+    }
   }
 }
 
@@ -115,19 +139,10 @@ withDefaults(
 .body {
   padding: 12px 12px 0;
 
+  /* nothing written: no room for it either */
   &:empty {
-    display: none;
+    padding: 0;
   }
-}
-
-.paper[data-variant="proposal"] > .body {
-  padding-block-start: 10px;
-}
-
-/* a slip's answers, side by side across it */
-.paper[data-variant="proposal"] > .foot {
-  gap: 8px;
-  padding-block-start: 10px;
 }
 
 .foot {
@@ -149,17 +164,5 @@ withDefaults(
   overflow: hidden;
   background: color-mix(in oklch, var(--paper-ink) 6%, transparent);
   outline: 1px solid color-mix(in oklch, var(--paper-ink) 35%, transparent);
-}
-
-.paper[data-variant="print"] > .body {
-  padding: 12px 16px 0;
-}
-
-.paper[data-variant="print"] > .foot {
-  padding: 8px 16px 16px;
-
-  &:empty {
-    padding: 0 0 16px;
-  }
 }
 </style>
