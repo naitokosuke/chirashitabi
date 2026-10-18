@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { computed } from "vue";
+import { computed, useId } from "vue";
 
 import { CtHoldButton, CtPaper, safeUrl } from "../../../ui/index";
 
@@ -38,6 +38,7 @@ const { members } = useMembers();
 const paper = computed(() => paperOf(members.value?.find((m) => m.id === props.note.by)?.color));
 const sync = useSync();
 const i18n = useI18n();
+const id = useId();
 /** A memo with a picture is a print: the picture mounted, its words under it */
 const print = computed(() => props.note.kind === "memo" && props.note.image !== null);
 /** "11/3 12:30", or the date alone when it has no time; nothing off the itinerary */
@@ -66,14 +67,16 @@ const HOLD_MS = 600;
     :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}`"
     :data-id="note.id"
     :tabindex="note.kind !== 'suggestion' && visibility !== 'dimmed' ? 0 : undefined"
-    :role="note.kind !== 'suggestion' ? 'button' : undefined"
+    :role="note.kind !== 'suggestion' ? 'button' : 'group'"
     :aria-label="note.kind === 'sticker'
       ? i18n.t('canvas.sticker')
       : note.kind !== 'suggestion'
         ? note.title
         : undefined"
+    :aria-labelledby="note.kind === 'suggestion' ? `${id}-strip ${id}-title` : undefined"
   >
-    <!-- a slip from the agent, cut square: what it is in the strip, the proposal, what to do with it -->
+    <!-- a slip from the agent, cut square: what it is in the strip, the proposal, what to do with it;
+         its two answers are told whose they are by the slip they sit on (the group's name) -->
     <CtPaper
       v-if="note.kind === 'suggestion'"
       variant="proposal"
@@ -81,10 +84,12 @@ const HOLD_MS = 600;
       :paper
       :selected
     >
-      <template #strip>{{ i18n.t("note.suggestion") }}</template>
+      <template #strip><span :id="`${id}-strip`">{{ i18n.t("note.suggestion") }}</span></template>
       <!-- five lines of it on the desk; picked, all of it -->
       <template #default>
-        <p class="title" data-lines="5" :data-open="selected || undefined">{{ note.title }}</p>
+        <p :id="`${id}-title`" class="title" data-lines="5" :data-open="selected || undefined">{{
+          note.title
+        }}</p>
       </template>
       <!-- held, not tapped: first a thumb up to keep it as a memo (the primary), then a thumb down
            to pass on it; the slip goes the moment one is full, so what it says when done is what

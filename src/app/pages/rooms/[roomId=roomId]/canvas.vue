@@ -836,10 +836,15 @@ watch(
         </form>
       </Transition>
 
+      <!--
+        the desk's window: it pans under a finger and hears what its cards' keys and drops do,
+        but is no control of its own; the cards are what assistive technology meets, and the
+        page round them stays readable as a page
+      -->
       <div
         ref="vp"
-        role="application"
-        :aria-label="i18n.t('nav.canvas')"
+        class="desk"
+        role="presentation"
         :data-panning="panning || undefined"
         @pointerdown="onDown"
         @pointermove="onMove"
@@ -1134,7 +1139,7 @@ section {
       pointer-events: none;
     }
 
-    > [role="application"] {
+    > .desk {
       position: absolute;
       inset: 0;
       touch-action: none;

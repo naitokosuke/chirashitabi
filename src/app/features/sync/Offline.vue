@@ -41,17 +41,22 @@ const since = computed(() => {
 </script>
 
 <template>
-  <div v-show="cut.offline" role="status">
-    <span>{{ since === "" ? i18n.t("offline.out") : i18n.t("offline.in", { time: since }) }}</span>
-    <button v-if="since !== ''" type="button" @click="() => room.reconnect()">{{
-      i18n.t("rooms.retry")
-    }}</button>
+  <!-- the live region stays, so the band coming is read out; online, nothing of it is on the page -->
+  <div role="status">
+    <div v-if="cut.offline" class="band">
+      <span>{{
+        since === "" ? i18n.t("offline.out") : i18n.t("offline.in", { time: since })
+      }}</span>
+      <button v-if="since !== ''" type="button" @click="() => room.reconnect()">{{
+        i18n.t("rooms.retry")
+      }}</button>
+    </div>
   </div>
 </template>
 
 <style scoped>
 /* the strip the status bar leaves, and the band's own height, over everything, a sheet too */
-div {
+.band {
   position: fixed;
   inset-inline: 0;
   inset-block-start: 0;
