@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -19,13 +19,32 @@ const airports = useAirports();
 const open = ref(false);
 /** The option the arrow keys are on, -1 for none */
 const active = ref(-1);
-const offered = computed(() =>
-  open.value ? suggestAirports(airports.value, props.modelValue) : [],
-);
+/** The airports the text may mean, offered or not */
+const offered = computed(() => suggestAirports(airports.value, props.modelValue));
+/** The list is out: opened, with something in it */
+const shown = computed(() => open.value && offered.value.length > 0);
 const named = computed(() => findAirport(airports.value, props.modelValue));
 const listId = computed(() => `${props.id}-airports`);
 const optionId = (i: number) => `${props.id}-airport-${i}`;
+/** The option the field points assistive technology at: only one that is out to be seen */
+const activeId = computed(() =>
+  shown.value && active.value >= 0 && active.value < offered.value.length
+    ? optionId(active.value)
+    : undefined,
+);
+// focus stays in the field, so nothing scrolls the list to the option walked to but this
+watch(
+  activeId,
+  (id) => {
+    if (id !== undefined) document.getElementById(id)?.scrollIntoView({ block: "nearest" });
+  },
+  { flush: "post" },
+);
 
+function close() {
+  open.value = false;
+  active.value = -1;
+}
 function onInput(e: Event) {
   if (!(e.target instanceof HTMLInputElement)) return;
   emit("update:modelValue", e.target.value);
@@ -34,26 +53,32 @@ function onInput(e: Event) {
 }
 function choose(a: Airport) {
   emit("update:modelValue", a.code);
-  open.value = false;
+  close();
 }
-/** Down and up walk the airports offered, Enter takes the one walked to, Esc closes them */
+/**
+ * Down and up walk the airports offered (opening the list on the first or the last of them when
+ * it is shut), Enter takes the one walked to, Esc shuts the list
+ */
 function onKey(e: KeyboardEvent) {
   const n = offered.value.length;
   if (e.key === "ArrowDown" || e.key === "ArrowUp") {
     if (n === 0) return;
     e.preventDefault();
-    open.value = true;
-    if (e.key === "ArrowDown") active.value = (active.value + 1) % n;
+    const down = e.key === "ArrowDown";
+    if (!shown.value) {
+      open.value = true;
+      active.value = down ? 0 : n - 1;
+    } else if (down) active.value = (active.value + 1) % n;
     else active.value = active.value <= 0 ? n - 1 : active.value - 1;
-  } else if (e.key === "Enter" && active.value >= 0) {
+  } else if (e.key === "Enter" && activeId.value !== undefined) {
     const a = offered.value[active.value];
     if (a !== undefined) {
       e.preventDefault();
       choose(a);
     }
-  } else if (e.key === "Escape" && open.value) {
+  } else if (e.key === "Escape" && shown.value) {
     e.stopPropagation();
-    open.value = false;
+    close();
   }
 }
 const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join(", ");
@@ -66,27 +91,30 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
       :id
       autocapitalize="characters"
       autocomplete="off"
-      :aria-activedescendant="active >= 0 ? optionId(active) : undefined"
+      :aria-activedescendant="activeId"
       :aria-controls="listId"
-      :aria-expanded="offered.length > 0"
+      :aria-expanded="shown"
       aria-autocomplete="list"
       :placeholder
       required
       role="combobox"
       :value="modelValue"
-      @blur="() => (open = false)"
+      @blur="close"
       @input="onInput"
       @keydown="onKey"
     />
-    <ul v-if="offered.length > 0" :id="listId" role="listbox">
-      <!-- pointerdown, not click: the field would lose focus first, and the list with it -->
+    <!-- always on the page, so the field's aria-controls names it; shown while it is out -->
+    <ul v-show="shown" :id="listId" role="listbox">
+      <!-- taken on click, once the finger is up (one that lands to scroll the list takes none);
+           a pointer coming down keeps the focus in the field, which would shut the list -->
       <li
         v-for="(a, i) in offered"
         :id="optionId(i)"
         :key="a.code"
         :aria-selected="i === active"
         role="option"
-        @pointerdown.prevent="() => choose(a)"
+        @pointerdown.prevent
+        @click="() => choose(a)"
       >
         <b>{{ a.code }}</b><span>{{ a.name }}</span><small>{{ place(a) }}</small>
       </li>
