@@ -6,6 +6,8 @@ import { computed, ref, useTemplateRef } from "vue";
 import {
   CtButton,
   CtGlass,
+  CtPaper,
+  CtScrollRow,
   CtSegmented,
   CtTabList,
   CtTabPanel,
@@ -483,19 +485,25 @@ function adoptDraft() {
             i18n.t("shiori.trayHint")
           }}</small></div>
         <p v-if="unassigned.length === 0">{{ i18n.t("shiori.trayEmpty") }}</p>
-        <ul v-else>
+        <CtScrollRow v-else as="ul">
+          <!-- each a slip of its writer's paper; the tap anywhere on it is its button's -->
           <li v-for="n in unassigned" :key="n.id">
-            <button
-              type="button"
-              :aria-pressed="picking?.id === n.id"
-              :style="`background:${paperFor(n)}`"
-              @click="() => togglePick(n)"
-            >
-              <span>{{ n.title }}</span>
-              <span><span v-for="t in n.tags" :key="t">#{{ t }}</span></span>
-            </button>
+            <CtPaper :paper="paperFor(n)" :selected="picking?.id === n.id">
+              <template #default>
+                <button
+                  type="button"
+                  :aria-pressed="picking?.id === n.id"
+                  @click="() => togglePick(n)"
+                >{{
+                  n.title
+                }}</button>
+              </template>
+              <template #foot>
+                <span v-for="t in n.tags" :key="t">#{{ t }}</span>
+              </template>
+            </CtPaper>
           </li>
-        </ul>
+        </CtScrollRow>
         <div v-if="picking !== null">
           <span>{{ i18n.t("shiori.putOn", { title: picking.title }) }}</span>
           <CtButton
@@ -895,58 +903,40 @@ article {
         font-size: var(--font-sm);
       }
 
-      > ul {
-        list-style: none;
+      /* each slip as tall as the tallest */
+      > ul > li {
+        flex-shrink: 0;
+        align-self: stretch;
         display: flex;
-        gap: 8px;
-        overflow-x: auto;
-        scrollbar-width: none;
-        /* room for a picked card's ring (2px, 2px out) inside the row, which clips what overflows it */
-        padding: 6px 28px 8px 6px;
-        margin: -2px -6px 0;
-        mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 
-        &::-webkit-scrollbar {
-          display: none;
-        }
+        button {
+          text-align: start;
+          font-size: var(--font-sm);
+          font-weight: 700;
+          line-height: 1.35;
 
-        /* each card as tall as the tallest */
-        > li {
-          flex-shrink: 0;
-          display: flex;
-
-          > button {
-            flex-shrink: 0;
-            width: 140px;
-            text-align: start;
-            padding: 8px 10px;
+          /* the button is the whole slip: its box is stretched over the paper, and so is its ring */
+          &::after {
+            content: "";
+            position: absolute;
+            inset: 0;
             border-radius: 6px;
-            color: var(--paper-ink);
-            box-shadow: var(--shadow-paper);
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
+          }
 
-            &[aria-pressed="true"] {
+          &:focus-visible {
+            outline: none;
+
+            &::after {
               outline: 2px solid var(--ink);
               outline-offset: 2px;
             }
-
-            > span:first-child {
-              font-size: var(--font-sm);
-              font-weight: 700;
-              line-height: 1.35;
-            }
-
-            > span:last-child {
-              font-size: var(--font-xs);
-              font-weight: 700;
-              color: var(--paper-muted);
-              display: flex;
-              gap: 6px;
-              flex-wrap: wrap;
-            }
           }
+        }
+
+        span {
+          font-size: var(--font-xs);
+          font-weight: 700;
+          color: var(--paper-muted);
         }
       }
 
