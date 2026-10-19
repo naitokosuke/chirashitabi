@@ -26,7 +26,15 @@ import { Map as MLMap, Marker } from "maplibre-gl";
 import { useRoute, useRouter } from "vue-router";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { CtButton, CtChip, CtFab, CtPanel, CtScrollRow, safeUrl } from "../../../../ui/index";
+import {
+  CtBadge,
+  CtButton,
+  CtChip,
+  CtFab,
+  CtPanel,
+  CtScrollRow,
+  safeUrl,
+} from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
 
@@ -394,9 +402,9 @@ function fitAll() {
             >#{{ t.name }}</CtChip>
           </CtScrollRow>
         </div>
-        <p v-if="noPin > 0">{{
+        <CtBadge v-if="noPin > 0" as="p" class="unplaced" float>{{
           i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin })
-        }}</p>
+        }}</CtBadge>
       </div>
 
       <!-- the press being held: a ring that fills, and the memo is written when it closes -->
@@ -612,17 +620,10 @@ section {
         display: flex;
       }
 
-      /* the notes with no place yet */
-      > p {
+      /* the notes with no place yet, under the rows, at the view's edge margin */
+      > .unplaced {
         margin: 0 16px;
         align-self: flex-start;
-        font-size: var(--font-xs);
-        color: var(--ink);
-        background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 4px 10px;
-        box-shadow: var(--shadow-tool);
       }
     }
 

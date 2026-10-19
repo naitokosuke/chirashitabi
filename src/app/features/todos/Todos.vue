@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, useId } from "vue";
 
-import { CtAvatar, CtButton, CtCheckbox, CtInput } from "../../../ui/index";
+import { CtAvatar, CtBadge, CtButton, CtCheckbox, CtInput } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -58,7 +58,9 @@ function markBooked(n: Memo) {
 
 <template>
   <article class="todos" :aria-labelledby="`${id}-title`">
-    <h2 :id="`${id}-title`">{{ i18n.t("todo.title") }}<small v-if="open > 0">{{ open }}</small></h2>
+    <h2 :id="`${id}-title`">{{ i18n.t("todo.title") }}<CtBadge v-if="open > 0" filled>{{
+        open
+      }}</CtBadge></h2>
     <form @submit.prevent="add">
       <CtInput
         v-model="title"
@@ -85,7 +87,7 @@ function markBooked(n: Memo) {
           :model-value="t.done"
           @update:model-value="(checked) => setDone(t.memo, checked)"
         />
-        <span v-else class="badge">{{ i18n.t("todo.booking") }}</span>
+        <CtBadge v-else dashed>{{ i18n.t("todo.booking") }}</CtBadge>
         <button class="title" type="button" @click="() => emit('open', t.memo.id)">{{
           t.memo.title
         }}</button>
@@ -121,17 +123,6 @@ function markBooked(n: Memo) {
     display: flex;
     align-items: center;
     gap: 8px;
-
-    > small {
-      min-width: 22px;
-      padding: 1px 7px;
-      border-radius: 999px;
-      background: var(--ink);
-      color: var(--bg);
-      font-size: var(--font-xs);
-      text-align: center;
-      font-variant-numeric: tabular-nums;
-    }
   }
 
   /* a line to write the next one in, as quick as a note */
@@ -166,15 +157,6 @@ function markBooked(n: Memo) {
       border-block-end: 1px solid var(--line);
 
       /* a plan still to book, in place of the box: it is done by booking it */
-      > .badge {
-        padding: 1px 6px;
-        border: 1px dashed color-mix(in oklch, var(--ink) 45%, transparent);
-        border-radius: 6px;
-        font-size: var(--font-2xs);
-        font-weight: 700;
-        color: var(--muted);
-      }
-
       > .title {
         flex: 1;
         min-width: 0;

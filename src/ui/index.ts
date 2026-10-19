@@ -6,6 +6,7 @@ export { useViewTransition } from "./composables/useViewTransition";
 export { type DateRange as CtDateRange, lengthOf } from "./components/calendar/calendar";
 export { default as CtAvatar } from "./components/avatar/CtAvatar.vue";
 export { default as CtBackButton } from "./components/back/CtBackButton.vue";
+export { default as CtBadge } from "./components/badge/CtBadge.vue";
 export { default as CtButton } from "./components/button/CtButton.vue";
 export { default as CtCalendar } from "./components/calendar/CtCalendar.vue";
 export { default as CtChip } from "./components/chip/CtChip.vue";
