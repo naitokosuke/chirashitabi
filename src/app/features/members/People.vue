@@ -72,23 +72,30 @@ async function sendInvite() {
   }
 }
 
-/** One change of who is in; a failure is said, the list is refreshed either way (useMembers) */
-async function run(change: () => Promise<unknown>, then?: () => void) {
+/**
+ * One change of who is in, and whether it went through; a failure is said, the list is
+ * refreshed either way (useMembers)
+ */
+async function run(change: () => Promise<unknown>) {
   failed.value = null;
   try {
     await change();
     asking.value = null;
-    then?.();
+    return true;
   } catch {
     failed.value = "other";
+    return false;
   }
 }
 const uninvite = (address: Email) => run(() => membership.uninvite.mutateAsync(address));
 const remove = (member: MemberId) => run(() => membership.remove.mutateAsync(member));
-// the room says so on the socket too; this is in case the socket was down when it did
-const out = () => emit("out");
-const leave = () => run(() => membership.leave.mutateAsync(), out);
-const deleteTrip = () => run(() => membership.deleteRoom.mutateAsync(), out);
+// out of the trip: the room says so on the socket too; this is in case the socket was down when it did
+async function leave() {
+  if (await run(membership.leave.mutateAsync)) emit("out");
+}
+async function deleteTrip() {
+  if (await run(membership.deleteRoom.mutateAsync)) emit("out");
+}
 
 const isMe = (m: MemberId) => sync.me === m;
 

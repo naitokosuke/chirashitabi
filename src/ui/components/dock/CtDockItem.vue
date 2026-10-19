@@ -10,7 +10,6 @@ import { safeUrl } from "../../url";
 defineProps<{ label: string; current?: boolean; href?: string }>();
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
 defineSlots<{ default(): unknown }>();
-const onClick = (e: MouseEvent) => emit("click", e);
 </script>
 
 <template>
@@ -20,7 +19,7 @@ const onClick = (e: MouseEvent) => emit("click", e);
     :href="safeUrl(href)"
     :aria-label="label"
     :aria-current="current ? 'page' : undefined"
-    @click="onClick"
+    @click="(e) => emit('click', e)"
   >
     <span class="icon"><slot></slot></span>
     <span aria-hidden="true" class="tip">{{ label }}</span>
@@ -31,7 +30,7 @@ const onClick = (e: MouseEvent) => emit("click", e);
     type="button"
     :aria-label="label"
     :aria-current="current ? 'page' : undefined"
-    @click="onClick"
+    @click="(e) => emit('click', e)"
   >
     <span class="icon"><slot></slot></span>
     <span aria-hidden="true" class="tip">{{ label }}</span>

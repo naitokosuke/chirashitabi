@@ -295,25 +295,27 @@ const held = shallowRef<
   | ({ id: NoteId; x: number; y: number } & ({ kind: "move" } | { kind: "shape"; shape: Shape }))
   | null
 >(null);
-/** The partner sees a held card change at ~12/s; here it follows every frame */
-function throttled(g: { lastSend: number }, send: () => void) {
+/**
+ * Whether the held card is due to the partner again, who sees it change at ~12/s (here it follows
+ * every frame); a yes counts as sent
+ */
+function due(g: { lastSend: number }) {
   const now = performance.now();
-  if (now - g.lastSend > 80) {
-    send();
-    g.lastSend = now;
-  }
+  if (now - g.lastSend <= 80) return false;
+  g.lastSend = now;
+  return true;
 }
 function dragTo(g: Drag, p: Pt) {
   const { note, ox, oy } = g.grab;
   const w = toWorld(p.x, p.y);
   const h = { kind: "move" as const, id: note.id, x: w.x - ox, y: w.y - oy };
   held.value = h;
-  throttled(g, () => store.sendMove(h.id, h.x, h.y));
+  if (due(g)) store.sendMove(h.id, h.x, h.y);
 }
 function shapeTo(g: Extract<Gesture, { kind: "resize" | "rotate" }>, shape: Shape) {
   const { note } = g.at;
   held.value = { kind: "shape", id: note.id, x: note.x, y: note.y, shape };
-  throttled(g, () => store.sendMove(note.id, note.x, note.y, shape));
+  if (due(g)) store.sendMove(note.id, note.x, note.y, shape);
 }
 
 function onUp(e: PointerEvent) {

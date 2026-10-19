@@ -14,7 +14,7 @@ const i18n = useI18n();
   <div role="status">
     <div v-if="toast.current !== null" class="toast">
       <span>{{ toast.current.text }}</span>
-      <CtButton v-if="toast.current.undo !== undefined" variant="text" @click="() => toast.undo()">{{
+      <CtButton v-if="toast.current.undo !== undefined" variant="text" @click="toast.undo">{{
         i18n.t("canvas.undo")
       }}</CtButton>
     </div>

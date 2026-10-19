@@ -51,13 +51,12 @@ const stop = () => {
 };
 
 /** Anything that takes the person away lets go */
-const away = () => letGo();
 const hidden = () => {
   if (document.hidden) letGo();
 };
 function watchAway(on: boolean) {
   const how = on ? "addEventListener" : "removeEventListener";
-  window[how]("blur", away);
+  window[how]("blur", letGo);
   document[how]("visibilitychange", hidden);
 }
 

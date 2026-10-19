@@ -49,7 +49,7 @@ const since = computed(() => {
       <span>{{
         since === "" ? i18n.t("offline.out") : i18n.t("offline.in", { time: since })
       }}</span>
-      <CtButton v-if="since !== ''" variant="text" @click="() => room.reconnect()">{{
+      <CtButton v-if="since !== ''" variant="text" @click="room.reconnect">{{
         i18n.t("rooms.retry")
       }}</CtButton>
     </div>

@@ -194,7 +194,7 @@ export const useRoom = defineStore("room", () => {
   }
 
   // The network is back: try the room now instead of waiting out the back-off (a live socket ignores this)
-  window.addEventListener("online", () => socket.reconnect());
+  window.addEventListener("online", socket.reconnect);
 
   // the stores commit through the room from now on; out of a room, commit and send do nothing
   sync.transport = { commit, send: (m) => void socket.send(m) };

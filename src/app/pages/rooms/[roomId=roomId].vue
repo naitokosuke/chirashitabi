@@ -47,7 +47,7 @@ watch(
   },
   { immediate: true },
 );
-onBeforeUnmount(() => room.leave());
+onBeforeUnmount(room.leave);
 /** Put out of this room (removed, left, the room deleted): back to the trips */
 watch(
   () => room.gone,
