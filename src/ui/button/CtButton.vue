@@ -40,16 +40,12 @@ defineSlots<{ default(): unknown }>();
   <button
     :type
     :disabled
-    :data-variant="variant"
-    :data-size="size"
+    :class="[variant, `size-${size}`, { glyph: label !== undefined, danger, float }]"
     :aria-busy="busy || undefined"
     :aria-label="label"
-    :data-glyph="label === undefined ? undefined : ''"
-    :data-danger="danger || undefined"
-    :data-float="float || undefined"
     @click="(e) => emit('click', e)"
   >
-    <slot></slot>
+    <slot />
   </button>
 </template>
 
@@ -91,19 +87,19 @@ button {
     }
   }
 
-  &[data-size="lg"] {
+  &.size-lg {
     min-height: var(--size-field);
     padding: 0 var(--space-10);
     font-size: var(--font-base);
   }
 
   /* a glyph alone: round, as wide as it is tall */
-  &[data-glyph] {
+  &.glyph {
     min-width: var(--tap);
     padding: 0;
   }
 
-  &[data-variant="quiet"] {
+  &.quiet {
     @media (--can-hover) {
       &:not(:disabled):hover {
         background: color-mix(in oklch, var(--ink) 12%, transparent);
@@ -111,7 +107,7 @@ button {
     }
   }
 
-  &[data-variant="primary"] {
+  &.primary {
     background: var(--ink);
     color: var(--on-ink);
 
@@ -122,7 +118,7 @@ button {
     }
   }
 
-  &[data-variant="ask"] {
+  &.ask {
     padding: 0 var(--space-6);
     background: var(--surface);
     border: var(--line-width) dashed color-mix(in oklch, var(--ink) 30%, var(--line));
@@ -134,7 +130,7 @@ button {
     }
   }
 
-  &[data-variant="blank"] {
+  &.blank {
     background: transparent;
     border: var(--line-width-drawn) dashed color-mix(in oklch, var(--ink) 28%, transparent);
     color: var(--muted);
@@ -146,7 +142,7 @@ button {
     }
   }
 
-  &[data-variant="text"] {
+  &.text {
     /* a thumb's height to hit, taken back out of the line so the line keeps its own */
     margin-block: calc((1lh - var(--tap)) / 2);
     padding: 0 var(--space-2);
@@ -158,22 +154,22 @@ button {
     text-underline-offset: var(--underline-offset);
 
     /* among a line's small notes: as small as they are */
-    &[data-size="sm"] {
+    &.size-sm {
       font-size: var(--font-xs);
     }
   }
 
   /* over the desk, lifted off it as the tools are */
-  &[data-float] {
+  &.float {
     box-shadow: var(--shadow-tool);
   }
 
-  &[data-danger] {
-    &[data-variant="primary"] {
+  &.danger {
+    &.primary {
       background: var(--danger);
     }
 
-    &[data-variant="quiet"] {
+    &.quiet {
       background: transparent;
       color: var(--muted);
 
@@ -186,7 +182,7 @@ button {
     }
 
     /* in the line's quieter ink, the danger's color only on intent */
-    &[data-variant="text"] {
+    &.text {
       color: var(--muted);
 
       @media (--can-hover) {

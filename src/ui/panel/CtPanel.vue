@@ -24,12 +24,9 @@ defineSlots<{ default(): unknown }>();
   <component
     :is="as"
     class="panel"
-    :data-pad="pad"
-    :data-float="float || undefined"
-    :data-sunken="sunken || undefined"
-    :data-from="from"
+    :class="[`pad-${pad}`, { float, sunken, 'from-desktop': from === 'desktop' }]"
   >
-    <slot></slot>
+    <slot />
   </component>
 </template>
 
@@ -49,32 +46,32 @@ defineSlots<{ default(): unknown }>();
   /* its fields set into it, in the desk's color */
   --field-bg: var(--bg);
 
-  &[data-pad="none"] {
+  &.pad-none {
     padding: 0;
   }
-  &[data-pad="sm"] {
+  &.pad-sm {
     padding: var(--space-3);
   }
-  &[data-pad="md"] {
+  &.pad-md {
     padding: var(--space-6) var(--space-7);
   }
-  &[data-pad="lg"] {
+  &.pad-lg {
     padding: var(--space-8);
   }
 
-  &[data-float] {
+  &.float {
     box-shadow:
       inset 0 0 0 var(--line-width) var(--line),
       var(--shadow-float);
   }
 
-  &[data-sunken] {
+  &.sunken {
     background: var(--bg);
     --field-bg: var(--surface);
   }
 
   /* narrower than a computer: no panel, only what it holds */
-  &[data-from="desktop"] {
+  &.from-desktop {
     @media not (--desktop) {
       padding: 0;
       border-radius: 0;

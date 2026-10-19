@@ -60,7 +60,7 @@ button {
     width 0.1s ease-out,
     color var(--duration-swap) ease;
 
-  [data-dock]:not([data-magnify]) & {
+  [data-dock]:not(.magnify) & {
     transition:
       width var(--duration-morph) var(--ease-spring),
       color var(--duration-swap) ease;
@@ -94,7 +94,7 @@ button {
       scale 0.1s ease-out,
       background-color var(--duration-swap) ease;
 
-    [data-dock]:not([data-magnify]) & {
+    [data-dock]:not(.magnify) & {
       transition:
         scale var(--duration-morph) var(--ease-spring),
         background-color var(--duration-swap) ease;

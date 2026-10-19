@@ -89,10 +89,7 @@ const edges = computed(() => {
   <span
     aria-hidden="true"
     class="pill"
-    :data-look="look"
-    :data-dir="dir"
-    :data-ready="ready || undefined"
-    :data-shown="box !== null || undefined"
+    :class="[look, `dir-${dir}`, { ready, shown: box !== null }]"
     :style="edges"
   ></span>
 </template>
@@ -112,29 +109,29 @@ const edges = computed(() => {
   opacity: 0;
   pointer-events: none;
 
-  &[data-shown] {
+  &.shown {
     opacity: 1;
   }
 
-  &[data-look="ink"] {
+  &.ink {
     background: var(--ink);
   }
-  &[data-look="ring"] {
+  &.ring {
     box-shadow: inset 0 0 0 var(--ring-width) var(--ink);
   }
-  &[data-look="surface"] {
+  &.surface {
     background: var(--surface);
     box-shadow: var(--shadow-tool), 0 0 0 var(--line-width) var(--line);
   }
 
-  &[data-ready] {
+  &.ready {
     transition:
       inset-inline-start var(--trail),
       inset-inline-end var(--lead),
       inset-block-start var(--lead),
       height var(--lead);
 
-    &[data-dir="back"] {
+    &.dir-back {
       transition:
         inset-inline-start var(--lead),
         inset-inline-end var(--trail),

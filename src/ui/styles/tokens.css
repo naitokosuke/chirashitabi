@@ -264,11 +264,11 @@
 
 /*
  * Written on paper. Paper is light in both themes and its ink always dark, so what is on it
- * (CtPaper's content, and anything else made of paper: `data-paper`) takes the paper's ink for
+ * (CtPaper's content, and anything else made of paper: `.on-paper`) takes the paper's ink for
  * the desk's: a CtButton, a CtChip, a focus ring on paper draw in it, and in the paper's
  * white where the desk's would be.
  */
-[data-paper] {
+.on-paper {
   --ink: var(--paper-ink);
   --muted: var(--paper-muted);
   --on-ink: var(--paper-white);

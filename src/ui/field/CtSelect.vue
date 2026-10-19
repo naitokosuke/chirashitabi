@@ -4,7 +4,7 @@
  * slot (`<option>`s). `v-model` holds the value picked, as the option's value says it (a string;
  * the owner reads a number from it where it means one). `size="sm"` is a quieter one tucked
  * into a narrow tab under a CtInput size="sm" (how long a slip's plan takes): a tap's height,
- * small and bold, centered. On paper (data-paper) its edge and fill are the paper's.
+ * small and bold, centered. On paper (.on-paper) its edge and fill are the paper's.
  */
 const { size = "md" } = defineProps<{ size?: "md" | "sm" }>();
 const model = defineModel<string>({ default: "" });
@@ -12,7 +12,7 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <select v-model="model" :data-size="size"><slot></slot></select>
+  <select v-model="model" :class="`size-${size}`"><slot /></select>
 </template>
 
 <style scoped>
@@ -31,7 +31,7 @@ select {
     opacity: 0.35;
   }
 
-  &[data-size="sm"] {
+  &.size-sm {
     min-height: var(--tap);
     padding: var(--space-1);
     font-size: var(--font-xs);

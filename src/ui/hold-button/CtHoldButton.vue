@@ -13,7 +13,7 @@ import { onBeforeUnmount, onMounted, ref, useId, useSlots, useTemplateRef } from
  *
  * Its `variant` is how it rests: `quiet`, a wash of ink; `primary`, filled with ink, filling a
  * step lighter (the yes of two); `outline`, a hairline, filling in muted ink (the no of two).
- * On paper (data-paper) all three are in the paper's ink.
+ * On paper (.on-paper) all three are in the paper's ink.
  */
 const {
   label,
@@ -183,9 +183,7 @@ onBeforeUnmount(() => {
     ref="el"
     type="button"
     :disabled
-    :data-state="state"
-    :data-danger="danger || undefined"
-    :data-variant="variant"
+    :class="[state, variant, { danger }]"
     :style="`--p: ${p}; --w: ${size.w}px; --h: ${size.h}px`"
     :aria-labelledby="`${id}-label`"
     :aria-describedby="`${id}-hint`"
@@ -263,24 +261,24 @@ button {
     transition: none;
   }
 
-  &[data-variant="primary"] {
+  &.primary {
     --tone: color-mix(in oklab, var(--ink), var(--on-ink) 30%);
     background: var(--ink);
     color: var(--on-ink);
   }
 
-  &[data-variant="outline"] {
+  &.outline {
     --tone: var(--muted);
     background: var(--surface);
     color: var(--muted);
     box-shadow: inset 0 0 0 var(--line-width-drawn) color-mix(in oklch, var(--ink) 35%, transparent);
   }
 
-  &[data-danger] {
+  &.danger {
     --tone: var(--danger);
   }
 
-  &[data-state="holding"] {
+  &.holding {
     scale: 0.97;
 
     @media (--reduced-motion) {
@@ -289,7 +287,7 @@ button {
   }
 
   /* done: its ring goes out (.pulse) */
-  &[data-state="done"] > .pulse {
+  &.done > .pulse {
     animation: ring 600ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
 
     @media (--reduced-motion) {

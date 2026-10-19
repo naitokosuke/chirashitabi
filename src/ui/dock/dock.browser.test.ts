@@ -70,7 +70,7 @@ describe("magnifying", () => {
     await expect.poll(() => width("map")).toBeGreaterThan(cell() * 1.4);
     await userEvent.unhover(item("map"));
     await expect.poll(() => width("map")).toBe(cell());
-    expect(dock().hasAttribute("data-magnify")).toBe(false);
+    expect(dock().classList.contains("magnify")).toBe(false);
   });
 
   test("coming back while the icons are still springing back, the growth is still under the pointer", async () => {
@@ -86,7 +86,7 @@ describe("magnifying", () => {
 
 describe("the dot", () => {
   test("sits under the item that is open", () => {
-    expect(dot().hasAttribute("data-shown")).toBe(true);
+    expect(dot().classList.contains("shown")).toBe(true);
     expect(dotX()).toBeCloseTo(under("canvas"), 0);
   });
 
@@ -114,9 +114,9 @@ describe("the dot", () => {
 
   test("goes with a tab folded away, and comes back under the trips", async () => {
     state.open = false;
-    await expect.poll(() => dot().hasAttribute("data-shown")).toBe(false);
+    await expect.poll(() => dot().classList.contains("shown")).toBe(false);
     state.current = "trips";
-    await expect.poll(() => dot().hasAttribute("data-shown")).toBe(true);
+    await expect.poll(() => dot().classList.contains("shown")).toBe(true);
     await expect.poll(dotX).toBeCloseTo(under("trips"), 0);
   });
 });

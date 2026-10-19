@@ -46,7 +46,7 @@ const PAD = 4;
 
 describe("the ring", () => {
   test("sits around the chosen color from the start, 4px out, hollow", async () => {
-    expect(ring().hasAttribute("data-shown")).toBe(true);
+    expect(ring().classList.contains("shown")).toBe(true);
     const s = () => edgesOf(swatch(0).element());
     // the styles arrive after the first paint here; the row's resize places the ring again
     await expect.poll(() => edgesOf(ring()).left).toBeCloseTo(s().left - PAD, 0);

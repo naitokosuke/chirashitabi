@@ -11,7 +11,7 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <p :data-boxed="boxed || undefined" :data-danger="danger || undefined"><slot></slot></p>
+  <p :class="{ boxed, danger }"><slot /></p>
 </template>
 
 <style scoped>
@@ -28,11 +28,11 @@ p {
   font-size: var(--font-sm);
   color: var(--ink);
 
-  &[data-danger] {
+  &.danger {
     color: var(--danger);
   }
 
-  &[data-boxed] {
+  &.boxed {
     padding: var(--space-6) var(--space-7);
     border-radius: var(--radius-7);
     background: var(--surface);

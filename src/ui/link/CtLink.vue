@@ -8,20 +8,14 @@ import { safeUrl } from "../url";
  * line keeps its own; it takes the line's size. `quiet` writes it in the line's own muted ink
  * and weight, for a link that is not what the line is about (the way to a stay on a map).
  * `inline` is a link among the words of running text (an address in a note): it breaks with
- * them and keeps their weight. On paper, its ink is the paper's (tokens.css, data-paper).
+ * them and keeps their weight. On paper, its ink is the paper's (tokens.css, .on-paper).
  */
 defineProps<{ href: string | null | undefined; quiet?: boolean; inline?: boolean }>();
 defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <a
-    :href="safeUrl(href)"
-    :data-quiet="quiet || undefined"
-    :data-inline="inline || undefined"
-    rel="noopener noreferrer"
-    target="_blank"
-  >
+  <a :href="safeUrl(href)" :class="{ quiet, inline }" rel="noopener noreferrer" target="_blank">
     <slot />
   </a>
 </template>
@@ -39,12 +33,12 @@ a {
   text-decoration: underline;
   text-underline-offset: var(--underline-offset);
 
-  &[data-quiet] {
+  &.quiet {
     color: var(--muted);
     font-weight: inherit;
   }
 
-  &[data-inline] {
+  &.inline {
     display: inline;
     min-height: 0;
     margin-block: 0;

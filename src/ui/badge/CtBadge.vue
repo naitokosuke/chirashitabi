@@ -18,15 +18,8 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <component
-    :is="as"
-    class="badge"
-    :data-filled="filled || undefined"
-    :data-dashed="dashed || undefined"
-    :data-float="float || undefined"
-    :data-busy="busy || undefined"
-  >
-    <slot></slot>
+  <component :is="as" class="badge" :class="{ filled, dashed, float, busy }">
+    <slot />
   </component>
 </template>
 
@@ -49,12 +42,12 @@ defineSlots<{ default(): unknown }>();
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 
-  &[data-filled] {
+  &.filled {
     background: var(--ink);
     color: var(--on-ink);
   }
 
-  &[data-dashed] {
+  &.dashed {
     border: var(--line-width) dashed color-mix(in oklch, var(--ink) 45%, transparent);
     background: transparent;
     color: var(--muted);
@@ -62,7 +55,7 @@ defineSlots<{ default(): unknown }>();
     line-height: calc(var(--size-badge) - 2 * var(--line-width));
   }
 
-  &[data-float] {
+  &.float {
     padding: var(--space-2) var(--space-5);
     background: var(--surface);
     box-shadow:
@@ -74,7 +67,7 @@ defineSlots<{ default(): unknown }>();
   }
 
   /* under way: a dot breathing before the words, which say what is happening */
-  &[data-busy] {
+  &.busy {
     display: inline-flex;
     align-items: center;
     gap: var(--space-4);

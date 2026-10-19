@@ -8,7 +8,7 @@ import { useTemplateRef } from "vue";
  * It sits on the desk; on a raised card, `--field-bg` set to the desk's color sets it into the
  * card. `focus()` puts the caret in it. `size="sm"` is a field tucked into a narrow tab (a
  * time on a slip): a tap's height, its value bold and centered in figures of one width, and no
- * clock glyph to crowd them. On paper (data-paper) its edge and fill are the paper's.
+ * clock glyph to crowd them. On paper (.on-paper) its edge and fill are the paper's.
  */
 const { size = "md" } = defineProps<{ size?: "md" | "sm" }>();
 const model = defineModel<string | number>({ required: true });
@@ -18,7 +18,7 @@ defineExpose({ focus: () => el.value?.focus() });
 </script>
 
 <template>
-  <input ref="el" v-model="model" :data-size="size" />
+  <input ref="el" v-model="model" :class="`size-${size}`" />
 </template>
 
 <style scoped>
@@ -41,7 +41,7 @@ input {
     opacity: 0.35;
   }
 
-  &[data-size="sm"] {
+  &.size-sm {
     width: 100%;
     min-height: var(--tap);
     padding: var(--space-2);

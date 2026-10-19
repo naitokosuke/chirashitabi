@@ -26,7 +26,7 @@ function submit(event: Event) {
 </script>
 
 <template>
-  <component :is="as" class="sheet" :data-docked="docked || undefined" @submit="submit">
+  <component :is="as" class="sheet" :class="{ docked }" @submit="submit">
     <slot name="top"></slot>
     <div class="body"><slot></slot></div>
     <div v-if="slots.foot !== undefined" class="foot"><slot name="foot"></slot></div>
@@ -43,7 +43,7 @@ function submit(event: Event) {
   background: var(--bg);
 
   /* a view in the stack like the others, not a sheet over them, above the dock */
-  &[data-docked] {
+  &.docked {
     z-index: auto;
     isolation: isolate;
     padding-block-end: var(--dock-clear);

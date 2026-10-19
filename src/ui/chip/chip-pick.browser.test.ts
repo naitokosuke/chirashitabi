@@ -45,7 +45,7 @@ const edgesOf = (el: Element) => {
 
 describe("the ink", () => {
   test("fills the chosen chip from the start", async () => {
-    expect(pill().hasAttribute("data-shown")).toBe(true);
+    expect(pill().classList.contains("shown")).toBe(true);
     const c = () => edgesOf(chip("TWD").element());
     await expect.poll(() => edgesOf(pill()).left).toBeCloseTo(c().left, 0);
     await expect.poll(() => edgesOf(pill()).right).toBeCloseTo(c().right, 0);

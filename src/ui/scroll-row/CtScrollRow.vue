@@ -14,8 +14,8 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <ul v-if="as === 'ul'" :data-inset="inset || undefined"><slot></slot></ul>
-  <div v-else :data-inset="inset || undefined"><slot></slot></div>
+  <ul v-if="as === 'ul'" :class="{ inset }"><slot /></ul>
+  <div v-else :class="{ inset }"><slot /></div>
 </template>
 
 <style scoped>
@@ -37,7 +37,7 @@ ul {
     display: none;
   }
 
-  &[data-inset] {
+  &.inset {
     margin-inline-start: 0;
     padding-inline-start: var(--space-8);
   }

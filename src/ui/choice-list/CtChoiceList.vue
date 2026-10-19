@@ -10,7 +10,7 @@ const emit = defineEmits<{ choose: [item: T] }>();
 </script>
 
 <template>
-  <ul :data-dashed="dashed || undefined">
+  <ul :class="{ dashed }">
     <li v-for="it in items" :key="it.key">
       <button type="button" @click="() => emit('choose', it)">
         <span>{{ it.label }}</span>
@@ -61,7 +61,7 @@ ul {
     }
   }
 
-  &[data-dashed] button {
+  &.dashed button {
     border-style: dashed;
     border-color: color-mix(in oklch, var(--ink) 30%, var(--line));
 

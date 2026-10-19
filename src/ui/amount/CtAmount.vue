@@ -14,7 +14,7 @@ const { size = "md" } = defineProps<{
 </script>
 
 <template>
-  <p class="amount" :data-size="size">
+  <p class="amount" :class="`size-${size}`">
     <small v-if="label !== undefined" class="label">{{ label }}</small>{{
       value
     }}<small v-if="aside !== undefined" class="aside">{{ aside }}</small>
@@ -31,7 +31,7 @@ const { size = "md" } = defineProps<{
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 
-  &[data-size="lg"] {
+  &.size-lg {
     font-size: var(--font-4xl);
   }
 

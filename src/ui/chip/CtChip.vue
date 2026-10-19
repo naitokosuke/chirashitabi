@@ -25,15 +25,11 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
 <template>
   <button
     type="button"
-    :data-selected="selected || undefined"
-    :data-float="float || undefined"
-    :data-dashed="dashed || undefined"
-    :data-size="size === 'sm' ? 'sm' : undefined"
-    :data-suggested="suggested || undefined"
+    :class="{ selected, float, dashed, 'size-sm': size === 'sm', suggested }"
     :aria-pressed="toggle ? selected : undefined"
     @click="(e) => emit('click', e)"
   >
-    <slot></slot>
+    <slot />
     <small v-if="count != null">{{ count }}</small>
     <small v-if="aside !== undefined" class="aside">{{ aside }}</small>
   </button>
@@ -59,26 +55,26 @@ button {
     color var(--duration-swap) ease,
     border-color var(--duration-swap) ease;
   @media (--can-hover) {
-    &:not([data-selected]):hover {
+    &:not(.selected):hover {
       color: var(--ink);
       border-color: color-mix(in oklch, var(--ink) 30%, var(--line));
     }
   }
-  &[data-selected] {
+  &.selected {
     background: var(--ink);
     color: var(--on-ink);
     border-color: var(--ink);
   }
-  &[data-float] {
+  &.float {
     box-shadow: var(--shadow-tool);
   }
-  &[data-dashed] {
+  &.dashed {
     border-style: dashed;
   }
-  &[data-size="sm"] {
+  &.size-sm {
     min-height: var(--size-inset-control);
   }
-  &[data-suggested]:not([data-selected]) {
+  &.suggested:not(.selected) {
     color: var(--ink);
     border-color: color-mix(in oklch, var(--ink) 45%, var(--line));
   }

@@ -24,7 +24,7 @@ defineSlots<{ default(): unknown }>();
 const nav = useTemplateRef<HTMLElement>("nav");
 const items = () =>
   [...(nav.value?.querySelectorAll<HTMLElement>("[data-dock-item]") ?? [])].filter(
-    (el) => el.closest("[data-closed]") === null,
+    (el) => el.closest(".closed") === null,
   );
 const middle = (r: DOMRect) => r.left + r.width / 2;
 /** The icons as they are now, and where each rests */
@@ -62,6 +62,8 @@ const schedule = () => {
  */
 const dot = ref<number | null>(null);
 const dotReady = ref(false);
+/** Under a mouse, the icons magnify (and settle back when it leaves) */
+const magnifying = ref(false);
 function placeDot() {
   const n = nav.value;
   if (n === null) return;
@@ -77,7 +79,7 @@ onMounted(() => {
   const n = nav.value;
   if (n === null) return;
   const changed = new MutationObserver(placeDot);
-  changed.observe(n, { subtree: true, attributeFilter: ["aria-current", "data-closed"] });
+  changed.observe(n, { subtree: true, attributeFilter: ["aria-current", "class"] });
   const resized = new ResizeObserver(placeDot);
   resized.observe(n);
   watchers = [changed, resized];
@@ -90,7 +92,7 @@ onBeforeUnmount(() => {
 
 function onEnter(e: PointerEvent) {
   if (e.pointerType !== "mouse") return;
-  nav.value?.setAttribute("data-magnify", "");
+  magnifying.value = true;
   pointer = e.clientX;
   schedule();
 }
@@ -101,7 +103,7 @@ function onMove(e: PointerEvent) {
 }
 function onLeave() {
   pointer = null;
-  nav.value?.removeAttribute("data-magnify");
+  magnifying.value = false;
   schedule();
 }
 </script>
@@ -111,7 +113,7 @@ function onLeave() {
     ref="nav"
     data-dock
     :aria-label="label"
-    :data-away="away || undefined"
+    :class="{ away, magnify: magnifying }"
     :inert="away"
     @pointerenter="onEnter"
     @pointermove="onMove"
@@ -121,8 +123,7 @@ function onLeave() {
     <span
       aria-hidden="true"
       class="dot"
-      :data-ready="dotReady || undefined"
-      :data-shown="dot !== null || undefined"
+      :class="{ ready: dotReady, shown: dot !== null }"
       :style="dot === null ? undefined : `--x: ${dot}px`"
     ></span>
   </nav>
@@ -178,18 +179,18 @@ nav {
     opacity: 0;
     pointer-events: none;
 
-    &[data-shown] {
+    &.shown {
       opacity: 1;
     }
 
-    &[data-ready] {
+    &.ready {
       transition:
         translate var(--duration-morph) var(--ease-morph),
         opacity var(--duration-swap) ease;
     }
   }
 
-  &[data-away] {
+  &.away {
     translate: 0 calc(100% + var(--dock-gap) + env(safe-area-inset-bottom, 0px));
     opacity: 0;
   }

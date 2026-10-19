@@ -10,12 +10,7 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <button
-    type="button"
-    :disabled
-    :data-danger="danger || undefined"
-    @click="(e) => emit('click', e)"
-  >
+  <button type="button" :disabled :class="{ danger }" @click="(e) => emit('click', e)">
     <slot></slot>
   </button>
 </template>
@@ -31,7 +26,7 @@ button {
   font-size: var(--font-sm);
   font-weight: 700;
 
-  &[data-danger] {
+  &.danger {
     background: var(--danger);
   }
 

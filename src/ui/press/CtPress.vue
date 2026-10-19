@@ -12,7 +12,7 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <button type="button" :data-cover="cover || undefined" @click="(e) => emit('click', e)">
+  <button type="button" :class="{ cover }" @click="(e) => emit('click', e)">
     <slot></slot>
   </button>
 </template>
@@ -30,7 +30,7 @@ button {
   overflow-wrap: anywhere;
 
   /* the press is the whole of what it names: its box, and its ring, stretched over it */
-  &[data-cover] {
+  &.cover {
     min-height: 0;
 
     &::after {
