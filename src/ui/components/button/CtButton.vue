@@ -9,11 +9,14 @@
  * - `text`: a word inside a line (on a toast, a band, a paper), told apart by its underline
  *   and written in the line's own ink and size; the line's height is its tap's.
  *
- * `size` `lg` is the act at the foot of a form, as tall as a field. `type` `submit` sends the form it is in. While
+ * `size` `lg` is the act at the foot of a form, as tall as a field; `sm` is a `text` button
+ * among a line's small notes, as small as they are. `float` lifts it off the desk with a
+ * tool's shadow, for a button floating over a view. `type` `submit` sends the form it is in. While
  * what it set going is under way (`busy`), a dot breathes before its words. With `label`, the
  * slot is a glyph alone and `label` names it: the button is a round, a thumb's width.
  * `danger` is an act that takes something away: `primary` fills it with the danger's color;
- * `quiet` keeps it quieter still, no wash and grey words, the danger's color only on intent.
+ * `quiet` keeps it quieter still, no wash and grey words, the danger's color only on intent;
+ * `text` writes it in the line's quieter ink, the same way.
  */
 const {
   variant = "quiet",
@@ -21,12 +24,13 @@ const {
   type = "button",
 } = defineProps<{
   variant?: "quiet" | "primary" | "ask" | "blank" | "text";
-  size?: "md" | "lg";
+  size?: "sm" | "md" | "lg";
   type?: "button" | "submit";
   disabled?: boolean;
   busy?: boolean;
   label?: string;
   danger?: boolean;
+  float?: boolean;
 }>();
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
 defineSlots<{ default(): unknown }>();
@@ -42,6 +46,7 @@ defineSlots<{ default(): unknown }>();
     :aria-label="label"
     :data-glyph="label === undefined ? undefined : ''"
     :data-danger="danger || undefined"
+    :data-float="float || undefined"
     @click="(e) => emit('click', e)"
   >
     <slot></slot>
@@ -151,6 +156,16 @@ button {
     font-size: inherit;
     text-decoration: underline;
     text-underline-offset: 3px;
+
+    /* among a line's small notes: as small as they are */
+    &[data-size="sm"] {
+      font-size: var(--font-xs);
+    }
+  }
+
+  /* over the desk, lifted off it as the tools are */
+  &[data-float] {
+    box-shadow: var(--shadow-tool);
   }
 
   &[data-danger] {
@@ -165,6 +180,17 @@ button {
       @media (--can-hover) {
         &:not(:disabled):hover {
           background: var(--wash);
+          color: var(--danger);
+        }
+      }
+    }
+
+    /* in the line's quieter ink, the danger's color only on intent */
+    &[data-variant="text"] {
+      color: var(--muted);
+
+      @media (--can-hover) {
+        &:not(:disabled):hover {
           color: var(--danger);
         }
       }

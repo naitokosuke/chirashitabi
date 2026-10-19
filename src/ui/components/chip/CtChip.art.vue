@@ -22,6 +22,12 @@ const on = ref(false);
   <variant name="With count">
     <CtChip :count="12">Food</CtChip>
   </variant>
+  <variant name="Suggested, and new">
+    <div>
+      <CtChip suggested>Food</CtChip>
+      <CtChip aside="new" dashed>Night market</CtChip>
+    </div>
+  </variant>
   <variant name="Toggle">
     <CtChip toggle :selected="on" @click="() => (on = !on)">Done only</CtChip>
   </variant>
