@@ -10,12 +10,14 @@ import {
   CtGlass,
   CtHeading,
   CtHint,
+  CtInput,
   CtLink,
   CtMessage,
   CtPanel,
   CtPaper,
   CtScrollRow,
   CtSegmented,
+  CtSelect,
   CtTabList,
   CtTabPanel,
   CtTextarea,
@@ -590,22 +592,24 @@ function adoptDraft() {
               >
                 <div>
                   <template v-if="editing">
-                    <input
+                    <CtInput
+                      size="sm"
                       type="time"
                       :aria-label="i18n.t('shiori.time')"
-                      :value="n.schedule.time ? hhmm(n.schedule.time) : ''"
+                      :model-value="n.schedule.time ? hhmm(n.schedule.time) : ''"
                       @change="(e) => setTime(n, e)"
                     />
-                    <select
+                    <CtSelect
+                      size="sm"
                       :aria-label="i18n.t('shiori.minutes')"
-                      :value="n.minutes ?? ''"
+                      :model-value="String(n.minutes ?? '')"
                       @change="(e) => setMinutes(n, e)"
                     >
                       <option value="">{{ i18n.t("duration.unset") }}</option>
-                      <option v-for="m in durationChoices(n.minutes)" :key="m" :value="m">{{
+                      <option v-for="m in durationChoices(n.minutes)" :key="m" :value="String(m)">{{
                         long(m)
                       }}</option>
-                    </select>
+                    </CtSelect>
                   </template>
                   <template v-else>
                     <span>{{
@@ -1090,41 +1094,6 @@ article {
             border-radius: 6px 0 0 6px;
             /* a darker fold of the same paper: lightness only, so a yellow fold stays yellow */
             background: oklch(from var(--card, var(--paper-white)) calc(l - 0.045) c h);
-
-            > input {
-              width: 100%;
-              min-height: var(--tap);
-              font: inherit;
-              font-size: var(--font-md);
-              font-weight: 700;
-              font-variant-numeric: tabular-nums;
-              padding: 4px;
-              border: 1px solid color-mix(in oklch, var(--paper-ink) 20%, transparent);
-              border-radius: 10px;
-              background: color-mix(in oklch, var(--paper-white) 55%, transparent);
-              color: var(--paper-ink);
-              text-align: center;
-
-              /* the field is the tab; the browser's clock glyph would crowd the digits out */
-              &::-webkit-calendar-picker-indicator {
-                display: none;
-              }
-            }
-
-            /* how long it takes, under the time: a quieter field of the same make */
-            > select {
-              width: 100%;
-              min-height: var(--tap);
-              font: inherit;
-              font-size: var(--font-xs);
-              font-weight: 700;
-              padding: 2px;
-              border: 1px solid color-mix(in oklch, var(--paper-ink) 20%, transparent);
-              border-radius: 10px;
-              background: color-mix(in oklch, var(--paper-white) 55%, transparent);
-              color: var(--paper-ink);
-              text-align: center;
-            }
 
             > span {
               padding-block-start: 2px;
