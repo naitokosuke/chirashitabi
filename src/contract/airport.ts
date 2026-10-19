@@ -1,14 +1,16 @@
 import * as v from "valibot";
 
+import rows from "./airports-data.json";
+
 /**
- * An airport's IATA code that is on the list (airports.json): what a flight's from and to are.
+ * An airport's IATA code that is on the list (airports-data.json): what a flight's from and to are.
  * Only the list mints one (airportsOf), or the room, which checked it against the same list.
  */
 export const AirportCodeSchema = v.pipe(v.string(), v.regex(/^[A-Z]{3}$/), v.brand("AirportCode"));
 
 export type AirportCode = v.InferOutput<typeof AirportCodeSchema>;
 
-/** A row of airports.json as the script writes it, as the airport it is */
+/** A row of airports-data.json as the script writes it, as the airport it is */
 const AirportRowSchema = v.pipe(
   v.strictTuple([AirportCodeSchema, v.string(), v.string(), v.string(), v.number(), v.number()]),
   v.transform(([code, name, city, country, lat, lng]) => ({
@@ -21,13 +23,13 @@ const AirportRowSchema = v.pipe(
 );
 
 /**
- * Airports with an IATA code and scheduled service, from OurAirports (airports.json, built by
+ * Airports with an IATA code and scheduled service, from OurAirports (airports-data.json, built by
  * scripts/airports.mjs): what a flight's from and to are matched against, for suggestions as
  * they are typed and for its point on the map.
  */
 export type Airport = v.InferOutput<typeof AirportRowSchema>;
 
-/** airports.json as the airports; a row that is not one is left out */
+/** airports-data.json as the airports; a row that is not one is left out */
 export const airportsOf = (rows: unknown): Airport[] => {
   const list = v.safeParse(v.array(v.unknown()), rows);
   return (list.success ? list.output : []).flatMap((row) => {
@@ -93,3 +95,27 @@ export function findAirport(airports: Airport[], text: string): Airport | undefi
     airports.find((a) => (ALIASES[a.code] ?? "").split(" ").includes(t))
   );
 }
+
+/**
+ * The list, loaded, for the room to hold a flight to: a flight's from and to are codes on it, and
+ * nothing else. Pure, so a bundle that never checks a code (the app's, which fetches the list)
+ * leaves airports-data.json out.
+ */
+const AIRPORTS: Airport[] = /* @__PURE__ */ airportsOf(rows);
+const CODES = /* @__PURE__ */ new Set<string>(/* @__PURE__ */ AIRPORTS.map((a) => a.code));
+
+const AirportCodeOnListSchema = v.pipe(
+  AirportCodeSchema,
+  v.check((code) => CODES.has(code)),
+);
+
+/** A code on the list, exactly as the app writes it */
+export const isAirportCode = (value: unknown): value is AirportCode =>
+  v.safeParse(AirportCodeOnListSchema, value).success;
+
+/**
+ * The airport a flight kept before codes were required names (a code in any case, a name, or a
+ * Japanese name), or null when it names none
+ */
+export const airportCodeOf = (text: string): AirportCode | null =>
+  findAirport(AIRPORTS, text)?.code ?? null;

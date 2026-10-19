@@ -199,7 +199,7 @@ export default defineConfig({
     vue: true,
     // written by vue-router's plugin on every build, as it writes it
     // and the airports, as scripts/airports.mjs writes them: one line, kept small
-    ignorePatterns: ["src/app/typed-router.d.ts", "src/contract/airports.json"],
+    ignorePatterns: ["src/app/typed-router.d.ts", "src/contract/airports-data.json"],
     // Farthest first: the further an import is from this module, the higher it sits
     sortImports: {
       customGroups: [

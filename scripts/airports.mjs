@@ -1,4 +1,4 @@
-// Builds src/contract/airports.json from OurAirports
+// Builds src/contract/airports-data.json from OurAirports
 // (https://github.com/davidmegginson/ourairports-data, released into the public domain under
 // The Unlicense: free to use, change and redistribute, with no warranty of accuracy):
 // every airport with an IATA code and scheduled service, as
@@ -10,7 +10,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
 const SOURCE = "https://davidmegginson.github.io/ourairports-data/airports.csv";
-const OUT = new URL("../src/contract/airports.json", import.meta.url);
+const OUT = new URL("../src/contract/airports-data.json", import.meta.url);
 
 const from = process.argv[2];
 const csv = from === undefined ? await (await fetch(SOURCE)).text() : readFileSync(from, "utf8");

@@ -9,7 +9,7 @@ export {
   type Airport,
   type AirportCode,
 } from "../../../contract/airport";
-export { default as airportsUrl } from "../../../contract/airports.json?url";
+export { default as airportsUrl } from "../../../contract/airports-data.json?url";
 
 /**
  * The airports a typed word may mean, best first: its code exactly, then codes it begins, then
