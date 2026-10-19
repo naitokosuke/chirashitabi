@@ -376,7 +376,7 @@ function fitAll() {
           </CtChipRow>
         </div>
         <!-- the desk's filter follows the pins here, and can be cleared here -->
-        <div v-if="tags.selected.size > 0">
+        <CtChipRow v-if="tags.selected.size > 0" class="filter">
           <CtChip class="clear" @click="() => tags.selected.clear()">{{
             i18n.t("filter.clear")
           }}</CtChip>
@@ -387,7 +387,7 @@ function fitAll() {
             toggle
             @click="() => tags.toggleTag(t.name)"
           >#{{ t.name }}</CtChip>
-        </div>
+        </CtChipRow>
         <p v-if="noPin > 0">{{
           i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin })
         }}</p>
@@ -401,7 +401,7 @@ function fitAll() {
         :style="`--x: ${holding.x}px; --y: ${holding.y}px; --hold: ${HOLD_MS}ms`"
       ></span>
 
-      <div class="jump"><button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button></div>
+      <div class="jump"><CtChip @click="fitAll">{{ i18n.t("common.fitAll") }}</CtChip></div>
 
       <!-- the same write button as the canvas: writing is never more than a tap away -->
       <CtFab :label="i18n.t('canvas.write')" @click="() => write(null)"><Icon
@@ -605,20 +605,10 @@ section {
         }
       }
 
-      /* the filter */
-      > div:not(.days) {
-        margin-inline: 16px;
-        display: flex;
-        gap: 6px;
-        overflow-x: auto;
-        scrollbar-width: none;
-        padding: 2px 24px 8px 2px;
-        margin-inline: -2px;
-        mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-
-        &::-webkit-scrollbar {
-          display: none;
-        }
+      /* the filter, a row as tall as its chips under the days */
+      > .filter {
+        flex: none;
+        padding-block: 2px 8px;
 
         > .clear {
           border-style: dashed;
@@ -663,23 +653,15 @@ section {
       }
     }
 
-    /* level with the write button's middle, as on the desk */
+    /* level with the write button's middle, as on the desk: a chip floating over the map */
     > .jump {
       position: absolute;
       inset-inline-start: 16px;
-      inset-block-end: calc(var(--dock-clear) + 24px);
+      inset-block-end: calc(var(--dock-clear) + 16px + (56px - var(--tap)) / 2);
       z-index: var(--z-float);
 
       > button {
-        min-height: 40px;
-        padding: 0 14px;
-        border-radius: 999px;
-        background: var(--surface);
-        border: 1px solid var(--line);
         box-shadow: var(--shadow-tool);
-        font-size: var(--font-sm);
-        font-weight: 700;
-        color: var(--muted);
       }
     }
 

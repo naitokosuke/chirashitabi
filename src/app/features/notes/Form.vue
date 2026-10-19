@@ -28,7 +28,7 @@ import {
   watch,
 } from "vue";
 
-import { CtButton, CtChip, CtField, CtInput, useFlip } from "../../../ui/index";
+import { CtBackButton, CtButton, CtChip, CtField, CtInput, useFlip } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -629,9 +629,9 @@ function submit() {
 <template>
   <form :data-docked="docked || undefined" @submit.prevent="submit">
     <!-- no bar: as a sheet, the way back floats where a bar would be; the title opens the page -->
-    <button v-if="mode.kind === 'sheet'" class="back" type="button" @click="() => emit('close')">
+    <CtBackButton v-if="mode.kind === 'sheet'" @click="() => emit('close')">
       <Icon :size="16" :src="backIcon" />{{ mode.back }}
-    </button>
+    </CtBackButton>
     <div>
       <h2 class="title">{{ i18n.t(editing ? "form.titleEdit" : "form.titleNew") }}</h2>
       <!-- on a computer, side by side: what the note is, then the details of the plan -->
@@ -887,36 +887,6 @@ form {
     }
   }
 
-  /* the way back, floating in the row where a bar would be */
-  > .back {
-    position: absolute;
-    inset-inline-start: 12px;
-    inset-block-start: calc(var(--top-inset) + (var(--top-row) - var(--tap)) / 2);
-    z-index: var(--z-chrome);
-    min-height: var(--tap);
-    padding: 0 12px 0 8px;
-    border-radius: 999px;
-    border: 0;
-    background: var(--glass);
-    backdrop-filter: blur(16px) saturate(1.5);
-    -webkit-backdrop-filter: blur(16px) saturate(1.5);
-    box-shadow:
-      inset 0 0 0 1px color-mix(in oklch, var(--line) 80%, transparent),
-      var(--shadow-tool);
-    color: var(--muted);
-    font-size: var(--font-sm);
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-
-    @media (--can-hover) {
-      &:hover {
-        color: var(--ink);
-      }
-    }
-  }
-
   > div {
     flex: 1;
     overflow-y: auto;
@@ -1091,11 +1061,6 @@ form {
                 border-style: solid;
                 border-color: var(--ink);
               }
-            }
-
-            &:focus-visible {
-              outline: 2px solid var(--ink);
-              outline-offset: 2px;
             }
           }
         }

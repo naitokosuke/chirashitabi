@@ -4,6 +4,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import { computed, onMounted, ref, useId, useTemplateRef } from "vue";
 
 import {
+  CtBackButton,
   CtButton,
   CtChipPick,
   CtCalendar,
@@ -104,9 +105,9 @@ onMounted(() => nameEl.value?.focus());
 <template>
   <form class="sheet" @submit.prevent="create">
     <!-- no bar: the way back floats where a bar would be; the title opens the page -->
-    <button class="back" type="button" @click="() => emit('close')">
+    <CtBackButton @click="() => emit('close')">
       <Icon :size="16" :src="backIcon" />{{ i18n.t("home.trips") }}
-    </button>
+    </CtBackButton>
 
     <div class="body">
       <h2 class="title">{{ i18n.t("rooms.new") }}</h2>
@@ -183,36 +184,6 @@ onMounted(() => nameEl.value?.focus());
   display: flex;
   flex-direction: column;
   background: var(--bg);
-
-  /* the way back, floating in the row where a bar would be */
-  > .back {
-    position: absolute;
-    inset-inline-start: 12px;
-    inset-block-start: calc(var(--top-inset) + (var(--top-row) - var(--tap)) / 2);
-    z-index: var(--z-chrome);
-    min-height: var(--tap);
-    padding: 0 12px 0 8px;
-    border-radius: 999px;
-    border: 0;
-    background: var(--glass);
-    backdrop-filter: blur(16px) saturate(1.5);
-    -webkit-backdrop-filter: blur(16px) saturate(1.5);
-    box-shadow:
-      inset 0 0 0 1px color-mix(in oklch, var(--line) 80%, transparent),
-      var(--shadow-tool);
-    color: var(--muted);
-    font-size: var(--font-sm);
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-
-    @media (--can-hover) {
-      &:hover {
-        color: var(--ink);
-      }
-    }
-  }
 }
 
 .body {
