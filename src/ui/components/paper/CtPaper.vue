@@ -1,4 +1,6 @@
 <script setup lang="ts" vapor>
+import { useSlots } from "vue";
+
 /**
  * A piece of paper on the desk. Its stock is whoever it came from (`paper`, the member's
  * paper), so whose it is reads off the whole sheet; its outline says what it is:
@@ -10,9 +12,14 @@
  * - `print`: a picture brought onto the desk (a page's, or a photo of a note's), the soft
  *   corner of a person's paper with a wide mount round the picture (`picture`) in an ink-edged
  *   frame, the words under it (default slot) and a stamp (`foot`).
+ * - `row`: a person's sticky laid level along a page's row, as wide as the column (a plan in
+ *   the booklet, an item on its checklist). `tab` is a fold of the same paper, a shade darker,
+ *   down its start edge (the plan's time); what is written goes beside it.
  *
  * `wide` cuts it as wide as the column it lies in, for a slip read on a page rather than
- * pinned on the desk (the booklet's draft of a day).
+ * pinned on the desk (the booklet's draft of a day). `stamp` presses a word in the paper's ink
+ * across its top end corner, a little askew (done). `faded` lets the stock fade toward white
+ * and the paper lie flatter, for one that is only a maybe; its ink stays at full.
  *
  * `selected` frames it in ink, `lifted` raises it as a finger holds it. What is put on it (a
  * CtButton, a CtChip) is drawn in the paper's ink, not the desk's (tokens.css, data-paper).
@@ -23,13 +30,18 @@ const {
   selected,
   lifted,
   wide,
+  stamp,
+  faded,
 } = defineProps<{
-  variant?: "note" | "proposal" | "print";
+  variant?: "note" | "proposal" | "print" | "row";
   paper?: string;
   selected?: boolean;
   lifted?: boolean;
   wide?: boolean;
+  stamp?: string;
+  faded?: boolean;
 }>();
+const slots = useSlots();
 </script>
 
 <template>
@@ -38,7 +50,8 @@ const {
     :data-variant="variant"
     :data-selected="selected || undefined"
     :data-lifted="lifted || undefined"
-    :data-wide="wide || undefined"
+    :data-wide="wide || variant === 'row' || undefined"
+    :data-faded="faded || undefined"
     :style="`--paper: ${paper}`"
   >
     <!-- what is on it is written in the paper's ink (data-paper); its frame stays the desk's -->
@@ -46,8 +59,12 @@ const {
       <b class="label"><slot name="strip"></slot></b>
     </div>
     <div v-if="variant === 'print'" class="picture" data-paper><slot name="picture"></slot></div>
+    <div v-if="variant === 'row' && slots.tab !== undefined" class="tab" data-paper>
+      <slot name="tab"></slot>
+    </div>
     <div class="body" data-paper><slot></slot></div>
-    <div class="foot" data-paper><slot name="foot"></slot></div>
+    <div v-if="variant !== 'row'" class="foot" data-paper><slot name="foot"></slot></div>
+    <span v-if="stamp !== undefined" class="stamp">{{ stamp }}</span>
   </div>
 </template>
 
@@ -125,6 +142,57 @@ const {
       }
     }
   }
+
+  /* a row: level along the column, the tab down its start edge, the words beside it */
+  &[data-variant="row"] {
+    display: flex;
+
+    > .body {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 12px;
+    }
+  }
+
+  /* only a maybe: the stock fades toward white (in either theme, paper stays light), flatter */
+  &[data-faded] {
+    background: color-mix(in oklch, var(--paper) 45%, var(--paper-white));
+    box-shadow: var(--shadow-tool);
+
+    > .tab {
+      background: color-mix(in oklch, var(--paper) 70%, var(--paper-white));
+    }
+  }
+}
+
+/* the fold down a row's start edge: lightness only, so a yellow fold stays yellow */
+.tab {
+  flex-shrink: 0;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border-radius: 6px 0 0 6px;
+  background: oklch(from var(--paper) calc(l - 0.045) c h);
+}
+
+/* a word pressed in the paper's ink across the top end corner */
+.stamp {
+  position: absolute;
+  inset-block-start: 6px;
+  inset-inline-end: 10px;
+  padding: 1px 8px;
+  border: 2px solid var(--paper-ink);
+  border-radius: 4px;
+  color: var(--paper-ink);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transform: rotate(-10deg);
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 /* a slip's strip: what it is, perforated where it would tear off */

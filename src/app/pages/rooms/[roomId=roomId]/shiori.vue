@@ -5,7 +5,7 @@ import { computed, ref, useId, useTemplateRef } from "vue";
 
 import {
   CtButton,
-  CtCheckbox,
+  CtCheck,
   CtChip,
   CtGlass,
   CtHeading,
@@ -580,95 +580,98 @@ function adoptDraft() {
                 }}</CtLink>
                 <strong v-if="legWarning(way) !== ''">{{ legWarning(way) }}</strong>
               </li>
-              <li
-                data-paper
-                data-turn
-                :data-status="n.schedule.status"
-                :style="`--card:${paperFor(n)}`"
-                :data-stamp="i18n.t('status.done')"
-              >
-                <div>
-                  <template v-if="editing">
-                    <CtInput
-                      size="sm"
-                      type="time"
-                      :aria-label="i18n.t('shiori.time')"
-                      :model-value="n.schedule.time ? hhmm(n.schedule.time) : ''"
-                      @change="(e) => setTime(n, e)"
-                    />
-                    <CtSelect
-                      size="sm"
-                      :aria-label="i18n.t('shiori.minutes')"
-                      :model-value="String(n.minutes ?? '')"
-                      @change="(e) => setMinutes(n, e)"
+              <li data-turn :data-status="n.schedule.status">
+                <CtPaper
+                  :paper="paperFor(n)"
+                  :stamp="n.schedule.status === 'done' ? i18n.t('status.done') : undefined"
+                  variant="row"
+                >
+                  <template #tab>
+                    <template v-if="editing">
+                      <CtInput
+                        size="sm"
+                        type="time"
+                        :aria-label="i18n.t('shiori.time')"
+                        :model-value="n.schedule.time ? hhmm(n.schedule.time) : ''"
+                        @change="(e) => setTime(n, e)"
+                      />
+                      <CtSelect
+                        size="sm"
+                        :aria-label="i18n.t('shiori.minutes')"
+                        :model-value="String(n.minutes ?? '')"
+                        @change="(e) => setMinutes(n, e)"
+                      >
+                        <option value="">{{ i18n.t("duration.unset") }}</option>
+                        <option v-for="m in durationChoices(n.minutes)" :key="m" :value="String(m)">{{
+                          long(m)
+                        }}</option>
+                      </CtSelect>
+                    </template>
+                    <template v-else>
+                      <span class="time">{{
+                        n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime")
+                      }}</span>
+                      <!-- when it ends, or with no time, how long it takes -->
+                      <small v-if="until(n) !== ''" class="until">{{ until(n) }}</small>
+                      <small v-else-if="n.minutes !== null" class="until">{{
+                        long(n.minutes)
+                      }}</small>
+                    </template>
+                  </template>
+                  <template #default>
+                    <p class="title">{{ n.title }}</p>
+                    <p v-if="n.body !== ''" class="words"><template
+                        v-for="s in segments(n.body)"
+                        :key="s.at"
+                      ><CtLink v-if="s.kind === 'link'" :href="s.url" inline>{{ s.url }}</CtLink><template
+                          v-else
+                        >{{ s.text }}</template></template></p>
+                    <!-- when its place is open that day, and whether the plan falls while it is shut -->
+                    <p v-if="hoursOn(n) !== ''" class="hours">{{ hoursOn(n) }}</p>
+                    <p v-if="shutWarning(n) !== ''" class="warn">{{ shutWarning(n) }}</p>
+                    <!-- whether it is booked: its number and page, or by when it has to be -->
+                    <p
+                      v-if="bookingLine(n) !== ''"
+                      class="booking"
+                      :data-late="bookingLate(n) || undefined"
                     >
-                      <option value="">{{ i18n.t("duration.unset") }}</option>
-                      <option v-for="m in durationChoices(n.minutes)" :key="m" :value="String(m)">{{
-                        long(m)
-                      }}</option>
-                    </CtSelect>
+                      <span>{{ bookingLine(n) }}</span>
+                      <CtLink v-if="safeUrl(bookingPage(n)) !== undefined" :href="bookingPage(n)">{{
+                        i18n.t("shiori.bookingPage")
+                      }}</CtLink>
+                      <CtButton
+                        v-if="editing && n.booking?.state === 'needed'"
+                        variant="text"
+                        @click="() => markBooked(n)"
+                      >{{ i18n.t("shiori.markBooked") }}</CtButton>
+                    </p>
+                    <div v-if="editing" class="edit">
+                      <!-- three steps in one ink: a dashed maybe, a filled confirmed, a plain done -->
+                      <CtChip
+                        :dashed="n.schedule.status === 'idea'"
+                        :selected="n.schedule.status === 'fixed'"
+                        @click="() => nextStatus(n)"
+                      >{{ i18n.t(`status.${n.schedule.status}`) }}</CtChip>
+                      <span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span>
+                      <CtButton
+                        class="off"
+                        danger
+                        size="sm"
+                        variant="text"
+                        @click="() => assign(n, null)"
+                      >{{
+                        i18n.t("shiori.removeDay")
+                      }}</CtButton>
+                    </div>
+                    <p v-else class="meta"><span v-if="n.budget !== null && n.budget > 0">{{
+                        price(n.budget)
+                      }}</span><CtLink v-if="safeUrl(n.mapsUrl) !== undefined" :href="n.mapsUrl">{{
+                        i18n.t("shiori.mapLink")
+                      }}</CtLink><CtLink v-if="safeUrl(n.link) !== undefined" :href="n.link">{{
+                        siteOf(n.link)
+                      }}</CtLink></p>
                   </template>
-                  <template v-else>
-                    <span>{{
-                      n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime")
-                    }}</span>
-                    <!-- when it ends, or with no time, how long it takes -->
-                    <small v-if="until(n) !== ''">{{ until(n) }}</small>
-                    <small v-else-if="n.minutes !== null">{{ long(n.minutes) }}</small>
-                  </template>
-                </div>
-                <div>
-                  <p>{{ n.title }}</p>
-                  <p v-if="n.body !== ''"><template v-for="s in segments(n.body)" :key="s.at"><CtLink
-                        v-if="s.kind === 'link'"
-                        :href="s.url"
-                        inline
-                      >{{ s.url }}</CtLink><template v-else>{{ s.text }}</template></template></p>
-                  <!-- when its place is open that day, and whether the plan falls while it is shut -->
-                  <p v-if="hoursOn(n) !== ''" class="hours">{{ hoursOn(n) }}</p>
-                  <p v-if="shutWarning(n) !== ''" class="warn">{{ shutWarning(n) }}</p>
-                  <!-- whether it is booked: its number and page, or by when it has to be -->
-                  <p
-                    v-if="bookingLine(n) !== ''"
-                    class="booking"
-                    :data-late="bookingLate(n) || undefined"
-                  >
-                    <span>{{ bookingLine(n) }}</span>
-                    <CtLink v-if="safeUrl(bookingPage(n)) !== undefined" :href="bookingPage(n)">{{
-                      i18n.t("shiori.bookingPage")
-                    }}</CtLink>
-                    <CtButton
-                      v-if="editing && n.booking?.state === 'needed'"
-                      variant="text"
-                      @click="() => markBooked(n)"
-                    >{{ i18n.t("shiori.markBooked") }}</CtButton>
-                  </p>
-                  <div v-if="editing">
-                    <!-- three steps in one ink: a dashed maybe, a filled confirmed, a plain done -->
-                    <CtChip
-                      :dashed="n.schedule.status === 'idea'"
-                      :selected="n.schedule.status === 'fixed'"
-                      @click="() => nextStatus(n)"
-                    >{{ i18n.t(`status.${n.schedule.status}`) }}</CtChip>
-                    <span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span>
-                    <CtButton
-                      class="off"
-                      danger
-                      size="sm"
-                      variant="text"
-                      @click="() => assign(n, null)"
-                    >{{
-                      i18n.t("shiori.removeDay")
-                    }}</CtButton>
-                  </div>
-                  <p v-else class="meta"><span v-if="n.budget !== null && n.budget > 0">{{
-                      price(n.budget)
-                    }}</span><CtLink v-if="safeUrl(n.mapsUrl) !== undefined" :href="n.mapsUrl">{{
-                      i18n.t("shiori.mapLink")
-                    }}</CtLink><CtLink v-if="safeUrl(n.link) !== undefined" :href="n.link">{{
-                      siteOf(n.link)
-                    }}</CtLink></p>
-                </div>
+                </CtPaper>
               </li>
             </template>
             <li v-if="legs.toStay !== null" class="leg" data-turn>{{
@@ -682,21 +685,18 @@ function adoptDraft() {
               i18n.t("shiori.ifTime")
             }}</CtHeading>
             <ol class="maybes">
-              <li
-                v-for="n in forDay(day, 'idea')"
-                :key="n.id"
-                data-turn
-                :style="`--card:${paperFor(n)}`"
-              >
-                <div><span>{{
-                    n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime")
-                  }}</span></div>
-                <div>
-                  <p>{{ n.title }}</p>
-                  <p v-if="n.budget !== null && n.budget > 0" class="meta"><span>{{
-                      price(n.budget)
-                    }}</span></p>
-                </div>
+              <li v-for="n in forDay(day, 'idea')" :key="n.id" data-turn>
+                <CtPaper faded :paper="paperFor(n)" variant="row">
+                  <template #tab><span class="time">{{
+                      n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime")
+                    }}</span></template>
+                  <template #default>
+                    <p class="title">{{ n.title }}</p>
+                    <p v-if="n.budget !== null && n.budget > 0" class="meta"><span>{{
+                        price(n.budget)
+                      }}</span></p>
+                  </template>
+                </CtPaper>
               </li>
             </ol>
           </template>
@@ -755,15 +755,13 @@ function adoptDraft() {
             <ul><li
                 v-for="n in byTag(t)"
                 :key="n.id"
-                data-paper
                 data-turn
                 :data-checked="n.checked || undefined"
-                :style="`--card:${paperFor(n)}`"
-              ><label :for="`${pageId}-check-${n.id}`"><CtCheckbox
+              ><CtPaper :paper="paperFor(n)" variant="row"><CtCheck
                     :id="`${pageId}-check-${n.id}`"
                     :model-value="n.checked"
                     @update:model-value="(checked) => setChecked(n, checked)"
-                  /><span>{{ n.title }}</span><small v-if="n.body !== ''"> —{{ n.body }}</small></label></li></ul>
+                  ><span class="item">{{ n.title }}</span><small v-if="n.body !== ''" class="note"> —{{ n.body }}</small></CtCheck></CtPaper></li></ul>
             <CtHint v-if="byTag(t).length === 0" data-turn size="sm">{{
               i18n.t("shiori.tagEmpty")
             }}</CtHint>
@@ -1000,13 +998,9 @@ article {
 
         /* the way from one place to the next: no paper, a dotted line down from the time tabs, and how far */
         > li.leg {
-          display: block;
           margin-block: -4px;
           margin-inline-start: 34px;
           padding: 2px 0 2px 14px;
-          border-radius: 0;
-          background: none;
-          box-shadow: none;
           border-inline-start: 2px dotted color-mix(in oklch, var(--ink) 30%, transparent);
           color: var(--muted);
           font-size: var(--font-xs);
@@ -1024,164 +1018,109 @@ article {
           }
         }
 
-        /* A sticky, the same paper as on the canvas, with a time tab along its left edge; level, for reading (only the desk tilts) */
+        /*
+         * A sticky, the same paper as on the canvas (CtPaper row), its time on the tab down its
+         * left edge; level, for reading (only the desk tilts)
+         */
         > li {
-          position: relative;
-          display: flex;
-          border-radius: 6px;
-          background: var(--card, var(--paper-white));
-          color: var(--paper-ink);
-          box-shadow: var(--shadow-paper);
-
-          /* done: stamped in the paper's ink, and the title steps back to its quieter ink; nothing goes translucent */
-          &[data-status="done"] {
-            > div:last-child > p:first-child {
-              color: var(--paper-muted);
-            }
-
-            &::after {
-              content: attr(data-stamp);
-              position: absolute;
-              inset-block-start: 6px;
-              inset-inline-end: 10px;
-              padding: 1px 8px;
-              border: 2px solid var(--paper-ink);
-              border-radius: 4px;
-              color: var(--paper-ink);
-              font-size: var(--font-sm);
-              font-weight: 700;
-              letter-spacing: 0.04em;
-              transform: rotate(-10deg);
-              opacity: 0.7;
-              pointer-events: none;
-            }
+          /* done: stamped (CtPaper stamp), and the title steps back to its quieter ink */
+          &[data-status="done"] .title {
+            color: var(--paper-muted);
           }
 
-          /* the time tab */
-          > div:first-child {
-            flex-shrink: 0;
-            width: 76px;
+          /* the time on the tab */
+          .time {
+            padding-block-start: 2px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            font-size: var(--font-md);
+          }
+
+          /* when it ends, or how long it takes */
+          .until {
+            font-size: var(--font-xs);
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: var(--paper-muted);
+          }
+
+          .title {
+            margin: 0;
+            font-size: var(--font-base);
+            font-weight: 700;
+            line-height: 1.4;
+            overflow-wrap: anywhere;
+          }
+
+          /* when its place is open that day */
+          .hours {
+            margin: 4px 0 0;
+            font-size: var(--font-xs);
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: var(--paper-muted);
+          }
+
+          /* the plan falls while the place is shut: the one color that means trouble, darkened for the paper */
+          .warn {
+            margin: 4px 0 0;
+            font-size: var(--font-xs);
+            font-weight: 700;
+            color: oklch(from var(--danger) min(l, 0.5) c h);
+          }
+
+          /* whether it is booked: quiet once it is, the trouble color once it is late */
+          .booking {
+            margin: 4px 0 0;
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap;
             align-items: center;
-            gap: 4px;
-            padding: 10px 6px;
-            border-radius: 6px 0 0 6px;
-            /* a darker fold of the same paper: lightness only, so a yellow fold stays yellow */
-            background: oklch(from var(--card, var(--paper-white)) calc(l - 0.045) c h);
+            column-gap: 10px;
+            font-size: var(--font-xs);
+            font-weight: 700;
 
-            > span {
-              padding-block-start: 2px;
-              font-weight: 700;
-              font-variant-numeric: tabular-nums;
-              color: var(--paper-ink);
-              font-size: var(--font-md);
-            }
-
-            /* when it ends, or how long it takes */
-            > small {
-              font-size: var(--font-xs);
-              font-weight: 700;
-              font-variant-numeric: tabular-nums;
-              color: var(--paper-muted);
-            }
-          }
-
-          > div:last-child {
-            flex: 1;
-            min-width: 0;
-            padding: 10px 12px;
-
-            /* the title */
-            > p:first-child {
-              margin: 0;
-              font-size: var(--font-base);
-              font-weight: 700;
-              line-height: 1.4;
-              overflow-wrap: anywhere;
-            }
-
-            /* when its place is open that day */
-            > .hours {
-              margin: 4px 0 0;
-              font-size: var(--font-xs);
-              font-weight: 700;
-              font-variant-numeric: tabular-nums;
-              color: var(--paper-muted);
-            }
-
-            /* the plan falls while the place is shut: the one color that means trouble, darkened for the paper */
-            > .warn {
-              margin: 4px 0 0;
-              font-size: var(--font-xs);
-              font-weight: 700;
+            &[data-late] {
               color: oklch(from var(--danger) min(l, 0.5) c h);
             }
+          }
 
-            /* the body */
-            /* whether it is booked: quiet once it is, the trouble color once it is late */
-            > .booking {
-              margin: 4px 0 0;
-              display: flex;
-              flex-wrap: wrap;
-              align-items: center;
-              column-gap: 10px;
-              font-size: var(--font-xs);
-              font-weight: 700;
-              color: var(--paper-ink);
+          /* the body */
+          .words {
+            margin: 2px 0 0;
+            font-size: var(--font-sm);
+            color: var(--paper-muted);
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
 
-              &[data-late] {
-                color: oklch(from var(--danger) min(l, 0.5) c h);
-              }
-            }
+          /* edit mode: the status, the price, taking it off the day */
+          .edit {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-block-start: 6px;
 
-            > p:not(:first-child, .meta, .hours, .warn, .booking) {
-              margin: 2px 0 0;
-              font-size: var(--font-sm);
+            > span {
               color: var(--paper-muted);
-              display: -webkit-box;
-              -webkit-line-clamp: 3;
-              -webkit-box-orient: vertical;
-              overflow: hidden;
-            }
-
-            /* edit mode: the status, the price, taking it off the day */
-            > div {
-              display: flex;
-              gap: 8px;
-              align-items: center;
-              margin-block-start: 6px;
-
-              > span {
-                color: var(--paper-muted);
-                font-size: var(--font-sm);
-              }
-
-              /* taking it off the day: quiet, at the row's end */
-              > .off {
-                margin-inline-start: auto;
-              }
-            }
-
-            /* read mode: the price and the way there */
-            > .meta {
-              margin: 4px 0 0;
-              display: flex;
-              gap: 12px;
-              align-items: center;
               font-size: var(--font-sm);
-              color: var(--paper-muted);
+            }
+
+            /* taking it off the day: quiet, at the row's end */
+            > .off {
+              margin-inline-start: auto;
             }
           }
-        }
 
-        /* read mode's maybes: the paper fades toward white stock in either theme (Paper Stays Light), the ink stays at full */
-        &.maybes > li {
-          background: color-mix(in oklch, var(--card, var(--paper-white)) 45%, var(--paper-white));
-          box-shadow: var(--shadow-tool);
-
-          > div:first-child {
-            background: color-mix(in oklch, var(--card, var(--paper-white)) 70%, var(--paper-white));
+          /* read mode: the price and the way there */
+          .meta {
+            margin: 4px 0 0;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: var(--font-sm);
+            color: var(--paper-muted);
           }
         }
       }
@@ -1248,27 +1187,17 @@ article {
           flex-direction: column;
           gap: 10px;
 
+          /* each item a slip of its writer's paper (CtPaper row), the whole slip its box to tick (CtCheck) */
           > li {
-            > label {
-              display: flex;
-              gap: 12px;
-              align-items: center;
-              min-height: 48px;
-              padding: 10px 12px;
-              background: var(--card, var(--paper-white));
-              color: var(--paper-ink);
-              border-radius: 6px;
-              box-shadow: var(--shadow-paper);
-              font-size: var(--font-base);
+            font-size: var(--font-base);
 
-              > small {
-                color: var(--paper-muted);
-                font-size: var(--font-sm);
-              }
+            .note {
+              color: var(--paper-muted);
+              font-size: var(--font-sm);
             }
 
             /* ticked: struck through in the paper's quieter ink, still readable */
-            &[data-checked] > label > span {
+            &[data-checked] .item {
               color: var(--paper-muted);
               text-decoration: line-through;
               text-decoration-thickness: 1.5px;
