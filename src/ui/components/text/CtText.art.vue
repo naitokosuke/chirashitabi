@@ -26,6 +26,8 @@ defineArt("./CtHint.vue", {
       <CtHint size="sm">Nothing to do yet.</CtHint>
       <CtHint strong>Until 14:00 · NT$500</CtHint>
       <CtHint danger strong>By 10/30</CtHint>
+      <CtHint size="md" strong>Write a note with the + button below.</CtHint>
+      <CtHint size="lg">No trips yet. A blank tag below starts one.</CtHint>
       <CtMessage>2 notes will lose their day.</CtMessage>
       <CtMessage danger>The draft did not come. Ask again.</CtMessage>
       <CtMessage boxed>

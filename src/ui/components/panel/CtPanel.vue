@@ -5,7 +5,8 @@
  * its meaning. `pad` is the room inside it: `none` for a list whose rows have their own, `sm`
  * for a menu of buttons, `md` for most, `lg` for a form. `float` lifts it over what it covers
  * (a menu, a panel opened from a button). `sunken` is a panel set into a panel (a flight in the
- * trip's settings), in the desk's color, its fields back on the surface. `from="desktop"` draws
+ * trip's settings), in the desk's color, its fields back on the surface. The fields on a panel
+ * are set into it, in the desk's color (`--field-bg`). `from="desktop"` draws
  * it only on a computer, where it stands beside a column; narrower, what it holds lies on the
  * desk with the rest.
  */
@@ -45,6 +46,8 @@ defineSlots<{ default(): unknown }>();
   /* the hairline drawn inside, so it takes no room */
   box-shadow: inset 0 0 0 1px var(--line);
   list-style: none;
+  /* its fields set into it, in the desk's color */
+  --field-bg: var(--bg);
 
   &[data-pad="none"] {
     padding: 0;
@@ -77,6 +80,7 @@ defineSlots<{ default(): unknown }>();
       border-radius: 0;
       background: none;
       box-shadow: none;
+      --field-bg: var(--surface);
     }
   }
 }

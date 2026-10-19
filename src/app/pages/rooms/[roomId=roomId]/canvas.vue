@@ -52,6 +52,7 @@ import {
   CtButton,
   CtChip,
   CtFab,
+  CtHint,
   CtInput,
   CtMenu,
   CtMenuGroup,
@@ -791,7 +792,9 @@ watch(
   <section>
     <!-- no bar: the desk runs to the top, and what would sit in a bar floats on it -->
     <div>
-      <p v-if="notes?.length === 0">{{ i18n.t("canvas.empty") }}</p>
+      <CtHint v-if="notes?.length === 0" class="empty" size="md" strong>{{
+        i18n.t("canvas.empty")
+      }}</CtHint>
 
       <div class="top">
         <FilterBar />
@@ -1005,8 +1008,6 @@ section {
       width: min(360px, calc(100% - 24px));
       display: grid;
       gap: 10px;
-      /* its line to write in is set into the panel, in the desk's color */
-      --field-bg: var(--bg);
       /* it grows out of its button, at the row's end above it */
       transform-origin: 100% 0;
 
@@ -1066,15 +1067,11 @@ section {
     }
 
     /* An empty desk says what to do first */
-    > p {
+    > .empty {
       position: absolute;
       inset-inline: 24px;
       inset-block-start: 62%;
-      margin: 0;
       text-align: center;
-      color: var(--muted);
-      font-size: var(--font-md);
-      font-weight: 700;
       pointer-events: none;
     }
 
