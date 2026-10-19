@@ -23,7 +23,9 @@ defineArt("./CtHint.vue", {
   <variant default name="Hint and messages">
     <div class="stack">
       <CtHint>Times are each airport's own, as on the ticket.</CtHint>
+      <CtHint size="sm">Nothing to do yet.</CtHint>
       <CtMessage>2 notes will lose their day.</CtMessage>
+      <CtMessage danger>The draft did not come. Ask again.</CtMessage>
       <CtMessage boxed>
         The room did not answer.
         <CtButton variant="primary">Try again</CtButton>

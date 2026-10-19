@@ -3,14 +3,15 @@
  * Something the person is told: that a room did not answer, that a change will take notes off
  * their day. In ink, with room on its line for what to do about it (a CtButton in the slot).
  * `boxed` sets it on a panel of its own, for a message that stands apart from what is round it.
- * Its `role` (`status`, `alert`) is the owner's.
+ * `danger` says it in the danger ink, for a call that did not go through where trying again is
+ * the button's own tap. Its `role` (`status`, `alert`) and `aria-live` are the owner's.
  */
-defineProps<{ boxed?: boolean }>();
+defineProps<{ boxed?: boolean; danger?: boolean }>();
 defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <p :data-boxed="boxed || undefined"><slot></slot></p>
+  <p :data-boxed="boxed || undefined" :data-danger="danger || undefined"><slot></slot></p>
 </template>
 
 <style scoped>
@@ -26,6 +27,10 @@ p {
   gap: 6px 12px;
   font-size: var(--font-sm);
   color: var(--ink);
+
+  &[data-danger] {
+    color: var(--danger);
+  }
 
   &[data-boxed] {
     padding: 12px 14px;

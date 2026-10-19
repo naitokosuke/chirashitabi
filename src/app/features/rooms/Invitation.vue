@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
-import { CtAvatar, CtButton, CtField, CtPanel, CtSwatches } from "../../../ui/index";
+import { CtAvatar, CtButton, CtField, CtMessage, CtPanel, CtSwatches } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -80,9 +80,9 @@ async function no() {
       <CtSwatches v-model="color" :colors="MEMBER_COLORS" :label="i18n.t('rooms.color')" />
     </CtField>
 
-    <p v-if="failed !== null" role="alert">
+    <CtMessage v-if="failed !== null" role="alert">
       {{ i18n.t(failed === "join" ? "rooms.joinFailed" : "rooms.declineFailed") }}
-    </p>
+    </CtMessage>
     <div class="answer">
       <CtButton
         class="join"
@@ -107,11 +107,6 @@ async function no() {
 .invitation {
   display: grid;
   gap: 14px;
-  > p {
-    margin: 0;
-    font-size: var(--font-sm);
-    color: var(--ink);
-  }
   /* who it is from: their dot, as on the tag */
   > .from {
     display: flex;

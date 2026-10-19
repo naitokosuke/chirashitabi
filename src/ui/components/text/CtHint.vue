@@ -1,14 +1,17 @@
 <script setup lang="ts" vapor>
 /**
  * A line said under or beside something, quietly: what a field waits for, where a place came
- * from, what a button will do. Small, in muted ink, broken where it reads best. Live regions
- * and `v-if` are the owner's (`aria-live` falls through to it).
+ * from, what a button will do. Small, in muted ink, broken where it reads best. `size="sm"` is
+ * the same line a step larger, for what stands in a list's place while it is empty, or for what
+ * a section says of itself. Live regions and `v-if` are the owner's (`aria-live` falls through
+ * to it).
  */
+defineProps<{ size?: "xs" | "sm" }>();
 defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <p><slot></slot></p>
+  <p :data-size="size === 'sm' ? 'sm' : undefined"><slot></slot></p>
 </template>
 
 <style scoped>
@@ -23,5 +26,9 @@ p {
   color: var(--muted);
   overflow-wrap: anywhere;
   text-wrap: pretty;
+
+  &[data-size="sm"] {
+    font-size: var(--font-sm);
+  }
 }
 </style>

@@ -10,6 +10,8 @@ import {
   CtChip,
   CtGlass,
   CtHeading,
+  CtHint,
+  CtMessage,
   CtPanel,
   CtPaper,
   CtScrollRow,
@@ -491,7 +493,7 @@ function adoptDraft() {
         <div><span>{{ i18n.t("shiori.trayTitle", { count: unassigned.length }) }}</span><small>{{
             i18n.t("shiori.trayHint")
           }}</small></div>
-        <p v-if="unassigned.length === 0">{{ i18n.t("shiori.trayEmpty") }}</p>
+        <CtHint v-if="unassigned.length === 0" size="sm">{{ i18n.t("shiori.trayEmpty") }}</CtHint>
         <CtScrollRow v-else as="ul">
           <!-- each a slip of its writer's paper; the tap anywhere on it is its button's -->
           <li v-for="n in unassigned" :key="n.id">
@@ -563,9 +565,9 @@ function adoptDraft() {
             dayOf(day)?.intro
           }}</p>
 
-          <p v-if="forDay(day).length === 0" class="empty" data-turn>{{
+          <CtHint v-if="forDay(day).length === 0" class="empty" data-turn size="sm">{{
             i18n.t("shiori.dayEmpty")
-          }}</p>
+          }}</CtHint>
 
           <!-- the day is a strip of the same stickies as the canvas, pinned in time order -->
           <ol>
@@ -732,10 +734,12 @@ function adoptDraft() {
               >{{
                 i18n.t(drafting && askedHere ? "shiori.drafting" : "shiori.askDraft")
               }}</CtButton>
-              <p v-if="cut.offline" data-turn>{{ i18n.t("offline.unavailable") }}</p>
-              <p v-if="draftFailure !== null && askedHere && !drafting" aria-live="polite">{{
-                i18n.t(draftFailure)
-              }}</p>
+              <CtHint v-if="cut.offline" data-turn>{{ i18n.t("offline.unavailable") }}</CtHint>
+              <CtMessage
+                v-if="draftFailure !== null && askedHere && !drafting"
+                aria-live="polite"
+                danger
+              >{{ i18n.t(draftFailure) }}</CtMessage>
             </template>
           </template>
 
@@ -760,19 +764,21 @@ function adoptDraft() {
                     :model-value="n.checked"
                     @update:model-value="(checked) => setChecked(n, checked)"
                   /><span>{{ n.title }}</span><small v-if="n.body !== ''"> —{{ n.body }}</small></label></li></ul>
-            <p v-if="byTag(t).length === 0" data-turn>{{ i18n.t("shiori.tagEmpty") }}</p>
+            <CtHint v-if="byTag(t).length === 0" data-turn size="sm">{{
+              i18n.t("shiori.tagEmpty")
+            }}</CtHint>
           </section>
           <!-- the plan out to a calendar: confirmed notes, flights and stays -->
           <section class="out">
             <CtHeading data-turn>{{ i18n.t("shiori.out") }}</CtHeading>
             <CtButton data-turn @click="downloadCalendar">{{ i18n.t("shiori.calendar") }}</CtButton>
-            <p data-turn>{{ i18n.t("shiori.calendarHint") }}</p>
+            <CtHint data-turn size="sm">{{ i18n.t("shiori.calendarHint") }}</CtHint>
             <!-- the booklet as a page anyone with its link can read -->
             <template v-if="worker.api !== null">
               <CtHeading as="h3" data-turn level="minor">{{
                 i18n.t("shiori.publicTitle")
               }}</CtHeading>
-              <p data-turn>{{ i18n.t("shiori.publicHint") }}</p>
+              <CtHint data-turn size="sm">{{ i18n.t("shiori.publicHint") }}</CtHint>
               <div v-if="published !== null" class="link" data-turn>
                 <a :href="safeUrl(published.url)" rel="noopener noreferrer" target="_blank">{{
                   published.url
@@ -782,9 +788,9 @@ function adoptDraft() {
                   i18n.t(copied ? "shiori.copied" : "shiori.copyLink")
                 }}</CtButton>
               </div>
-              <p v-else data-turn>{{
+              <CtHint v-else data-turn size="sm">{{
                 i18n.t(isOwner ? "shiori.notPublished" : "shiori.ownerPublishes")
-              }}</p>
+              }}</CtHint>
               <div v-if="isOwner" class="actions" data-turn>
                 <CtButton
                   :disabled="publish.isLoading.value || cut.offline"
@@ -805,10 +811,12 @@ function adoptDraft() {
                   @click="() => withdraw.mutate()"
                 >{{ i18n.t("shiori.withdraw") }}</CtButton>
               </div>
-              <p v-if="publishFailure !== null" aria-live="polite" class="failed">{{
+              <CtMessage v-if="publishFailure !== null" aria-live="polite" danger>{{
                 i18n.t(publishFailure)
-              }}</p>
-              <p v-else-if="isOwner && cut.offline">{{ i18n.t("offline.unavailable") }}</p>
+              }}</CtMessage>
+              <CtHint v-else-if="isOwner && cut.offline">{{
+                i18n.t("offline.unavailable")
+              }}</CtHint>
             </template>
           </section>
         </template>
@@ -905,10 +913,7 @@ article {
       }
 
       > p {
-        margin: 0;
         padding: 14px 0;
-        color: var(--muted);
-        font-size: var(--font-sm);
       }
 
       /* each slip as tall as the tallest */
@@ -1003,9 +1008,8 @@ article {
       }
 
       > .empty {
+        margin-block: 1em;
         padding: 14px 0;
-        color: var(--muted);
-        font-size: var(--font-sm);
       }
 
       /* ---- the strip: stickies pinned in order ---- */
@@ -1339,8 +1343,6 @@ article {
       /* a Worker call that did not go through; trying again is the button's own tap */
       > p[aria-live] {
         margin: 8px 0 0;
-        font-size: var(--font-sm);
-        color: var(--danger);
       }
 
       > .total {
@@ -1401,9 +1403,9 @@ article {
           }
         }
 
+        /* a section's own lines (CtHint, CtMessage) keep the paragraph's room above and below */
         > p {
-          color: var(--muted);
-          font-size: var(--font-sm);
+          margin-block: 1em;
         }
 
         /* the public page: its link, as of when, and the owner's buttons */
@@ -1441,10 +1443,6 @@ article {
             flex-wrap: wrap;
             gap: 8px;
             margin-block-start: 10px;
-          }
-
-          > .failed {
-            color: var(--danger);
           }
         }
 
