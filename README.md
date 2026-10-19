@@ -129,26 +129,28 @@ src/contract/       What the app and the Worker both hold to; each takes it thro
 src/ui/             The design system: props, slots and events only, no app imports
   styles/        Tokens (colors, type, z-index, motion), base, transitions (ct-morph / ct-fade / ct-slide),
                  named media queries (media.css)
-  components/    One directory per component (or family), named after it; each keeps its
-                 harness, tests and *.art.vue (its page in Musea) beside it
-    chip/        CtChip: a pill, selected or a toggle; CtChipRow: a row of them that scrolls;
-                 CtChipPick: chips to pick one of, the ink stretching to the pick
-    dock/        CtDock: the floating menu, magnifying under a mouse, sinking away under a sheet;
+  <part>/        One directory per component (or family), named after it; each keeps its
+                 harness, tests and *.art.vue (its page in Musea) beside it, and a composable
+                 that belongs to it in the component's own <script> block. For example:
+  chip/          CtChip: a pill, selected or a toggle; CtChipPick: chips to pick one of,
+                 the ink stretching to the pick
+  dock/          CtDock: the floating menu, magnifying under a mouse, sinking away under a sheet;
                  CtDockItem (an icon, its name above), one dot sliding under the open one,
                  CtDockGroup (items that fold away together), CtDockDivider
-    fab/         CtFab: the one filled tool on a view
-    hold-button/ CtHoldButton: held down to act, for what cannot be taken back
-    paper/       CtPaper: a piece of paper on the desk in one of three cuts of one size, corner and shadow:
-                 a sticky (note), a slip from the agent (proposal), a page brought in (print)
-    indicator/   CtIndicator and useIndicator (internal): the pill that stretches to the
-                 chosen child of CtChipPick, CtSegmented, CtSwatches and CtTabList
-    segmented/   CtSegmented: the pill morphs to the choice
-    swatches/    CtSwatches: colors to pick one of, ringed
-    swipe-row/   CtSwipeRow: a row a finger slides left to show its actions behind it (swipe.ts: the math)
-    tabs/        CtTabList: the underline slides to the tab; CtTabPanel: content morphs in
-    text-morph/  CtTextMorph: text whose shared characters slide instead of being replaced
-  composables/   usePageTurn, useViewTransition: motion the app runs on its own elements
-  index.ts, types.ts   The public entry and the shared CtOption type
+  fab/           CtFab: the one filled tool on a view
+  hold-button/   CtHoldButton: held down to act, for what cannot be taken back
+  paper/         CtPaper: a piece of paper in one of four cuts of one corner and shadow: a sticky
+                 (note), a slip from the agent (proposal), a page brought in (print), a sticky
+                 laid along a page's row (row)
+  indicator/     CtIndicator, with useIndicator (internal) in its <script>: the pill that stretches
+                 to the chosen child of CtChipPick, CtSegmented, CtSwatches and CtTabList
+  segmented/     CtSegmented: the pill morphs to the choice
+  swatches/      CtSwatches: colors to pick one of, ringed
+  swipe-row/     CtSwipeRow: a row a finger slides left to show its actions behind it (swipe.ts: the math)
+  tabs/          CtTabList: the underline slides to the tab; CtTabPanel, with usePageTurn in its
+                 <script>: a page whose content is replaced turns
+  text-morph/    CtTextMorph: text whose shared characters slide instead of being replaced
+  index.ts       The public entry
   musea.preview.ts     Musea's preview app: the interop plugin, so it mounts the Vapor components
 
 public/             favicon.svg: three notes scattered on a red tile, served as they are

@@ -1,14 +1,36 @@
-import { computed, ref, watchEffect } from "vue";
+import { computed, nextTick, ref, watchEffect } from "vue";
 
 import { defineStore } from "pinia";
-
-import { useViewTransition } from "../../../ui/index";
 
 import { coverRadius, other, parseTheme, type Theme } from "./theme";
 
 const STORAGE_KEY = "chirashitabi:theme";
 /** The desk's color in each theme (tokens.css `--bg`), as the browser's bar takes it */
 const BAR: Record<Theme, string> = { light: "#f3f4f6", dark: "#141518" };
+
+/**
+ * Runs a state change inside a View Transition: the browser snapshots the page, the change
+ * renders, and the two morph into each other (what morphs, and how, is in transitions.css).
+ * `types` lets the CSS pick an animation (`:active-view-transition-type(theme-light)`).
+ * Without the API, under reduced motion, or with the page hidden (where the browser would
+ * abort it), the change simply happens.
+ */
+function transition(update: () => void, types: readonly string[]) {
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (typeof document.startViewTransition !== "function" || reduce || document.hidden) {
+    update();
+    return;
+  }
+  const t = document.startViewTransition(async () => {
+    update();
+    await nextTick();
+  });
+  // older engines take only the callback form; types are added where they exist
+  for (const type of types) t.types?.add(type);
+  // a transition skipped by a newer one (a quick second tap) rejects; the update has run anyway
+  t.ready.catch(() => {});
+  t.finished.catch(() => {});
+}
 
 function stored() {
   try {
@@ -56,7 +78,6 @@ export const useTheme = defineStore("theme", () => {
    * last of the day shrinking into the switch (`theme-dark`; transitions.css). Under reduced
    * motion, without the View Transition API, or with the page hidden, the theme is simply there.
    */
-  const transition = useViewTransition();
   function toggle(from?: { x: number; y: number }) {
     const next = other(theme.value);
     if (from === undefined) {

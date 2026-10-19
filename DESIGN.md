@@ -102,7 +102,7 @@ components:
     rounded: "{rounded.control}"
     padding: "10px 12px"
   paper:
-    component: "CtPaper (src/ui/components/paper)"
+    component: "CtPaper (src/ui/paper)"
     backgroundColor: "the writer's paper: their member color at 28% in paper-white (oklab)"
     textColor: "{colors.paper-ink}"
     typography: "{typography.note}"
