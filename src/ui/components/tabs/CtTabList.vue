@@ -1,7 +1,6 @@
 <script setup lang="ts" generic="V extends string" vapor>
 import { nextTick, onMounted, useTemplateRef, watch } from "vue";
 
-import type { CtOption } from "../../types";
 import { useIndicator } from "../indicator/useIndicator";
 
 /**
@@ -18,7 +17,7 @@ const {
   label,
   variant = "line",
 } = defineProps<{
-  tabs: readonly CtOption<V>[];
+  tabs: readonly { value: V; label: string }[];
   modelValue: V;
   label: string;
   variant?: "line" | "pill";

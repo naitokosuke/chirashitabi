@@ -27,7 +27,6 @@ import {
   safeUrl,
   usePageTurn,
   type CtMorphPart,
-  type CtOption,
 } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
@@ -263,7 +262,7 @@ const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 
 // tabs are keyed by the date's ISO string
 const APPENDIX = "appendix";
-const dayTabs = computed<CtOption[]>(() => [
+const dayTabs = computed(() => [
   ...(trip.value?.days ?? []).map((d) => ({
     value: d.date.toString(),
     label: i18n.t("shiori.dayTab", { n: dayNumber(d.date), date: short(d.date) }),
@@ -295,7 +294,7 @@ function setMode(next: Mode) {
 }
 
 type Mode = "edit" | "read";
-const modes = computed((): CtOption<Mode>[] => [
+const modes = computed((): { value: Mode; label: string }[] => [
   { value: "edit", label: i18n.t("common.edit") },
   { value: "read", label: i18n.t("shiori.read") },
 ]);

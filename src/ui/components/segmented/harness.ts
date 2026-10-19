@@ -1,9 +1,7 @@
 import { reactive } from "vue";
 
-import type { CtOption } from "../../types";
-
 /** What segmented.browser.test.ts turns on SegmentedHarness.vue: the option picked */
-export const OPTIONS: CtOption[] = [
+export const OPTIONS = [
   { value: "edit", label: "Edit" },
   { value: "read", label: "Read" },
 ];
