@@ -27,6 +27,7 @@ export { default as CtTextarea } from "./components/field/CtTextarea.vue";
 export { default as CtGlass } from "./components/glass/CtGlass.vue";
 export { default as CtHeading } from "./components/heading/CtHeading.vue";
 export { default as CtHoldButton } from "./components/hold-button/CtHoldButton.vue";
+export { default as CtLink } from "./components/link/CtLink.vue";
 export { default as CtListItem } from "./components/list/CtListItem.vue";
 export { default as CtMenu } from "./components/menu/CtMenu.vue";
 export { default as CtMenuGroup } from "./components/menu/CtMenuGroup.vue";

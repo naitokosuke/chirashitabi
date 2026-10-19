@@ -10,6 +10,7 @@ import {
   CtGlass,
   CtHeading,
   CtHint,
+  CtLink,
   CtMessage,
   CtPanel,
   CtPaper,
@@ -575,12 +576,9 @@ function adoptDraft() {
                    Google's directions for it, and whether it can start when it says -->
               <li v-if="way !== null" class="leg" data-turn>
                 <span v-if="legTo(way) !== ''">{{ legTo(way) }}</span>
-                <a
-                  v-if="safeUrl(legLink(way)) !== undefined"
-                  :href="safeUrl(legLink(way))"
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >{{ i18n.t("shiori.route") }}</a>
+                <CtLink v-if="safeUrl(legLink(way)) !== undefined" :href="legLink(way)">{{
+                  i18n.t("shiori.route")
+                }}</CtLink>
                 <strong v-if="legWarning(way) !== ''">{{ legWarning(way) }}</strong>
               </li>
               <li
@@ -620,12 +618,11 @@ function adoptDraft() {
                 </div>
                 <div>
                   <p>{{ n.title }}</p>
-                  <p v-if="n.body !== ''"><template v-for="s in segments(n.body)" :key="s.at"><a
+                  <p v-if="n.body !== ''"><template v-for="s in segments(n.body)" :key="s.at"><CtLink
                         v-if="s.kind === 'link'"
-                        :href="safeUrl(s.url)"
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >{{ s.url }}</a><template v-else>{{ s.text }}</template></template></p>
+                        :href="s.url"
+                        inline
+                      >{{ s.url }}</CtLink><template v-else>{{ s.text }}</template></template></p>
                   <!-- when its place is open that day, and whether the plan falls while it is shut -->
                   <p v-if="hoursOn(n) !== ''" class="hours">{{ hoursOn(n) }}</p>
                   <p v-if="shutWarning(n) !== ''" class="warn">{{ shutWarning(n) }}</p>
@@ -636,12 +633,9 @@ function adoptDraft() {
                     :data-late="bookingLate(n) || undefined"
                   >
                     <span>{{ bookingLine(n) }}</span>
-                    <a
-                      v-if="safeUrl(bookingPage(n)) !== undefined"
-                      :href="safeUrl(bookingPage(n))"
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >{{ i18n.t("shiori.bookingPage") }}</a>
+                    <CtLink v-if="safeUrl(bookingPage(n)) !== undefined" :href="bookingPage(n)">{{
+                      i18n.t("shiori.bookingPage")
+                    }}</CtLink>
                     <CtButton
                       v-if="editing && n.booking?.state === 'needed'"
                       variant="text"
@@ -668,17 +662,11 @@ function adoptDraft() {
                   </div>
                   <p v-else class="meta"><span v-if="n.budget !== null && n.budget > 0">{{
                       price(n.budget)
-                    }}</span><a
-                      v-if="safeUrl(n.mapsUrl) !== undefined"
-                      :href="safeUrl(n.mapsUrl)"
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >{{ i18n.t("shiori.mapLink") }}</a><a
-                      v-if="safeUrl(n.link) !== undefined"
-                      :href="safeUrl(n.link)"
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >{{ siteOf(n.link) }}</a></p>
+                    }}</span><CtLink v-if="safeUrl(n.mapsUrl) !== undefined" :href="n.mapsUrl">{{
+                      i18n.t("shiori.mapLink")
+                    }}</CtLink><CtLink v-if="safeUrl(n.link) !== undefined" :href="n.link">{{
+                      siteOf(n.link)
+                    }}</CtLink></p>
                 </div>
               </li>
             </template>
@@ -791,9 +779,7 @@ function adoptDraft() {
               }}</CtHeading>
               <CtHint data-turn size="sm">{{ i18n.t("shiori.publicHint") }}</CtHint>
               <CtPanel v-if="published !== null" class="link" data-turn>
-                <a :href="safeUrl(published.url)" rel="noopener noreferrer" target="_blank">{{
-                  published.url
-                }}</a>
+                <CtLink :href="published.url">{{ published.url }}</CtLink>
                 <small>{{ i18n.t("shiori.publishedAt", { at: publishedOn }) }}</small>
                 <CtButton @click="copyLink">{{
                   i18n.t(copied ? "shiori.copied" : "shiori.copyLink")
@@ -1052,17 +1038,6 @@ article {
           align-items: center;
           column-gap: 10px;
 
-          > a {
-            /* a text link, but a thumb-sized one */
-            display: inline-flex;
-            align-items: center;
-            min-height: var(--tap);
-            margin-block: -8px;
-            color: var(--ink);
-            text-decoration: underline;
-            text-underline-offset: 3px;
-          }
-
           /* it cannot start when it says: said in the one color that means trouble */
           > strong {
             flex-basis: 100%;
@@ -1214,20 +1189,6 @@ article {
               &[data-late] {
                 color: oklch(from var(--danger) min(l, 0.5) c h);
               }
-
-              > a {
-                display: inline-flex;
-                align-items: center;
-                min-height: var(--tap);
-                margin-block: -10px;
-                padding: 0;
-                border: 0;
-                background: none;
-                color: var(--paper-ink);
-                font: inherit;
-                text-decoration: underline;
-                text-underline-offset: 3px;
-              }
             }
 
             > p:not(:first-child, .meta, .hours, .warn, .booking) {
@@ -1266,19 +1227,6 @@ article {
               align-items: center;
               font-size: var(--font-sm);
               color: var(--paper-muted);
-
-              a {
-                /* a text link, but a thumb-sized one */
-                display: inline-flex;
-                align-items: center;
-                min-height: var(--tap);
-                padding: 0 6px;
-                margin-inline-start: -6px;
-                color: var(--paper-ink);
-                font-weight: 700;
-                text-decoration: underline;
-                text-underline-offset: 3px;
-              }
             }
           }
         }
@@ -1400,13 +1348,10 @@ article {
             flex-wrap: wrap;
             align-items: center;
             gap: 4px 12px;
+            font-size: var(--font-sm);
 
             > a {
               flex-basis: 100%;
-              color: var(--ink);
-              font-size: var(--font-sm);
-              font-weight: 700;
-              overflow-wrap: anywhere;
             }
 
             > small {

@@ -32,9 +32,9 @@ import {
   CtChip,
   CtFab,
   CtHeading,
+  CtLink,
   CtPanel,
   CtScrollRow,
-  safeUrl,
 } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
@@ -433,9 +433,7 @@ function fitAll() {
           <span v-if="selected.schedule !== null">{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
         </footer>
         <div>
-          <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{
-            i18n.t("map.openInGoogleMaps")
-          }}</a>
+          <CtLink :href="selectedLink">{{ i18n.t("map.openInGoogleMaps") }}</CtLink>
           <CtButton @click="editSelected">{{ i18n.t("common.edit") }}</CtButton>
           <CtButton class="close" :label="i18n.t('common.close')" @click="closeCard"><Icon
               :size="18"
@@ -709,16 +707,6 @@ section {
         margin-top: 6px;
         font-size: var(--font-sm);
         font-weight: 700;
-
-        > a {
-          min-height: var(--tap);
-          padding: 0 8px;
-          display: inline-flex;
-          align-items: center;
-          color: var(--ink);
-          text-decoration: underline;
-          text-underline-offset: 3px;
-        }
 
         /* close, at the end */
         > .close {
