@@ -40,6 +40,7 @@ import {
   CtHint,
   CtInput,
   CtSelect,
+  CtSheet,
   CtTextarea,
   useFlip,
 } from "../../../ui/index";
@@ -638,288 +639,279 @@ function submit() {
 </script>
 
 <template>
-  <form :data-docked="docked || undefined" @submit.prevent="submit">
+  <CtSheet as="form" class="note-form" :docked @submit="submit">
     <!-- no bar: as a sheet, the way back floats where a bar would be; the title opens the page -->
-    <CtBackButton v-if="mode.kind === 'sheet'" @click="() => emit('close')">
-      <Icon :size="16" :src="backIcon" />{{ mode.back }}
-    </CtBackButton>
-    <div>
-      <!-- as a sheet, a sheet's title; as the memo tab, a page like home, its large title -->
-      <CtHeading class="title" :level="docked ? 'page' : 'sheet'">{{
-        i18n.t(editing ? "form.titleEdit" : "form.titleNew")
-      }}</CtHeading>
-      <!-- on a computer, side by side: what the note is, then the details of the plan -->
-      <div class="what">
-        <CtField :for="`${id}-text`" :label="i18n.t('form.note')">
-          <CtTextarea
-            :id="`${id}-text`"
-            ref="textEl"
-            v-model="text"
-            rows="4"
-            size="lg"
-            :placeholder="i18n.t('form.notePlaceholder')"
-          />
-        </CtField>
-        <CtField :for="`${id}-tag`" :label="i18n.t('form.tags')">
-          <CtChipInput
-            :id="`${id}-tag`"
-            v-model="tagInput"
-            :placeholder="i18n.t('form.tagPlaceholder')"
-            @commit="commitTag"
-          >
-            <CtChip v-for="t in form.tags" :key="t" selected size="sm" @click="() => removeTag(t)">#{{ t }} <Icon
-                :size="12"
-                :src="closeIcon"
-              /></CtChip>
-          </CtChipInput>
-          <!-- the tags that fit the words go first; what Clef offered is among them, a new one marked -->
-          <div ref="rowEl" class="recent">
-            <CtChip
-              v-for="o in shown"
-              :key="o.name"
-              :data-flip="o.name"
-              :aside="o.isNew ? i18n.t('form.newTag') : undefined"
-              :dashed="o.isNew"
-              :suggested="fits(o, text)"
-              @click="() => addTag(o.name)"
-            >#{{ o.name }}</CtChip>
-          </div>
-          <!-- Clef looks at the words and the photo; what it finds fitting moves up the row -->
-          <div v-if="worker.api !== null && (askByTap || tagState !== 'idle')" class="suggested">
-            <CtButton
-              v-if="askByTap"
-              variant="ask"
-              :disabled="tagState === 'asking' || !text.trim() || cut.offline"
-              :busy="tagState === 'asking'"
-              @click="() => askForTags(true)"
-            >{{ i18n.t("form.suggestTags") }}</CtButton>
-            <CtHint v-if="tagState !== 'idle'" aria-live="polite">{{
-              i18n.t(TAG_STATE[tagState])
-            }}</CtHint>
-            <CtHint v-else-if="askByTap && cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
-          </div>
-        </CtField>
-        <CtField :for="`${id}-link`" :label="i18n.t('form.link')">
-          <CtInput
-            :id="`${id}-link`"
-            v-model="link"
-            inputmode="url"
-            type="url"
-            :placeholder="i18n.t('form.linkPlaceholder')"
-            @change="onLink"
-            @paste="onLinkPaste"
-          />
-          <CtHint v-if="linkState.kind === 'found'" aria-live="polite">{{
-            i18n.t("form.linkFound", { site: linkState.site })
-          }}</CtHint>
-          <CtHint v-else-if="linkState.kind !== 'idle'" aria-live="polite">{{
-            i18n.t(LINK_STATE[linkState.kind])
-          }}</CtHint>
-          <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
-        </CtField>
-        <!-- a phone: the last field, as it was -->
-        <CtField
-          v-if="worker.api !== null"
-          class="photo"
-          :for="`${id}-photo`"
-          :label="i18n.t('form.photo')"
-        >
-          <figure v-if="photoSrc !== null">
-            <img alt="" :src="photoSrc" />
-            <CtChip float @click="removePhoto">{{ i18n.t("form.removePhoto") }}</CtChip>
-          </figure>
-          <input
-            :id="`${id}-photo`"
-            accept="image/*"
-            type="file"
-            :disabled="photo === 'sending' || cut.offline"
-            @change="onPhoto"
-          />
-          <CtHint v-if="photo !== 'idle'" aria-live="polite">{{
-            i18n.t(PHOTO_STATE[photo])
-          }}</CtHint>
-          <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
-        </CtField>
-      </div>
-      <div class="details">
-        <CtField :for="`${id}-maps`" :label="i18n.t('form.place')">
-          <CtInput
-            :id="`${id}-maps`"
-            v-model="mapsUrl"
-            inputmode="url"
-            type="url"
-            :placeholder="i18n.t('form.mapsPlaceholder')"
-            @change="onMapsUrl"
-            @paste="onMapsPaste"
-          />
-          <CtHint aria-live="polite">{{
-            i18n.t(
-              naming
-                ? "form.placeNaming"
-                : expanding
-                  ? "form.placeExpanding"
-                  : hasPin()
-                    ? "form.pinned"
-                    : mapsUrl.trim()
-                      ? worker.api
-                        ? "form.urlNoPinFind"
-                        : "form.urlNoPin"
-                      : worker.api
-                        ? "form.unpinnedFind"
-                        : "form.unpinned",
-            )
-          }}</CtHint>
-          <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
-          <div v-if="worker.api !== null" class="places">
-            <CtButton
-              variant="ask"
-              :disabled="places.kind === 'asking' || !text.trim() || cut.offline"
-              :busy="places.kind === 'asking'"
-              @click="findPlaces"
-            >{{ i18n.t("form.findPlace") }}</CtButton>
-            <CtChoiceList
-              v-if="found.length > 0"
-              dashed
-              :items="
-                found.map((p) => ({
-                  key: `${p.at.lat},${p.at.lng}`,
-                  label: p.name,
-                  detail: p.address,
-                  place: p,
-                }))
-              "
-              @choose="(it) => choosePlace(it.place)"
-            />
-            <CtHint v-if="found.length > 0 || namedByOsm">{{
-              i18n.t("form.placesCredit")
-            }}</CtHint>
-            <CtHint v-if="places.kind !== 'idle'" aria-live="polite">{{
-              i18n.t(PLACE_STATE[places.kind])
-            }}</CtHint>
-            <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
-          </div>
-        </CtField>
-        <CtField :for="`${id}-hours`" :label="i18n.t('form.hours')">
-          <CtInput
-            :id="`${id}-hours`"
-            v-model="hours"
-            autocapitalize="off"
-            spellcheck="false"
-            :placeholder="i18n.t('form.hoursPlaceholder')"
-          />
-          <CtHint aria-live="polite">{{
-            i18n.t(hoursUnread ? "form.hoursUnread" : "form.hoursHint")
-          }}</CtHint>
-        </CtField>
-        <CtField :for="`${id}-booking`" :label="i18n.t('form.booking')">
-          <CtSelect
-            :id="`${id}-booking`"
-            :model-value="bookingState"
-            @update:model-value="setBookingState"
-          >
-            <option value="none">{{ i18n.t("form.bookingNone") }}</option>
-            <option value="needed">{{ i18n.t("form.bookingNeeded") }}</option>
-            <option value="booked">{{ i18n.t("form.bookingBooked") }}</option>
-          </CtSelect>
-        </CtField>
-        <CtField v-if="isTodo" :for="`${id}-due`" :label="i18n.t('form.due')">
-          <CtInput :id="`${id}-due`" v-model="due" type="date" />
-        </CtField>
-        <CtField v-if="hasAssignee" :for="`${id}-assignee`" :label="i18n.t('form.assignee')">
-          <CtSelect :id="`${id}-assignee`" v-model="assignee">
-            <option value="">{{ i18n.t("form.assigneeAnyone") }}</option>
-            <option v-for="m in people" :key="m.id" :value="m.id">{{ m.name }}</option>
-          </CtSelect>
-        </CtField>
-        <CtField
-          v-if="bookingState === 'needed'"
-          :for="`${id}-booking-by`"
-          :label="i18n.t('form.bookingBy')"
-        >
-          <CtInput :id="`${id}-booking-by`" v-model="bookingBy" type="date" />
-        </CtField>
-        <template v-else-if="bookingState === 'booked'">
-          <CtField :for="`${id}-booking-code`" :label="i18n.t('form.bookingCode')">
-            <CtInput
-              :id="`${id}-booking-code`"
-              v-model="bookingCode"
-              autocapitalize="characters"
-              maxlength="100"
-              spellcheck="false"
+    <template v-if="mode.kind === 'sheet'" #top>
+      <CtBackButton @click="() => emit('close')">
+        <Icon :size="16" :src="backIcon" />{{ mode.back }}
+      </CtBackButton>
+    </template>
+    <template #default>
+      <div class="fields">
+        <!-- as a sheet, a sheet's title; as the memo tab, a page like home, its large title -->
+        <CtHeading class="title" :level="docked ? 'page' : 'sheet'">{{
+          i18n.t(editing ? "form.titleEdit" : "form.titleNew")
+        }}</CtHeading>
+        <!-- on a computer, side by side: what the note is, then the details of the plan -->
+        <div class="what">
+          <CtField :for="`${id}-text`" :label="i18n.t('form.note')">
+            <CtTextarea
+              :id="`${id}-text`"
+              ref="textEl"
+              v-model="text"
+              rows="4"
+              size="lg"
+              :placeholder="i18n.t('form.notePlaceholder')"
             />
           </CtField>
-          <CtField :for="`${id}-booking-url`" :label="i18n.t('form.bookingUrl')">
+          <CtField :for="`${id}-tag`" :label="i18n.t('form.tags')">
+            <CtChipInput
+              :id="`${id}-tag`"
+              v-model="tagInput"
+              :placeholder="i18n.t('form.tagPlaceholder')"
+              @commit="commitTag"
+            >
+              <CtChip
+                v-for="t in form.tags"
+                :key="t"
+                selected
+                size="sm"
+                @click="() => removeTag(t)"
+              >#{{ t }} <Icon :size="12" :src="closeIcon" /></CtChip>
+            </CtChipInput>
+            <!-- the tags that fit the words go first; what Clef offered is among them, a new one marked -->
+            <div ref="rowEl" class="recent">
+              <CtChip
+                v-for="o in shown"
+                :key="o.name"
+                :data-flip="o.name"
+                :aside="o.isNew ? i18n.t('form.newTag') : undefined"
+                :dashed="o.isNew"
+                :suggested="fits(o, text)"
+                @click="() => addTag(o.name)"
+              >#{{ o.name }}</CtChip>
+            </div>
+            <!-- Clef looks at the words and the photo; what it finds fitting moves up the row -->
+            <div v-if="worker.api !== null && (askByTap || tagState !== 'idle')" class="suggested">
+              <CtButton
+                v-if="askByTap"
+                variant="ask"
+                :disabled="tagState === 'asking' || !text.trim() || cut.offline"
+                :busy="tagState === 'asking'"
+                @click="() => askForTags(true)"
+              >{{ i18n.t("form.suggestTags") }}</CtButton>
+              <CtHint v-if="tagState !== 'idle'" aria-live="polite">{{
+                i18n.t(TAG_STATE[tagState])
+              }}</CtHint>
+              <CtHint v-else-if="askByTap && cut.offline">{{
+                i18n.t("offline.unavailable")
+              }}</CtHint>
+            </div>
+          </CtField>
+          <CtField :for="`${id}-link`" :label="i18n.t('form.link')">
             <CtInput
-              :id="`${id}-booking-url`"
-              v-model="bookingUrl"
+              :id="`${id}-link`"
+              v-model="link"
               inputmode="url"
               type="url"
-              :placeholder="i18n.t('form.bookingUrlPlaceholder')"
+              :placeholder="i18n.t('form.linkPlaceholder')"
+              @change="onLink"
+              @paste="onLinkPaste"
             />
+            <CtHint v-if="linkState.kind === 'found'" aria-live="polite">{{
+              i18n.t("form.linkFound", { site: linkState.site })
+            }}</CtHint>
+            <CtHint v-else-if="linkState.kind !== 'idle'" aria-live="polite">{{
+              i18n.t(LINK_STATE[linkState.kind])
+            }}</CtHint>
+            <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
           </CtField>
-        </template>
-        <CtField :for="`${id}-minutes`" :label="i18n.t('shiori.minutes')">
-          <CtSelect
-            :id="`${id}-minutes`"
-            :model-value="String(form.minutes ?? '')"
-            @update:model-value="setMinutes"
+          <!-- a phone: the last field, as it was -->
+          <CtField
+            v-if="worker.api !== null"
+            class="photo"
+            :for="`${id}-photo`"
+            :label="i18n.t('form.photo')"
           >
-            <option value="">{{ i18n.t("form.minutesUnset") }}</option>
-            <option v-for="m in durationChoices(form.minutes)" :key="m" :value="String(m)">{{
-              long(m)
-            }}</option>
-          </CtSelect>
-        </CtField>
+            <figure v-if="photoSrc !== null">
+              <img alt="" :src="photoSrc" />
+              <CtChip float @click="removePhoto">{{ i18n.t("form.removePhoto") }}</CtChip>
+            </figure>
+            <input
+              :id="`${id}-photo`"
+              accept="image/*"
+              type="file"
+              :disabled="photo === 'sending' || cut.offline"
+              @change="onPhoto"
+            />
+            <CtHint v-if="photo !== 'idle'" aria-live="polite">{{
+              i18n.t(PHOTO_STATE[photo])
+            }}</CtHint>
+            <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
+          </CtField>
+        </div>
+        <div class="details">
+          <CtField :for="`${id}-maps`" :label="i18n.t('form.place')">
+            <CtInput
+              :id="`${id}-maps`"
+              v-model="mapsUrl"
+              inputmode="url"
+              type="url"
+              :placeholder="i18n.t('form.mapsPlaceholder')"
+              @change="onMapsUrl"
+              @paste="onMapsPaste"
+            />
+            <CtHint aria-live="polite">{{
+              i18n.t(
+                naming
+                  ? "form.placeNaming"
+                  : expanding
+                    ? "form.placeExpanding"
+                    : hasPin()
+                      ? "form.pinned"
+                      : mapsUrl.trim()
+                        ? worker.api
+                          ? "form.urlNoPinFind"
+                          : "form.urlNoPin"
+                        : worker.api
+                          ? "form.unpinnedFind"
+                          : "form.unpinned",
+              )
+            }}</CtHint>
+            <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
+            <div v-if="worker.api !== null" class="places">
+              <CtButton
+                variant="ask"
+                :disabled="places.kind === 'asking' || !text.trim() || cut.offline"
+                :busy="places.kind === 'asking'"
+                @click="findPlaces"
+              >{{ i18n.t("form.findPlace") }}</CtButton>
+              <CtChoiceList
+                v-if="found.length > 0"
+                dashed
+                :items="
+                  found.map((p) => ({
+                    key: `${p.at.lat},${p.at.lng}`,
+                    label: p.name,
+                    detail: p.address,
+                    place: p,
+                  }))
+                "
+                @choose="(it) => choosePlace(it.place)"
+              />
+              <CtHint v-if="found.length > 0 || namedByOsm">{{
+                i18n.t("form.placesCredit")
+              }}</CtHint>
+              <CtHint v-if="places.kind !== 'idle'" aria-live="polite">{{
+                i18n.t(PLACE_STATE[places.kind])
+              }}</CtHint>
+              <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
+            </div>
+          </CtField>
+          <CtField :for="`${id}-hours`" :label="i18n.t('form.hours')">
+            <CtInput
+              :id="`${id}-hours`"
+              v-model="hours"
+              autocapitalize="off"
+              spellcheck="false"
+              :placeholder="i18n.t('form.hoursPlaceholder')"
+            />
+            <CtHint aria-live="polite">{{
+              i18n.t(hoursUnread ? "form.hoursUnread" : "form.hoursHint")
+            }}</CtHint>
+          </CtField>
+          <CtField :for="`${id}-booking`" :label="i18n.t('form.booking')">
+            <CtSelect
+              :id="`${id}-booking`"
+              :model-value="bookingState"
+              @update:model-value="setBookingState"
+            >
+              <option value="none">{{ i18n.t("form.bookingNone") }}</option>
+              <option value="needed">{{ i18n.t("form.bookingNeeded") }}</option>
+              <option value="booked">{{ i18n.t("form.bookingBooked") }}</option>
+            </CtSelect>
+          </CtField>
+          <CtField v-if="isTodo" :for="`${id}-due`" :label="i18n.t('form.due')">
+            <CtInput :id="`${id}-due`" v-model="due" type="date" />
+          </CtField>
+          <CtField v-if="hasAssignee" :for="`${id}-assignee`" :label="i18n.t('form.assignee')">
+            <CtSelect :id="`${id}-assignee`" v-model="assignee">
+              <option value="">{{ i18n.t("form.assigneeAnyone") }}</option>
+              <option v-for="m in people" :key="m.id" :value="m.id">{{ m.name }}</option>
+            </CtSelect>
+          </CtField>
+          <CtField
+            v-if="bookingState === 'needed'"
+            :for="`${id}-booking-by`"
+            :label="i18n.t('form.bookingBy')"
+          >
+            <CtInput :id="`${id}-booking-by`" v-model="bookingBy" type="date" />
+          </CtField>
+          <template v-else-if="bookingState === 'booked'">
+            <CtField :for="`${id}-booking-code`" :label="i18n.t('form.bookingCode')">
+              <CtInput
+                :id="`${id}-booking-code`"
+                v-model="bookingCode"
+                autocapitalize="characters"
+                maxlength="100"
+                spellcheck="false"
+              />
+            </CtField>
+            <CtField :for="`${id}-booking-url`" :label="i18n.t('form.bookingUrl')">
+              <CtInput
+                :id="`${id}-booking-url`"
+                v-model="bookingUrl"
+                inputmode="url"
+                type="url"
+                :placeholder="i18n.t('form.bookingUrlPlaceholder')"
+              />
+            </CtField>
+          </template>
+          <CtField :for="`${id}-minutes`" :label="i18n.t('shiori.minutes')">
+            <CtSelect
+              :id="`${id}-minutes`"
+              :model-value="String(form.minutes ?? '')"
+              @update:model-value="setMinutes"
+            >
+              <option value="">{{ i18n.t("form.minutesUnset") }}</option>
+              <option v-for="m in durationChoices(form.minutes)" :key="m" :value="String(m)">{{
+                long(m)
+              }}</option>
+            </CtSelect>
+          </CtField>
+        </div>
       </div>
-    </div>
-    <footer>
-      <label v-if="!docked && !editing" class="again" :for="`${id}-again`"><CtCheckbox
-          :id="`${id}-again`"
-          v-model="keepOpen"
-        />{{ i18n.t("form.addAnother") }}</label>
-      <CtButton
-        size="lg"
-        type="submit"
-        variant="primary"
-        :disabled="!text.trim() || photo === 'sending'"
-      >{{
-        i18n.t(saveLabel)
-      }}</CtButton>
-      <CtHint v-if="!editing">{{ i18n.t(hintKey) }}</CtHint>
-    </footer>
-  </form>
+    </template>
+    <template #foot>
+      <div class="act">
+        <label v-if="!docked && !editing" class="again" :for="`${id}-again`"><CtCheckbox
+            :id="`${id}-again`"
+            v-model="keepOpen"
+          />{{ i18n.t("form.addAnother") }}</label>
+        <CtButton
+          size="lg"
+          type="submit"
+          variant="primary"
+          :disabled="!text.trim() || photo === 'sending'"
+        >{{
+          i18n.t(saveLabel)
+        }}</CtButton>
+        <CtHint v-if="!editing">{{ i18n.t(hintKey) }}</CtHint>
+      </div>
+    </template>
+  </CtSheet>
 </template>
 
 <style scoped>
 @import "../../../ui/styles/media.css";
 
-form {
-  position: absolute;
-  inset: 0;
-  z-index: var(--z-sheet);
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-
-  /* the memo tab: a view in the stack like the others, not a sheet over them */
-  &[data-docked] {
-    z-index: auto;
-    isolation: isolate;
-
-    /* above the dock, with the rest of the views */
-    padding-block-end: var(--dock-clear);
-
-    /* a page like home: a large title at the top */
-    > div {
-      padding-block-start: var(--page-top);
-    }
+/* a sheet (CtSheet), or docked as the memo tab; on a computer, all of it along 1100px of columns */
+.note-form {
+  @media (--desktop) {
+    --sheet-inline: max(32px, (100% - 1100px) / 2);
   }
 
-  > div {
-    flex: 1;
-    overflow-y: auto;
-    /* a sheet's page starts under its way back; the memo tab's like any page */
-    padding: var(--top-clear) var(--page-margin) 20px;
+  .fields {
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -944,7 +936,6 @@ form {
       align-content: start;
       align-items: start;
       gap: 24px 48px;
-      padding-inline: max(32px, (100% - 1100px) / 2);
 
       > .title {
         grid-column: 1 / -1;
@@ -1050,10 +1041,7 @@ form {
     }
   }
 
-  > footer {
-    padding: 10px var(--page-margin) calc(16px + env(safe-area-inset-bottom, 0px));
-    border-top: 1px solid var(--line);
-    background: var(--bg);
+  .act {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -1078,7 +1066,6 @@ form {
       flex-direction: row;
       align-items: center;
       gap: 20px;
-      padding-inline: max(32px, (100% - 1100px) / 2);
 
       > p {
         order: -1;
@@ -1095,11 +1082,6 @@ form {
         min-width: 240px;
       }
     }
-  }
-
-  /* the memo tab's footer sits on the dock's footprint, not on the screen's edge */
-  &[data-docked] > footer {
-    padding-block-end: 12px;
   }
 }
 </style>
