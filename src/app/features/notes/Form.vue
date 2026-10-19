@@ -33,6 +33,7 @@ import {
   CtButton,
   CtCheckbox,
   CtChip,
+  CtChipInput,
   CtChoiceList,
   CtField,
   CtHeading,
@@ -660,20 +661,17 @@ function submit() {
           />
         </CtField>
         <CtField :for="`${id}-tag`" :label="i18n.t('form.tags')">
-          <div class="tagbox">
-            <CtChip v-for="t in form.tags" :key="t" selected @click="() => removeTag(t)">#{{ t }} <Icon
+          <CtChipInput
+            :id="`${id}-tag`"
+            v-model="tagInput"
+            :placeholder="i18n.t('form.tagPlaceholder')"
+            @commit="commitTag"
+          >
+            <CtChip v-for="t in form.tags" :key="t" selected size="sm" @click="() => removeTag(t)">#{{ t }} <Icon
                 :size="12"
                 :src="closeIcon"
               /></CtChip>
-            <input
-              :id="`${id}-tag`"
-              v-model="tagInput"
-              enterkeyhint="done"
-              :placeholder="i18n.t('form.tagPlaceholder')"
-              @keydown.enter.prevent="commitTag"
-              @blur="commitTag"
-            />
-          </div>
+          </CtChipInput>
           <!-- the tags that fit the words go first; what Clef offered is among them, a new one marked -->
           <div ref="rowEl" class="recent">
             <CtChip
@@ -965,40 +963,6 @@ form {
         /* room to write, which a phone could not give */
         @media (--desktop) {
           min-height: 240px;
-        }
-      }
-
-      > .tagbox {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        align-items: center;
-        min-height: 46px;
-        padding: 6px 8px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: var(--surface);
-
-        /* the box is the field: it takes the focus ring for the input inside it */
-        &:focus-within {
-          outline: 2px solid var(--ink);
-          outline-offset: 2px;
-        }
-
-        > button {
-          min-height: 32px;
-        }
-
-        > input {
-          flex: 1;
-          min-width: 80px;
-          border: 0;
-          background: transparent;
-          font: inherit;
-          font-size: var(--font-base);
-          color: var(--ink);
-          height: 32px;
-          outline: none;
         }
       }
 
