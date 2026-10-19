@@ -31,7 +31,7 @@ import {
 import {
   CtBackButton,
   CtButton,
-  CtCheckbox,
+  CtCheck,
   CtChip,
   CtChipInput,
   CtChoiceList,
@@ -884,10 +884,15 @@ function submit() {
     </template>
     <template #foot>
       <div class="act">
-        <label v-if="!docked && !editing" class="again" :for="`${id}-again`"><CtCheckbox
-            :id="`${id}-again`"
-            v-model="keepOpen"
-          />{{ i18n.t("form.addAnother") }}</label>
+        <CtCheck
+          v-if="!docked && !editing"
+          :id="`${id}-again`"
+          v-model="keepOpen"
+          class="again"
+          quiet
+        >{{
+          i18n.t("form.addAnother")
+        }}</CtCheck>
         <CtButton
           size="lg"
           type="submit"
@@ -1028,12 +1033,6 @@ function submit() {
     /* one after another: the sheet stays open for the next note */
     > .again {
       align-self: flex-end;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-height: var(--tap);
-      font-size: var(--font-sm);
-      color: var(--muted);
     }
 
     /* a computer: one row along the columns' width, the hint at the start, the button at the end */

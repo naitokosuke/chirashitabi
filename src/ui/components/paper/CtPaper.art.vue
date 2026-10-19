@@ -9,6 +9,12 @@ defineArt("./CtPaper.vue", {
 </script>
 
 <style scoped>
+.rows {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+}
+
 .title {
   margin: 0;
   font-weight: 700;
@@ -60,5 +66,25 @@ defineArt("./CtPaper.vue", {
     <CtPaper paper="color-mix(in oklab, #1b998b 28%, var(--paper-white))" selected>
       <p class="title">Picked</p>
     </CtPaper>
+  </variant>
+  <variant name="Rows">
+    <div class="rows">
+      <CtPaper paper="color-mix(in oklab, #d7263d 28%, var(--paper-white))" variant="row">
+        <template #tab><b>12:30</b></template>
+        <template #default><p class="title">Din Tai Fung xiaolongbao</p></template>
+      </CtPaper>
+      <CtPaper
+        paper="color-mix(in oklab, #3c6ee0 28%, var(--paper-white))"
+        stamp="Done"
+        variant="row"
+      >
+        <template #tab><b>16:00</b></template>
+        <template #default><p class="title">Jiufen at dusk</p></template>
+      </CtPaper>
+      <CtPaper faded paper="color-mix(in oklab, #1b998b 28%, var(--paper-white))" variant="row">
+        <template #tab><b>20:30</b></template>
+        <template #default><p class="title">Taihu Brewing, if there is time</p></template>
+      </CtPaper>
+    </div>
   </variant>
 </art>

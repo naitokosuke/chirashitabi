@@ -20,6 +20,7 @@ export { default as CtDockDivider } from "./components/dock/CtDockDivider.vue";
 export { default as CtDockGroup } from "./components/dock/CtDockGroup.vue";
 export { default as CtDockItem } from "./components/dock/CtDockItem.vue";
 export { default as CtFab } from "./components/fab/CtFab.vue";
+export { default as CtCheck } from "./components/field/CtCheck.vue";
 export { default as CtCheckbox } from "./components/field/CtCheckbox.vue";
 export { default as CtChipInput } from "./components/field/CtChipInput.vue";
 export { default as CtField } from "./components/field/CtField.vue";

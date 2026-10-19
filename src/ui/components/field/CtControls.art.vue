@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, useId } from "vue";
 
+import CtCheck from "./CtCheck.vue";
 import CtCheckbox from "./CtCheckbox.vue";
 import CtField from "./CtField.vue";
 import CtFileInput from "./CtFileInput.vue";
@@ -8,7 +9,7 @@ import CtInput from "./CtInput.vue";
 import CtTextarea from "./CtTextarea.vue";
 
 defineArt("./CtSelect.vue", {
-  title: "CtSelect, CtTextarea, CtCheckbox, CtFileInput",
+  title: "CtSelect, CtTextarea, CtCheckbox, CtCheck, CtFileInput",
   category: "Forms",
   description:
     "A field's other controls: one of a few, lines to write in, a box to tick, a file to pick",
@@ -61,6 +62,7 @@ label {
       </CtField>
       <CtTextarea v-model="note" aria-label="The day's line" dashed rows="2" />
       <label :for="`${id}-keep`"><CtCheckbox :id="`${id}-keep`" v-model="keep" />Keep writing</label>
+      <CtCheck :id="`${id}-again`" v-model="keep" quiet>Keep writing (CtCheck)</CtCheck>
       <CtField :for="`${id}-photo`" label="Photo">
         <CtFileInput :id="`${id}-photo`" accept="image/*" />
       </CtField>
