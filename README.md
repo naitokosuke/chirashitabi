@@ -122,8 +122,9 @@ src/contract/       What the app and the Worker both hold to; each takes it thro
   ids.ts         RoomId, MemberId, NoteId, ImageId, Email: brands, and the checks that make them
   brand.ts, color.ts, money.ts, record.ts   Brand; HexColor; CurrencyCode; isRecord
   place.ts       LatLng; a Google Maps link's point, and whether it is a short link
-  airports.ts    The airports (airports.json, from OurAirports): codes, matching a name, suggestions as typed
-  airport-codes.ts   The list itself, loaded: a flight's code is checked against it, and one kept from before
+  airports.json  The airports with an IATA code and scheduled service, from OurAirports (scripts/airports.mjs)
+  airport.ts     An airport and its code: a row of airports.json as one, and the one a name or code means
+  airport-list.ts   airports.json, loaded: a flight's code is checked against it, and one kept from before
                  codes were required is given one by the name it had
 
 src/ui/             The design system: props, slots and events only, no app imports
@@ -177,7 +178,7 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
   expand.ts         A short Google Maps link (maps.app.goo.gl) read as the link its redirect names
   preview.ts        What a page a note links to says of itself (Open Graph; YouTube's oEmbed): title, a line,
                     its picture, fetched within a fence (docs/auth-and-security.md, "Previewing links")
-  airports.ts       The airports a flight may name (src/contract's airport-codes.ts)
+  airports.ts       The airports a flight may name (src/contract's airport-list.ts)
   booklet.ts        The booklet as a public page: one static HTML file written from the room's data, plan only,
                     escaped, no script; served on the booklet host from R2 (index.ts)
   room.ts           Room: the trip, its notes and members in SQLite, and which pictures it has (their bytes

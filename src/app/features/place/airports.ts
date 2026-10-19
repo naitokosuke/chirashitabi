@@ -1,4 +1,4 @@
-import { ALIASES, type Airport } from "../../../contract/airports";
+import { ALIASES, type Airport } from "../../../contract/airport";
 
 // the airports, as the app takes them from the contract; the list itself is fetched (useAirports)
 export {
@@ -8,7 +8,7 @@ export {
   findAirport,
   type Airport,
   type AirportCode,
-} from "../../../contract/airports";
+} from "../../../contract/airport";
 export { default as airportsUrl } from "../../../contract/airports.json?url";
 
 /**

@@ -6,7 +6,7 @@ import {
   findAirport,
   type Airport,
   type AirportCode,
-} from "./airports";
+} from "./airport";
 import rows from "./airports.json";
 
 /**
