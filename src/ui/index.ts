@@ -9,6 +9,7 @@ export { default as CtBackButton } from "./components/back/CtBackButton.vue";
 export { default as CtButton } from "./components/button/CtButton.vue";
 export { default as CtCalendar } from "./components/calendar/CtCalendar.vue";
 export { default as CtChip } from "./components/chip/CtChip.vue";
+export { default as CtChoiceList } from "./components/choice-list/CtChoiceList.vue";
 export { default as CtChipPick } from "./components/chip/CtChipPick.vue";
 export { default as CtDock } from "./components/dock/CtDock.vue";
 export { default as CtDockDivider } from "./components/dock/CtDockDivider.vue";

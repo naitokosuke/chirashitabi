@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, reactive, useId } from "vue";
 
-import { CtButton, CtField, CtInput, CtPanel } from "../../../ui/index";
+import { CtButton, CtChoiceList, CtField, CtInput, CtPanel } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -280,13 +280,18 @@ function save() {
             :disabled="s.name.trim() === '' || finding.has(s)"
             @click="() => findStay(s)"
           >{{ i18n.t(finding.has(s) ? "stay.finding" : "stay.find") }}</CtButton>
-          <ul v-if="(found.get(s)?.length ?? 0) > 0">
-            <li v-for="p in found.get(s)" :key="`${p.at.lat},${p.at.lng}`">
-              <button type="button" @click="() => chooseStay(s, p)"><b>{{ p.name }}</b><small>{{
-                  p.address
-                }}</small></button>
-            </li>
-          </ul>
+          <CtChoiceList
+            v-if="(found.get(s)?.length ?? 0) > 0"
+            :items="
+              (found.get(s) ?? []).map((p) => ({
+                key: `${p.at.lat},${p.at.lng}`,
+                label: p.name,
+                detail: p.address,
+                place: p,
+              }))
+            "
+            @choose="(it) => chooseStay(s, it.place)"
+          />
           <p v-if="found.get(s)?.length === 0" aria-live="polite" class="hint">{{
             i18n.t("stay.findNone")
           }}</p>
@@ -450,33 +455,6 @@ button.remove {
 .find {
   display: grid;
   gap: 8px;
-  > ul {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: grid;
-    gap: 6px;
-    > li > button {
-      display: grid;
-      gap: 2px;
-      width: 100%;
-      min-height: var(--tap);
-      padding: 8px 12px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--bg);
-      color: var(--ink);
-      font: inherit;
-      text-align: start;
-      > b {
-        font-size: var(--font-md);
-      }
-      > small {
-        font-size: var(--font-xs);
-        color: var(--muted);
-      }
-    }
-  }
 }
 
 .note, .hint {
