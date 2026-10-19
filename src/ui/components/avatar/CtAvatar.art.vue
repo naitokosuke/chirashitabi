@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import CtByline from "./CtByline.vue";
+
 defineArt("./CtAvatar.vue", {
   title: "CtAvatar",
   category: "People",
@@ -27,6 +29,12 @@ defineArt("./CtAvatar.vue", {
     <div class="row">
       <CtAvatar color="#5b7fd6" size="dot" />Yuki
       <CtAvatar color="#d65b6a" size="dot" />Ken
+    </div>
+  </variant>
+  <variant name="Bylines">
+    <div class="row">
+      <CtByline color="#d65b6a" size="xs">Ken</CtByline>
+      <CtByline color="#5b7fd6" strong>Yuki invited you</CtByline>
     </div>
   </variant>
 </art>

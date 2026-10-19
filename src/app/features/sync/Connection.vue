@@ -3,6 +3,8 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed } from "vue";
 
+import { CtBadge } from "../../../ui/index";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import { hhmm, shortDate } from "../trip/format";
@@ -28,19 +30,18 @@ const since = computed(() => {
 <template>
   <!--
     Inside a room, while the socket is on its way: opening from what this device kept, or
-    coming back after a drop. The data stays usable meanwhile, so this is a quiet chip over the
-    view, never a cover. Once the socket gives up, the band along the top says so (Offline.vue).
+    coming back after a drop. The data stays usable meanwhile, so this is a quiet badge over the
+    view, its dot breathing, never a cover. Once the socket gives up, the band along the top says
+    so (Offline.vue).
   -->
   <div aria-live="polite">
-    <p v-if="link === 'connecting' || link === 'reconnecting'">
-      <span aria-hidden="true"></span>{{ i18n.t("room.reconnecting", { time: since }) }}
-    </p>
+    <CtBadge v-if="link === 'connecting' || link === 'reconnecting'" as="p" busy float>{{
+      i18n.t("room.reconnecting", { time: since })
+    }}</CtBadge>
   </div>
 </template>
 
 <style scoped>
-@import "../../../ui/styles/media.css";
-
 /* under the row where tools float, centred; it covers a strip of the view only while the socket is down */
 div {
   position: absolute;
@@ -52,43 +53,7 @@ div {
   pointer-events: none;
 
   > p {
-    margin: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 32px;
-    padding: 0 14px;
-    border-radius: 999px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    box-shadow: var(--shadow-float);
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
     pointer-events: auto;
-
-    /* breathing while it reconnects */
-    > span {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: currentColor;
-      animation: breathe 1s ease-in-out infinite alternate;
-
-      @media (--reduced-motion) {
-        animation: none;
-      }
-    }
-
-  }
-}
-
-@keyframes breathe {
-  from {
-    opacity: 0.25;
-  }
-  to {
-    opacity: 1;
   }
 }
 </style>

@@ -5,6 +5,7 @@ import { computed, ref, useId } from "vue";
 
 import {
   CtAvatar,
+  CtByline,
   CtBadge,
   CtButton,
   CtCheckbox,
@@ -100,12 +101,9 @@ function markBooked(n: Memo) {
           t.memo.title
         }}</button>
         <small v-if="dueText(t) !== ''">{{ dueText(t) }}</small>
-        <span v-if="whoOf(t) !== undefined" class="who"><CtAvatar
-            :color="whoOf(t)?.color"
-            size="dot"
-          />{{
-            whoOf(t)?.name
-          }}</span>
+        <CtByline v-if="whoOf(t) !== undefined" :color="whoOf(t)?.color" size="xs">{{
+          whoOf(t)?.name
+        }}</CtByline>
         <CtButton
           v-if="t.kind === 'booking'"
           size="sm"
@@ -175,15 +173,6 @@ function markBooked(n: Memo) {
         font-size: var(--font-xs);
         font-weight: 700;
         font-variant-numeric: tabular-nums;
-      }
-
-      /* who is to do it: a dot of their color and their name */
-      > .who {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        font-size: var(--font-xs);
-        color: var(--muted);
       }
 
       &[data-done] > .title {

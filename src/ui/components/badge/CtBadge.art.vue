@@ -24,6 +24,7 @@ defineArt("./CtBadge.vue", {
       <CtBadge filled>3</CtBadge>
       <CtBadge dashed>To book</CtBadge>
       <CtBadge as="p" float>2 notes have no place yet</CtBadge>
+      <CtBadge as="p" busy float>Reconnecting · as of 12:30</CtBadge>
     </div>
   </variant>
 </art>

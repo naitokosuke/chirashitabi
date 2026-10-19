@@ -4,12 +4,15 @@
  * default; `filled` in ink for a count that asks to be seen; `dashed` for what is still
  * waiting (a booking to make); `float` on the surface, lifted over what it floats on (a note
  * over the map). `as` is the element it is (a `time` with its `datetime`, a `p` saying a line).
+ * `busy` is a state still under way (a room reconnecting): a dot breathes before its words, as
+ * on a CtButton.
  */
 const { as = "span" } = defineProps<{
   as?: "span" | "small" | "time" | "p";
   filled?: boolean;
   dashed?: boolean;
   float?: boolean;
+  busy?: boolean;
 }>();
 defineSlots<{ default(): unknown }>();
 </script>
@@ -21,12 +24,15 @@ defineSlots<{ default(): unknown }>();
     :data-filled="filled || undefined"
     :data-dashed="dashed || undefined"
     :data-float="float || undefined"
+    :data-busy="busy || undefined"
   >
     <slot></slot>
   </component>
 </template>
 
 <style scoped>
+@import "../../styles/media.css";
+
 .badge {
   flex-shrink: 0;
   display: inline-block;
@@ -65,6 +71,36 @@ defineSlots<{ default(): unknown }>();
     line-height: 1.5;
     white-space: normal;
     text-align: start;
+  }
+
+  /* under way: a dot breathing before the words, which say what is happening */
+  &[data-busy] {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    &::before {
+      content: "";
+      flex-shrink: 0;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: breathe 1s ease-in-out infinite alternate;
+
+      @media (--reduced-motion) {
+        animation: none;
+      }
+    }
+  }
+}
+
+@keyframes breathe {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
   }
 }
 </style>
