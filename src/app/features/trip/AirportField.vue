@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { computed, ref, watch } from "vue";
 
-import { CtField, CtInput } from "../../../ui/index";
+import { CtField, CtHint, CtInput } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -119,10 +119,10 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
         <b>{{ a.code }}</b><span>{{ a.name }}</span><small>{{ place(a) }}</small>
       </li>
     </ul>
-    <p v-if="named !== undefined" class="named">{{ `${named.name} · ${place(named)}` }}</p>
-    <p v-else-if="modelValue.trim() !== '' && airports.length > 0" class="named">{{
+    <CtHint v-if="named !== undefined">{{ `${named.name} · ${place(named)}` }}</CtHint>
+    <CtHint v-else-if="modelValue.trim() !== '' && airports.length > 0">{{
       i18n.t("flight.unknownAirport")
-    }}</p>
+    }}</CtHint>
   </CtField>
 </template>
 
@@ -177,12 +177,6 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
         }
       }
     }
-  }
-  > .named {
-    margin: 0;
-    font-size: var(--font-xs);
-    color: var(--muted);
-    overflow-wrap: anywhere;
   }
 }
 </style>

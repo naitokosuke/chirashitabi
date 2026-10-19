@@ -8,6 +8,7 @@ import {
   CtHeading,
   CtHoldButton,
   CtListItem,
+  CtMessage,
   CtPanel,
   CtSwipeAction,
   CtSwipeRow,
@@ -166,24 +167,24 @@ function retry() {
     <div class="list" :inert="creating">
       <div class="page" :aria-busy="listStatus === 'pending'">
         <CtHeading as="h1" level="page">chirashitabi</CtHeading>
-        <CtPanel v-if="joining !== null && !joining.failed" as="p" class="notice" role="status">
+        <CtMessage v-if="joining !== null && !joining.failed" boxed class="notice" role="status">
           {{
             joining.name === null
               ? i18n.t("rooms.connectingUnnamed")
               : i18n.t("rooms.connecting", { name: joining.name })
           }}
-        </CtPanel>
-        <CtPanel v-else-if="joining !== null" as="p" class="notice" role="alert">
+        </CtMessage>
+        <CtMessage v-else-if="joining !== null" boxed class="notice" role="alert">
           {{ i18n.t("rooms.failed") }}
           <CtButton variant="primary" @click="retry">{{ i18n.t("rooms.retry") }}</CtButton>
-        </CtPanel>
-        <CtPanel v-if="removeFailed" as="p" class="notice" role="alert">{{
+        </CtMessage>
+        <CtMessage v-if="removeFailed" boxed class="notice" role="alert">{{
           i18n.t("people.failed")
-        }}</CtPanel>
-        <CtPanel v-if="listStatus === 'error'" as="p" class="notice" role="alert">
+        }}</CtMessage>
+        <CtMessage v-if="listStatus === 'error'" boxed class="notice" role="alert">
           {{ i18n.t("rooms.listFailed") }}
           <CtButton variant="primary" @click="retry">{{ i18n.t("rooms.retry") }}</CtButton>
-        </CtPanel>
+        </CtMessage>
 
         <!-- two blank tags where the trips will hang, so nothing jumps when they arrive -->
         <div v-if="listStatus === 'pending'" class="tags">
@@ -272,12 +273,12 @@ function retry() {
           <!-- trips their owner deleted, kept a while in case it was a slip; either person brings one back -->
           <section v-if="mine !== undefined && mine.deleted.length > 0">
             <CtHeading>{{ i18n.t("rooms.deleted") }}</CtHeading>
-            <CtPanel v-if="shelfFailed('restore')" as="p" class="notice" role="alert">{{
+            <CtMessage v-if="shelfFailed('restore')" boxed class="notice" role="alert">{{
               i18n.t("rooms.restoreFailed")
-            }}</CtPanel>
-            <CtPanel v-if="shelfFailed('purge')" as="p" class="notice" role="alert">{{
+            }}</CtMessage>
+            <CtMessage v-if="shelfFailed('purge')" boxed class="notice" role="alert">{{
               i18n.t("rooms.purgeFailed")
-            }}</CtPanel>
+            }}</CtMessage>
             <CtPanel as="ul" pad="none">
               <CtListItem
                 v-for="d in mine?.deleted"
@@ -352,13 +353,7 @@ function retry() {
 
 /* the room did not answer, or the list did not come: said once, with the way to try again */
 .notice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
   margin: 16px 0 0;
-  font-size: var(--font-md);
-  color: var(--ink);
 }
 
 .empty {
