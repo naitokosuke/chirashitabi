@@ -28,7 +28,7 @@ import {
   watch,
 } from "vue";
 
-import { CtButton, CtChip, useFlip } from "../../../ui/index";
+import { CtButton, CtChip, CtField, CtInput, useFlip } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -636,8 +636,7 @@ function submit() {
       <h2 class="title">{{ i18n.t(editing ? "form.titleEdit" : "form.titleNew") }}</h2>
       <!-- on a computer, side by side: what the note is, then the details of the plan -->
       <div class="what">
-        <div>
-          <label :for="`${id}-text`">{{ i18n.t("form.note") }}</label>
+        <CtField :for="`${id}-text`" :label="i18n.t('form.note')">
           <textarea
             :id="`${id}-text`"
             ref="textEl"
@@ -645,9 +644,8 @@ function submit() {
             rows="4"
             :placeholder="i18n.t('form.notePlaceholder')"
           ></textarea>
-        </div>
-        <div>
-          <label :for="`${id}-tag`">{{ i18n.t("form.tags") }}</label>
+        </CtField>
+        <CtField :for="`${id}-tag`" :label="i18n.t('form.tags')">
           <div class="tagbox">
             <CtChip v-for="t in form.tags" :key="t" selected @click="() => removeTag(t)">#{{ t }} <Icon
                 :size="12"
@@ -685,10 +683,9 @@ function submit() {
             <p v-if="tagState !== 'idle'" aria-live="polite">{{ i18n.t(TAG_STATE[tagState]) }}</p>
             <p v-else-if="askByTap && cut.offline">{{ i18n.t("offline.unavailable") }}</p>
           </div>
-        </div>
-        <div>
-          <label :for="`${id}-link`">{{ i18n.t("form.link") }}</label>
-          <input
+        </CtField>
+        <CtField :for="`${id}-link`" :label="i18n.t('form.link')">
+          <CtInput
             :id="`${id}-link`"
             v-model="link"
             inputmode="url"
@@ -704,10 +701,14 @@ function submit() {
             i18n.t(LINK_STATE[linkState.kind])
           }}</p>
           <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
-        </div>
+        </CtField>
         <!-- a phone: the last field, as it was -->
-        <div v-if="worker.api !== null" class="photo">
-          <label :for="`${id}-photo`">{{ i18n.t("form.photo") }}</label>
+        <CtField
+          v-if="worker.api !== null"
+          class="photo"
+          :for="`${id}-photo`"
+          :label="i18n.t('form.photo')"
+        >
           <figure v-if="photoSrc !== null">
             <img alt="" :src="photoSrc" />
             <button type="button" @click="removePhoto">{{ i18n.t("form.removePhoto") }}</button>
@@ -721,12 +722,11 @@ function submit() {
           />
           <p v-if="photo !== 'idle'" aria-live="polite">{{ i18n.t(PHOTO_STATE[photo]) }}</p>
           <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
-        </div>
+        </CtField>
       </div>
       <div class="details">
-        <div>
-          <label :for="`${id}-maps`">{{ i18n.t("form.place") }}</label>
-          <input
+        <CtField :for="`${id}-maps`" :label="i18n.t('form.place')">
+          <CtInput
             :id="`${id}-maps`"
             v-model="mapsUrl"
             inputmode="url"
@@ -776,10 +776,9 @@ function submit() {
             }}</p>
             <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
           </div>
-        </div>
-        <div>
-          <label :for="`${id}-hours`">{{ i18n.t("form.hours") }}</label>
-          <input
+        </CtField>
+        <CtField :for="`${id}-hours`" :label="i18n.t('form.hours')">
+          <CtInput
             :id="`${id}-hours`"
             v-model="hours"
             autocapitalize="off"
@@ -789,61 +788,58 @@ function submit() {
           <p aria-live="polite">{{
             i18n.t(hoursUnread ? "form.hoursUnread" : "form.hoursHint")
           }}</p>
-        </div>
-        <div>
-          <label :for="`${id}-booking`">{{ i18n.t("form.booking") }}</label>
+        </CtField>
+        <CtField :for="`${id}-booking`" :label="i18n.t('form.booking')">
           <select :id="`${id}-booking`" :value="bookingState" @change="setBookingState">
             <option value="none">{{ i18n.t("form.bookingNone") }}</option>
             <option value="needed">{{ i18n.t("form.bookingNeeded") }}</option>
             <option value="booked">{{ i18n.t("form.bookingBooked") }}</option>
           </select>
-        </div>
-        <div v-if="isTodo">
-          <label :for="`${id}-due`">{{ i18n.t("form.due") }}</label>
-          <input :id="`${id}-due`" v-model="due" type="date" />
-        </div>
-        <div v-if="hasAssignee">
-          <label :for="`${id}-assignee`">{{ i18n.t("form.assignee") }}</label>
+        </CtField>
+        <CtField v-if="isTodo" :for="`${id}-due`" :label="i18n.t('form.due')">
+          <CtInput :id="`${id}-due`" v-model="due" type="date" />
+        </CtField>
+        <CtField v-if="hasAssignee" :for="`${id}-assignee`" :label="i18n.t('form.assignee')">
           <select :id="`${id}-assignee`" v-model="assignee">
             <option value="">{{ i18n.t("form.assigneeAnyone") }}</option>
             <option v-for="m in people" :key="m.id" :value="m.id">{{ m.name }}</option>
           </select>
-        </div>
-        <div v-if="bookingState === 'needed'">
-          <label :for="`${id}-booking-by`">{{ i18n.t("form.bookingBy") }}</label>
-          <input :id="`${id}-booking-by`" v-model="bookingBy" type="date" />
-        </div>
+        </CtField>
+        <CtField
+          v-if="bookingState === 'needed'"
+          :for="`${id}-booking-by`"
+          :label="i18n.t('form.bookingBy')"
+        >
+          <CtInput :id="`${id}-booking-by`" v-model="bookingBy" type="date" />
+        </CtField>
         <template v-else-if="bookingState === 'booked'">
-          <div>
-            <label :for="`${id}-booking-code`">{{ i18n.t("form.bookingCode") }}</label>
-            <input
+          <CtField :for="`${id}-booking-code`" :label="i18n.t('form.bookingCode')">
+            <CtInput
               :id="`${id}-booking-code`"
               v-model="bookingCode"
               autocapitalize="characters"
               maxlength="100"
               spellcheck="false"
             />
-          </div>
-          <div>
-            <label :for="`${id}-booking-url`">{{ i18n.t("form.bookingUrl") }}</label>
-            <input
+          </CtField>
+          <CtField :for="`${id}-booking-url`" :label="i18n.t('form.bookingUrl')">
+            <CtInput
               :id="`${id}-booking-url`"
               v-model="bookingUrl"
               inputmode="url"
               type="url"
               :placeholder="i18n.t('form.bookingUrlPlaceholder')"
             />
-          </div>
+          </CtField>
         </template>
-        <div>
-          <label :for="`${id}-minutes`">{{ i18n.t("shiori.minutes") }}</label>
+        <CtField :for="`${id}-minutes`" :label="i18n.t('shiori.minutes')">
           <select :id="`${id}-minutes`" :value="form.minutes ?? ''" @change="setMinutes">
             <option value="">{{ i18n.t("form.minutesUnset") }}</option>
             <option v-for="m in durationChoices(form.minutes)" :key="m" :value="m">{{
               long(m)
             }}</option>
           </select>
-        </div>
+        </CtField>
       </div>
     </div>
     <footer>
@@ -971,16 +967,7 @@ form {
       line-height: 1.25;
     }
 
-    /* a field's name, above it */
-    > :is(.what, .details) > div > label {
-      font-size: var(--font-sm);
-      font-weight: 700;
-      color: var(--muted);
-      display: block;
-      margin-bottom: 6px;
-      padding: 0;
-    }
-
+    /* each field (CtField) puts 6px between what it holds; the margins below are what goes past it */
     > :is(.what, .details) > div {
       > textarea {
         width: 100%;
@@ -1038,7 +1025,7 @@ form {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-        margin-top: 8px;
+        margin-top: 2px;
 
         /* the words name it, or Clef found it likely: it reads as a pick, not only as one in use */
         > [data-fit] {
@@ -1064,7 +1051,7 @@ form {
         flex-direction: column;
         align-items: flex-start;
         gap: 8px;
-        margin-top: 8px;
+        margin-top: 2px;
 
         /* each place: its name, and where it is under it; a tap makes it the memo's */
         > ul {
@@ -1126,7 +1113,7 @@ form {
         flex-wrap: wrap;
         align-items: center;
         gap: 6px;
-        margin-top: 8px;
+        margin-top: 2px;
 
         > p {
           flex-basis: 100%;
@@ -1136,11 +1123,12 @@ form {
         }
       }
 
-      > input,
-      > select {
+      > select,
+      > input[type="file"] {
         width: 100%;
+        min-height: 46px;
         font: inherit;
-        font-size: var(--font-base);
+        font-size: var(--font-lg);
         padding: 10px 12px;
         border: 1px solid var(--line);
         border-radius: 10px;
@@ -1170,7 +1158,7 @@ form {
       /* the card's picture, as it will show, with a way to take it off */
       > figure {
         position: relative;
-        margin: 0 0 8px;
+        margin: 0 0 2px;
 
         > img {
           display: block;
@@ -1196,7 +1184,7 @@ form {
       }
 
       > p {
-        margin: 6px 0 0;
+        margin: 0;
         font-size: var(--font-xs);
         color: var(--muted);
       }

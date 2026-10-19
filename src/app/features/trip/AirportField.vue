@@ -1,6 +1,8 @@
 <script setup lang="ts" vapor>
 import { computed, ref, watch } from "vue";
 
+import { CtField, CtInput } from "../../../ui/index";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import { findAirport, suggestAirports, type Airport } from "../place/airports";
@@ -45,9 +47,8 @@ function close() {
   open.value = false;
   active.value = -1;
 }
-function onInput(e: Event) {
-  if (!(e.target instanceof HTMLInputElement)) return;
-  emit("update:modelValue", e.target.value);
+function typed(value: string | number) {
+  emit("update:modelValue", String(value));
   open.value = true;
   active.value = -1;
 }
@@ -85,9 +86,8 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
 </script>
 
 <template>
-  <div class="airport">
-    <label :for="id">{{ label }}</label>
-    <input
+  <CtField class="airport" :for="id" :label>
+    <CtInput
       :id
       autocapitalize="characters"
       autocomplete="off"
@@ -98,10 +98,10 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
       :placeholder
       required
       role="combobox"
-      :value="modelValue"
+      :model-value
       @blur="close"
-      @input="onInput"
       @keydown="onKey"
+      @update:model-value="typed"
     />
     <!-- always on the page, so the field's aria-controls names it; shown while it is out -->
     <ul v-show="shown" :id="listId" role="listbox">
@@ -123,7 +123,7 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
     <p v-else-if="modelValue.trim() !== '' && airports.length > 0" class="named">{{
       i18n.t("flight.unknownAirport")
     }}</p>
-  </div>
+  </CtField>
 </template>
 
 <style scoped>
@@ -131,35 +131,9 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
 
 /* not positioned itself: the airports it may mean float under the row it is in, as wide as it */
 .airport {
-  display: grid;
   /* packed at the top: beside a field whose airport's name takes two lines, the row is taller,
      and its spare height must not stretch this one's input */
   align-content: start;
-  gap: 6px;
-  min-width: 0;
-  > label {
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-  }
-  > input {
-    min-width: 0;
-    min-height: 46px;
-    padding: 10px 12px;
-    font: inherit;
-    font-size: var(--font-lg);
-    color: var(--ink);
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    &::placeholder {
-      color: var(--muted);
-    }
-    &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: 2px;
-    }
-  }
   /* the airports it may mean, floating under the row (the parent places it: position: relative) */
   > ul {
     position: absolute;

@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
-import { CtButton, CtSwatches } from "../../../ui/index";
+import { CtButton, CtField, CtSwatches } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -76,10 +76,9 @@ async function no() {
     </p>
     <TripTag v-bind="tag" />
 
-    <div class="field">
-      <span>{{ i18n.t("rooms.color") }}</span>
+    <CtField :label="i18n.t('rooms.color')">
       <CtSwatches v-model="color" :colors="MEMBER_COLORS" :label="i18n.t('rooms.color')" />
-    </div>
+    </CtField>
 
     <p v-if="failed !== null" role="alert">
       {{ i18n.t(failed === "join" ? "rooms.joinFailed" : "rooms.declineFailed") }}
@@ -130,32 +129,6 @@ async function no() {
       height: 10px;
       border-radius: 50%;
       background: var(--who);
-    }
-  }
-}
-
-.field {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-  > label,
-  > span {
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-  }
-  > input {
-    min-height: 46px;
-    padding: 10px 12px;
-    font: inherit;
-    font-size: var(--font-lg);
-    color: var(--ink);
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: 2px;
     }
   }
 }

@@ -10,16 +10,17 @@
  * `size` `lg` is the act at the foot of a form, as tall as a field. `type` `submit` sends the form it is in. While
  * what it set going is under way (`busy`), a dot breathes before its words.
  */
-withDefaults(
-  defineProps<{
-    variant?: "quiet" | "primary" | "ask" | "blank";
-    size?: "md" | "lg";
-    type?: "button" | "submit";
-    disabled?: boolean;
-    busy?: boolean;
-  }>(),
-  { variant: "quiet", size: "md", type: "button" },
-);
+const {
+  variant = "quiet",
+  size = "md",
+  type = "button",
+} = defineProps<{
+  variant?: "quiet" | "primary" | "ask" | "blank";
+  size?: "md" | "lg";
+  type?: "button" | "submit";
+  disabled?: boolean;
+  busy?: boolean;
+}>();
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
 defineSlots<{ default(): unknown }>();
 </script>
