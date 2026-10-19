@@ -3,7 +3,7 @@ import { computed, onMounted, ref, shallowRef, useId } from "vue";
 
 import { encode } from "uqr";
 
-import { CtAvatar, CtButton, CtField, CtInput, CtPanel } from "../../../ui/index";
+import { CtAvatar, CtButton, CtField, CtInput, CtListItem, CtPanel } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -122,16 +122,21 @@ onMounted(() => {
         <CtButton @click="() => invited.refetch()">{{ i18n.t("rooms.retry") }}</CtButton>
       </p>
 
-      <CtPanel as="ul" class="members" pad="none">
-        <li v-for="m in persons" :key="m.id">
-          <CtAvatar :color="m.color" :name="m.name" />
-          <span class="who">
-            <b>{{ m.name }}</b>
-            <small v-if="m.role === 'owner'">{{ i18n.t("people.owner") }}</small>
-            <small v-if="isMe(m.id)">{{ i18n.t("people.you") }}</small>
-          </span>
+      <CtPanel as="ul" pad="none">
+        <CtListItem
+          v-for="m in persons"
+          :key="m.id"
+          :notes="
+            [
+              m.role === 'owner' ? i18n.t('people.owner') : '',
+              isMe(m.id) ? i18n.t('people.you') : '',
+            ].filter((n) => n !== '')
+          "
+          :title="m.name"
+        >
+          <template #start><CtAvatar :color="m.color" :name="m.name" /></template>
           <!-- the owner may take the other person out; twice, the second time naming them -->
-          <span v-if="me.role === 'owner' && m.role !== 'owner'" class="acts">
+          <template v-if="me.role === 'owner' && m.role !== 'owner'" #end>
             <template v-if="asked({ kind: 'remove', member: m.id })">
               <CtButton variant="primary" @click="() => remove(m.id)">
                 {{ i18n.t("people.removeConfirm") }}
@@ -145,21 +150,22 @@ onMounted(() => {
             >
               {{ i18n.t("people.remove") }}
             </CtButton>
-          </span>
-        </li>
+          </template>
+        </CtListItem>
         <!-- a seat held for someone invited: a blank face until they answer (the owner's only) -->
-        <li v-for="address in invited.data.value" :key="address">
-          <CtAvatar pending />
-          <span class="who">
-            <b>{{ address }}</b>
-            <small>{{ i18n.t("people.pending") }}</small>
-          </span>
-          <span class="acts">
+        <CtListItem
+          v-for="address in invited.data.value"
+          :key="address"
+          :notes="[i18n.t('people.pending')]"
+          :title="address"
+        >
+          <template #start><CtAvatar pending /></template>
+          <template #end>
             <CtButton :disabled="cut.offline" @click="() => uninvite(address)">{{
               i18n.t("people.uninvite")
             }}</CtButton>
-          </span>
-        </li>
+          </template>
+        </CtListItem>
       </CtPanel>
 
       <form v-if="me.role === 'owner' && open" class="invite" @submit.prevent="sendInvite">
@@ -255,53 +261,10 @@ h2 {
   line-height: 1.35;
 }
 
-.members {
-  display: grid;
-
-  > li {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-height: 60px;
-    padding: 10px 14px;
-
-    & + li {
-      border-block-start: 1px solid var(--line);
-    }
-  }
-}
-
-.who {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 8px;
-
-  > b {
-    min-width: 0;
-    overflow-wrap: anywhere;
-    font-size: var(--font-md);
-  }
-
-  > small {
-    font-size: var(--font-xs);
-    font-weight: 700;
-    color: var(--muted);
-  }
-}
-
-.acts,
 .out {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
   gap: 6px;
-}
-
-.out {
-  justify-content: flex-start;
   margin-block-start: 8px;
 }
 
