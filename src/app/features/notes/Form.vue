@@ -719,7 +719,7 @@ function submit() {
         >
           <figure v-if="photoSrc !== null">
             <img alt="" :src="photoSrc" />
-            <button type="button" @click="removePhoto">{{ i18n.t("form.removePhoto") }}</button>
+            <CtChip float @click="removePhoto">{{ i18n.t("form.removePhoto") }}</CtChip>
           </figure>
           <input
             :id="`${id}-photo`"
@@ -1105,17 +1105,11 @@ form {
           background: var(--wash);
         }
 
+        /* taking it off: a chip floating on the picture's corner */
         > button {
           position: absolute;
           inset-block-start: 8px;
           inset-inline-end: 8px;
-          min-height: 32px;
-          padding: 0 12px;
-          border-radius: 999px;
-          background: var(--surface);
-          box-shadow: var(--shadow-tool);
-          font-size: var(--font-sm);
-          font-weight: 700;
         }
       }
 

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
+import CtSwipeAction from "./CtSwipeAction.vue";
+
 defineArt("./CtSwipeRow.vue", {
   title: "CtSwipeRow",
   category: "Actions",
   description:
-    "A row slid left to show its actions; ← from the keyboard opens it, → or Escape shuts it",
+    "A row slid left to show its actions (CtSwipeAction); ← from the keyboard opens it, → or Escape shuts it",
   status: "ready",
 });
 
@@ -30,13 +32,6 @@ const open = ref<string | null>(null);
   color: inherit;
   text-decoration: none;
 }
-
-.delete {
-  padding: 0 16px;
-  border-radius: 12px;
-  background: var(--danger);
-  color: var(--on-ink);
-}
 </style>
 
 <art>
@@ -49,9 +44,11 @@ const open = ref<string | null>(null);
             open = o ? t : null;
           }"
         >
-          <a class="trip" href="#trip">{{ t }}</a>
+          <template #default>
+            <a class="trip" href="#trip">{{ t }}</a>
+          </template>
           <template #actions>
-            <button class="delete" type="button">Delete</button>
+            <CtSwipeAction danger>Delete</CtSwipeAction>
           </template>
         </CtSwipeRow>
       </li>
