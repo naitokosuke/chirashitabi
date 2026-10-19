@@ -8,8 +8,10 @@ import {
   CtButton,
   CtField,
   CtHeading,
+  CtHint,
   CtInput,
   CtListItem,
+  CtMessage,
   CtPanel,
 } from "../../../ui/index";
 
@@ -125,10 +127,10 @@ onMounted(() => {
   <div v-show="me !== undefined" class="people" role="group" :aria-labelledby="`${id}-title`">
     <template v-if="me !== undefined">
       <CtHeading :id="`${id}-title`">{{ i18n.t("people.title") }}</CtHeading>
-      <p v-if="invited.status.value === 'error'" class="note" role="alert">
+      <CtMessage v-if="invited.status.value === 'error'" role="alert">
         {{ i18n.t("people.loadFailed") }}
         <CtButton @click="() => invited.refetch()">{{ i18n.t("rooms.retry") }}</CtButton>
-      </p>
+      </CtMessage>
 
       <CtPanel as="ul" pad="none">
         <CtListItem
@@ -201,7 +203,7 @@ onMounted(() => {
             </CtButton>
           </div>
         </CtField>
-        <p class="hint">{{ i18n.t(cut.offline ? "offline.unavailable" : "people.inviteHint") }}</p>
+        <CtHint>{{ i18n.t(cut.offline ? "offline.unavailable" : "people.inviteHint") }}</CtHint>
         <details class="qr">
           <summary>{{ i18n.t("people.qr") }}</summary>
           <svg
@@ -214,16 +216,16 @@ onMounted(() => {
             <rect fill="#fff" :width="qr.size" :height="qr.size" />
             <path fill="#000" :d="qr.path" />
           </svg>
-          <p class="hint">{{ i18n.t("people.qrHint") }}</p>
+          <CtHint>{{ i18n.t("people.qrHint") }}</CtHint>
         </details>
       </form>
-      <p v-else-if="me.role === 'owner'" class="hint">
+      <CtHint v-else-if="me.role === 'owner'">
         {{ i18n.t("people.full", { count: SEATS }) }}
-      </p>
+      </CtHint>
 
-      <p v-if="failed !== null" class="note" role="alert">
+      <CtMessage v-if="failed !== null" role="alert">
         {{ i18n.t(failed === "invite" ? "people.inviteFailed" : "people.failed") }}
-      </p>
+      </CtMessage>
 
       <!-- the way out: the owner deletes the trip, a guest leaves it -->
       <div class="out">
@@ -303,23 +305,5 @@ onMounted(() => {
     margin-block: 4px 8px;
     border-radius: 10px;
   }
-}
-
-.hint {
-  margin: 0;
-  font-size: var(--font-xs);
-  line-height: 1.6;
-  color: var(--muted);
-  text-wrap: pretty;
-}
-
-.note {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
-  margin: 0;
-  font-size: var(--font-sm);
-  color: var(--ink);
 }
 </style>

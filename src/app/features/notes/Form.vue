@@ -36,6 +36,7 @@ import {
   CtChoiceList,
   CtField,
   CtHeading,
+  CtHint,
   CtInput,
   CtSelect,
   CtTextarea,
@@ -693,8 +694,10 @@ function submit() {
               :busy="tagState === 'asking'"
               @click="() => askForTags(true)"
             >{{ i18n.t("form.suggestTags") }}</CtButton>
-            <p v-if="tagState !== 'idle'" aria-live="polite">{{ i18n.t(TAG_STATE[tagState]) }}</p>
-            <p v-else-if="askByTap && cut.offline">{{ i18n.t("offline.unavailable") }}</p>
+            <CtHint v-if="tagState !== 'idle'" aria-live="polite">{{
+              i18n.t(TAG_STATE[tagState])
+            }}</CtHint>
+            <CtHint v-else-if="askByTap && cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
           </div>
         </CtField>
         <CtField :for="`${id}-link`" :label="i18n.t('form.link')">
@@ -707,13 +710,13 @@ function submit() {
             @change="onLink"
             @paste="onLinkPaste"
           />
-          <p v-if="linkState.kind === 'found'" aria-live="polite">{{
+          <CtHint v-if="linkState.kind === 'found'" aria-live="polite">{{
             i18n.t("form.linkFound", { site: linkState.site })
-          }}</p>
-          <p v-else-if="linkState.kind !== 'idle'" aria-live="polite">{{
+          }}</CtHint>
+          <CtHint v-else-if="linkState.kind !== 'idle'" aria-live="polite">{{
             i18n.t(LINK_STATE[linkState.kind])
-          }}</p>
-          <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
+          }}</CtHint>
+          <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
         </CtField>
         <!-- a phone: the last field, as it was -->
         <CtField
@@ -733,8 +736,10 @@ function submit() {
             :disabled="photo === 'sending' || cut.offline"
             @change="onPhoto"
           />
-          <p v-if="photo !== 'idle'" aria-live="polite">{{ i18n.t(PHOTO_STATE[photo]) }}</p>
-          <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
+          <CtHint v-if="photo !== 'idle'" aria-live="polite">{{
+            i18n.t(PHOTO_STATE[photo])
+          }}</CtHint>
+          <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
         </CtField>
       </div>
       <div class="details">
@@ -748,7 +753,7 @@ function submit() {
             @change="onMapsUrl"
             @paste="onMapsPaste"
           />
-          <p aria-live="polite">{{
+          <CtHint aria-live="polite">{{
             i18n.t(
               naming
                 ? "form.placeNaming"
@@ -764,7 +769,7 @@ function submit() {
                         ? "form.unpinnedFind"
                         : "form.unpinned",
             )
-          }}</p>
+          }}</CtHint>
           <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
           <div v-if="worker.api !== null" class="places">
             <CtButton
@@ -786,13 +791,13 @@ function submit() {
               "
               @choose="(it) => choosePlace(it.place)"
             />
-            <p v-if="found.length > 0 || namedByOsm" class="credit">{{
+            <CtHint v-if="found.length > 0 || namedByOsm">{{
               i18n.t("form.placesCredit")
-            }}</p>
-            <p v-if="places.kind !== 'idle'" aria-live="polite">{{
+            }}</CtHint>
+            <CtHint v-if="places.kind !== 'idle'" aria-live="polite">{{
               i18n.t(PLACE_STATE[places.kind])
-            }}</p>
-            <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
+            }}</CtHint>
+            <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
           </div>
         </CtField>
         <CtField :for="`${id}-hours`" :label="i18n.t('form.hours')">
@@ -803,9 +808,9 @@ function submit() {
             spellcheck="false"
             :placeholder="i18n.t('form.hoursPlaceholder')"
           />
-          <p aria-live="polite">{{
+          <CtHint aria-live="polite">{{
             i18n.t(hoursUnread ? "form.hoursUnread" : "form.hoursHint")
-          }}</p>
+          }}</CtHint>
         </CtField>
         <CtField :for="`${id}-booking`" :label="i18n.t('form.booking')">
           <CtSelect
@@ -881,7 +886,7 @@ function submit() {
       >{{
         i18n.t(saveLabel)
       }}</CtButton>
-      <p v-if="!editing">{{ i18n.t(hintKey) }}</p>
+      <CtHint v-if="!editing">{{ i18n.t(hintKey) }}</CtHint>
     </footer>
   </form>
 </template>
@@ -1028,12 +1033,6 @@ form {
         > ul {
           align-self: stretch;
         }
-
-        > p {
-          margin: 0;
-          font-size: var(--font-xs);
-          color: var(--muted);
-        }
       }
 
       /* the ask for tags, then what came back */
@@ -1046,9 +1045,6 @@ form {
 
         > p {
           flex-basis: 100%;
-          margin: 0;
-          font-size: var(--font-xs);
-          color: var(--muted);
         }
       }
 
@@ -1098,12 +1094,6 @@ form {
           inset-inline-end: 8px;
         }
       }
-
-      > p {
-        margin: 0;
-        font-size: var(--font-xs);
-        color: var(--muted);
-      }
     }
   }
 
@@ -1116,10 +1106,7 @@ form {
     gap: 8px;
 
     > p {
-      margin: 0;
       text-align: center;
-      font-size: var(--font-xs);
-      color: var(--muted);
     }
 
     /* one after another: the sheet stays open for the next note */

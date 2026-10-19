@@ -3,7 +3,16 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, reactive, useId } from "vue";
 
-import { CtButton, CtChoiceList, CtField, CtInput, CtPanel, CtStepper } from "../../../ui/index";
+import {
+  CtButton,
+  CtChoiceList,
+  CtField,
+  CtHint,
+  CtInput,
+  CtMessage,
+  CtPanel,
+  CtStepper,
+} from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -190,12 +199,12 @@ function save() {
         >{{ i18n.t("home.days", { count: form.days }) }}</CtStepper>
       </CtField>
     </div>
-    <p v-if="dropped > 0" class="note" role="status">{{
+    <CtMessage v-if="dropped > 0" role="status">{{
       i18n.t("trip.dropped", { count: dropped })
-    }}</p>
+    }}</CtMessage>
 
     <!-- the flights there and home: each a card of a few fields once added, said once what they need -->
-    <p class="hint">{{ i18n.t("flight.localTime") }}</p>
+    <CtHint>{{ i18n.t("flight.localTime") }}</CtHint>
     <template v-for="leg in LEGS" :key="leg">
       <CtPanel v-if="form.flights[leg].on" as="fieldset" sunken>
         <legend>{{ i18n.t(leg === "out" ? "flight.out" : "flight.back") }}</legend>
@@ -283,10 +292,10 @@ function save() {
             "
             @choose="(it) => chooseStay(s, it.place)"
           />
-          <p v-if="found.get(s)?.length === 0" aria-live="polite" class="hint">{{
+          <CtHint v-if="found.get(s)?.length === 0" aria-live="polite">{{
             i18n.t("stay.findNone")
-          }}</p>
-          <p v-else-if="found.has(s)" class="hint">{{ i18n.t("form.placesCredit") }}</p>
+          }}</CtHint>
+          <CtHint v-else-if="found.has(s)">{{ i18n.t("form.placesCredit") }}</CtHint>
         </div>
         <div class="row">
           <CtField :for="`${id}-stay-${i}-in`" :label="i18n.t('stay.checkIn')">
@@ -314,7 +323,7 @@ function save() {
             @paste="() => onStayPaste(s)"
           />
         </CtField>
-        <p aria-live="polite" class="hint">{{ i18n.t(stayLinkState(s)) }}</p>
+        <CtHint aria-live="polite">{{ i18n.t(stayLinkState(s)) }}</CtHint>
       </CtPanel>
       <CtButton class="start" variant="blank" @click="addStay"><Icon :size="16" :src="plusIcon" />{{ i18n.t("stay.add") }}</CtButton>
     </fieldset>
@@ -387,18 +396,6 @@ fieldset {
 .find {
   display: grid;
   gap: 8px;
-}
-
-.note, .hint {
-  margin: 0;
-  font-size: var(--font-xs);
-  line-height: 1.6;
-  color: var(--muted);
-}
-
-.note {
-  font-size: var(--font-sm);
-  color: var(--ink);
 }
 
 /* a button in a column of fields keeps to its words, at the start */
