@@ -667,7 +667,7 @@ function submit() {
               :key="o.name"
               :data-flip="o.name"
               :data-fit="fits(o, text) || undefined"
-              :data-new="o.isNew || undefined"
+              :dashed="o.isNew"
               @click="() => addTag(o.name)"
             >#{{ o.name }}<small v-if="o.isNew">{{ i18n.t("form.newTag") }}</small></CtChip>
           </div>
@@ -1001,11 +1001,6 @@ form {
         > [data-fit] {
           color: var(--ink);
           border-color: color-mix(in oklch, var(--ink) 45%, var(--line));
-        }
-
-        /* Clef's new tag: no note has it yet, so its edge is dashed as the agent's things are */
-        > [data-new] {
-          border-style: dashed;
         }
 
         small {

@@ -366,10 +366,13 @@ function fitAll() {
       <div class="top">
         <div class="days">
           <CtScrollRow inset>
-            <CtChip :selected="day === null" @click="showAllDays">{{ i18n.t("map.all") }}</CtChip>
+            <CtChip float :selected="day === null" @click="showAllDays">{{
+              i18n.t("map.all")
+            }}</CtChip>
             <CtChip
               v-for="d in trip?.days"
               :key="d.date.toString()"
+              float
               :selected="isDay(d.date)"
               @click="() => toggleDay(d.date)"
             >{{ i18n.t("map.route", { date: short(d.date) }) }}</CtChip>
@@ -378,12 +381,13 @@ function fitAll() {
         <!-- the desk's filter follows the pins here, and can be cleared here -->
         <div v-if="tags.selected.size > 0" class="filter">
           <CtScrollRow inset>
-            <CtChip class="clear" @click="() => tags.selected.clear()">{{
+            <CtChip dashed float @click="() => tags.selected.clear()">{{
               i18n.t("filter.clear")
             }}</CtChip>
             <CtChip
               v-for="t in tags.tagList.filter((x) => tags.selected.has(x.name))"
               :key="t.name"
+              float
               selected
               toggle
               @click="() => tags.toggleTag(t.name)"
@@ -403,7 +407,7 @@ function fitAll() {
         :style="`--x: ${holding.x}px; --y: ${holding.y}px; --hold: ${HOLD_MS}ms`"
       ></span>
 
-      <div class="jump"><CtChip @click="fitAll">{{ i18n.t("common.fitAll") }}</CtChip></div>
+      <div class="jump"><CtChip float @click="fitAll">{{ i18n.t("common.fitAll") }}</CtChip></div>
 
       <!-- the same write button as the canvas: writing is never more than a tap away -->
       <CtFab :label="i18n.t('canvas.write')" @click="() => write(null)"><Icon
@@ -601,19 +605,11 @@ section {
       > .days {
         display: flex;
         min-height: var(--top-row);
-
-        :deep(button) {
-          box-shadow: var(--shadow-tool);
-        }
       }
 
       /* the filter, a row of its own under the days */
       > .filter {
         display: flex;
-
-        .clear {
-          border-style: dashed;
-        }
       }
 
       /* the notes with no place yet */
@@ -660,10 +656,6 @@ section {
       inset-inline-start: 16px;
       inset-block-end: calc(var(--dock-clear) + 16px + (56px - var(--tap)) / 2);
       z-index: var(--z-float);
-
-      > button {
-        box-shadow: var(--shadow-tool);
-      }
     }
 
     /* the open pin's card */

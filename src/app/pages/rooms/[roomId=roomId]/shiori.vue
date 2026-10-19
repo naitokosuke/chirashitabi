@@ -4,6 +4,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import { computed, ref, useTemplateRef } from "vue";
 
 import {
+  CtAvatar,
   CtButton,
   CtGlass,
   CtPaper,
@@ -631,11 +632,11 @@ function adoptDraft() {
                       rel="noopener noreferrer"
                       target="_blank"
                     >{{ i18n.t("shiori.bookingPage") }}</a>
-                    <button
+                    <CtButton
                       v-if="editing && n.booking?.state === 'needed'"
-                      type="button"
+                      variant="text"
                       @click="() => markBooked(n)"
-                    >{{ i18n.t("shiori.markBooked") }}</button>
+                    >{{ i18n.t("shiori.markBooked") }}</CtButton>
                   </p>
                   <div v-if="editing">
                     <button
@@ -694,13 +695,8 @@ function adoptDraft() {
 
           <!-- a member's draft of the day (edit mode) -->
           <template v-if="editing && worker.api !== null && forDay(day).length > 0">
-            <div
-              v-if="draft !== null && draft.date.equals(day)"
-              class="draft"
-              data-turn
-              :style="`--who: ${drafter?.color ?? 'var(--muted)'}`"
-            >
-              <div><span aria-hidden="true"></span>{{ drafter?.name ?? i18n.t("member.someone") }}<small>{{
+            <div v-if="draft !== null && draft.date.equals(day)" class="draft" data-turn>
+              <div><CtAvatar :color="drafter?.color" size="dot" />{{ drafter?.name ?? i18n.t("member.someone") }}<small>{{
                   i18n.t("shiori.draft")
                 }}</small></div>
               <p>{{ draft.reason }}</p>
@@ -1203,8 +1199,7 @@ article {
                 color: oklch(from var(--danger) min(l, 0.5) c h);
               }
 
-              > a,
-              > button {
+              > a {
                 display: inline-flex;
                 align-items: center;
                 min-height: var(--tap);
@@ -1335,14 +1330,6 @@ article {
           font-size: var(--font-base);
           font-weight: 700;
           margin-block-end: 4px;
-
-          /* the member's dot */
-          > span {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--who);
-          }
 
           > small {
             margin-inline-start: auto;

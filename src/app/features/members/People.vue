@@ -3,7 +3,7 @@ import { computed, onMounted, ref, shallowRef, useId } from "vue";
 
 import { encode } from "uqr";
 
-import { CtButton, CtField, CtInput } from "../../../ui/index";
+import { CtAvatar, CtButton, CtField, CtInput } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -116,8 +116,8 @@ onMounted(() => {
       </p>
 
       <ul>
-        <li v-for="m in persons" :key="m.id" :style="`--who: ${m.color}`">
-          <span aria-hidden="true" class="face">{{ m.name.slice(0, 1) }}</span>
+        <li v-for="m in persons" :key="m.id">
+          <CtAvatar :color="m.color" :name="m.name" />
           <span class="who">
             <b>{{ m.name }}</b>
             <small v-if="m.role === 'owner'">{{ i18n.t("people.owner") }}</small>
@@ -141,8 +141,8 @@ onMounted(() => {
           </span>
         </li>
         <!-- a seat held for someone invited: a blank face until they answer (the owner's only) -->
-        <li v-for="address in invited.data.value" :key="address" class="pending">
-          <span aria-hidden="true" class="face"></span>
+        <li v-for="address in invited.data.value" :key="address">
+          <CtAvatar pending />
           <span class="who">
             <b>{{ address }}</b>
             <small>{{ i18n.t("people.pending") }}</small>
@@ -267,25 +267,6 @@ ul {
     & + li {
       border-block-start: 1px solid var(--line);
     }
-  }
-}
-
-/* the member's own color, deepened enough to carry white, as at the top of the page */
-.face {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: oklch(from var(--who) min(l, 0.52) c h);
-  color: var(--on-tint);
-  font-weight: 700;
-
-  /* nobody yet: the outline of a face */
-  .pending > & {
-    background: transparent;
-    border: 1.5px dashed color-mix(in oklch, var(--ink) 35%, transparent);
   }
 }
 

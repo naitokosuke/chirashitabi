@@ -5,7 +5,7 @@ import { computed, ref } from "vue";
 
 import { useRoute, useRouter } from "vue-router";
 
-import { CtButton } from "../../../../ui/index";
+import { CtAvatar, CtButton } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
 
@@ -94,8 +94,8 @@ const allTotal = computed(() => budgetOf(undefined, false));
         <p v-if="range !== ''">{{ range }} · {{ i18n.t("home.days", { count: trip?.days.length ?? 0 }) }}</p>
         <!-- who is in: a face each, initial on their color -->
         <ul>
-          <li v-for="m in members" :key="m.id" :style="`--who: ${m.color}`" :title="m.name">
-            <span aria-hidden="true">{{ m.name.slice(0, 1) }}</span>
+          <li v-for="m in members" :key="m.id" :title="m.name">
+            <CtAvatar :color="m.color" :name="m.name" size="lg" />
             <span>{{ m.name }}</span>
           </li>
         </ul>
@@ -277,19 +277,6 @@ section {
           flex-direction: column;
           align-items: center;
           gap: 4px;
-
-          /* the member's own color, deepened enough to carry white */
-          > span:first-child {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: grid;
-            place-items: center;
-            background: oklch(from var(--who) min(l, 0.52) c h);
-            color: var(--on-tint);
-            font-size: var(--font-lg);
-            font-weight: 700;
-          }
 
           > span:last-child {
             font-size: var(--font-xs);
