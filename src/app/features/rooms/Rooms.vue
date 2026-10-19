@@ -3,7 +3,14 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, shallowRef } from "vue";
 
-import { CtButton, CtHoldButton, CtPanel, CtSwipeRow, safeUrl } from "../../../ui/index";
+import {
+  CtButton,
+  CtHoldButton,
+  CtPanel,
+  CtSwipeAction,
+  CtSwipeRow,
+  safeUrl,
+} from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -206,14 +213,13 @@ function retry() {
                     </a>
                   </template>
                   <template #actions>
-                    <button
-                      class="off"
-                      type="button"
+                    <CtSwipeAction
+                      danger
                       :disabled="removing || cut.offline"
                       @click="() => takeOff(r)"
                     >
                       {{ r.owner ? i18n.t("rooms.delete") : i18n.t("rooms.leave") }}
-                    </button>
+                    </CtSwipeAction>
                   </template>
                 </CtSwipeRow>
               </li>
@@ -243,14 +249,13 @@ function retry() {
                     </a>
                   </template>
                   <template #actions>
-                    <button
-                      class="off"
-                      type="button"
+                    <CtSwipeAction
+                      danger
                       :disabled="removing || cut.offline"
                       @click="() => takeOff(r)"
                     >
                       {{ r.owner ? i18n.t("rooms.delete") : i18n.t("rooms.leave") }}
-                    </button>
+                    </CtSwipeAction>
                   </template>
                 </CtSwipeRow>
               </li>
@@ -406,23 +411,6 @@ h2 {
       translate: 0 1px;
       box-shadow: var(--shadow-tool);
     }
-  }
-}
-
-/* slid aside, the way off the list at the tag's end: red, since the trip goes */
-.off {
-  flex: 1;
-  min-inline-size: 84px;
-  padding: 0 16px;
-  border-radius: 16px;
-  border: 0;
-  background: var(--danger);
-  color: var(--on-ink);
-  font-size: var(--font-sm);
-  font-weight: 700;
-
-  &:disabled {
-    opacity: 0.35;
   }
 }
 

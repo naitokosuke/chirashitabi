@@ -12,6 +12,8 @@
  * `size` `lg` is the act at the foot of a form, as tall as a field. `type` `submit` sends the form it is in. While
  * what it set going is under way (`busy`), a dot breathes before its words. With `label`, the
  * slot is a glyph alone and `label` names it: the button is a round, a thumb's width.
+ * `danger` is an act that takes something away: `primary` fills it with the danger's color;
+ * `quiet` keeps it quieter still, no wash and grey words, the danger's color only on intent.
  */
 const {
   variant = "quiet",
@@ -24,6 +26,7 @@ const {
   disabled?: boolean;
   busy?: boolean;
   label?: string;
+  danger?: boolean;
 }>();
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
 defineSlots<{ default(): unknown }>();
@@ -38,6 +41,7 @@ defineSlots<{ default(): unknown }>();
     :aria-busy="busy || undefined"
     :aria-label="label"
     :data-glyph="label === undefined ? undefined : ''"
+    :data-danger="danger || undefined"
     @click="(e) => emit('click', e)"
   >
     <slot></slot>
@@ -147,6 +151,24 @@ button {
     font-size: inherit;
     text-decoration: underline;
     text-underline-offset: 3px;
+  }
+
+  &[data-danger] {
+    &[data-variant="primary"] {
+      background: var(--danger);
+    }
+
+    &[data-variant="quiet"] {
+      background: transparent;
+      color: var(--muted);
+
+      @media (--can-hover) {
+        &:not(:disabled):hover {
+          background: var(--wash);
+          color: var(--danger);
+        }
+      }
+    }
   }
 }
 
