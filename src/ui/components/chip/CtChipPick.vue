@@ -1,7 +1,6 @@
 <script setup lang="ts" generic="V extends string" vapor>
 import { useTemplateRef } from "vue";
 
-import type { CtOption } from "../../types";
 import CtIndicator from "../indicator/CtIndicator.vue";
 import { useIndicator } from "../indicator/useIndicator";
 
@@ -11,7 +10,11 @@ import { useIndicator } from "../indicator/useIndicator";
  * contracts onto it; the chips are open (a hairline, no fill) so the ink shows through on
  * the way, and the chosen one's words turn to the ink's own color.
  */
-const props = defineProps<{ options: readonly CtOption<V>[]; modelValue: V; label: string }>();
+const props = defineProps<{
+  options: readonly { value: V; label: string }[];
+  modelValue: V;
+  label: string;
+}>();
 const emit = defineEmits<{ "update:modelValue": [value: V] }>();
 
 const root = useTemplateRef<HTMLElement>("root");

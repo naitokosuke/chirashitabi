@@ -60,7 +60,7 @@ In a template or a store, a message is a string.
 ```
 
 `t()` reads the locale, so whatever renders it updates when the locale changes.
-Labels kept in a constant, such as `CtOption` lists, have to be a `computed` for the same reason.
+Labels kept in a constant, such as the options of a tab list or a segmented control, have to be a `computed` for the same reason.
 
 When a message has markup, `<Message>` renders it and each markup name becomes a slot that receives the text inside.
 

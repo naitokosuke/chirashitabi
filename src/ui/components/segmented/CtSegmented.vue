@@ -1,7 +1,6 @@
 <script setup lang="ts" generic="V extends string" vapor>
 import { useTemplateRef } from "vue";
 
-import type { CtOption } from "../../types";
 import CtIndicator from "../indicator/CtIndicator.vue";
 import { useIndicator } from "../indicator/useIndicator";
 
@@ -9,7 +8,11 @@ import { useIndicator } from "../indicator/useIndicator";
  * A few options in a track, one chosen, a pale pill under it (CtIndicator), which stretches to
  * the next one picked like rubber.
  */
-const props = defineProps<{ options: readonly CtOption<V>[]; modelValue: V; label: string }>();
+const props = defineProps<{
+  options: readonly { value: V; label: string }[];
+  modelValue: V;
+  label: string;
+}>();
 const emit = defineEmits<{ "update:modelValue": [value: V] }>();
 
 const list = useTemplateRef<HTMLElement>("list");

@@ -3,7 +3,7 @@ import { computed } from "vue";
 
 import { RouterView, useRoute, useRouter } from "vue-router";
 
-import { CtDock, CtDockDivider, CtDockGroup, CtDockItem, type CtOption } from "../ui/index";
+import { CtDock, CtDockDivider, CtDockGroup, CtDockItem } from "../ui/index";
 
 import { useI18n } from "./i18n/useI18n";
 
@@ -41,7 +41,7 @@ const inRoom = computed(() => tab.value !== null);
 /** A sheet is over the room's tab */
 const sheetOpen = computed(() => inRoom.value && sheetOf(route.params) !== null);
 
-const views = computed((): CtOption<View>[] => [
+const views = computed((): { value: View; label: string }[] => [
   { value: "home", label: i18n.t("nav.home") },
   { value: "canvas", label: i18n.t("nav.canvas") },
   { value: "memo", label: i18n.t("nav.memo") },

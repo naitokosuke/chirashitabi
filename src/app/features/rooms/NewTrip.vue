@@ -17,7 +17,6 @@ import {
   CtSwatches,
   CtTag,
   type CtDateRange,
-  type CtOption,
   lengthOf,
 } from "../../../ui/index";
 
@@ -50,7 +49,7 @@ const dates = ref<CtDateRange>({ start, end: start.add({ days: 3 }) });
 /** How many days the trip runs, 0 while its last day is still to be picked */
 const count = computed(() => lengthOf(dates.value) ?? 0);
 const currency = ref<string>(CURRENCIES[0]);
-const currencies: CtOption[] = CURRENCIES.map((c) => ({ value: c, label: c }));
+const currencies = CURRENCIES.map((c) => ({ value: c, label: c }));
 const color = ref<string>(MEMBER_COLORS[0]);
 
 /** The form as a room the Worker will take, or null while it is not one yet */

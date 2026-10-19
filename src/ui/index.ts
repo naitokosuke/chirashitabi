@@ -1,4 +1,3 @@
-export type { CtOption } from "./types";
 export { safeUrl } from "./url";
 export { usePageTurn } from "./composables/usePageTurn";
 export { useFlip } from "./composables/useFlip";
