@@ -48,7 +48,16 @@ import {
 
 import { useRoute, useRouter } from "vue-router";
 
-import { CtButton, CtChip, CtFab, CtInput, CtPanel } from "../../../../ui/index";
+import {
+  CtButton,
+  CtChip,
+  CtFab,
+  CtInput,
+  CtMenu,
+  CtMenuGroup,
+  CtMenuItem,
+  CtPanel,
+} from "../../../../ui/index";
 
 import { useI18n } from "../../../i18n/useI18n";
 
@@ -394,8 +403,7 @@ function openMenu(note: Note, { focus = true } = {}) {
   void nextTick(() => {
     const m = menuEl.value;
     if (m === null || menu.value === null) return;
-    const w = m.offsetWidth;
-    const h = m.offsetHeight;
+    const { width: w, height: h } = m.size();
     const x = Math.max(8, Math.min(card.left - r.left, r.width - w - 8));
     const below = card.bottom - r.top + CLEAR;
     // the desk runs under the dock: the floor is the dock's top, less the write button's row
@@ -404,31 +412,21 @@ function openMenu(note: Note, { focus = true } = {}) {
     const y = below + h > floor ? card.top - r.top - h - CLEAR : below;
     menu.value = { ...menu.value, x, y: Math.max(y, 8) };
     // the keyboard moves into it; a tap that picked the card leaves focus where it was
-    if (focus) m.querySelector<HTMLElement>("button")?.focus();
+    if (focus) m.focusFirst();
   });
 }
-const menuEl = useTemplateRef<HTMLElement>("menuEl");
+const menuEl = useTemplateRef<{
+  size(): { width: number; height: number };
+  focusFirst(): void;
+  holdsFocus(): boolean;
+}>("menuEl");
 const cardEl = (note: Note) => vp.value?.querySelector<HTMLElement>(`[data-id="${note.id}"]`);
 /** Close the menu; focus returns to its card when the keyboard was in the menu */
 function closeMenu() {
   const note = menu.value?.note;
-  const hadFocus = menuEl.value?.contains(document.activeElement) ?? false;
+  const hadFocus = menuEl.value?.holdsFocus() ?? false;
   menu.value = null;
   if (note !== undefined && hadFocus) cardEl(note)?.focus();
-}
-/** Left and right walk the menu's buttons, as in any toolbar; Esc closes it (one handler: two on one element collide) */
-function onMenuKey(e: KeyboardEvent) {
-  if (e.key === "Escape") {
-    e.stopPropagation();
-    closeMenu();
-    return;
-  }
-  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-  const buttons = [...(menuEl.value?.querySelectorAll<HTMLElement>("button") ?? [])];
-  const i = buttons.findIndex((b) => b === document.activeElement);
-  const next = buttons[(i + (e.key === "ArrowRight" ? 1 : buttons.length - 1)) % buttons.length];
-  e.preventDefault();
-  next?.focus();
 }
 /** The menu's card when it is a memo, the only kind that goes on a day */
 const menuMemo = computed(() => (menuNote.value?.kind === "memo" ? menuNote.value : null));
@@ -534,8 +532,7 @@ const shownNotes = computed(() => {
 function remove(note: Note) {
   const card = cardEl(note);
   const hadFocus =
-    card?.contains(document.activeElement) === true ||
-    menuEl.value?.contains(document.activeElement) === true;
+    card?.contains(document.activeElement) === true || menuEl.value?.holdsFocus() === true;
   menu.value = null;
   pendingDelete.value.add(note.id);
   const title = note.kind === "sticker" ? i18n.t("canvas.sticker") : note.title;
@@ -912,23 +909,21 @@ watch(
         @change="onStickerPicked"
       />
 
-      <div
+      <CtMenu
         v-if="menu !== null"
         ref="menuEl"
-        role="toolbar"
-        :aria-label="menu.note.kind === 'sticker' ? i18n.t('canvas.sticker') : menu.note.title"
-        :style="`inset-inline-start:${menu.x}px; inset-block-start:${menu.y}px`"
-        @pointerdown.stop
-        @keydown="onMenuKey"
+        :label="menu.note.kind === 'sticker' ? i18n.t('canvas.sticker') : menu.note.title"
+        :x="menu.x"
+        :y="menu.y"
+        @close="closeMenu"
       >
-        <button v-if="menu.note.kind === 'text'" type="button" @click="rewriteFromMenu">{{
+        <CtMenuItem v-if="menu.note.kind === 'text'" @click="rewriteFromMenu">{{
           i18n.t("common.edit")
-        }}</button>
+        }}</CtMenuItem>
         <!-- the trip's days: a memo goes on one from the desk, where the ideas are -->
-        <div
+        <CtMenuGroup
           v-if="menuMemo !== null && (trip?.days.length ?? 0) > 0"
-          role="group"
-          :aria-label="i18n.t('canvas.day')"
+          :label="i18n.t('canvas.day')"
         >
           <CtChip
             v-for="d in trip?.days"
@@ -940,17 +935,16 @@ watch(
           <CtChip toggle :selected="menuMemo.schedule === null" @click="() => setMenuDay(null)">{{
             i18n.t("canvas.noDay")
           }}</CtChip>
-        </div>
+        </CtMenuGroup>
         <!-- the agent's ideas built on this note; a sticker has no words to build on -->
-        <button
+        <CtMenuItem
           v-if="worker.api !== null && menu.note.kind !== 'sticker'"
-          type="button"
           :disabled="thinking || cut.offline"
           @click="askFromMenu"
-        >{{ i18n.t("canvas.ideasFromHere") }}</button>
-        <button type="button" @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</button>
-        <button type="button" @click="removeFromMenu">{{ i18n.t("canvas.delete") }}</button>
-      </div>
+        >{{ i18n.t("canvas.ideasFromHere") }}</CtMenuItem>
+        <CtMenuItem @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</CtMenuItem>
+        <CtMenuItem danger @click="removeFromMenu">{{ i18n.t("canvas.delete") }}</CtMenuItem>
+      </CtMenu>
 
       <CtFab :label="i18n.t('canvas.write')" @click="write"><Icon :size="24" :src="plusIcon" /></CtFab>
     </div>
@@ -1146,55 +1140,6 @@ section {
       /* sending: the tile fades while it waits */
       &:disabled {
         opacity: 0.5;
-      }
-    }
-
-    /* The card's menu: the trip's days, then the actions; wraps on a narrow desk */
-    > [role="toolbar"] {
-      position: absolute;
-      z-index: var(--z-menu);
-      max-width: calc(100% - 16px);
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 6px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      box-shadow: var(--shadow-float);
-
-      > button {
-        min-height: 40px;
-        padding: 0 12px;
-        border-radius: 10px;
-        font-size: var(--font-md);
-        font-weight: 700;
-
-        /* delete, the last action */
-        &:last-child {
-          color: var(--danger);
-        }
-
-        @media (--can-hover) {
-          &:hover {
-            background: var(--wash);
-          }
-        }
-
-      }
-
-      /* the days, a row of their own above the actions; the memo's day inked */
-      > [role="group"] {
-        flex-basis: 100%;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        padding-block-end: 4px;
-        border-block-end: 1px solid var(--line);
-
-        > button {
-          font-variant-numeric: tabular-nums;
-        }
       }
     }
   }
