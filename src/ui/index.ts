@@ -4,6 +4,7 @@ export { usePageTurn } from "./composables/usePageTurn";
 export { useFlip } from "./composables/useFlip";
 export { useViewTransition } from "./composables/useViewTransition";
 export { type DateRange as CtDateRange, lengthOf } from "./components/calendar/calendar";
+export { default as CtAmount } from "./components/amount/CtAmount.vue";
 export { default as CtAvatar } from "./components/avatar/CtAvatar.vue";
 export { default as CtBackButton } from "./components/back/CtBackButton.vue";
 export { default as CtBadge } from "./components/badge/CtBadge.vue";

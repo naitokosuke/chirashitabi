@@ -58,3 +58,12 @@ button {
   caret-color: var(--ink);
   accent-color: var(--ink);
 }
+/* Said to a screen reader only (a status while a list loads): on the page, but not seen */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

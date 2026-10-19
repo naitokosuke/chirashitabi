@@ -5,7 +5,7 @@ import { computed, ref } from "vue";
 
 import { useRoute, useRouter } from "vue-router";
 
-import { CtAvatar, CtButton, CtHeading, CtPanel, CtShareBar } from "../../../../ui/index";
+import { CtAmount, CtAvatar, CtButton, CtHeading, CtPanel, CtShareBar } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
 
@@ -157,9 +157,15 @@ const allTotal = computed(() => budgetOf(undefined, false));
           ]"
         />
 
-        <p class="budget"><small>{{ i18n.t("home.budget") }}</small>{{ price(fixedTotal) }}<small
-            v-if="allTotal > fixedTotal"
-          >{{ i18n.t("shiori.withMaybes", { total: price(allTotal) }) }}</small></p>
+        <CtAmount
+          :aside="
+            allTotal > fixedTotal ? i18n.t('shiori.withMaybes', { total: price(allTotal) }) : undefined
+          "
+          class="budget"
+          :label="i18n.t('home.budget')"
+          size="lg"
+          :value="price(fixedTotal)"
+        />
       </div>
 
       <div class="side">
@@ -358,25 +364,6 @@ section {
       }
     }
 
-    .main > .budget {
-      margin: 0;
-      font-size: var(--font-4xl);
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-
-      > small {
-        margin-inline-start: 8px;
-        font-size: var(--font-sm);
-        font-weight: 400;
-        color: var(--muted);
-
-        &:first-child {
-          margin-inline: 0 8px;
-          font-weight: 700;
-        }
-      }
-    }
-
     /*
      * A computer: a dashboard as wide as 1200px. The main column has the days large enough to
      * read their slips, the progress and budget side by side, then the flights and stays; to its
@@ -446,8 +433,6 @@ section {
 
         > .todo-card {
           order: 0;
-          /* its line to write in is set into the card, in the desk's color */
-          --field-bg: var(--bg);
         }
 
         > .people {

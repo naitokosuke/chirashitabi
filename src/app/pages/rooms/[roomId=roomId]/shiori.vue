@@ -4,6 +4,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import { computed, ref, useId, useTemplateRef } from "vue";
 
 import {
+  CtAmount,
   CtButton,
   CtCheck,
   CtChip,
@@ -743,9 +744,15 @@ function adoptDraft() {
             </template>
           </template>
 
-          <p v-if="budgetOf(day) > 0" class="total" data-turn>{{ i18n.t("shiori.dayTotal", { total: price(budgetOf(day)) }) }}<small
-              v-if="budgetOf(day, false) > budgetOf(day)"
-            >{{ i18n.t("shiori.withMaybes", { total: price(budgetOf(day, false)) }) }}</small></p>
+          <CtAmount
+            v-if="budgetOf(day) > 0"
+            :aside="budgetOf(day, false) > budgetOf(day)
+              ? i18n.t('shiori.withMaybes', { total: price(budgetOf(day, false)) })
+              : undefined"
+            class="total"
+            data-turn
+            :value="i18n.t('shiori.dayTotal', { total: price(budgetOf(day)) })"
+          />
         </template>
 
         <!-- ---------- appendix ---------- -->
@@ -1148,13 +1155,6 @@ article {
       > .total {
         margin: 16px 0 0;
         text-align: end;
-        font-size: var(--font-md);
-        font-weight: 700;
-
-        > small {
-          font-weight: 400;
-          color: var(--muted);
-        }
       }
 
       /* the appendix: a checklist written on the notes' own paper */

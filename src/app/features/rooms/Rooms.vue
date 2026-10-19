@@ -6,6 +6,7 @@ import { computed, ref, shallowRef } from "vue";
 import {
   CtButton,
   CtHeading,
+  CtHint,
   CtHoldButton,
   CtListItem,
   CtMessage,
@@ -205,7 +206,7 @@ function retry() {
           </section>
 
           <section>
-            <p v-if="none" class="empty">{{ i18n.t("rooms.none") }}</p>
+            <CtHint v-if="none" class="empty" size="lg">{{ i18n.t("rooms.none") }}</CtHint>
             <CtHeading v-else>{{ i18n.t("rooms.coming") }}</CtHeading>
             <ul class="tags">
               <li v-for="r in shelves.coming" :key="r.id">
@@ -359,10 +360,6 @@ function retry() {
 .empty {
   max-width: 32em;
   margin: 28px 0 16px;
-  font-size: var(--font-lg);
-  line-height: 1.6;
-  color: var(--muted);
-  text-wrap: pretty;
 }
 
 .tags {
@@ -389,14 +386,5 @@ function retry() {
       outline-offset: 3px;
     }
   }
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 </style>

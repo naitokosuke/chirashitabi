@@ -347,8 +347,6 @@ function save() {
 .editor {
   display: grid;
   gap: 16px;
-  /* the fields are set into the card, in the desk's color */
-  --field-bg: var(--bg);
 }
 
 .row {

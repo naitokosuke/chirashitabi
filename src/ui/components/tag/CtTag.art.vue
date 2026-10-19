@@ -30,7 +30,7 @@ a {
 <art>
   <variant default name="Every state">
     <div class="stack">
-      <a href="#">
+      <a aria-label="Taiwan trip, in 15 days" href="/rooms/demo/canvas">
         <CtTag
           dates="11/3 (Tue) – 11/6 (Fri) · 4 days"
           :members="MEMBERS"
@@ -40,7 +40,7 @@ a {
         />
       </a>
       <CtTag dates="9/1 – 9/3 · 3 days" :members="MEMBERS" name="Kyoto" past when="" />
-      <a href="#"><CtTag variant="blank">+ New trip</CtTag></a>
+      <a href="/new"><CtTag variant="blank">+ New trip</CtTag></a>
       <CtTag variant="loading" />
     </div>
   </variant>
