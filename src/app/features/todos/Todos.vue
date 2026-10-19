@@ -85,12 +85,7 @@ function markBooked(n: Memo) {
     </form>
     <CtHint v-if="todos.length === 0" size="sm">{{ i18n.t("todo.empty") }}</CtHint>
     <ul v-else>
-      <li
-        v-for="t in todos"
-        :key="t.memo.id"
-        :data-done="t.done || undefined"
-        :data-late="isLate(t, today) || undefined"
-      >
+      <li v-for="t in todos" :key="t.memo.id">
         <CtCheckbox
           v-if="t.kind === 'task'"
           :aria-label="t.memo.title"
@@ -161,7 +156,7 @@ function markBooked(n: Memo) {
         min-width: 0;
       }
 
-      &[data-done] > .title {
+      &:has(> input:checked) > .title {
         color: var(--muted);
         text-decoration: line-through;
       }

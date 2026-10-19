@@ -852,7 +852,7 @@ watch(
         ref="vp"
         class="desk"
         role="presentation"
-        :data-panning="panning || undefined"
+        :class="{ panning }"
         @pointerdown="onDown"
         @pointermove="onMove"
         @pointerup="onUp"
@@ -1088,7 +1088,7 @@ section {
       background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px);
       background-size: 22px 22px;
 
-      &[data-panning] {
+      &.panning {
         cursor: grabbing;
       }
 

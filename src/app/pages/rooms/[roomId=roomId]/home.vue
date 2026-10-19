@@ -86,7 +86,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
 <template>
   <section>
     <!-- a phone: one column; a computer: the plan on the main column, to-dos and people beside it -->
-    <div :data-ahead="ahead || undefined">
+    <div :class="{ ahead }">
       <header>
         <CtHeading as="h1" level="page">{{ trip?.name }}</CtHeading>
         <p v-if="range !== ''">{{ range }} · {{ i18n.t("home.days", { count: trip?.days.length ?? 0 }) }}</p>
@@ -138,7 +138,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
               <span
                 v-for="n in forDay(d.date)"
                 :key="n.id"
-                :data-maybe="n.schedule.status === 'idea' || undefined"
+                :class="{ maybe: n.schedule.status === 'idea' }"
                 :style="`background: ${paperFor(n)}`"
               >{{ n.title }}</span>
             </div>
@@ -228,7 +228,7 @@ section {
       order: 7;
     }
 
-    &[data-ahead] .todo-card {
+    &.ahead .todo-card {
       order: 1;
     }
 
@@ -306,7 +306,7 @@ section {
             box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 14%, transparent);
 
             /* a maybe: the same paper, faded, on a dashed edge (white paper would vanish by fading alone) */
-            &[data-maybe] {
+            &.maybe {
               opacity: 0.6;
               box-shadow: none;
               outline: 1px dashed color-mix(in oklch, var(--paper-ink) 45%, transparent);

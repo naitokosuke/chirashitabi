@@ -580,7 +580,7 @@ function adoptDraft() {
                 }}</CtLink>
                 <strong v-if="legWarning(way) !== ''">{{ legWarning(way) }}</strong>
               </li>
-              <li data-turn :data-status="n.schedule.status">
+              <li :class="`status-${n.schedule.status}`" data-turn>
                 <CtPaper
                   :paper="paperFor(n)"
                   :stamp="n.schedule.status === 'done' ? i18n.t('status.done') : undefined"
@@ -633,7 +633,7 @@ function adoptDraft() {
                     <p
                       v-if="bookingLine(n) !== ''"
                       class="booking"
-                      :data-late="bookingLate(n) || undefined"
+                      :class="{ late: bookingLate(n) }"
                     >
                       <span>{{ bookingLine(n) }}</span>
                       <CtLink v-if="safeUrl(bookingPage(n)) !== undefined" :href="bookingPage(n)">{{
@@ -758,12 +758,10 @@ function adoptDraft() {
         <template v-else>
           <section v-for="t in APPENDIX_TAGS" :key="t">
             <CtHeading data-turn>#{{ t }}</CtHeading>
-            <ul><li
-                v-for="n in byTag(t)"
-                :key="n.id"
-                data-turn
-                :data-checked="n.checked || undefined"
-              ><CtPaper :paper="paperFor(n)" variant="row"><CtCheck
+            <ul><li v-for="n in byTag(t)" :key="n.id" data-turn><CtPaper
+                  :paper="paperFor(n)"
+                  variant="row"
+                ><CtCheck
                     :id="`${pageId}-check-${n.id}`"
                     :model-value="n.checked"
                     @update:model-value="(checked) => setChecked(n, checked)"
@@ -1030,7 +1028,7 @@ article {
          */
         > li {
           /* done: stamped (CtPaper stamp), and the title steps back to its quieter ink */
-          &[data-status="done"] .title {
+          &.status-done .title {
             color: var(--paper-muted);
           }
 
@@ -1073,7 +1071,7 @@ article {
             font-size: var(--font-xs);
             font-weight: 700;
 
-            &[data-late] {
+            &.late {
               color: oklch(from var(--danger) min(l, 0.5) c h);
             }
           }
@@ -1184,7 +1182,7 @@ article {
             }
 
             /* ticked: struck through in the paper's quieter ink, still readable */
-            &[data-checked] .item {
+            &:has(input:checked) .item {
               color: var(--paper-muted);
               text-decoration: line-through;
               text-decoration-thickness: 1.5px;

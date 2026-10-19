@@ -37,13 +37,7 @@ const RAYS = Array.from({ length: 8 }, (_, i) => {
 
 <template>
   <CtDockItem :label="i18n.t(night ? 'theme.toLight' : 'theme.toDark')" @click="toggle">
-    <svg
-      aria-hidden="true"
-      height="24"
-      viewBox="0 0 24 24"
-      width="24"
-      :data-night="night || undefined"
-    >
+    <svg aria-hidden="true" height="24" viewBox="0 0 24 24" width="24" :class="{ night }">
       <mask :id="mask">
         <rect fill="#fff" height="24" width="24" />
         <circle class="bite" cx="17.5" cy="6.5" fill="#000" r="6.5" />
@@ -91,7 +85,7 @@ svg {
   }
 
   /* night: the disc full, bitten into a crescent; the rays turned and folded into it */
-  &[data-night] {
+  &.night {
     .disc {
       scale: 1;
     }
