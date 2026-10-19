@@ -678,10 +678,11 @@ function submit() {
               v-for="o in shown"
               :key="o.name"
               :data-flip="o.name"
-              :data-fit="fits(o, text) || undefined"
+              :aside="o.isNew ? i18n.t('form.newTag') : undefined"
               :dashed="o.isNew"
+              :suggested="fits(o, text)"
               @click="() => addTag(o.name)"
-            >#{{ o.name }}<small v-if="o.isNew">{{ i18n.t("form.newTag") }}</small></CtChip>
+            >#{{ o.name }}</CtChip>
           </div>
           <!-- Clef looks at the words and the photo; what it finds fitting moves up the row -->
           <div v-if="worker.api !== null && (askByTap || tagState !== 'idle')" class="suggested">
@@ -971,18 +972,6 @@ form {
         flex-wrap: wrap;
         gap: 6px;
         margin-top: 2px;
-
-        /* the words name it, or Clef found it likely: it reads as a pick, not only as one in use */
-        > [data-fit] {
-          color: var(--ink);
-          border-color: color-mix(in oklch, var(--ink) 45%, var(--line));
-        }
-
-        small {
-          font-size: var(--font-2xs);
-          font-weight: 400;
-          color: var(--muted);
-        }
       }
 
       /* the ask for the place, then the places to choose */
@@ -1104,7 +1093,6 @@ form {
       > button {
         order: 1;
         min-width: 240px;
-        padding: 0 32px;
       }
     }
   }

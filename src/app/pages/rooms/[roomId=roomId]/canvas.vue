@@ -797,6 +797,7 @@ watch(
         <FilterBar />
         <CtButton
           v-if="worker.api !== null"
+          float
           variant="ask"
           :disabled="thinking || cut.offline"
           :busy="thinking"
@@ -989,10 +990,9 @@ section {
         pointer-events: auto;
       }
 
-      /* the ask floats over the desk, lifted off it as the tools are */
+      /* the ask (floating, as the tools are) keeps its width beside the tags */
       > button {
         flex-shrink: 0;
-        box-shadow: var(--shadow-tool);
       }
     }
 
@@ -1138,11 +1138,6 @@ section {
      */
     > .sticker {
       inset-block-end: calc(var(--dock-clear) + 16px + 56px + 12px);
-
-      /* sending: the tile fades while it waits */
-      &:disabled {
-        opacity: 0.5;
-      }
     }
   }
 }

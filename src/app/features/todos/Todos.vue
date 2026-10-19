@@ -108,7 +108,7 @@ function markBooked(n: Memo) {
           }}</span>
         <CtButton
           v-if="t.kind === 'booking'"
-          class="booked"
+          size="sm"
           variant="text"
           @click="() => markBooked(t.memo)"
         >{{ i18n.t("shiori.markBooked") }}</CtButton>
@@ -184,11 +184,6 @@ function markBooked(n: Memo) {
         gap: 4px;
         font-size: var(--font-xs);
         color: var(--muted);
-      }
-
-      /* the way it is done, small as the line's other notes */
-      > .booked {
-        font-size: var(--font-xs);
       }
 
       &[data-done] > .title {

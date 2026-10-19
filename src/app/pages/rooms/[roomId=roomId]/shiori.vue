@@ -656,7 +656,13 @@ function adoptDraft() {
                       @click="() => nextStatus(n)"
                     >{{ i18n.t(`status.${n.schedule.status}`) }}</CtChip>
                     <span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span>
-                    <CtButton class="off" variant="text" @click="() => assign(n, null)">{{
+                    <CtButton
+                      class="off"
+                      danger
+                      size="sm"
+                      variant="text"
+                      @click="() => assign(n, null)"
+                    >{{
                       i18n.t("shiori.removeDay")
                     }}</CtButton>
                   </div>
@@ -1249,8 +1255,6 @@ article {
               /* taking it off the day: quiet, at the row's end */
               > .off {
                 margin-inline-start: auto;
-                font-size: var(--font-xs);
-                color: var(--paper-muted);
               }
             }
 

@@ -30,4 +30,14 @@ defineArt("./CtButton.vue", {
   <variant name="Disabled">
     <CtButton disabled variant="primary">Save</CtButton>
   </variant>
+  <variant name="Floating">
+    <CtButton float variant="ask">Ask for ideas</CtButton>
+  </variant>
+  <variant name="Text in a line">
+    <p>
+      12:30 · NT$500
+      <CtButton size="sm" variant="text">Mark booked</CtButton>
+      <CtButton danger size="sm" variant="text">Take off the day</CtButton>
+    </p>
+  </variant>
 </art>

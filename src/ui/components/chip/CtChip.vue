@@ -5,6 +5,9 @@
  * `float` lifts it off what it floats over (a map, the desk) with a tool's shadow.
  * `dashed` draws its edge dashed: a chip that clears the others, or one the agent offered.
  * `size="sm"` is a chip set inside a box with others, as the chips of a CtChipInput.
+ * `suggested` darkens its words and edge, short of filling it: one the words on the page name,
+ * or the agent finds likely, so it reads as a pick and not only as one in use. `aside` is a
+ * word after it, light and small (that the tag is new).
  */
 defineProps<{
   selected?: boolean;
@@ -13,6 +16,8 @@ defineProps<{
   float?: boolean;
   dashed?: boolean;
   size?: "md" | "sm";
+  suggested?: boolean;
+  aside?: string;
 }>();
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
 </script>
@@ -24,11 +29,13 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
     :data-float="float || undefined"
     :data-dashed="dashed || undefined"
     :data-size="size === 'sm' ? 'sm' : undefined"
+    :data-suggested="suggested || undefined"
     :aria-pressed="toggle ? selected : undefined"
     @click="(e) => emit('click', e)"
   >
     <slot></slot>
     <small v-if="count != null">{{ count }}</small>
+    <small v-if="aside !== undefined" class="aside">{{ aside }}</small>
   </button>
 </template>
 
@@ -71,10 +78,19 @@ button {
   &[data-size="sm"] {
     min-height: 32px;
   }
+  &[data-suggested]:not([data-selected]) {
+    color: var(--ink);
+    border-color: color-mix(in oklch, var(--ink) 45%, var(--line));
+  }
   small {
     font-size: var(--font-2xs);
     font-variant-numeric: tabular-nums;
     opacity: 0.6;
+  }
+  .aside {
+    font-weight: 400;
+    color: var(--muted);
+    opacity: 1;
   }
 }
 </style>
