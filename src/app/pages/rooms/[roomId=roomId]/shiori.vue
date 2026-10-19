@@ -7,6 +7,7 @@ import {
   CtAvatar,
   CtButton,
   CtGlass,
+  CtPanel,
   CtPaper,
   CtScrollRow,
   CtSegmented,
@@ -481,7 +482,7 @@ function adoptDraft() {
         }}</small></p>
 
       <!-- tray: memos without a day (edit mode only) -->
-      <section v-if="editing">
+      <CtPanel v-if="editing" as="section">
         <div><span>{{ i18n.t("shiori.trayTitle", { count: unassigned.length }) }}</span><small>{{
             i18n.t("shiori.trayHint")
           }}</small></div>
@@ -515,7 +516,7 @@ function adoptDraft() {
           >{{ short(d.date) }}</CtButton>
           <CtButton @click="() => (pickingId = null)">{{ i18n.t("shiori.later") }}</CtButton>
         </div>
-      </section>
+      </CtPanel>
 
       <!-- the open day's heading stays put while its page slides; only the characters that change move -->
       <h2 :aria-label="heading.map((p) => p.text).join('')"><CtTextMorph :parts="heading" /></h2>
@@ -874,10 +875,6 @@ article {
     /* the notes still without a day, on a tool panel above the page */
     > section {
       margin-block: 10px 6px;
-      padding: 10px 12px 8px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: var(--surface);
 
       > div:first-child {
         display: flex;

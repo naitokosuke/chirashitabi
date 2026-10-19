@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, reactive, useId } from "vue";
 
-import { CtButton, CtField, CtInput } from "../../../ui/index";
+import { CtButton, CtField, CtInput, CtPanel } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -172,7 +172,7 @@ function save() {
 </script>
 
 <template>
-  <form class="editor" @submit.prevent="save">
+  <CtPanel as="form" class="editor" pad="lg" @submit.prevent="save">
     <CtField :for="`${id}-name`" :label="i18n.t('rooms.name')">
       <CtInput :id="`${id}-name`" v-model="form.name" :maxlength="MAX_NAME" required />
     </CtField>
@@ -329,7 +329,7 @@ function save() {
       }}</CtButton>
       <CtButton size="lg" @click="() => emit('close')">{{ i18n.t("people.cancel") }}</CtButton>
     </footer>
-  </form>
+  </CtPanel>
 </template>
 
 <style scoped>
@@ -337,10 +337,6 @@ function save() {
 .editor {
   display: grid;
   gap: 16px;
-  padding: 16px;
-  border-radius: 16px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
   /* the fields are set into the card, in the desk's color */
   --field-bg: var(--bg);
 }

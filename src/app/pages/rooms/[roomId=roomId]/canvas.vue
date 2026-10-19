@@ -48,7 +48,7 @@ import {
 
 import { useRoute, useRouter } from "vue-router";
 
-import { CtButton, CtChip, CtFab } from "../../../../ui/index";
+import { CtButton, CtChip, CtFab, CtInput, CtPanel } from "../../../../ui/index";
 
 import { useI18n } from "../../../i18n/useI18n";
 
@@ -563,7 +563,7 @@ const asking = shallowRef<{ kind: "closed" } | { kind: "trip" } | { kind: "note"
   kind: "closed",
 });
 const askWords = ref("");
-const askInput = useTemplateRef<HTMLInputElement>("askInput");
+const askInput = useTemplateRef<{ focus(): void }>("askInput");
 const askId = useId();
 function openAsk(about: Note | null) {
   asking.value = about === null ? { kind: "trip" } : { kind: "note", about };
@@ -812,17 +812,19 @@ watch(
         unfolds down from its button and folds back up into it
       -->
       <Transition name="ask">
-        <form
+        <CtPanel
           v-if="asking.kind !== 'closed'"
           :id="askId"
+          as="form"
           class="ask"
+          float
           :aria-label="i18n.t('canvas.askIdeas')"
           @submit="onAskSubmit"
         >
           <p v-if="asking.kind === 'note'">{{
             i18n.t("canvas.askFrom", { title: asking.about.title })
           }}</p>
-          <input
+          <CtInput
             ref="askInput"
             v-model="askWords"
             enterkeyhint="send"
@@ -835,7 +837,7 @@ watch(
             <CtButton @click="toggleAsk">{{ i18n.t("common.close") }}</CtButton>
             <CtButton type="submit" variant="primary">{{ i18n.t("canvas.ask") }}</CtButton>
           </div>
-        </form>
+        </CtPanel>
       </Transition>
 
       <!--
@@ -1007,11 +1009,8 @@ section {
       width: min(360px, calc(100% - 24px));
       display: grid;
       gap: 10px;
-      padding: 12px;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      box-shadow: var(--shadow-float);
+      /* its line to write in is set into the panel, in the desk's color */
+      --field-bg: var(--bg);
       /* it grows out of its button, at the row's end above it */
       transform-origin: 100% 0;
 
@@ -1061,17 +1060,6 @@ section {
         color: var(--muted);
         font-size: var(--font-sm);
         font-weight: 700;
-      }
-
-      > input {
-        width: 100%;
-        font: inherit;
-        font-size: var(--font-base);
-        padding: 10px 12px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: var(--surface);
-        color: var(--ink);
       }
 
       > div {

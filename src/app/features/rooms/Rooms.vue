@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, shallowRef } from "vue";
 
-import { CtButton, CtHoldButton, CtSwipeRow, safeUrl } from "../../../ui/index";
+import { CtButton, CtHoldButton, CtPanel, CtSwipeRow, safeUrl } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -152,22 +152,24 @@ function retry() {
     <div class="list" :inert="creating">
       <div class="page" :aria-busy="listStatus === 'pending'">
         <h1 class="wordmark">chirashitabi</h1>
-        <p v-if="joining !== null && !joining.failed" class="notice" role="status">
+        <CtPanel v-if="joining !== null && !joining.failed" as="p" class="notice" role="status">
           {{
             joining.name === null
               ? i18n.t("rooms.connectingUnnamed")
               : i18n.t("rooms.connecting", { name: joining.name })
           }}
-        </p>
-        <p v-else-if="joining !== null" class="notice" role="alert">
+        </CtPanel>
+        <CtPanel v-else-if="joining !== null" as="p" class="notice" role="alert">
           {{ i18n.t("rooms.failed") }}
           <CtButton variant="primary" @click="retry">{{ i18n.t("rooms.retry") }}</CtButton>
-        </p>
-        <p v-if="removeFailed" class="notice" role="alert">{{ i18n.t("people.failed") }}</p>
-        <p v-if="listStatus === 'error'" class="notice" role="alert">
+        </CtPanel>
+        <CtPanel v-if="removeFailed" as="p" class="notice" role="alert">{{
+          i18n.t("people.failed")
+        }}</CtPanel>
+        <CtPanel v-if="listStatus === 'error'" as="p" class="notice" role="alert">
           {{ i18n.t("rooms.listFailed") }}
           <CtButton variant="primary" @click="retry">{{ i18n.t("rooms.retry") }}</CtButton>
-        </p>
+        </CtPanel>
 
         <!-- two blank tags where the trips will hang, so nothing jumps when they arrive -->
         <div v-if="listStatus === 'pending'" class="tags">
@@ -258,13 +260,13 @@ function retry() {
           <!-- trips their owner deleted, kept a while in case it was a slip; either person brings one back -->
           <section v-if="mine !== undefined && mine.deleted.length > 0">
             <h2>{{ i18n.t("rooms.deleted") }}</h2>
-            <p v-if="shelfFailed('restore')" class="notice" role="alert">{{
+            <CtPanel v-if="shelfFailed('restore')" as="p" class="notice" role="alert">{{
               i18n.t("rooms.restoreFailed")
-            }}</p>
-            <p v-if="shelfFailed('purge')" class="notice" role="alert">{{
+            }}</CtPanel>
+            <CtPanel v-if="shelfFailed('purge')" as="p" class="notice" role="alert">{{
               i18n.t("rooms.purgeFailed")
-            }}</p>
-            <ul class="gone">
+            }}</CtPanel>
+            <CtPanel as="ul" class="gone" pad="none">
               <li v-for="d in mine?.deleted" :key="d.id">
                 <span>
                   <b>{{ d.name }}</b>
@@ -289,7 +291,7 @@ function retry() {
                   <template #hint>{{ i18n.t("rooms.hold") }}</template>
                 </CtHoldButton>
               </li>
-            </ul>
+            </CtPanel>
           </section>
         </template>
       </div>
@@ -342,10 +344,6 @@ function retry() {
   align-items: center;
   gap: 6px 12px;
   margin: 16px 0 0;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
   font-size: var(--font-md);
   color: var(--ink);
 }
@@ -469,12 +467,7 @@ h2 {
 
 /* a deleted trip: its name in muted ink, and the way back */
 .gone {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: grid;
-  border-radius: 14px;
-  box-shadow: inset 0 0 0 1px var(--line);
 
   > li {
     display: flex;

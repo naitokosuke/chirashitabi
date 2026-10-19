@@ -5,7 +5,7 @@ import { computed, ref } from "vue";
 
 import { useRoute, useRouter } from "vue-router";
 
-import { CtAvatar, CtButton } from "../../../../ui/index";
+import { CtAvatar, CtButton, CtPanel } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
 
@@ -130,7 +130,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
 
         <!-- the days side by side, each a stack of its notes in their own paper; maybes faded.
            Wide, each slip is long enough to carry its title -->
-        <ol v-if="trip !== undefined && trip.days.length > 0" class="days">
+        <CtPanel v-if="trip !== undefined && trip.days.length > 0" as="ol" class="days" pad="lg">
           <li
             v-for="d in trip?.days"
             :key="d.date.toString()"
@@ -148,7 +148,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
                 weekday(d.date, i18n.locale)
               }}</small></time>
           </li>
-        </ol>
+        </CtPanel>
 
         <!-- how far the plan has come: one bar, three piles -->
         <figure>
@@ -288,16 +288,10 @@ section {
 
     /* one column per day, its notes stacked from the bottom like paper on a spike */
     .main > .days {
-      list-style: none;
-      margin: 0;
-      padding: 16px 12px 12px;
       display: grid;
       grid-auto-flow: column;
       grid-auto-columns: minmax(0, 1fr);
       gap: 8px;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 14px;
 
       > li {
         display: flex;
