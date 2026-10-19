@@ -196,9 +196,9 @@ function save() {
 
     <!-- the flights there and home: each a card of a few fields once added, said once what they need -->
     <p class="hint">{{ i18n.t("flight.localTime") }}</p>
-    <fieldset v-for="leg in LEGS" :key="leg" :class="{ card: form.flights[leg].on }">
-      <legend>{{ i18n.t(leg === "out" ? "flight.out" : "flight.back") }}</legend>
-      <template v-if="form.flights[leg].on">
+    <template v-for="leg in LEGS" :key="leg">
+      <CtPanel v-if="form.flights[leg].on" as="fieldset" sunken>
+        <legend>{{ i18n.t(leg === "out" ? "flight.out" : "flight.back") }}</legend>
         <CtButton class="remove" danger @click="() => removeFlight(leg)">{{
           i18n.t("flight.remove")
         }}</CtButton>
@@ -242,16 +242,20 @@ function save() {
             />
           </CtField>
         </div>
-      </template>
-      <CtButton v-else class="start" variant="blank" @click="() => addFlight(leg)">
-        <Icon :size="16" :src="plusIcon" />{{ i18n.t(leg === "out" ? "flight.addOut" : "flight.addBack") }}
-      </CtButton>
-    </fieldset>
+      </CtPanel>
+      <!-- not added yet: its name, and the outline of the button that adds it -->
+      <fieldset v-else>
+        <legend>{{ i18n.t(leg === "out" ? "flight.out" : "flight.back") }}</legend>
+        <CtButton class="start" variant="blank" @click="() => addFlight(leg)">
+          <Icon :size="16" :src="plusIcon" />{{ i18n.t(leg === "out" ? "flight.addOut" : "flight.addBack") }}
+        </CtButton>
+      </fieldset>
+    </template>
 
     <!-- where the nights are spent: each a few fields, in the order they come -->
     <fieldset>
       <legend>{{ i18n.t("stay.title") }}</legend>
-      <div v-for="(s, i) in form.stays" :key="rowOf(s)" class="stay card">
+      <CtPanel v-for="(s, i) in form.stays" :key="rowOf(s)" class="stay" sunken>
         <p class="head">{{ i18n.t("stay.nth", { n: i + 1 }) }}</p>
         <CtButton class="remove" danger @click="() => removeStay(i)">{{
           i18n.t("stay.remove")
@@ -311,7 +315,7 @@ function save() {
           />
         </CtField>
         <p aria-live="polite" class="hint">{{ i18n.t(stayLinkState(s)) }}</p>
-      </div>
+      </CtPanel>
       <CtButton class="start" variant="blank" @click="addStay"><Icon :size="16" :src="plusIcon" />{{ i18n.t("stay.add") }}</CtButton>
     </fieldset>
 
@@ -357,16 +361,6 @@ fieldset {
     font-size: var(--font-md);
     font-weight: 700;
   }
-}
-
-/* a flight, or a stay: its fields on a card of their own, so each reads as one thing */
-.card {
-  padding: 14px;
-  border-radius: 14px;
-  background: var(--bg);
-  box-shadow: inset 0 0 0 1px var(--line);
-  /* inside a card the fields sit on the surface again, so they stand out from it */
-  --field-bg: var(--surface);
 }
 
 /* taking a flight or a stay away: quiet, in the card's corner, the danger's color only on intent */

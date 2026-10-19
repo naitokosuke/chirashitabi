@@ -28,10 +28,10 @@ button {
   padding: 0 12px 0 8px;
   border-radius: 999px;
   background: var(--glass);
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   box-shadow:
-    inset 0 0 0 1px color-mix(in oklch, var(--line) 80%, transparent),
+    var(--glass-edge),
     var(--shadow-tool);
   color: var(--muted);
   font-size: var(--font-sm);

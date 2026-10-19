@@ -153,11 +153,11 @@ nav {
   padding: 0 8px;
   border-radius: 22px;
   background: var(--glass);
-  backdrop-filter: blur(20px) saturate(1.6);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   /* a hairline, and a lit top edge as glass has */
   box-shadow:
-    inset 0 0 0 1px color-mix(in oklch, var(--line) 80%, transparent),
+    var(--glass-edge),
     inset 0 1px 0 light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.08)),
     var(--shadow-float);
   transition:
