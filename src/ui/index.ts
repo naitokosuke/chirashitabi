@@ -49,6 +49,7 @@ export { default as CtSwipeAction } from "./components/swipe-row/CtSwipeAction.v
 export { default as CtSwipeRow } from "./components/swipe-row/CtSwipeRow.vue";
 export { default as CtTabList } from "./components/tabs/CtTabList.vue";
 export { default as CtTabPanel } from "./components/tabs/CtTabPanel.vue";
+export { default as CtTag } from "./components/tag/CtTag.vue";
 export { default as CtHint } from "./components/text/CtHint.vue";
 export { default as CtMessage } from "./components/text/CtMessage.vue";
 export type { MorphPart as CtMorphPart } from "./components/text-morph/glyphs";

@@ -1,28 +1,43 @@
 <script setup lang="ts" vapor>
-import type { RoomSummary } from "./types";
-
 /**
- * A trip as a luggage tag on the list of trips, a link to pick up and go in: ink, level, a
- * punched hole at its start. Its name, its dates, where it stands (`when`), and who is on it:
- * a dot per member, round for a person and square for the agent, as on the desk's cards.
- * A trip that is over is drawn in white, receding behind the ones still to come. Held in a
- * link, it is picked up a little under a pointer and pressed down under a finger.
+ * A luggage tag for a trip, a link to pick up and go in: ink, level, a punched hole at its
+ * start. Its name, its dates, where it stands (`when`), and who is on it: a dot per member,
+ * round for a person and square for the agent, as on the desk's cards. A trip that is over
+ * (`past`) is drawn in white, receding behind the ones still to come. Held in a link, it is
+ * picked up a little under a pointer and pressed down under a finger.
+ *
+ * `variant="blank"` is the tag's outline, dashed, hole and all, waiting to be written on (the
+ * way to a new trip): what it says goes in the slot. `variant="loading"` is where a tag will
+ * hang while the list is on its way.
  */
-defineProps<{
-  name: string;
+const {
+  variant = "trip",
+  name = "",
+  dates = "",
+  when = "",
+  members = [],
+} = defineProps<{
+  variant?: "trip" | "blank" | "loading";
+  name?: string;
   /** The name is the form's placeholder, not yet the trip's */
   unnamed?: boolean;
-  dates: string;
-  when: string;
-  members: RoomSummary["members"];
+  dates?: string;
+  when?: string;
+  members?: readonly { kind: "person" | "agent"; name: string; color: string }[];
   /** "12 notes", or nothing while there is no count to give */
   memos?: string;
   past?: boolean;
 }>();
+defineSlots<{ default?(): unknown }>();
 </script>
 
 <template>
-  <div class="tag" :data-past="past || undefined">
+  <div v-if="variant === 'loading'" aria-hidden="true" class="tag" data-variant="loading"></div>
+  <div v-else-if="variant === 'blank'" class="tag" data-variant="blank">
+    <span aria-hidden="true" class="hole"></span>
+    <slot></slot>
+  </div>
+  <div v-else class="tag" :data-past="past || undefined">
     <span aria-hidden="true" class="hole"></span>
     <div class="head">
       <p class="name" :data-unnamed="unnamed || undefined">{{ name }}</p>
@@ -41,7 +56,7 @@ defineProps<{
 </template>
 
 <style scoped>
-@import "../../../ui/styles/media.css";
+@import "../../styles/media.css";
 
 .tag {
   --tag-ink: var(--on-ink);
@@ -78,6 +93,54 @@ defineProps<{
   a:active > & {
     translate: 0 1px;
     box-shadow: var(--shadow-tool);
+  }
+
+  /* the blank: the tag's outline, dashed, its hole too, its words in muted ink until reached for */
+  &[data-variant="blank"] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 72px;
+    padding-block: 0;
+    background: transparent;
+    box-shadow: none;
+    border: 1.5px dashed color-mix(in oklch, var(--ink) 28%, transparent);
+    color: var(--muted);
+    font-size: var(--font-base);
+    font-weight: 700;
+    transition:
+      color var(--duration-swap) ease,
+      border-color var(--duration-swap) ease,
+      background-color var(--duration-swap) ease;
+
+    > .hole {
+      background: none;
+      box-shadow: none;
+      border: 1.5px dashed color-mix(in oklch, var(--ink) 28%, transparent);
+    }
+
+    @media (--can-hover) {
+      a:hover > & {
+        translate: none;
+        box-shadow: none;
+        color: var(--ink);
+        border-color: color-mix(in oklch, var(--ink) 55%, transparent);
+        background: var(--surface);
+      }
+    }
+
+    a:active > & {
+      translate: none;
+      box-shadow: none;
+    }
+  }
+
+  /* where a tag will hang, while the list is on its way */
+  &[data-variant="loading"] {
+    height: 104px;
+    padding: 0;
+    background: var(--wash);
+    box-shadow: none;
   }
 }
 

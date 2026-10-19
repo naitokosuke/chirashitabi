@@ -12,6 +12,7 @@ import {
   CtPanel,
   CtSwipeAction,
   CtSwipeRow,
+  CtTag,
   safeUrl,
 } from "../../../ui/index";
 
@@ -27,7 +28,6 @@ import { shortDate } from "../trip/format";
 import Invitation from "./Invitation.vue";
 import { datesLabel, whenLabel } from "./label";
 import NewTrip from "./NewTrip.vue";
-import TripTag from "./TripTag.vue";
 import type { RoomId, RoomSummary } from "./types";
 import { useRooms } from "./useRooms";
 import { shelve, whenOf } from "./when";
@@ -188,8 +188,8 @@ function retry() {
 
         <!-- two blank tags where the trips will hang, so nothing jumps when they arrive -->
         <div v-if="listStatus === 'pending'" class="tags">
-          <div aria-hidden="true" class="ghost"></div>
-          <div aria-hidden="true" class="ghost"></div>
+          <CtTag variant="loading" />
+          <CtTag variant="loading" />
           <p class="sr-only" role="status">{{ i18n.t("rooms.loading") }}</p>
         </div>
 
@@ -217,7 +217,7 @@ function retry() {
                       :aria-label="labelOf(r)"
                       @click="(e) => enter(e, r.id)"
                     >
-                      <TripTag v-bind="tagOf(r)" />
+                      <CtTag v-bind="tagOf(r)" />
                     </a>
                   </template>
                   <template #actions>
@@ -233,9 +233,9 @@ function retry() {
               </li>
               <!-- a blank tag: the next trip starts by writing one -->
               <li>
-                <a class="blank" :href="safeUrl(newHref)" @click="startCreating">
-                  <span aria-hidden="true" class="hole"></span>
-                  <Icon :size="18" :src="plusIcon" />{{ i18n.t("rooms.new") }}
+                <a :href="safeUrl(newHref)" @click="startCreating">
+                  <CtTag variant="blank">
+                    <Icon :size="18" :src="plusIcon" />{{ i18n.t("rooms.new") }}</CtTag>
                 </a>
               </li>
             </ul>
@@ -253,7 +253,7 @@ function retry() {
                       :aria-label="labelOf(r)"
                       @click="(e) => enter(e, r.id)"
                     >
-                      <TripTag v-bind="tagOf(r)" past />
+                      <CtTag v-bind="tagOf(r)" past />
                     </a>
                   </template>
                   <template #actions>
@@ -389,53 +389,6 @@ function retry() {
       outline-offset: 3px;
     }
   }
-}
-
-/* the blank tag: the tag's outline, dashed, waiting to be written on */
-.tags {
-  a.blank {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 72px;
-    padding: 0 20px 0 52px;
-    border: 1.5px dashed color-mix(in oklch, var(--ink) 28%, transparent);
-    font-size: var(--font-base);
-    font-weight: 700;
-    color: var(--muted);
-    transition:
-      color var(--duration-swap) ease,
-      border-color var(--duration-swap) ease,
-      background-color var(--duration-swap) ease;
-
-    > .hole {
-      position: absolute;
-      inset-inline-start: 18px;
-      inset-block-start: 50%;
-      translate: 0 -50%;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      border: 1.5px dashed color-mix(in oklch, var(--ink) 28%, transparent);
-    }
-
-    @media (--can-hover) {
-      &:hover {
-        color: var(--ink);
-        border-color: color-mix(in oklch, var(--ink) 55%, transparent);
-        background: var(--surface);
-      }
-    }
-  }
-}
-
-/* a deleted trip: its name in muted ink, and the way back */
-/* where a tag will be, while the list is on its way */
-.ghost {
-  height: 104px;
-  border-radius: 12px 20px 20px 12px;
-  background: var(--wash);
 }
 
 .sr-only {
