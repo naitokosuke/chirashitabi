@@ -38,7 +38,8 @@ const { chosen, ready } = useIndicator(list, () => [props.modelValue, props.opti
   display: flex;
   padding: 2px;
   border-radius: 999px;
-  background: var(--wash);
+  /* the track: a wash of ink, or what it sits on when that is its track (CtGlass) */
+  background: var(--track-bg, var(--wash));
 
   > button {
     position: relative;
