@@ -36,6 +36,7 @@ import {
   CtChipInput,
   CtChoiceList,
   CtField,
+  CtFileInput,
   CtHeading,
   CtHint,
   CtInput,
@@ -737,10 +738,9 @@ function submit() {
               <img alt="" :src="photoSrc" />
               <CtChip float @click="removePhoto">{{ i18n.t("form.removePhoto") }}</CtChip>
             </figure>
-            <input
+            <CtFileInput
               :id="`${id}-photo`"
               accept="image/*"
-              type="file"
               :disabled="photo === 'sending' || cut.offline"
               @change="onPhoto"
             />
@@ -989,31 +989,6 @@ function submit() {
 
         > p {
           flex-basis: 100%;
-        }
-      }
-
-      /* the photo picker: the browser's own control in a field's box, its button made one of ours */
-      > input[type="file"] {
-        width: 100%;
-        min-height: 46px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: var(--field-bg, var(--surface));
-        padding: 8px;
-        font: inherit;
-        font-size: var(--font-sm);
-        color: var(--muted);
-
-        &::file-selector-button {
-          margin-inline-end: 10px;
-          min-height: 32px;
-          padding: 0 12px;
-          border: 1px solid var(--line);
-          border-radius: 999px;
-          background: var(--bg);
-          font: inherit;
-          font-weight: 700;
-          color: var(--ink);
         }
       }
 
