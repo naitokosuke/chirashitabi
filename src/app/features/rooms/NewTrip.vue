@@ -13,6 +13,7 @@ import {
   CtHint,
   CtInput,
   CtMessage,
+  CtSheet,
   CtSwatches,
   type CtDateRange,
   type CtOption,
@@ -106,93 +107,88 @@ onMounted(() => nameEl.value?.focus());
 </script>
 
 <template>
-  <form class="sheet" @submit.prevent="create">
+  <CtSheet as="form" @submit="create">
     <!-- no bar: the way back floats where a bar would be; the title opens the page -->
-    <CtBackButton @click="() => emit('close')">
-      <Icon :size="16" :src="backIcon" />{{ i18n.t("home.trips") }}
-    </CtBackButton>
+    <template #top>
+      <CtBackButton @click="() => emit('close')">
+        <Icon :size="16" :src="backIcon" />{{ i18n.t("home.trips") }}
+      </CtBackButton>
+    </template>
 
-    <div class="body">
-      <CtHeading level="sheet">{{ i18n.t("rooms.new") }}</CtHeading>
-      <!-- the tag as it will hang on the trip; the fields below say the same to a screen reader -->
-      <TripTag
-        aria-hidden="true"
-        class="preview"
-        :name="preview.name"
-        :unnamed="preview.unnamed"
-        :dates="preview.dates"
-        :when="preview.when"
-        :members="preview.members"
-      />
-
-      <CtField :for="`${id}-name`" :label="i18n.t('rooms.name')">
-        <CtInput
-          :id="`${id}-name`"
-          ref="nameEl"
-          v-model="name"
-          :maxlength="MAX_NAME"
-          enterkeyhint="done"
-          required
-          :placeholder="i18n.t('rooms.namePlaceholder')"
+    <template #default>
+      <div class="fields">
+        <CtHeading level="sheet">{{ i18n.t("rooms.new") }}</CtHeading>
+        <!-- the tag as it will hang on the trip; the fields below say the same to a screen reader -->
+        <TripTag
+          aria-hidden="true"
+          class="preview"
+          :name="preview.name"
+          :unnamed="preview.unnamed"
+          :dates="preview.dates"
+          :when="preview.when"
+          :members="preview.members"
         />
-      </CtField>
 
-      <CtField :label="i18n.t('rooms.dates')">
-        <template #note>
-          <span v-if="dates.end === null" aria-live="polite">{{ i18n.t("rooms.pickLast") }}</span>
-        </template>
-        <template #default>
-          <CtCalendar
-            v-model:range="dates"
-            :max-days="MAX_DAYS"
-            :locale="i18n.locale"
-            :prev-label="i18n.t('rooms.prevMonth')"
-            :next-label="i18n.t('rooms.nextMonth')"
+        <CtField :for="`${id}-name`" :label="i18n.t('rooms.name')">
+          <CtInput
+            :id="`${id}-name`"
+            ref="nameEl"
+            v-model="name"
+            :maxlength="MAX_NAME"
+            enterkeyhint="done"
+            required
+            :placeholder="i18n.t('rooms.namePlaceholder')"
           />
-        </template>
-      </CtField>
+        </CtField>
 
-      <CtField :label="i18n.t('rooms.currency')">
-        <CtChipPick v-model="currency" :options="currencies" :label="i18n.t('rooms.currency')" />
-      </CtField>
+        <CtField :label="i18n.t('rooms.dates')">
+          <template #note>
+            <span v-if="dates.end === null" aria-live="polite">{{ i18n.t("rooms.pickLast") }}</span>
+          </template>
+          <template #default>
+            <CtCalendar
+              v-model:range="dates"
+              :max-days="MAX_DAYS"
+              :locale="i18n.locale"
+              :prev-label="i18n.t('rooms.prevMonth')"
+              :next-label="i18n.t('rooms.nextMonth')"
+            />
+          </template>
+        </CtField>
 
-      <!-- no name for the person: told apart by color alone, for now -->
-      <CtField :label="i18n.t('rooms.color')">
-        <CtSwatches v-model="color" :colors="MEMBER_COLORS" :label="i18n.t('rooms.color')" />
-      </CtField>
-    </div>
+        <CtField :label="i18n.t('rooms.currency')">
+          <CtChipPick v-model="currency" :options="currencies" :label="i18n.t('rooms.currency')" />
+        </CtField>
 
-    <footer>
-      <CtMessage v-if="error !== null" role="alert">{{ i18n.t("rooms.createFailed") }}</CtMessage>
-      <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
-      <CtButton
-        size="lg"
-        type="submit"
-        variant="primary"
-        :disabled="busy || filled === null || cut.offline"
-      >
-        {{ i18n.t(busy ? "rooms.creating" : "rooms.create") }}
-      </CtButton>
-    </footer>
-  </form>
+        <!-- no name for the person: told apart by color alone, for now -->
+        <CtField :label="i18n.t('rooms.color')">
+          <CtSwatches v-model="color" :colors="MEMBER_COLORS" :label="i18n.t('rooms.color')" />
+        </CtField>
+      </div>
+    </template>
+
+    <!-- the one action, always in reach under the fields -->
+    <template #foot>
+      <div class="act">
+        <CtMessage v-if="error !== null" role="alert">{{ i18n.t("rooms.createFailed") }}</CtMessage>
+        <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
+        <CtButton
+          size="lg"
+          type="submit"
+          variant="primary"
+          :disabled="busy || filled === null || cut.offline"
+        >
+          {{ i18n.t(busy ? "rooms.creating" : "rooms.create") }}
+        </CtButton>
+      </div>
+    </template>
+  </CtSheet>
 </template>
 
 <style scoped>
 @import "../../../ui/styles/media.css";
 
-.sheet {
-  position: absolute;
-  inset: 0;
-  z-index: var(--z-sheet);
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-}
-
-.body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--top-clear) var(--page-margin) 24px;
+.fields {
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -203,13 +199,8 @@ onMounted(() => nameEl.value?.focus());
   margin-block-end: 10px;
 }
 
-/* the one action, always in reach under the fields */
-footer {
-  flex-shrink: 0;
+.act {
   display: grid;
   gap: 8px;
-  padding: 12px var(--page-margin) calc(12px + env(safe-area-inset-bottom, 0px));
-  border-block-start: 1px solid var(--line);
-  background: var(--bg);
 }
 </style>

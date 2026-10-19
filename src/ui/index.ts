@@ -36,6 +36,7 @@ export { default as CtPanel } from "./components/panel/CtPanel.vue";
 export { default as CtPaper } from "./components/paper/CtPaper.vue";
 export { default as CtScrollRow } from "./components/scroll-row/CtScrollRow.vue";
 export { default as CtSegmented } from "./components/segmented/CtSegmented.vue";
+export { default as CtSheet } from "./components/sheet/CtSheet.vue";
 export { default as CtShareBar } from "./components/share-bar/CtShareBar.vue";
 export { default as CtStepper } from "./components/stepper/CtStepper.vue";
 export { default as CtSwatches } from "./components/swatches/CtSwatches.vue";
