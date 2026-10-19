@@ -5,7 +5,8 @@ import type { RoomSummary } from "./types";
  * A trip as a luggage tag on the list of trips, a link to pick up and go in: ink, level, a
  * punched hole at its start. Its name, its dates, where it stands (`when`), and who is on it:
  * a dot per member, round for a person and square for the agent, as on the desk's cards.
- * A trip that is over is drawn in white, receding behind the ones still to come.
+ * A trip that is over is drawn in white, receding behind the ones still to come. Held in a
+ * link, it is picked up a little under a pointer and pressed down under a finger.
  */
 defineProps<{
   name: string;
@@ -40,6 +41,8 @@ defineProps<{
 </template>
 
 <style scoped>
+@import "../../../ui/styles/media.css";
+
 .tag {
   --tag-ink: var(--on-ink);
   position: relative;
@@ -56,6 +59,25 @@ defineProps<{
     --tag-ink: var(--ink);
     background: var(--surface);
     box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  /* in a link: picked up, a little, as a tag is when reached for; pressed down when taken */
+  a > & {
+    transition:
+      box-shadow var(--duration-swap) var(--ease-morph),
+      translate var(--duration-swap) var(--ease-morph);
+  }
+
+  @media (--can-hover) {
+    a:hover > & {
+      box-shadow: var(--shadow-lift);
+      translate: 0 -1px;
+    }
+  }
+
+  a:active > & {
+    translate: 0 1px;
+    box-shadow: var(--shadow-tool);
   }
 }
 

@@ -384,28 +384,9 @@ function retry() {
     text-decoration: none;
     -webkit-tap-highlight-color: transparent;
 
-    > :deep(.tag) {
-      transition:
-        box-shadow var(--duration-swap) var(--ease-morph),
-        translate var(--duration-swap) var(--ease-morph);
-    }
-
     &:focus-visible {
       outline: 2px solid var(--ink);
       outline-offset: 3px;
-    }
-
-    /* picked up, a little, as a tag is when reached for */
-    @media (--can-hover) {
-      &:hover > :deep(.tag) {
-        box-shadow: var(--shadow-lift);
-        translate: 0 -1px;
-      }
-    }
-
-    &:active > :deep(.tag) {
-      translate: 0 1px;
-      box-shadow: var(--shadow-tool);
     }
   }
 }
