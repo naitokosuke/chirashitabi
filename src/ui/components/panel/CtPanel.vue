@@ -5,13 +5,16 @@
  * its meaning. `pad` is the room inside it: `none` for a list whose rows have their own, `sm`
  * for a menu of buttons, `md` for most, `lg` for a form. `float` lifts it over what it covers
  * (a menu, a panel opened from a button). `sunken` is a panel set into a panel (a flight in the
- * trip's settings), in the desk's color, its fields back on the surface.
+ * trip's settings), in the desk's color, its fields back on the surface. `from="desktop"` draws
+ * it only on a computer, where it stands beside a column; narrower, what it holds lies on the
+ * desk with the rest.
  */
 const { as = "div", pad = "md" } = defineProps<{
   as?: "div" | "section" | "article" | "form" | "fieldset" | "ul" | "ol" | "p";
   pad?: "none" | "sm" | "md" | "lg";
   float?: boolean;
   sunken?: boolean;
+  from?: "desktop";
 }>();
 defineSlots<{ default(): unknown }>();
 </script>
@@ -23,12 +26,15 @@ defineSlots<{ default(): unknown }>();
     :data-pad="pad"
     :data-float="float || undefined"
     :data-sunken="sunken || undefined"
+    :data-from="from"
   >
     <slot></slot>
   </component>
 </template>
 
 <style scoped>
+@import "../../styles/media.css";
+
 .panel {
   margin: 0;
   /* a fieldset's own edge and room give way to the panel's */
@@ -62,6 +68,16 @@ defineSlots<{ default(): unknown }>();
   &[data-sunken] {
     background: var(--bg);
     --field-bg: var(--surface);
+  }
+
+  /* narrower than a computer: no panel, only what it holds */
+  &[data-from="desktop"] {
+    @media not (--desktop) {
+      padding: 0;
+      border-radius: 0;
+      background: none;
+      box-shadow: none;
+    }
   }
 }
 </style>

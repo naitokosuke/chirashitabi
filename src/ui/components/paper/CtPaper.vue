@@ -11,6 +11,9 @@
  *   corner of a person's paper with a wide mount round the picture (`picture`) in an ink-edged
  *   frame, the words under it (default slot) and a stamp (`foot`).
  *
+ * `wide` cuts it as wide as the column it lies in, for a slip read on a page rather than
+ * pinned on the desk (the booklet's draft of a day).
+ *
  * `selected` frames it in ink, `lifted` raises it as a finger holds it. What is put on it (a
  * CtButton, a CtChip) is drawn in the paper's ink, not the desk's (tokens.css, data-paper).
  */
@@ -19,11 +22,13 @@ const {
   paper = "var(--paper-white)",
   selected,
   lifted,
+  wide,
 } = defineProps<{
   variant?: "note" | "proposal" | "print";
   paper?: string;
   selected?: boolean;
   lifted?: boolean;
+  wide?: boolean;
 }>();
 </script>
 
@@ -33,6 +38,7 @@ const {
     :data-variant="variant"
     :data-selected="selected || undefined"
     :data-lifted="lifted || undefined"
+    :data-wide="wide || undefined"
     :style="`--paper: ${paper}`"
   >
     <!-- what is on it is written in the paper's ink (data-paper); its frame stays the desk's -->
@@ -76,6 +82,10 @@ const {
   &[data-lifted] {
     box-shadow: var(--shadow-lift);
     transition-timing-function: var(--ease-spring);
+  }
+
+  &[data-wide] {
+    width: auto;
   }
 
   &[data-lifted][data-selected] {

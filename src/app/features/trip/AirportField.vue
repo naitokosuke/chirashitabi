@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { computed, ref, watch } from "vue";
 
-import { CtField, CtHint, CtInput } from "../../../ui/index";
+import { CtField, CtHint, CtInput, CtPanel } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -104,7 +104,7 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
       @update:model-value="typed"
     />
     <!-- always on the page, so the field's aria-controls names it; shown while it is out -->
-    <ul v-show="shown" :id="listId" role="listbox">
+    <CtPanel v-show="shown" :id="listId" as="ul" float pad="sm" role="listbox">
       <!-- taken on click, once the finger is up (one that lands to scroll the list takes none);
            a pointer coming down keeps the focus in the field, which would shut the list -->
       <li
@@ -118,7 +118,7 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
       >
         <b>{{ a.code }}</b><span>{{ a.name }}</span><small>{{ place(a) }}</small>
       </li>
-    </ul>
+    </CtPanel>
     <CtHint v-if="named !== undefined">{{ `${named.name} · ${place(named)}` }}</CtHint>
     <CtHint v-else-if="modelValue.trim() !== '' && airports.length > 0">{{
       i18n.t("flight.unknownAirport")
@@ -142,13 +142,6 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
     z-index: var(--z-menu);
     max-height: 300px;
     overflow-y: auto;
-    margin: 0;
-    padding: 4px;
-    list-style: none;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    box-shadow: var(--shadow-float);
     > li {
       display: grid;
       grid-template-columns: 3.2em 1fr;
