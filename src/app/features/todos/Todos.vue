@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, useId } from "vue";
 
-import { CtAvatar, CtButton, CtInput } from "../../../ui/index";
+import { CtAvatar, CtButton, CtCheckbox, CtInput } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -47,8 +47,8 @@ function dueText(t: Todo) {
     date: shortDate(t.due, i18n.locale),
   });
 }
-function setDone(n: Memo, e: Event) {
-  if (e.target instanceof HTMLInputElement) store.update(n.id, { checked: e.target.checked });
+function setDone(n: Memo, checked: boolean) {
+  store.update(n.id, { checked });
 }
 /** Booked: its number and page can be written in the note later */
 function markBooked(n: Memo) {
@@ -79,12 +79,11 @@ function markBooked(n: Memo) {
         :data-done="t.done || undefined"
         :data-late="isLate(t, today) || undefined"
       >
-        <input
+        <CtCheckbox
           v-if="t.kind === 'task'"
-          type="checkbox"
           :aria-label="t.memo.title"
-          :checked="t.done"
-          @change="(e) => setDone(t.memo, e)"
+          :model-value="t.done"
+          @update:model-value="(checked) => setDone(t.memo, checked)"
         />
         <span v-else class="badge">{{ i18n.t("todo.booking") }}</span>
         <button class="title" type="button" @click="() => emit('open', t.memo.id)">{{
@@ -165,13 +164,6 @@ function markBooked(n: Memo) {
       column-gap: 10px;
       min-height: var(--tap);
       border-block-end: 1px solid var(--line);
-
-      > input {
-        width: 20px;
-        height: 20px;
-        margin: 0;
-        accent-color: var(--ink);
-      }
 
       /* a plan still to book, in place of the box: it is done by booking it */
       > .badge {

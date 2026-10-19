@@ -1,11 +1,12 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, ref, useTemplateRef } from "vue";
+import { computed, ref, useId, useTemplateRef } from "vue";
 
 import {
   CtAvatar,
   CtButton,
+  CtCheckbox,
   CtChip,
   CtGlass,
   CtPanel,
@@ -14,6 +15,7 @@ import {
   CtSegmented,
   CtTabList,
   CtTabPanel,
+  CtTextarea,
   CtTextMorph,
   safeUrl,
   usePageTurn,
@@ -83,6 +85,8 @@ const { members, me } = useMembers();
 /** A note's paper: whoever wrote it */
 const paperFor = (n: Memo) => paperOf(members.value?.find((m) => m.id === n.by)?.color);
 const i18n = useI18n();
+/** What the page's controls are named by, so a label can point at its box */
+const pageId = useId();
 /** Cut off: what needs the Worker is not offered */
 const cut = useOffline();
 type Tab = Temporal.PlainDate | "appendix" | null;
@@ -352,9 +356,8 @@ function downloadCalendar() {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function setChecked(n: Memo, e: Event) {
-  if (!(e.target instanceof HTMLInputElement)) return;
-  store.update(n.id, { checked: e.target.checked });
+function setChecked(n: Memo, checked: boolean) {
+  store.update(n.id, { checked });
 }
 function setTime(n: Scheduled, e: Event) {
   if (!(e.target instanceof HTMLInputElement)) return;
@@ -544,14 +547,16 @@ function adoptDraft() {
             />
           </div>
           <template v-if="editing">
-            <textarea
+            <!-- written when it is left (change), not as each letter goes in -->
+            <CtTextarea
+              dashed
               data-turn
               rows="2"
               :aria-label="i18n.t('shiori.intro')"
               :placeholder="i18n.t('shiori.introPlaceholder')"
-              :value="dayOf(day)?.intro"
+              :model-value="dayOf(day)?.intro ?? ''"
               @change="onIntroChange"
-            ></textarea>
+            />
           </template>
           <p v-else-if="(dayOf(day)?.intro ?? '') !== ''" class="intro" data-turn>{{
             dayOf(day)?.intro
@@ -743,13 +748,14 @@ function adoptDraft() {
             <ul><li
                 v-for="n in byTag(t)"
                 :key="n.id"
+                data-paper
                 data-turn
                 :data-checked="n.checked || undefined"
                 :style="`--card:${paperFor(n)}`"
-              ><label><input
-                    type="checkbox"
-                    :checked="n.checked"
-                    @change="(e) => setChecked(n, e)"
+              ><label :for="`${pageId}-check-${n.id}`"><CtCheckbox
+                    :id="`${pageId}-check-${n.id}`"
+                    :model-value="n.checked"
+                    @update:model-value="(checked) => setChecked(n, checked)"
                   /><span>{{ n.title }}</span><small v-if="n.body !== ''"> —{{ n.body }}</small></label></li></ul>
             <p v-if="byTag(t).length === 0" data-turn>{{ i18n.t("shiori.tagEmpty") }}</p>
           </section>
@@ -975,15 +981,6 @@ article {
 
     > div {
       > textarea {
-        width: 100%;
-        font: inherit;
-        font-size: var(--font-md);
-        padding: 10px 12px;
-        border: 1px dashed color-mix(in oklch, var(--ink) 25%, var(--line));
-        border-radius: 12px;
-        background: var(--surface);
-        color: var(--ink);
-        resize: none;
         margin-block-end: 10px;
       }
 
@@ -1389,14 +1386,6 @@ article {
               border-radius: 6px;
               box-shadow: var(--shadow-paper);
               font-size: var(--font-base);
-
-              > input {
-                width: 22px;
-                height: 22px;
-                margin: 0;
-                flex-shrink: 0;
-                accent-color: var(--paper-ink);
-              }
 
               > small {
                 color: var(--paper-muted);
