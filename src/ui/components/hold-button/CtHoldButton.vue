@@ -10,6 +10,10 @@ import { onBeforeUnmount, onMounted, ref, useId, useSlots, useTemplateRef } from
  * Space and Enter; Escape, the window losing focus or the page being hidden lets go.
  * `danger` fills it in the danger color, for something that goes for good. With an `icon`,
  * the icon is what is shown and `label` / `done` are what a screen reader is told.
+ *
+ * Its `variant` is how it rests: `quiet`, a wash of ink; `primary`, filled with ink, filling a
+ * step lighter (the yes of two); `outline`, a hairline, filling in muted ink (the no of two).
+ * On paper (data-paper) all three are in the paper's ink.
  */
 const {
   label,
@@ -17,12 +21,14 @@ const {
   holdTime = 1200,
   danger,
   disabled,
+  variant = "quiet",
 } = defineProps<{
   label: string;
   done: string;
   holdTime?: number;
   danger?: boolean;
   disabled?: boolean;
+  variant?: "quiet" | "primary" | "outline";
 }>();
 const emit = defineEmits<{ hold: [] }>();
 const slots = useSlots();
@@ -179,6 +185,7 @@ onBeforeUnmount(() => {
     :disabled
     :data-state="state"
     :data-danger="danger || undefined"
+    :data-variant="variant"
     :style="`--p: ${p}; --w: ${size.w}px; --h: ${size.h}px`"
     :aria-labelledby="`${id}-label`"
     :aria-describedby="`${id}-hint`"
@@ -254,6 +261,19 @@ button {
 
   @media (--reduced-motion) {
     transition: none;
+  }
+
+  &[data-variant="primary"] {
+    --tone: color-mix(in oklab, var(--ink), var(--on-ink) 30%);
+    background: var(--ink);
+    color: var(--on-ink);
+  }
+
+  &[data-variant="outline"] {
+    --tone: var(--muted);
+    background: var(--surface);
+    color: var(--muted);
+    box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--ink) 35%, transparent);
   }
 
   &[data-danger] {

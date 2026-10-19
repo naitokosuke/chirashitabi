@@ -96,7 +96,8 @@ const HOLD_MS = 600;
            it does -->
       <template #foot>
         <CtHoldButton
-          class="keep"
+          class="answer"
+          variant="primary"
           :done="i18n.t('note.adopt')"
           :hold-time="HOLD_MS"
           :label="i18n.t('note.adopt')"
@@ -107,7 +108,8 @@ const HOLD_MS = 600;
           <template #hint>{{ i18n.t("rooms.hold") }}</template>
         </CtHoldButton>
         <CtHoldButton
-          class="dismiss"
+          class="answer"
+          variant="outline"
           :done="i18n.t('common.dismiss')"
           :hold-time="HOLD_MS"
           :label="i18n.t('common.dismiss')"
@@ -409,35 +411,14 @@ const HOLD_MS = 600;
 
 /*
  * A slip's two answers, as simple as a swipe: two halves of its foot, side by side across the
- * width inside its padding, each held (CtHoldButton) until it fills from its start edge. First
- * the primary, a thumb up to keep it: Paper Ink, filling a step lighter. Then the secondary, a
- * thumb down to pass on it: white paper on a hairline, filling in Paper Muted. Each is already a
- * thumb's width, so its target is what is drawn and reaches no further, never into the padding.
+ * width inside its padding, each held (CtHoldButton) until it fills from its start edge: the
+ * primary, a thumb up to keep it, then the outline, a thumb down to pass on it, both in the
+ * paper's ink (CtPaper's foot is paper). Each is a thumb's width already, so its target is
+ * what is drawn and reaches no further, never into the padding.
  */
-.keep,
-.dismiss {
-  --room: 0px;
-  /* where the fill has passed, the thumb is white, on paper in either theme */
-  --on-ink: var(--paper-white);
+.answer {
   flex: 1;
-  display: grid;
-  place-items: center;
-  height: 36px;
-  min-height: 0;
   padding: 0;
-}
-
-.keep {
-  --tone: color-mix(in oklab, var(--paper-ink), var(--paper-white) 30%);
-  background: var(--paper-ink);
-  color: var(--paper-white);
-}
-
-.dismiss {
-  --tone: var(--paper-muted);
-  background: var(--paper-white);
-  color: var(--paper-muted);
-  box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--paper-ink) 35%, transparent);
 }
 
 /*
