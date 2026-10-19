@@ -9,6 +9,7 @@ import {
   CtChipPick,
   CtCalendar,
   CtField,
+  CtHeading,
   CtInput,
   CtSwatches,
   type CtDateRange,
@@ -110,7 +111,7 @@ onMounted(() => nameEl.value?.focus());
     </CtBackButton>
 
     <div class="body">
-      <h2 class="title">{{ i18n.t("rooms.new") }}</h2>
+      <CtHeading level="sheet">{{ i18n.t("rooms.new") }}</CtHeading>
       <!-- the tag as it will hang on the trip; the fields below say the same to a screen reader -->
       <TripTag
         aria-hidden="true"
@@ -193,13 +194,6 @@ onMounted(() => nameEl.value?.focus());
   display: flex;
   flex-direction: column;
   gap: 18px;
-}
-
-.title {
-  margin: 0;
-  font-size: var(--font-4xl);
-  font-weight: 700;
-  line-height: 1.25;
 }
 
 /* the tag rests on the desk above the fields, with room under it before the first one */

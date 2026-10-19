@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, useId } from "vue";
 
-import { CtAvatar, CtBadge, CtButton, CtCheckbox, CtInput } from "../../../ui/index";
+import { CtAvatar, CtBadge, CtButton, CtCheckbox, CtHeading, CtInput } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -58,9 +58,9 @@ function markBooked(n: Memo) {
 
 <template>
   <article class="todos" :aria-labelledby="`${id}-title`">
-    <h2 :id="`${id}-title`">{{ i18n.t("todo.title") }}<CtBadge v-if="open > 0" filled>{{
+    <CtHeading :id="`${id}-title`">{{ i18n.t("todo.title") }}<CtBadge v-if="open > 0" filled>{{
         open
-      }}</CtBadge></h2>
+      }}</CtBadge></CtHeading>
     <form @submit.prevent="add">
       <CtInput
         v-model="title"
@@ -115,11 +115,8 @@ function markBooked(n: Memo) {
   flex-direction: column;
   gap: 10px;
 
-  /* a heading like the people's under it */
+  /* the heading, and how many are still to do beside it */
   > h2 {
-    margin: 0;
-    font-size: var(--font-2xl);
-    line-height: 1.35;
     display: flex;
     align-items: center;
     gap: 8px;

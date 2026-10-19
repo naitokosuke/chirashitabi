@@ -5,6 +5,7 @@ import { computed, ref, shallowRef } from "vue";
 
 import {
   CtButton,
+  CtHeading,
   CtHoldButton,
   CtListItem,
   CtPanel,
@@ -164,7 +165,7 @@ function retry() {
   <div class="rooms">
     <div class="list" :inert="creating">
       <div class="page" :aria-busy="listStatus === 'pending'">
-        <h1 class="wordmark">chirashitabi</h1>
+        <CtHeading as="h1" level="page">chirashitabi</CtHeading>
         <CtPanel v-if="joining !== null && !joining.failed" as="p" class="notice" role="status">
           {{
             joining.name === null
@@ -194,7 +195,7 @@ function retry() {
         <template v-else>
           <!-- a tag handed over by someone: first, since it waits for an answer -->
           <section v-if="mine !== undefined && mine.invitations.length > 0">
-            <h2>{{ i18n.t("rooms.invitations") }}</h2>
+            <CtHeading>{{ i18n.t("rooms.invitations") }}</CtHeading>
             <ul class="tags">
               <li v-for="r in mine?.invitations" :key="r.id">
                 <Invitation :room="r" @joined="(id) => emit('open', id)" />
@@ -204,7 +205,7 @@ function retry() {
 
           <section>
             <p v-if="none" class="empty">{{ i18n.t("rooms.none") }}</p>
-            <h2 v-else>{{ i18n.t("rooms.coming") }}</h2>
+            <CtHeading v-else>{{ i18n.t("rooms.coming") }}</CtHeading>
             <ul class="tags">
               <li v-for="r in shelves.coming" :key="r.id">
                 <!-- the tag slides aside (a finger, a mouse, ←) to show the way off the list -->
@@ -240,7 +241,7 @@ function retry() {
           </section>
 
           <section v-if="shelves.been.length > 0">
-            <h2>{{ i18n.t("rooms.been") }}</h2>
+            <CtHeading>{{ i18n.t("rooms.been") }}</CtHeading>
             <ul class="tags">
               <li v-for="r in shelves.been" :key="r.id">
                 <!-- the tag slides aside (a finger, a mouse, ←) to show the way off the list -->
@@ -270,7 +271,7 @@ function retry() {
 
           <!-- trips their owner deleted, kept a while in case it was a slip; either person brings one back -->
           <section v-if="mine !== undefined && mine.deleted.length > 0">
-            <h2>{{ i18n.t("rooms.deleted") }}</h2>
+            <CtHeading>{{ i18n.t("rooms.deleted") }}</CtHeading>
             <CtPanel v-if="shelfFailed('restore')" as="p" class="notice" role="alert">{{
               i18n.t("rooms.restoreFailed")
             }}</CtPanel>
@@ -338,18 +339,15 @@ function retry() {
   flex-direction: column;
 }
 
-/* the app's name as the large title, where a trip's name stands on its home */
-.wordmark {
-  margin: 0;
-  font-size: var(--font-display);
-  font-weight: 700;
-  line-height: 1.2;
-}
-
 .page {
   flex: 1;
   overflow-y: auto;
   padding: var(--page-top) var(--page-margin) calc(var(--dock-clear) + 24px);
+
+  /* a shelf's name, with room above it from the shelf before */
+  > section > h2 {
+    margin: 28px 0 12px;
+  }
 }
 
 /* the room did not answer, or the list did not come: said once, with the way to try again */
@@ -361,13 +359,6 @@ function retry() {
   margin: 16px 0 0;
   font-size: var(--font-md);
   color: var(--ink);
-}
-
-h2 {
-  margin: 28px 0 12px;
-  font-size: var(--font-2xl);
-  font-weight: 700;
-  line-height: 1.35;
 }
 
 .empty {

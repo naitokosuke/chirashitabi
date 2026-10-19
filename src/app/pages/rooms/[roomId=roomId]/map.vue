@@ -31,6 +31,7 @@ import {
   CtButton,
   CtChip,
   CtFab,
+  CtHeading,
   CtPanel,
   CtScrollRow,
   safeUrl,
@@ -424,7 +425,7 @@ function fitAll() {
         /></CtFab>
 
       <CtPanel v-if="selected !== null" as="article" float :style="`--card:${paperFor(selected)}`">
-        <h2>{{ selected.title }}</h2>
+        <CtHeading level="card">{{ selected.title }}</CtHeading>
         <p v-if="selected.body !== ''">{{ selected.body }}</p>
         <footer>
           <span v-for="t in selected.tags" :key="t">#{{ t }} </span>
@@ -667,9 +668,6 @@ section {
       z-index: var(--z-float-top);
 
       > h2 {
-        margin: 0;
-        font-size: var(--font-lg);
-        font-weight: 700;
         display: flex;
         align-items: center;
         gap: 8px;

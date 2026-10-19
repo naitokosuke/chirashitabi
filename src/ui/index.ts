@@ -23,6 +23,7 @@ export { default as CtInput } from "./components/field/CtInput.vue";
 export { default as CtSelect } from "./components/field/CtSelect.vue";
 export { default as CtTextarea } from "./components/field/CtTextarea.vue";
 export { default as CtGlass } from "./components/glass/CtGlass.vue";
+export { default as CtHeading } from "./components/heading/CtHeading.vue";
 export { default as CtHoldButton } from "./components/hold-button/CtHoldButton.vue";
 export { default as CtListItem } from "./components/list/CtListItem.vue";
 export { default as CtMenu } from "./components/menu/CtMenu.vue";

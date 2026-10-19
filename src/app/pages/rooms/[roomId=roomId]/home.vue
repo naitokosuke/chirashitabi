@@ -5,7 +5,7 @@ import { computed, ref } from "vue";
 
 import { useRoute, useRouter } from "vue-router";
 
-import { CtAvatar, CtButton, CtPanel } from "../../../../ui/index";
+import { CtAvatar, CtButton, CtHeading, CtPanel } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
 
@@ -90,7 +90,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
     <!-- a phone: one column; a computer: the plan on the main column, to-dos and people beside it -->
     <div :data-ahead="ahead || undefined">
       <header>
-        <h1>{{ trip?.name }}</h1>
+        <CtHeading as="h1" level="page">{{ trip?.name }}</CtHeading>
         <p v-if="range !== ''">{{ range }} · {{ i18n.t("home.days", { count: trip?.days.length ?? 0 }) }}</p>
         <!-- who is in: a face each, initial on their color -->
         <ul>
@@ -248,14 +248,6 @@ section {
     }
 
     > header {
-      > h1 {
-        margin: 0;
-        font-size: var(--font-display);
-        font-weight: 700;
-        line-height: 1.2;
-        overflow-wrap: anywhere;
-      }
-
       > p {
         margin: 6px 0 0;
         font-size: var(--font-md);
