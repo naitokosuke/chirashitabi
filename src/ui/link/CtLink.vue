@@ -21,7 +21,9 @@ defineSlots<{ default(): unknown }>();
     :data-inline="inline || undefined"
     rel="noopener noreferrer"
     target="_blank"
-  ><slot></slot></a>
+  >
+    <slot />
+  </a>
 </template>
 
 <style scoped>
