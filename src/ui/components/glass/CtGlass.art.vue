@@ -32,6 +32,11 @@ const mode = ref("edit");
   border-radius: 12px;
   background: repeating-linear-gradient(45deg, var(--wash) 0 12px, transparent 12px 24px);
 }
+
+/* as the booklet lays them out: the days scroll in what is left, the switch keeps its width */
+.mode {
+  flex-shrink: 0;
+}
 </style>
 
 <art>
@@ -40,7 +45,7 @@ const mode = ref("edit");
       <CtGlass>
         <CtTabList v-model="day" label="Days" :tabs="DAYS" variant="pill" />
       </CtGlass>
-      <CtGlass>
+      <CtGlass class="mode">
         <CtSegmented v-model="mode" label="Mode" :options="MODES" />
       </CtGlass>
     </div>
