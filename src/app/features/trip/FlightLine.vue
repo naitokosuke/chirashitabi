@@ -3,6 +3,8 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import { computed } from "vue";
 
+import { CtTicket } from "../../../ui/index";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import { longDate } from "./format";
@@ -29,12 +31,11 @@ const days = computed(() => {
 </script>
 
 <template>
-  <div class="flight">
-    <p class="head">
-      <b>{{ i18n.t(leg === "out" ? "flight.out" : "flight.back") }}</b>
-      <span v-if="flight.number !== ''">{{ flight.number }}</span>
-      <small>{{ days }}</small>
-    </p>
+  <CtTicket
+    :aside="days"
+    :detail="flight.number"
+    :label="i18n.t(leg === 'out' ? 'flight.out' : 'flight.back')"
+  >
     <p class="route">
       <span><b>{{ flight.from }}</b><time v-if="flight.departs !== null">{{
           time(flight.departs)
@@ -44,43 +45,13 @@ const days = computed(() => {
           time(flight.arrives)
         }}</time></span>
     </p>
-  </div>
+  </CtTicket>
 </template>
 
 <style scoped>
-/* a strip of ticket: the route large, what flight and when small above it */
-.flight {
-  display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
-  color: var(--ink);
-}
-
-p {
-  margin: 0;
-}
-
-.head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: var(--font-sm);
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  > b {
-    color: var(--ink);
-  }
-  > small {
-    margin-inline-start: auto;
-    font-size: var(--font-xs);
-    font-weight: 700;
-  }
-}
-
+/* on the ticket (CtTicket): the route large, under what flight and when */
 .route {
+  margin: 0;
   display: flex;
   align-items: baseline;
   gap: 10px;

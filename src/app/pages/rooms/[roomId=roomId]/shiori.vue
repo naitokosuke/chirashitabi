@@ -4,7 +4,6 @@ import { Temporal } from "temporal-polyfill-lite";
 import { computed, ref, useId, useTemplateRef } from "vue";
 
 import {
-  CtAvatar,
   CtButton,
   CtCheckbox,
   CtChip,
@@ -709,21 +708,27 @@ function adoptDraft() {
 
           <!-- a member's draft of the day (edit mode) -->
           <template v-if="editing && worker.api !== null && forDay(day).length > 0">
-            <div v-if="draft !== null && draft.date.equals(day)" class="draft" data-paper data-turn>
-              <div><CtAvatar :color="drafter?.color" size="dot" />{{ drafter?.name ?? i18n.t("member.someone") }}<small>{{
-                  i18n.t("shiori.draft")
-                }}</small></div>
-              <p>{{ draft.reason }}</p>
-              <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}<small
-                    v-if="it.minutes !== null"
-                  >{{ ` · ${long(it.minutes)}` }}</small></li></ol>
-              <div>
+            <CtPaper
+              v-if="draft !== null && draft.date.equals(day)"
+              class="draft"
+              data-turn
+              variant="proposal"
+              wide
+            >
+              <template #strip>{{ i18n.t("shiori.draft") }} · {{ drafter?.name ?? i18n.t("member.someone") }}</template>
+              <template #default>
+                <p>{{ draft.reason }}</p>
+                <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}<small
+                      v-if="it.minutes !== null"
+                    >{{ ` · ${long(it.minutes)}` }}</small></li></ol>
+              </template>
+              <template #foot>
                 <CtButton variant="primary" @click="adoptDraft">{{
                   i18n.t("shiori.adoptDraft")
                 }}</CtButton>
                 <CtButton @click="() => (draft = null)">{{ i18n.t("common.dismiss") }}</CtButton>
-              </div>
-            </div>
+              </template>
+            </CtPaper>
             <template v-else>
               <CtButton
                 data-turn
@@ -779,7 +784,7 @@ function adoptDraft() {
                 i18n.t("shiori.publicTitle")
               }}</CtHeading>
               <CtHint data-turn size="sm">{{ i18n.t("shiori.publicHint") }}</CtHint>
-              <div v-if="published !== null" class="link" data-turn>
+              <CtPanel v-if="published !== null" class="link" data-turn>
                 <a :href="safeUrl(published.url)" rel="noopener noreferrer" target="_blank">{{
                   published.url
                 }}</a>
@@ -787,7 +792,7 @@ function adoptDraft() {
                 <CtButton @click="copyLink">{{
                   i18n.t(copied ? "shiori.copied" : "shiori.copyLink")
                 }}</CtButton>
-              </div>
+              </CtPanel>
               <CtHint v-else data-turn size="sm">{{
                 i18n.t(isOwner ? "shiori.notPublished" : "shiori.ownerPublishes")
               }}</CtHint>
@@ -1290,48 +1295,20 @@ article {
       }
 
       /* a member's draft of the day (a class: the flights above are a div on the page too) */
+      /* the agent's slip (CtPaper proposal), as on the canvas: why, then the day it would make */
       > .draft {
         margin-block-start: 14px;
-        padding: 12px 14px;
-        /* square, white and dashed: the agent's paper, as on the canvas */
-        border-radius: 0;
-        background: var(--paper-white);
-        box-shadow: var(--shadow-paper);
-        outline: 1px dashed color-mix(in oklch, var(--paper-ink) 30%, transparent);
-        outline-offset: -5px;
-        color: var(--paper-ink);
 
-        > div:first-child {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: var(--font-base);
-          font-weight: 700;
-          margin-block-end: 4px;
-
-          > small {
-            margin-inline-start: auto;
-            font-size: var(--font-2xs);
-            font-weight: 400;
-            color: var(--paper-muted);
-          }
-        }
-
-        > p {
+        p {
           margin: 0 0 6px;
           font-size: var(--font-md);
           line-height: 1.5;
         }
 
-        > ol {
-          margin: 0 0 8px;
+        ol {
+          margin: 0;
           padding-inline-start: 20px;
           font-size: var(--font-md);
-        }
-
-        > div:last-child {
-          display: flex;
-          gap: 6px;
         }
       }
 
@@ -1419,10 +1396,6 @@ article {
             flex-wrap: wrap;
             align-items: center;
             gap: 4px 12px;
-            padding: 10px 12px;
-            border: 1px solid var(--line);
-            border-radius: 10px;
-            background: var(--surface);
 
             > a {
               flex-basis: 100%;

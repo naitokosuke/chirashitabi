@@ -163,7 +163,9 @@ const allTotal = computed(() => budgetOf(undefined, false));
       </div>
 
       <div class="side">
-        <Todos @add="addTodo" @open="openNote" />
+        <CtPanel class="todo-card" from="desktop" pad="lg">
+          <Todos @add="addTodo" @open="openNote" />
+        </CtPanel>
 
         <People @out="toTrips" />
       </div>
@@ -212,7 +214,7 @@ section {
       order: 5;
     }
 
-    .todos {
+    .todo-card {
       order: 6;
     }
 
@@ -220,7 +222,7 @@ section {
       order: 7;
     }
 
-    &[data-ahead] .todos {
+    &[data-ahead] .todo-card {
       order: 1;
     }
 
@@ -442,12 +444,8 @@ section {
         flex-direction: column;
         gap: 36px;
 
-        > .todos {
+        > .todo-card {
           order: 0;
-          padding: 16px 16px 8px;
-          background: var(--surface);
-          border: 1px solid var(--line);
-          border-radius: 14px;
           /* its line to write in is set into the card, in the desk's color */
           --field-bg: var(--bg);
         }

@@ -46,4 +46,5 @@ export { default as CtHint } from "./components/text/CtHint.vue";
 export { default as CtMessage } from "./components/text/CtMessage.vue";
 export type { MorphPart as CtMorphPart } from "./components/text-morph/glyphs";
 export { default as CtTextMorph } from "./components/text-morph/CtTextMorph.vue";
+export { default as CtTicket } from "./components/ticket/CtTicket.vue";
 export { default as CtToast } from "./components/toast/CtToast.vue";

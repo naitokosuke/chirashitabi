@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { computed } from "vue";
 
-import { safeUrl } from "../../../ui/index";
+import { CtTicket, safeUrl } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -24,54 +24,21 @@ const href = computed(() => {
 </script>
 
 <template>
-  <div class="stay">
-    <p class="head">
-      <b>{{ label }}</b>
-      <small>{{
-        i18n.t("stay.when", { date: longDate(stay.checkIn, i18n.locale), count: stay.nights })
-      }}</small>
-    </p>
+  <CtTicket
+    :aside="i18n.t('stay.when', { date: longDate(stay.checkIn, i18n.locale), count: stay.nights })"
+    :label
+  >
     <p class="name">{{ stay.name }}</p>
     <a v-if="href !== undefined" :href="safeUrl(href)" rel="noopener noreferrer" target="_blank">{{
       i18n.t("stay.open")
     }}</a>
-  </div>
+  </CtTicket>
 </template>
 
 <style scoped>
-/* the flight's strip of ticket (FlightLine), the place's name in its route's size */
-.stay {
-  display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
-  color: var(--ink);
-}
-
-p {
-  margin: 0;
-}
-
-.head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: var(--font-sm);
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  > b {
-    color: var(--ink);
-  }
-  > small {
-    margin-inline-start: auto;
-    font-size: var(--font-xs);
-    font-weight: 700;
-  }
-}
-
+/* on the ticket (CtTicket), as the flight's: the place's name in its route's size */
 .name {
+  margin: 0;
   font-size: var(--font-lg);
   font-weight: 700;
   overflow-wrap: anywhere;
