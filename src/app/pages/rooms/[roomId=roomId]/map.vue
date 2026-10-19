@@ -428,11 +428,11 @@ function fitAll() {
       <CtPanel v-if="selected !== null" as="article" float :style="`--card:${paperFor(selected)}`">
         <CtHeading level="card">{{ selected.title }}</CtHeading>
         <CtHint v-if="selected.body !== ''" size="sm">{{ selected.body }}</CtHint>
-        <footer>
+        <CtHint class="facts" strong>
           <span v-for="t in selected.tags" :key="t">#{{ t }} </span>
           <span v-if="selected.budget !== null && selected.budget > 0">{{ price(selected.budget) }} </span>
           <span v-if="selected.schedule !== null">{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
-        </footer>
+        </CtHint>
         <div>
           <CtLink :href="selectedLink">{{ i18n.t("map.openInGoogleMaps") }}</CtLink>
           <CtButton @click="editSelected">{{ i18n.t("common.edit") }}</CtButton>
@@ -688,11 +688,8 @@ section {
       }
 
       /* tags, budget, when */
-      > footer {
+      > .facts {
         margin: 4px 0 0;
-        font-size: var(--font-xs);
-        font-weight: 700;
-        color: var(--muted);
         display: flex;
         flex-wrap: wrap;
         gap: 0 8px;
