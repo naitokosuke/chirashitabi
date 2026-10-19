@@ -3,7 +3,15 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
-import { CtButton, CtByline, CtField, CtMessage, CtPanel, CtSwatches } from "../../../ui/index";
+import {
+  CtButton,
+  CtByline,
+  CtField,
+  CtMessage,
+  CtPanel,
+  CtSwatches,
+  CtTag,
+} from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -11,7 +19,6 @@ import { useOffline } from "../sync/useOffline";
 
 import { datesLabel, whenLabel } from "./label";
 import { MEMBER_COLORS, profileOf } from "./newRoom";
-import TripTag from "./TripTag.vue";
 import type { RoomId, RoomSummary } from "./types";
 import { useRooms } from "./useRooms";
 import { whenOf } from "./when";
@@ -72,7 +79,7 @@ async function no() {
 <template>
   <CtPanel as="form" class="invitation" @submit.prevent="join">
     <CtByline as="p" :color="from" strong>{{ i18n.t("rooms.invited") }}</CtByline>
-    <TripTag v-bind="tag" />
+    <CtTag v-bind="tag" />
 
     <CtField :label="i18n.t('rooms.color')">
       <CtSwatches v-model="color" :colors="MEMBER_COLORS" :label="i18n.t('rooms.color')" />

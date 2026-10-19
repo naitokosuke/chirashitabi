@@ -15,6 +15,7 @@ import {
   CtMessage,
   CtSheet,
   CtSwatches,
+  CtTag,
   type CtDateRange,
   type CtOption,
   lengthOf,
@@ -31,7 +32,6 @@ import { longDate } from "../trip/format";
 
 import { datesLabel, whenLabel } from "./label";
 import { CURRENCIES, DEFAULT_CENTER, MAX_DAYS, MAX_NAME, MEMBER_COLORS, newRoom } from "./newRoom";
-import TripTag from "./TripTag.vue";
 import type { RoomId, RoomSummary } from "./types";
 import { useRooms } from "./useRooms";
 import { whenOf } from "./when";
@@ -119,7 +119,7 @@ onMounted(() => nameEl.value?.focus());
       <div class="fields">
         <CtHeading level="sheet">{{ i18n.t("rooms.new") }}</CtHeading>
         <!-- the tag as it will hang on the trip; the fields below say the same to a screen reader -->
-        <TripTag
+        <CtTag
           aria-hidden="true"
           class="preview"
           :name="preview.name"
