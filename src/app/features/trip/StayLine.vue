@@ -24,23 +24,14 @@ const href = computed(() => {
 </script>
 
 <template>
+  <!-- on the ticket, as the flight's: the place's name in its route's size -->
   <CtTicket
     :aside="i18n.t('stay.when', { date: longDate(stay.checkIn, i18n.locale), count: stay.nights })"
     :label
   >
-    <p class="name">{{ stay.name }}</p>
-    <CtHint v-if="href !== undefined" size="sm"><CtLink :href quiet>{{
-        i18n.t("stay.open")
-      }}</CtLink></CtHint>
+    <template #default>{{ stay.name }}</template>
+    <template v-if="href !== undefined" #below>
+      <CtHint size="sm"><CtLink :href quiet>{{ i18n.t("stay.open") }}</CtLink></CtHint>
+    </template>
   </CtTicket>
 </template>
-
-<style scoped>
-/* on the ticket (CtTicket), as the flight's: the place's name in its route's size */
-.name {
-  margin: 0;
-  font-size: var(--font-lg);
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-</style>

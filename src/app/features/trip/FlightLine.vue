@@ -49,7 +49,7 @@ const days = computed(() => {
 </template>
 
 <style scoped>
-/* on the ticket (CtTicket): the route large, under what flight and when */
+/* on the ticket (CtTicket), in its large line: from, then to, each with its time */
 .route {
   margin: 0;
   display: flex;
@@ -62,14 +62,6 @@ const days = computed(() => {
     align-items: baseline;
     gap: 6px;
     min-width: 0;
-    > b {
-      font-size: var(--font-lg);
-      overflow-wrap: anywhere;
-    }
-    > time {
-      font-size: var(--font-lg);
-      font-weight: 700;
-    }
   }
   > .arrow {
     color: var(--muted);
