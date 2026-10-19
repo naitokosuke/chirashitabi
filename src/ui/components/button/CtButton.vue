@@ -6,6 +6,8 @@
  * - `primary`: the one act a view is for, filled with ink.
  * - `ask`: an ask of the agent, on a dashed edge as everything of the agent's is.
  * - `blank`: something still to add, the outline of a button, dashed.
+ * - `text`: a word inside a line (on a toast, a band, a paper), told apart by its underline
+ *   and written in the line's own ink and size; the line's height is its tap's.
  *
  * `size` `lg` is the act at the foot of a form, as tall as a field. `type` `submit` sends the form it is in. While
  * what it set going is under way (`busy`), a dot breathes before its words.
@@ -15,7 +17,7 @@ const {
   size = "md",
   type = "button",
 } = defineProps<{
-  variant?: "quiet" | "primary" | "ask" | "blank";
+  variant?: "quiet" | "primary" | "ask" | "blank" | "text";
   size?: "md" | "lg";
   type?: "button" | "submit";
   disabled?: boolean;
@@ -123,6 +125,18 @@ button {
         color: var(--ink);
       }
     }
+  }
+
+  &[data-variant="text"] {
+    /* a thumb's height to hit, taken back out of the line so the line keeps its own */
+    margin-block: calc((1lh - var(--tap)) / 2);
+    padding: 0 4px;
+    border-radius: 4px;
+    background: none;
+    color: inherit;
+    font-size: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 }
 

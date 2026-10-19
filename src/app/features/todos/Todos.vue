@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, useId } from "vue";
 
-import { CtButton, CtInput } from "../../../ui/index";
+import { CtAvatar, CtButton, CtInput } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -91,15 +91,18 @@ function markBooked(n: Memo) {
           t.memo.title
         }}</button>
         <small v-if="dueText(t) !== ''">{{ dueText(t) }}</small>
-        <span v-if="whoOf(t) !== undefined" class="who" :style="`--who: ${whoOf(t)?.color}`">{{
-          whoOf(t)?.name
-        }}</span>
-        <button
+        <span v-if="whoOf(t) !== undefined" class="who"><CtAvatar
+            :color="whoOf(t)?.color"
+            size="dot"
+          />{{
+            whoOf(t)?.name
+          }}</span>
+        <CtButton
           v-if="t.kind === 'booking'"
           class="booked"
-          type="button"
+          variant="text"
           @click="() => markBooked(t.memo)"
-        >{{ i18n.t("shiori.markBooked") }}</button>
+        >{{ i18n.t("shiori.markBooked") }}</CtButton>
       </li>
     </ul>
   </article>
@@ -208,26 +211,11 @@ function markBooked(n: Memo) {
         gap: 4px;
         font-size: var(--font-xs);
         color: var(--muted);
-
-        &::before {
-          content: "";
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: var(--who);
-        }
       }
 
+      /* the way it is done, small as the line's other notes */
       > .booked {
-        min-height: var(--tap);
-        padding: 0 4px;
-        border: 0;
-        background: none;
-        color: var(--ink);
         font-size: var(--font-xs);
-        font-weight: 700;
-        text-decoration: underline;
-        text-underline-offset: 3px;
       }
 
       &[data-done] > .title {

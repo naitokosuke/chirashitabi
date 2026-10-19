@@ -883,7 +883,7 @@ watch(
       </div>
 
       <div class="jump">
-        <CtChip @click="fitAll">{{ i18n.t("common.fitAll") }}</CtChip>
+        <CtChip float @click="fitAll">{{ i18n.t("common.fitAll") }}</CtChip>
       </div>
 
       <!--
@@ -1146,10 +1146,6 @@ section {
       z-index: var(--z-chrome);
       display: flex;
       gap: 8px;
-
-      > button {
-        box-shadow: var(--shadow-tool);
-      }
     }
 
     /*

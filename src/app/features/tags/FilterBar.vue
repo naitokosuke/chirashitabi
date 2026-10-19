@@ -38,7 +38,7 @@ function toggleOnly() {
       <CtChip toggle :selected="tags.mode === 'only'" @click="toggleOnly">{{
         i18n.t("filter.only")
       }}</CtChip>
-      <CtChip class="clear" @click="clearTags">{{ i18n.t("filter.clear") }}</CtChip>
+      <CtChip dashed @click="clearTags">{{ i18n.t("filter.clear") }}</CtChip>
     </div>
   </div>
 </template>
@@ -64,10 +64,6 @@ function toggleOnly() {
     display: flex;
     gap: 6px;
     padding-inline-end: 12px;
-
-    > .clear {
-      border-style: dashed;
-    }
   }
 }
 </style>
