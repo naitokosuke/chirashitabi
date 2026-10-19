@@ -612,10 +612,10 @@ function adoptDraft() {
                         n.schedule.time ? hhmm(n.schedule.time) : i18n.t("shiori.anytime")
                       }}</span>
                       <!-- when it ends, or with no time, how long it takes -->
-                      <small v-if="until(n) !== ''" class="until">{{ until(n) }}</small>
-                      <small v-else-if="n.minutes !== null" class="until">{{
+                      <CtHint v-if="until(n) !== ''" strong>{{ until(n) }}</CtHint>
+                      <CtHint v-else-if="n.minutes !== null" strong>{{
                         long(n.minutes)
-                      }}</small>
+                      }}</CtHint>
                     </template>
                   </template>
                   <template #default>
@@ -627,7 +627,7 @@ function adoptDraft() {
                           v-else
                         >{{ s.text }}</template></template></p>
                     <!-- when its place is open that day, and whether the plan falls while it is shut -->
-                    <p v-if="hoursOn(n) !== ''" class="hours">{{ hoursOn(n) }}</p>
+                    <CtHint v-if="hoursOn(n) !== ''" class="hours" strong>{{ hoursOn(n) }}</CtHint>
                     <p v-if="shutWarning(n) !== ''" class="warn">{{ shutWarning(n) }}</p>
                     <!-- whether it is booked: its number and page, or by when it has to be -->
                     <p
@@ -1036,14 +1036,6 @@ article {
             font-size: var(--font-md);
           }
 
-          /* when it ends, or how long it takes */
-          .until {
-            font-size: var(--font-xs);
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-            color: var(--paper-muted);
-          }
-
           .title {
             margin: 0;
             font-size: var(--font-base);
@@ -1055,10 +1047,6 @@ article {
           /* when its place is open that day */
           .hours {
             margin: 4px 0 0;
-            font-size: var(--font-xs);
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-            color: var(--paper-muted);
           }
 
           /* the plan falls while the place is shut: the one color that means trouble, darkened for the paper */

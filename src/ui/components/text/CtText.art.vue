@@ -24,6 +24,8 @@ defineArt("./CtHint.vue", {
     <div class="stack">
       <CtHint>Times are each airport's own, as on the ticket.</CtHint>
       <CtHint size="sm">Nothing to do yet.</CtHint>
+      <CtHint strong>Until 14:00 · NT$500</CtHint>
+      <CtHint danger strong>By 10/30</CtHint>
       <CtMessage>2 notes will lose their day.</CtMessage>
       <CtMessage danger>The draft did not come. Ask again.</CtMessage>
       <CtMessage boxed>

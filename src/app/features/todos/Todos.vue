@@ -101,7 +101,7 @@ function markBooked(n: Memo) {
         <CtPress class="title" @click="() => emit('open', t.memo.id)">{{
           t.memo.title
         }}</CtPress>
-        <small v-if="dueText(t) !== ''">{{ dueText(t) }}</small>
+        <CtHint v-if="dueText(t) !== ''" :danger="isLate(t, today)" strong>{{ dueText(t) }}</CtHint>
         <CtByline v-if="whoOf(t) !== undefined" :color="whoOf(t)?.color" size="xs">{{
           whoOf(t)?.name
         }}</CtByline>
@@ -161,20 +161,9 @@ function markBooked(n: Memo) {
         min-width: 0;
       }
 
-      > small {
-        color: var(--muted);
-        font-size: var(--font-xs);
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-      }
-
       &[data-done] > .title {
         color: var(--muted);
         text-decoration: line-through;
-      }
-
-      &[data-late] > small {
-        color: var(--danger);
       }
     }
   }
