@@ -6,6 +6,7 @@ import { computed, ref, shallowRef } from "vue";
 import {
   CtButton,
   CtHoldButton,
+  CtListItem,
   CtPanel,
   CtSwipeAction,
   CtSwipeRow,
@@ -276,31 +277,35 @@ function retry() {
             <CtPanel v-if="shelfFailed('purge')" as="p" class="notice" role="alert">{{
               i18n.t("rooms.purgeFailed")
             }}</CtPanel>
-            <CtPanel as="ul" class="gone" pad="none">
-              <li v-for="d in mine?.deleted" :key="d.id">
-                <span>
-                  <b>{{ d.name }}</b>
-                  <small>{{ untilLabel(d.until) }}</small>
-                </span>
+            <CtPanel as="ul" pad="none">
+              <CtListItem
+                v-for="d in mine?.deleted"
+                :key="d.id"
+                faded
+                :notes="[untilLabel(d.until)]"
+                :title="d.name"
+              >
                 <!-- both held down, not tapped: one brings it back, the other ends that for good -->
-                <CtHoldButton
-                  :label="i18n.t('rooms.restore')"
-                  :done="i18n.t('rooms.restored')"
-                  :disabled="busyWithDeleted || cut.offline"
-                  @hold="() => bringBack(d.id)"
-                >
-                  <template #hint>{{ i18n.t("rooms.hold") }}</template>
-                </CtHoldButton>
-                <CtHoldButton
-                  danger
-                  :label="i18n.t('rooms.purge')"
-                  :done="i18n.t('rooms.purged')"
-                  :disabled="busyWithDeleted || cut.offline"
-                  @hold="() => purgeForGood(d.id)"
-                >
-                  <template #hint>{{ i18n.t("rooms.hold") }}</template>
-                </CtHoldButton>
-              </li>
+                <template #end>
+                  <CtHoldButton
+                    :label="i18n.t('rooms.restore')"
+                    :done="i18n.t('rooms.restored')"
+                    :disabled="busyWithDeleted || cut.offline"
+                    @hold="() => bringBack(d.id)"
+                  >
+                    <template #hint>{{ i18n.t("rooms.hold") }}</template>
+                  </CtHoldButton>
+                  <CtHoldButton
+                    danger
+                    :label="i18n.t('rooms.purge')"
+                    :done="i18n.t('rooms.purged')"
+                    :disabled="busyWithDeleted || cut.offline"
+                    @hold="() => purgeForGood(d.id)"
+                  >
+                    <template #hint>{{ i18n.t("rooms.hold") }}</template>
+                  </CtHoldButton>
+                </template>
+              </CtListItem>
             </CtPanel>
           </section>
         </template>
@@ -459,43 +464,6 @@ h2 {
 }
 
 /* a deleted trip: its name in muted ink, and the way back */
-.gone {
-  display: grid;
-
-  > li {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-height: 60px;
-    padding: 10px 14px;
-
-    & + li {
-      border-block-start: 1px solid var(--line);
-    }
-
-    > span {
-      flex: 1;
-      min-width: 0;
-      display: grid;
-      gap: 2px;
-
-      > b {
-        overflow-wrap: anywhere;
-        color: var(--muted);
-      }
-
-      > small {
-        font-size: var(--font-xs);
-        color: var(--muted);
-      }
-    }
-
-    > button {
-      flex-shrink: 0;
-    }
-  }
-}
-
 /* where a tag will be, while the list is on its way */
 .ghost {
   height: 104px;
