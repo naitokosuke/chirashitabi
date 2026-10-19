@@ -6,8 +6,11 @@ import { useTemplateRef } from "vue";
  * Everything an input takes (`type`, `id`, `inputmode`, `maxlength`, `required`, its events)
  * is given to it as to an `<input>`; `v-model` holds what is written (`.number` for a count).
  * It sits on the desk; on a raised card, `--field-bg` set to the desk's color sets it into the
- * card. `focus()` puts the caret in it.
+ * card. `focus()` puts the caret in it. `size="sm"` is a field tucked into a narrow tab (a
+ * time on a slip): a tap's height, its value bold and centered in figures of one width, and no
+ * clock glyph to crowd them. On paper (data-paper) its edge and fill are the paper's.
  */
+const { size = "md" } = defineProps<{ size?: "md" | "sm" }>();
 const model = defineModel<string | number>({ required: true });
 
 const el = useTemplateRef<HTMLInputElement>("el");
@@ -15,7 +18,7 @@ defineExpose({ focus: () => el.value?.focus() });
 </script>
 
 <template>
-  <input ref="el" v-model="model" />
+  <input ref="el" v-model="model" :data-size="size" />
 </template>
 
 <style scoped>
@@ -36,6 +39,20 @@ input {
 
   &:disabled {
     opacity: 0.35;
+  }
+
+  &[data-size="sm"] {
+    width: 100%;
+    min-height: var(--tap);
+    padding: 4px;
+    font-size: var(--font-md);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+
+    &::-webkit-calendar-picker-indicator {
+      display: none;
+    }
   }
 }
 </style>
