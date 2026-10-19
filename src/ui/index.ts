@@ -9,6 +9,7 @@ export { default as CtBackButton } from "./components/back/CtBackButton.vue";
 export { default as CtBadge } from "./components/badge/CtBadge.vue";
 export { default as CtBanner } from "./components/banner/CtBanner.vue";
 export { default as CtButton } from "./components/button/CtButton.vue";
+export { default as CtByline } from "./components/avatar/CtByline.vue";
 export { default as CtCalendar } from "./components/calendar/CtCalendar.vue";
 export { default as CtChip } from "./components/chip/CtChip.vue";
 export { default as CtChoiceList } from "./components/choice-list/CtChoiceList.vue";
