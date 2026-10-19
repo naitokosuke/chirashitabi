@@ -193,7 +193,7 @@ function retry() {
             <ul class="tags">
               <li v-for="r in shelves.coming" :key="r.id">
                 <!-- the tag slides aside (a finger, a mouse, ←) to show the way off the list -->
-                <CtSwipeRow :open="slid === r.id" @toggle="(open) => slide(r.id, open)">
+                <CtSwipeRow :open="slid === r.id" @toggle="(toOpen) => slide(r.id, toOpen)">
                   <template #default>
                     <a
                       :href="safeUrl(hrefOf(r.id))"
@@ -230,7 +230,7 @@ function retry() {
             <ul class="tags">
               <li v-for="r in shelves.been" :key="r.id">
                 <!-- the tag slides aside (a finger, a mouse, ←) to show the way off the list -->
-                <CtSwipeRow :open="slid === r.id" @toggle="(open) => slide(r.id, open)">
+                <CtSwipeRow :open="slid === r.id" @toggle="(toOpen) => slide(r.id, toOpen)">
                   <template #default>
                     <a
                       :href="safeUrl(hrefOf(r.id))"

@@ -6,7 +6,7 @@ import { state } from "./harness";
 </script>
 
 <template>
-  <CtSwipeRow :open="state.open" @toggle="(open) => (state.open = open)">
+  <CtSwipeRow :open="state.open" @toggle="(toOpen) => (state.open = toOpen)">
     <template #default>
       <a class="tag" href="#trip">Taiwan trip</a>
     </template>

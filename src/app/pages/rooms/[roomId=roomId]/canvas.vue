@@ -519,16 +519,18 @@ const undoAdd = (id: NoteId) => ({ undo: () => store.remove(id) });
 
 // ---- deleting: the card leaves at once; the room hears about it once the toast is gone ----
 const pendingDelete = ref(new Set<NoteId>());
-const shownNotes = computed(() =>
-  (notes.value ?? [])
-    // a text box being rewritten is shown by its field instead
-    .filter((n) => !pendingDelete.value.has(n.id) && n.id !== writing.value?.id)
-    .map((n) => {
-      const h = held.value;
-      if (h?.id !== n.id) return n;
-      return { ...n, x: h.x, y: h.y, ...(h.kind === "shape" ? h.shape : {}) };
-    }),
-);
+const shownNotes = computed(() => {
+  // the card under a finger, read once for all of them
+  const h = held.value;
+  return (
+    (notes.value ?? [])
+      // a text box being rewritten is shown by its field instead
+      .filter((n) => !pendingDelete.value.has(n.id) && n.id !== writing.value?.id)
+      .map((n) =>
+        h?.id !== n.id ? n : { ...n, x: h.x, y: h.y, ...(h.kind === "shape" ? h.shape : {}) },
+      )
+  );
+});
 function remove(note: Note) {
   const card = cardEl(note);
   const hadFocus =
