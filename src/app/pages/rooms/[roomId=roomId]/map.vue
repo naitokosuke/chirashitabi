@@ -26,7 +26,15 @@ import { Map as MLMap, Marker } from "maplibre-gl";
 import { useRoute, useRouter } from "vue-router";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { CtChip, CtFab, CtScrollRow, safeUrl } from "../../../../ui/index";
+import {
+  CtBadge,
+  CtButton,
+  CtChip,
+  CtFab,
+  CtPanel,
+  CtScrollRow,
+  safeUrl,
+} from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
 
@@ -366,10 +374,13 @@ function fitAll() {
       <div class="top">
         <div class="days">
           <CtScrollRow inset>
-            <CtChip :selected="day === null" @click="showAllDays">{{ i18n.t("map.all") }}</CtChip>
+            <CtChip float :selected="day === null" @click="showAllDays">{{
+              i18n.t("map.all")
+            }}</CtChip>
             <CtChip
               v-for="d in trip?.days"
               :key="d.date.toString()"
+              float
               :selected="isDay(d.date)"
               @click="() => toggleDay(d.date)"
             >{{ i18n.t("map.route", { date: short(d.date) }) }}</CtChip>
@@ -378,21 +389,22 @@ function fitAll() {
         <!-- the desk's filter follows the pins here, and can be cleared here -->
         <div v-if="tags.selected.size > 0" class="filter">
           <CtScrollRow inset>
-            <CtChip class="clear" @click="() => tags.selected.clear()">{{
+            <CtChip dashed float @click="() => tags.selected.clear()">{{
               i18n.t("filter.clear")
             }}</CtChip>
             <CtChip
               v-for="t in tags.tagList.filter((x) => tags.selected.has(x.name))"
               :key="t.name"
+              float
               selected
               toggle
               @click="() => tags.toggleTag(t.name)"
             >#{{ t.name }}</CtChip>
           </CtScrollRow>
         </div>
-        <p v-if="noPin > 0">{{
+        <CtBadge v-if="noPin > 0" as="p" class="unplaced" float>{{
           i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin })
-        }}</p>
+        }}</CtBadge>
       </div>
 
       <!-- the press being held: a ring that fills, and the memo is written when it closes -->
@@ -403,7 +415,7 @@ function fitAll() {
         :style="`--x: ${holding.x}px; --y: ${holding.y}px; --hold: ${HOLD_MS}ms`"
       ></span>
 
-      <div class="jump"><CtChip @click="fitAll">{{ i18n.t("common.fitAll") }}</CtChip></div>
+      <div class="jump"><CtChip float @click="fitAll">{{ i18n.t("common.fitAll") }}</CtChip></div>
 
       <!-- the same write button as the canvas: writing is never more than a tap away -->
       <CtFab :label="i18n.t('canvas.write')" @click="() => write(null)"><Icon
@@ -411,7 +423,7 @@ function fitAll() {
           :src="plusIcon"
         /></CtFab>
 
-      <article v-if="selected !== null" :style="`--card:${paperFor(selected)}`">
+      <CtPanel v-if="selected !== null" as="article" float :style="`--card:${paperFor(selected)}`">
         <h2>{{ selected.title }}</h2>
         <p v-if="selected.body !== ''">{{ selected.body }}</p>
         <footer>
@@ -423,13 +435,13 @@ function fitAll() {
           <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{
             i18n.t("map.openInGoogleMaps")
           }}</a>
-          <button type="button" @click="editSelected">{{ i18n.t("common.edit") }}</button>
-          <button type="button" :aria-label="i18n.t('common.close')" @click="closeCard"><Icon
+          <CtButton @click="editSelected">{{ i18n.t("common.edit") }}</CtButton>
+          <CtButton class="close" :label="i18n.t('common.close')" @click="closeCard"><Icon
               :size="18"
               :src="closeIcon"
-            /></button>
+            /></CtButton>
         </div>
-      </article>
+      </CtPanel>
     </div>
   </section>
 </template>
@@ -601,32 +613,17 @@ section {
       > .days {
         display: flex;
         min-height: var(--top-row);
-
-        :deep(button) {
-          box-shadow: var(--shadow-tool);
-        }
       }
 
       /* the filter, a row of its own under the days */
       > .filter {
         display: flex;
-
-        .clear {
-          border-style: dashed;
-        }
       }
 
-      /* the notes with no place yet */
-      > p {
+      /* the notes with no place yet, under the rows, at the view's edge margin */
+      > .unplaced {
         margin: 0 16px;
         align-self: flex-start;
-        font-size: var(--font-xs);
-        color: var(--ink);
-        background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 4px 10px;
-        box-shadow: var(--shadow-tool);
       }
     }
 
@@ -660,10 +657,6 @@ section {
       inset-inline-start: 16px;
       inset-block-end: calc(var(--dock-clear) + 16px + (56px - var(--tap)) / 2);
       z-index: var(--z-float);
-
-      > button {
-        box-shadow: var(--shadow-tool);
-      }
     }
 
     /* the open pin's card */
@@ -672,11 +665,6 @@ section {
       inset-inline: 12px;
       inset-block-end: calc(var(--dock-clear) + 88px);
       z-index: var(--z-float-top);
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow-float);
 
       > h2 {
         margin: 0;
@@ -724,27 +712,19 @@ section {
         font-size: var(--font-sm);
         font-weight: 700;
 
-        > a,
-        > button {
+        > a {
           min-height: var(--tap);
           padding: 0 8px;
           display: inline-flex;
           align-items: center;
-          border-radius: 10px;
-        }
-
-        > a {
           color: var(--ink);
           text-decoration: underline;
           text-underline-offset: 3px;
         }
 
-        /* close */
-        > button:last-child {
+        /* close, at the end */
+        > .close {
           margin-inline-start: auto;
-          width: var(--tap);
-          justify-content: center;
-          color: var(--muted);
         }
       }
     }

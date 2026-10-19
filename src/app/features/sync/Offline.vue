@@ -3,6 +3,8 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, onMounted, watch } from "vue";
 
+import { CtButton } from "../../../ui/index";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import { hhmm, shortDate } from "../trip/format";
@@ -47,9 +49,9 @@ const since = computed(() => {
       <span>{{
         since === "" ? i18n.t("offline.out") : i18n.t("offline.in", { time: since })
       }}</span>
-      <button v-if="since !== ''" type="button" @click="room.reconnect">{{
+      <CtButton v-if="since !== ''" variant="text" @click="room.reconnect">{{
         i18n.t("rooms.retry")
-      }}</button>
+      }}</CtButton>
     </div>
   </div>
 </template>
@@ -69,19 +71,10 @@ const since = computed(() => {
   height: var(--top-inset);
   padding: 0 12px 4px;
   background: var(--ink);
-  color: var(--bg);
+  color: var(--on-ink);
   font-size: var(--font-xs);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: calc(var(--notice) - 4px);
-
-  > button {
-    min-height: calc(var(--notice) - 4px);
-    padding: 0 4px;
-    color: inherit;
-    font: inherit;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
 }
 </style>

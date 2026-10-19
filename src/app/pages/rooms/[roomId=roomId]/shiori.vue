@@ -1,16 +1,21 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, ref, useTemplateRef } from "vue";
+import { computed, ref, useId, useTemplateRef } from "vue";
 
 import {
+  CtAvatar,
   CtButton,
+  CtCheckbox,
+  CtChip,
   CtGlass,
+  CtPanel,
   CtPaper,
   CtScrollRow,
   CtSegmented,
   CtTabList,
   CtTabPanel,
+  CtTextarea,
   CtTextMorph,
   safeUrl,
   usePageTurn,
@@ -80,6 +85,8 @@ const { members, me } = useMembers();
 /** A note's paper: whoever wrote it */
 const paperFor = (n: Memo) => paperOf(members.value?.find((m) => m.id === n.by)?.color);
 const i18n = useI18n();
+/** What the page's controls are named by, so a label can point at its box */
+const pageId = useId();
 /** Cut off: what needs the Worker is not offered */
 const cut = useOffline();
 type Tab = Temporal.PlainDate | "appendix" | null;
@@ -349,9 +356,8 @@ function downloadCalendar() {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function setChecked(n: Memo, e: Event) {
-  if (!(e.target instanceof HTMLInputElement)) return;
-  store.update(n.id, { checked: e.target.checked });
+function setChecked(n: Memo, checked: boolean) {
+  store.update(n.id, { checked });
 }
 function setTime(n: Scheduled, e: Event) {
   if (!(e.target instanceof HTMLInputElement)) return;
@@ -480,7 +486,7 @@ function adoptDraft() {
         }}</small></p>
 
       <!-- tray: memos without a day (edit mode only) -->
-      <section v-if="editing">
+      <CtPanel v-if="editing" as="section">
         <div><span>{{ i18n.t("shiori.trayTitle", { count: unassigned.length }) }}</span><small>{{
             i18n.t("shiori.trayHint")
           }}</small></div>
@@ -514,7 +520,7 @@ function adoptDraft() {
           >{{ short(d.date) }}</CtButton>
           <CtButton @click="() => (pickingId = null)">{{ i18n.t("shiori.later") }}</CtButton>
         </div>
-      </section>
+      </CtPanel>
 
       <!-- the open day's heading stays put while its page slides; only the characters that change move -->
       <h2 :aria-label="heading.map((p) => p.text).join('')"><CtTextMorph :parts="heading" /></h2>
@@ -541,14 +547,16 @@ function adoptDraft() {
             />
           </div>
           <template v-if="editing">
-            <textarea
+            <!-- written when it is left (change), not as each letter goes in -->
+            <CtTextarea
+              dashed
               data-turn
               rows="2"
               :aria-label="i18n.t('shiori.intro')"
               :placeholder="i18n.t('shiori.introPlaceholder')"
-              :value="dayOf(day)?.intro"
+              :model-value="dayOf(day)?.intro ?? ''"
               @change="onIntroChange"
-            ></textarea>
+            />
           </template>
           <p v-else-if="(dayOf(day)?.intro ?? '') !== ''" class="intro" data-turn>{{
             dayOf(day)?.intro
@@ -574,6 +582,7 @@ function adoptDraft() {
                 <strong v-if="legWarning(way) !== ''">{{ legWarning(way) }}</strong>
               </li>
               <li
+                data-paper
                 data-turn
                 :data-status="n.schedule.status"
                 :style="`--card:${paperFor(n)}`"
@@ -631,22 +640,23 @@ function adoptDraft() {
                       rel="noopener noreferrer"
                       target="_blank"
                     >{{ i18n.t("shiori.bookingPage") }}</a>
-                    <button
+                    <CtButton
                       v-if="editing && n.booking?.state === 'needed'"
-                      type="button"
+                      variant="text"
                       @click="() => markBooked(n)"
-                    >{{ i18n.t("shiori.markBooked") }}</button>
+                    >{{ i18n.t("shiori.markBooked") }}</CtButton>
                   </p>
                   <div v-if="editing">
-                    <button
-                      type="button"
-                      :data-status="n.schedule.status"
+                    <!-- three steps in one ink: a dashed maybe, a filled confirmed, a plain done -->
+                    <CtChip
+                      :dashed="n.schedule.status === 'idea'"
+                      :selected="n.schedule.status === 'fixed'"
                       @click="() => nextStatus(n)"
-                    >{{ i18n.t(`status.${n.schedule.status}`) }}</button>
+                    >{{ i18n.t(`status.${n.schedule.status}`) }}</CtChip>
                     <span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span>
-                    <button type="button" @click="() => assign(n, null)">{{
+                    <CtButton class="off" variant="text" @click="() => assign(n, null)">{{
                       i18n.t("shiori.removeDay")
-                    }}</button>
+                    }}</CtButton>
                   </div>
                   <p v-else class="meta"><span v-if="n.budget !== null && n.budget > 0">{{
                       price(n.budget)
@@ -694,24 +704,20 @@ function adoptDraft() {
 
           <!-- a member's draft of the day (edit mode) -->
           <template v-if="editing && worker.api !== null && forDay(day).length > 0">
-            <div
-              v-if="draft !== null && draft.date.equals(day)"
-              class="draft"
-              data-turn
-              :style="`--who: ${drafter?.color ?? 'var(--muted)'}`"
-            >
-              <div><span aria-hidden="true"></span>{{ drafter?.name ?? i18n.t("member.someone") }}<small>{{
+            <div v-if="draft !== null && draft.date.equals(day)" class="draft" data-paper data-turn>
+              <div><CtAvatar :color="drafter?.color" size="dot" />{{ drafter?.name ?? i18n.t("member.someone") }}<small>{{
                   i18n.t("shiori.draft")
                 }}</small></div>
               <p>{{ draft.reason }}</p>
               <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}<small
                     v-if="it.minutes !== null"
                   >{{ ` · ${long(it.minutes)}` }}</small></li></ol>
-              <div><button type="button" @click="adoptDraft">{{
+              <div>
+                <CtButton variant="primary" @click="adoptDraft">{{
                   i18n.t("shiori.adoptDraft")
-                }}</button><button type="button" @click="() => (draft = null)">{{
-                  i18n.t("common.dismiss")
-                }}</button></div>
+                }}</CtButton>
+                <CtButton @click="() => (draft = null)">{{ i18n.t("common.dismiss") }}</CtButton>
+              </div>
             </div>
             <template v-else>
               <CtButton
@@ -742,13 +748,14 @@ function adoptDraft() {
             <ul><li
                 v-for="n in byTag(t)"
                 :key="n.id"
+                data-paper
                 data-turn
                 :data-checked="n.checked || undefined"
                 :style="`--card:${paperFor(n)}`"
-              ><label><input
-                    type="checkbox"
-                    :checked="n.checked"
-                    @change="(e) => setChecked(n, e)"
+              ><label :for="`${pageId}-check-${n.id}`"><CtCheckbox
+                    :id="`${pageId}-check-${n.id}`"
+                    :model-value="n.checked"
+                    @update:model-value="(checked) => setChecked(n, checked)"
                   /><span>{{ n.title }}</span><small v-if="n.body !== ''"> —{{ n.body }}</small></label></li></ul>
             <p v-if="byTag(t).length === 0" data-turn>{{ i18n.t("shiori.tagEmpty") }}</p>
           </section>
@@ -878,10 +885,6 @@ article {
     /* the notes still without a day, on a tool panel above the page */
     > section {
       margin-block: 10px 6px;
-      padding: 10px 12px 8px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: var(--surface);
 
       > div:first-child {
         display: flex;
@@ -978,15 +981,6 @@ article {
 
     > div {
       > textarea {
-        width: 100%;
-        font: inherit;
-        font-size: var(--font-md);
-        padding: 10px 12px;
-        border: 1px dashed color-mix(in oklch, var(--ink) 25%, var(--line));
-        border-radius: 12px;
-        background: var(--surface);
-        color: var(--ink);
-        resize: none;
         margin-block-end: 10px;
       }
 
@@ -1203,8 +1197,7 @@ article {
                 color: oklch(from var(--danger) min(l, 0.5) c h);
               }
 
-              > a,
-              > button {
+              > a {
                 display: inline-flex;
                 align-items: center;
                 min-height: var(--tap);
@@ -1236,41 +1229,16 @@ article {
               align-items: center;
               margin-block-start: 6px;
 
-              > button:first-child {
-                min-height: var(--tap);
-                padding: 0 12px;
-                border-radius: 999px;
-                font-size: var(--font-xs);
-                font-weight: 700;
-                /* three steps in one ink: a dashed maybe, a filled confirmed, an outlined done */
-                background: transparent;
-                border: 1px dashed color-mix(in oklch, var(--paper-ink) 45%, transparent);
-                color: var(--paper-ink);
-
-                &[data-status="fixed"] {
-                  background: var(--paper-ink);
-                  border: 1px solid var(--paper-ink);
-                  color: var(--paper-white);
-                }
-
-                &[data-status="done"] {
-                  border: 1px solid var(--paper-ink);
-                }
-              }
-
               > span {
                 color: var(--paper-muted);
                 font-size: var(--font-sm);
               }
 
-              > button:last-child {
+              /* taking it off the day: quiet, at the row's end */
+              > .off {
                 margin-inline-start: auto;
-                min-height: var(--tap);
-                padding: 0 8px;
                 font-size: var(--font-xs);
                 color: var(--paper-muted);
-                text-decoration: underline;
-                text-underline-offset: 3px;
               }
             }
 
@@ -1336,14 +1304,6 @@ article {
           font-weight: 700;
           margin-block-end: 4px;
 
-          /* the member's dot */
-          > span {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--who);
-          }
-
           > small {
             margin-inline-start: auto;
             font-size: var(--font-2xs);
@@ -1367,26 +1327,6 @@ article {
         > div:last-child {
           display: flex;
           gap: 6px;
-
-          > button {
-            min-height: 34px;
-            padding: 0 12px;
-            border-radius: 999px;
-            font-size: var(--font-sm);
-            font-weight: 700;
-
-            /* adopt */
-            &:first-child {
-              background: var(--paper-ink);
-              color: var(--paper-white);
-            }
-
-            /* dismiss */
-            &:last-child {
-              color: var(--paper-muted);
-              box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 18%, transparent);
-            }
-          }
         }
       }
 
@@ -1446,14 +1386,6 @@ article {
               border-radius: 6px;
               box-shadow: var(--shadow-paper);
               font-size: var(--font-base);
-
-              > input {
-                width: 22px;
-                height: 22px;
-                margin: 0;
-                flex-shrink: 0;
-                accent-color: var(--paper-ink);
-              }
 
               > small {
                 color: var(--paper-muted);

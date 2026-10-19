@@ -28,7 +28,18 @@ import {
   watch,
 } from "vue";
 
-import { CtBackButton, CtButton, CtChip, CtField, CtInput, useFlip } from "../../../ui/index";
+import {
+  CtBackButton,
+  CtButton,
+  CtCheckbox,
+  CtChip,
+  CtChoiceList,
+  CtField,
+  CtInput,
+  CtSelect,
+  CtTextarea,
+  useFlip,
+} from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -108,9 +119,7 @@ const bookingState = ref<BookingState>(startBooking?.state ?? "none");
 const bookingBy = ref(startBooking?.state === "needed" ? (startBooking.by?.toString() ?? "") : "");
 const bookingCode = ref(startBooking?.state === "booked" ? startBooking.code : "");
 const bookingUrl = ref(startBooking?.state === "booked" ? (startBooking.url ?? "") : "");
-function setBookingState(e: Event) {
-  if (!(e.target instanceof HTMLSelectElement)) return;
-  const next = e.target.value;
+function setBookingState(next: string) {
   if (next === "none" || next === "needed" || next === "booked") bookingState.value = next;
 }
 /** The booking as the fields say it; a page that is no http(s) link is none */
@@ -499,7 +508,7 @@ function nameThePin() {
 }
 nameThePin();
 
-const textEl = useTemplateRef<HTMLTextAreaElement>("textEl");
+const textEl = useTemplateRef<{ focus(): void }>("textEl");
 const focusText = () => void nextTick(() => textEl.value?.focus());
 onMounted(() => {
   if (!docked.value || active.value) focusText();
@@ -565,9 +574,8 @@ function removeTag(t: Tag) {
   form.value.tags.splice(form.value.tags.indexOf(t), 1);
 }
 /** How long it takes there; the booklet says when it ends from it */
-function setMinutes(e: Event) {
-  if (!(e.target instanceof HTMLSelectElement)) return;
-  form.value.minutes = e.target.value === "" ? null : Number(e.target.value);
+function setMinutes(value: string) {
+  form.value.minutes = value === "" ? null : Number(value);
 }
 /** "1 h 30 min" */
 function long(minutes: number) {
@@ -637,13 +645,14 @@ function submit() {
       <!-- on a computer, side by side: what the note is, then the details of the plan -->
       <div class="what">
         <CtField :for="`${id}-text`" :label="i18n.t('form.note')">
-          <textarea
+          <CtTextarea
             :id="`${id}-text`"
             ref="textEl"
             v-model="text"
             rows="4"
+            size="lg"
             :placeholder="i18n.t('form.notePlaceholder')"
-          ></textarea>
+          />
         </CtField>
         <CtField :for="`${id}-tag`" :label="i18n.t('form.tags')">
           <div class="tagbox">
@@ -667,7 +676,7 @@ function submit() {
               :key="o.name"
               :data-flip="o.name"
               :data-fit="fits(o, text) || undefined"
-              :data-new="o.isNew || undefined"
+              :dashed="o.isNew"
               @click="() => addTag(o.name)"
             >#{{ o.name }}<small v-if="o.isNew">{{ i18n.t("form.newTag") }}</small></CtChip>
           </div>
@@ -711,7 +720,7 @@ function submit() {
         >
           <figure v-if="photoSrc !== null">
             <img alt="" :src="photoSrc" />
-            <button type="button" @click="removePhoto">{{ i18n.t("form.removePhoto") }}</button>
+            <CtChip float @click="removePhoto">{{ i18n.t("form.removePhoto") }}</CtChip>
           </figure>
           <input
             :id="`${id}-photo`"
@@ -760,14 +769,19 @@ function submit() {
               :busy="places.kind === 'asking'"
               @click="findPlaces"
             >{{ i18n.t("form.findPlace") }}</CtButton>
-            <ul v-if="found.length > 0">
-              <li v-for="p in found" :key="`${p.at.lat},${p.at.lng}`">
-                <button type="button" @click="() => choosePlace(p)">
-                  <span>{{ p.name }}</span>
-                  <small>{{ p.address }}</small>
-                </button>
-              </li>
-            </ul>
+            <CtChoiceList
+              v-if="found.length > 0"
+              dashed
+              :items="
+                found.map((p) => ({
+                  key: `${p.at.lat},${p.at.lng}`,
+                  label: p.name,
+                  detail: p.address,
+                  place: p,
+                }))
+              "
+              @choose="(it) => choosePlace(it.place)"
+            />
             <p v-if="found.length > 0 || namedByOsm" class="credit">{{
               i18n.t("form.placesCredit")
             }}</p>
@@ -790,20 +804,24 @@ function submit() {
           }}</p>
         </CtField>
         <CtField :for="`${id}-booking`" :label="i18n.t('form.booking')">
-          <select :id="`${id}-booking`" :value="bookingState" @change="setBookingState">
+          <CtSelect
+            :id="`${id}-booking`"
+            :model-value="bookingState"
+            @update:model-value="setBookingState"
+          >
             <option value="none">{{ i18n.t("form.bookingNone") }}</option>
             <option value="needed">{{ i18n.t("form.bookingNeeded") }}</option>
             <option value="booked">{{ i18n.t("form.bookingBooked") }}</option>
-          </select>
+          </CtSelect>
         </CtField>
         <CtField v-if="isTodo" :for="`${id}-due`" :label="i18n.t('form.due')">
           <CtInput :id="`${id}-due`" v-model="due" type="date" />
         </CtField>
         <CtField v-if="hasAssignee" :for="`${id}-assignee`" :label="i18n.t('form.assignee')">
-          <select :id="`${id}-assignee`" v-model="assignee">
+          <CtSelect :id="`${id}-assignee`" v-model="assignee">
             <option value="">{{ i18n.t("form.assigneeAnyone") }}</option>
             <option v-for="m in people" :key="m.id" :value="m.id">{{ m.name }}</option>
-          </select>
+          </CtSelect>
         </CtField>
         <CtField
           v-if="bookingState === 'needed'"
@@ -833,17 +851,24 @@ function submit() {
           </CtField>
         </template>
         <CtField :for="`${id}-minutes`" :label="i18n.t('shiori.minutes')">
-          <select :id="`${id}-minutes`" :value="form.minutes ?? ''" @change="setMinutes">
+          <CtSelect
+            :id="`${id}-minutes`"
+            :model-value="String(form.minutes ?? '')"
+            @update:model-value="setMinutes"
+          >
             <option value="">{{ i18n.t("form.minutesUnset") }}</option>
-            <option v-for="m in durationChoices(form.minutes)" :key="m" :value="m">{{
+            <option v-for="m in durationChoices(form.minutes)" :key="m" :value="String(m)">{{
               long(m)
             }}</option>
-          </select>
+          </CtSelect>
         </CtField>
       </div>
     </div>
     <footer>
-      <label v-if="!docked && !editing" class="again"><input v-model="keepOpen" type="checkbox" />{{ i18n.t("form.addAnother") }}</label>
+      <label v-if="!docked && !editing" class="again" :for="`${id}-again`"><CtCheckbox
+          :id="`${id}-again`"
+          v-model="keepOpen"
+        />{{ i18n.t("form.addAnother") }}</label>
       <CtButton
         size="lg"
         type="submit"
@@ -940,17 +965,6 @@ form {
     /* each field (CtField) puts 6px between what it holds; the margins below are what goes past it */
     > :is(.what, .details) > div {
       > textarea {
-        width: 100%;
-        font: inherit;
-        font-size: var(--font-xl);
-        padding: 12px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: var(--surface);
-        color: var(--ink);
-        resize: none;
-        min-height: 120px;
-
         /* room to write, which a phone could not give */
         @media (--desktop) {
           min-height: 240px;
@@ -1003,11 +1017,6 @@ form {
           border-color: color-mix(in oklch, var(--ink) 45%, var(--line));
         }
 
-        /* Clef's new tag: no note has it yet, so its edge is dashed as the agent's things are */
-        > [data-new] {
-          border-style: dashed;
-        }
-
         small {
           font-size: var(--font-2xs);
           font-weight: 400;
@@ -1023,46 +1032,9 @@ form {
         gap: 8px;
         margin-top: 2px;
 
-        /* each place: its name, and where it is under it; a tap makes it the memo's */
+        /* the places to choose, as wide as the field */
         > ul {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          display: grid;
-          gap: 6px;
           align-self: stretch;
-
-          button {
-            width: 100%;
-            display: grid;
-            gap: 2px;
-            padding: 10px 12px;
-            text-align: start;
-            border-radius: 10px;
-            background: var(--surface);
-            border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
-            color: var(--ink);
-
-            > span {
-              font-size: var(--font-md);
-              font-weight: 700;
-            }
-
-            > small {
-              font-size: var(--font-xs);
-              color: var(--muted);
-              overflow: hidden;
-              text-overflow: ellipsis;
-              white-space: nowrap;
-            }
-
-            @media (--can-hover) {
-              &:hover {
-                border-style: solid;
-                border-color: var(--ink);
-              }
-            }
-          }
         }
 
         > p {
@@ -1088,35 +1060,28 @@ form {
         }
       }
 
-      > select,
+      /* the photo picker: the browser's own control in a field's box, its button made one of ours */
       > input[type="file"] {
         width: 100%;
         min-height: 46px;
-        font: inherit;
-        font-size: var(--font-lg);
-        padding: 10px 12px;
         border: 1px solid var(--line);
         border-radius: 10px;
-        background: var(--surface);
-        color: var(--ink);
+        background: var(--field-bg, var(--surface));
+        padding: 8px;
+        font: inherit;
+        font-size: var(--font-sm);
+        color: var(--muted);
 
-        /* the photo picker: the browser's own control, its button made one of ours */
-        &[type="file"] {
-          padding: 8px;
-          font-size: var(--font-sm);
-          color: var(--muted);
-
-          &::file-selector-button {
-            margin-inline-end: 10px;
-            min-height: 32px;
-            padding: 0 12px;
-            border: 1px solid var(--line);
-            border-radius: 999px;
-            background: var(--bg);
-            font: inherit;
-            font-weight: 700;
-            color: var(--ink);
-          }
+        &::file-selector-button {
+          margin-inline-end: 10px;
+          min-height: 32px;
+          padding: 0 12px;
+          border: 1px solid var(--line);
+          border-radius: 999px;
+          background: var(--bg);
+          font: inherit;
+          font-weight: 700;
+          color: var(--ink);
         }
       }
 
@@ -1134,17 +1099,11 @@ form {
           background: var(--wash);
         }
 
+        /* taking it off: a chip floating on the picture's corner */
         > button {
           position: absolute;
           inset-block-start: 8px;
           inset-inline-end: 8px;
-          min-height: 32px;
-          padding: 0 12px;
-          border-radius: 999px;
-          background: var(--surface);
-          box-shadow: var(--shadow-tool);
-          font-size: var(--font-sm);
-          font-weight: 700;
         }
       }
 
@@ -1180,13 +1139,6 @@ form {
       min-height: var(--tap);
       font-size: var(--font-sm);
       color: var(--muted);
-
-      > input {
-        width: 20px;
-        height: 20px;
-        margin: 0;
-        accent-color: var(--ink);
-      }
     }
 
     /* a computer: one row along the columns' width, the hint at the start, the button at the end */

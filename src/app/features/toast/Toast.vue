@@ -1,4 +1,6 @@
 <script setup lang="ts" vapor>
+import { CtButton } from "../../../ui/index";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import { useToast } from "./useToast";
@@ -12,9 +14,9 @@ const i18n = useI18n();
   <div role="status">
     <div v-if="toast.current !== null" class="toast">
       <span>{{ toast.current.text }}</span>
-      <button v-if="toast.current.undo !== undefined" type="button" @click="toast.undo">{{
+      <CtButton v-if="toast.current.undo !== undefined" variant="text" @click="toast.undo">{{
         i18n.t("canvas.undo")
-      }}</button>
+      }}</CtButton>
     </div>
   </div>
 </template>
@@ -43,13 +45,6 @@ const i18n = useI18n();
   /* the action is the toast's own ink, told apart by its underline, not by a color */
   > button {
     flex-shrink: 0;
-    white-space: nowrap;
-    min-height: var(--tap);
-    padding-inline: 4px;
-    font-weight: 700;
-    font-size: var(--font-sm);
-    text-decoration: underline;
-    text-underline-offset: 3px;
   }
 }
 </style>

@@ -5,7 +5,7 @@ import { computed, ref } from "vue";
 
 import { useRoute, useRouter } from "vue-router";
 
-import { CtButton } from "../../../../ui/index";
+import { CtAvatar, CtButton, CtPanel } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
 
@@ -94,8 +94,8 @@ const allTotal = computed(() => budgetOf(undefined, false));
         <p v-if="range !== ''">{{ range }} · {{ i18n.t("home.days", { count: trip?.days.length ?? 0 }) }}</p>
         <!-- who is in: a face each, initial on their color -->
         <ul>
-          <li v-for="m in members" :key="m.id" :style="`--who: ${m.color}`" :title="m.name">
-            <span aria-hidden="true">{{ m.name.slice(0, 1) }}</span>
+          <li v-for="m in members" :key="m.id" :title="m.name">
+            <CtAvatar :color="m.color" :name="m.name" size="lg" />
             <span>{{ m.name }}</span>
           </li>
         </ul>
@@ -130,7 +130,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
 
         <!-- the days side by side, each a stack of its notes in their own paper; maybes faded.
            Wide, each slip is long enough to carry its title -->
-        <ol v-if="trip !== undefined && trip.days.length > 0" class="days">
+        <CtPanel v-if="trip !== undefined && trip.days.length > 0" as="ol" class="days" pad="lg">
           <li
             v-for="d in trip?.days"
             :key="d.date.toString()"
@@ -148,7 +148,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
                 weekday(d.date, i18n.locale)
               }}</small></time>
           </li>
-        </ol>
+        </CtPanel>
 
         <!-- how far the plan has come: one bar, three piles -->
         <figure>
@@ -278,19 +278,6 @@ section {
           align-items: center;
           gap: 4px;
 
-          /* the member's own color, deepened enough to carry white */
-          > span:first-child {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: grid;
-            place-items: center;
-            background: oklch(from var(--who) min(l, 0.52) c h);
-            color: var(--on-tint);
-            font-size: var(--font-lg);
-            font-weight: 700;
-          }
-
           > span:last-child {
             font-size: var(--font-xs);
             color: var(--muted);
@@ -301,16 +288,10 @@ section {
 
     /* one column per day, its notes stacked from the bottom like paper on a spike */
     .main > .days {
-      list-style: none;
-      margin: 0;
-      padding: 16px 12px 12px;
       display: grid;
       grid-auto-flow: column;
       grid-auto-columns: minmax(0, 1fr);
       gap: 8px;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 14px;
 
       > li {
         display: flex;

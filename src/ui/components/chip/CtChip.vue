@@ -2,8 +2,16 @@
 /**
  * A rounded pill; `selected` fills it with ink.
  * Pass `toggle` when it switches something on and off (sets aria-pressed).
+ * `float` lifts it off what it floats over (a map, the desk) with a tool's shadow.
+ * `dashed` draws its edge dashed: a chip that clears the others, or one the agent offered.
  */
-defineProps<{ selected?: boolean; count?: number; toggle?: boolean }>();
+defineProps<{
+  selected?: boolean;
+  count?: number;
+  toggle?: boolean;
+  float?: boolean;
+  dashed?: boolean;
+}>();
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
 </script>
 
@@ -11,6 +19,8 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
   <button
     type="button"
     :data-selected="selected || undefined"
+    :data-float="float || undefined"
+    :data-dashed="dashed || undefined"
     :aria-pressed="toggle ? selected : undefined"
     @click="(e) => emit('click', e)"
   >
@@ -48,6 +58,12 @@ button {
     background: var(--ink);
     color: var(--on-ink);
     border-color: var(--ink);
+  }
+  &[data-float] {
+    box-shadow: var(--shadow-tool);
+  }
+  &[data-dashed] {
+    border-style: dashed;
   }
   small {
     font-size: var(--font-2xs);

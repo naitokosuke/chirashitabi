@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
-import { CtButton, CtField, CtSwatches } from "../../../ui/index";
+import { CtAvatar, CtButton, CtField, CtPanel, CtSwatches } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -70,9 +70,9 @@ async function no() {
 </script>
 
 <template>
-  <form class="invitation" @submit.prevent="join">
+  <CtPanel as="form" class="invitation" @submit.prevent="join">
     <p class="from">
-      <span v-if="from !== undefined" aria-hidden="true" :style="`--who: ${from}`"></span>{{ i18n.t("rooms.invited") }}
+      <CtAvatar v-if="from !== undefined" :color="from" size="dot" />{{ i18n.t("rooms.invited") }}
     </p>
     <TripTag v-bind="tag" />
 
@@ -97,7 +97,7 @@ async function no() {
         i18n.t("rooms.decline")
       }}</CtButton>
     </div>
-  </form>
+  </CtPanel>
 </template>
 
 <style scoped>
@@ -107,10 +107,6 @@ async function no() {
 .invitation {
   display: grid;
   gap: 14px;
-  padding: 14px;
-  border-radius: 16px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
   > p {
     margin: 0;
     font-size: var(--font-sm);
@@ -123,13 +119,6 @@ async function no() {
     gap: 8px;
     font-weight: 700;
     color: var(--muted);
-
-    > span {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--who);
-    }
   }
 }
 

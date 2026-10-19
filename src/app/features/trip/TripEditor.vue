@@ -3,12 +3,11 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, reactive, useId } from "vue";
 
-import { CtButton, CtField, CtInput } from "../../../ui/index";
+import { CtButton, CtChoiceList, CtField, CtInput, CtPanel, CtStepper } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
 import Icon from "../../icons/Icon.vue";
-import minusIcon from "../../icons/minus.svg";
 import plusIcon from "../../icons/plus.svg";
 import { useNotes } from "../notes/useNotes";
 import { isShortMapsLink, placeSearchLink } from "../place/google-maps";
@@ -52,7 +51,6 @@ const LEGS: readonly Leg[] = ["out", "back"];
 const form = reactive<TripForm>(formOf(props.trip));
 const airports = useAirports();
 const settings = computed(() => settingsOf(form, airports.value));
-const step = (by: number) => (form.days = Math.min(MAX_DAYS, Math.max(1, form.days + by)));
 
 /** How many planned notes the new dates would take off their day */
 const dropped = computed(() => {
@@ -172,7 +170,7 @@ function save() {
 </script>
 
 <template>
-  <form class="editor" @submit.prevent="save">
+  <CtPanel as="form" class="editor" pad="lg" @submit.prevent="save">
     <CtField :for="`${id}-name`" :label="i18n.t('rooms.name')">
       <CtInput :id="`${id}-name`" v-model="form.name" :maxlength="MAX_NAME" required />
     </CtField>
@@ -182,25 +180,14 @@ function save() {
         <CtInput :id="`${id}-first`" v-model="form.firstDay" required type="date" />
       </CtField>
       <CtField :label="i18n.t('rooms.days')">
-        <div class="stepper" role="group" :aria-label="i18n.t('rooms.days')">
-          <button
-            type="button"
-            :aria-label="i18n.t('rooms.fewer')"
-            :disabled="form.days <= 1"
-            @click="() => step(-1)"
-          >
-            <Icon :size="18" :src="minusIcon" />
-          </button>
-          <output aria-live="polite">{{ i18n.t("home.days", { count: form.days }) }}</output>
-          <button
-            type="button"
-            :aria-label="i18n.t('rooms.more')"
-            :disabled="form.days >= MAX_DAYS"
-            @click="() => step(1)"
-          >
-            <Icon :size="18" :src="plusIcon" />
-          </button>
-        </div>
+        <CtStepper
+          v-model="form.days"
+          :fewer="i18n.t('rooms.fewer')"
+          :label="i18n.t('rooms.days')"
+          :max="MAX_DAYS"
+          :min="1"
+          :more="i18n.t('rooms.more')"
+        >{{ i18n.t("home.days", { count: form.days }) }}</CtStepper>
       </CtField>
     </div>
     <p v-if="dropped > 0" class="note" role="status">{{
@@ -212,9 +199,9 @@ function save() {
     <fieldset v-for="leg in LEGS" :key="leg" :class="{ card: form.flights[leg].on }">
       <legend>{{ i18n.t(leg === "out" ? "flight.out" : "flight.back") }}</legend>
       <template v-if="form.flights[leg].on">
-        <button class="remove" type="button" @click="() => removeFlight(leg)">{{
+        <CtButton class="remove" danger @click="() => removeFlight(leg)">{{
           i18n.t("flight.remove")
-        }}</button>
+        }}</CtButton>
         <!-- the airports, the one thing a flight needs -->
         <div class="row airports">
           <AirportField
@@ -266,9 +253,9 @@ function save() {
       <legend>{{ i18n.t("stay.title") }}</legend>
       <div v-for="(s, i) in form.stays" :key="rowOf(s)" class="stay card">
         <p class="head">{{ i18n.t("stay.nth", { n: i + 1 }) }}</p>
-        <button class="remove" type="button" @click="() => removeStay(i)">{{
+        <CtButton class="remove" danger @click="() => removeStay(i)">{{
           i18n.t("stay.remove")
-        }}</button>
+        }}</CtButton>
         <CtField :for="`${id}-stay-${i}-name`" :label="i18n.t('stay.name')">
           <CtInput :id="`${id}-stay-${i}-name`" v-model="s.name" :maxlength="MAX_NAME" required />
         </CtField>
@@ -280,13 +267,18 @@ function save() {
             :disabled="s.name.trim() === '' || finding.has(s)"
             @click="() => findStay(s)"
           >{{ i18n.t(finding.has(s) ? "stay.finding" : "stay.find") }}</CtButton>
-          <ul v-if="(found.get(s)?.length ?? 0) > 0">
-            <li v-for="p in found.get(s)" :key="`${p.at.lat},${p.at.lng}`">
-              <button type="button" @click="() => chooseStay(s, p)"><b>{{ p.name }}</b><small>{{
-                  p.address
-                }}</small></button>
-            </li>
-          </ul>
+          <CtChoiceList
+            v-if="(found.get(s)?.length ?? 0) > 0"
+            :items="
+              (found.get(s) ?? []).map((p) => ({
+                key: `${p.at.lat},${p.at.lng}`,
+                label: p.name,
+                detail: p.address,
+                place: p,
+              }))
+            "
+            @choose="(it) => chooseStay(s, it.place)"
+          />
           <p v-if="found.get(s)?.length === 0" aria-live="polite" class="hint">{{
             i18n.t("stay.findNone")
           }}</p>
@@ -329,7 +321,7 @@ function save() {
       }}</CtButton>
       <CtButton size="lg" @click="() => emit('close')">{{ i18n.t("people.cancel") }}</CtButton>
     </footer>
-  </form>
+  </CtPanel>
 </template>
 
 <style scoped>
@@ -337,10 +329,6 @@ function save() {
 .editor {
   display: grid;
   gap: 16px;
-  padding: 16px;
-  border-radius: 16px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
   /* the fields are set into the card, in the desk's color */
   --field-bg: var(--bg);
 }
@@ -353,40 +341,6 @@ function save() {
   &.airports {
     position: relative; /* the airports offered float under the whole row (AirportField) */
     grid-template-columns: 1fr 1fr;
-  }
-}
-
-.stepper {
-  display: flex;
-  align-items: center;
-  min-height: 46px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--bg);
-  > button {
-    display: grid;
-    place-items: center;
-    width: 46px;
-    align-self: stretch;
-    border: 0;
-    background: transparent;
-    color: var(--ink);
-    border-radius: 10px;
-    &:disabled {
-      color: var(--muted);
-      opacity: 0.4;
-    }
-    &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: -2px;
-    }
-  }
-  > output {
-    flex: 1;
-    text-align: center;
-    font-size: var(--font-lg);
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -416,25 +370,10 @@ fieldset {
 }
 
 /* taking a flight or a stay away: quiet, in the card's corner, the danger's color only on intent */
-button.remove {
+.remove {
   position: absolute;
   inset-block-start: 8px;
   inset-inline-end: 8px;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: var(--font-xs);
-  font-weight: 700;
-  @media (--can-hover) {
-    &:hover {
-      color: var(--danger);
-      background: var(--wash);
-    }
-  }
 }
 
 /* one stay's fields, a dashed line under each */
@@ -454,33 +393,6 @@ button.remove {
 .find {
   display: grid;
   gap: 8px;
-  > ul {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: grid;
-    gap: 6px;
-    > li > button {
-      display: grid;
-      gap: 2px;
-      width: 100%;
-      min-height: var(--tap);
-      padding: 8px 12px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--bg);
-      color: var(--ink);
-      font: inherit;
-      text-align: start;
-      > b {
-        font-size: var(--font-md);
-      }
-      > small {
-        font-size: var(--font-xs);
-        color: var(--muted);
-      }
-    }
-  }
 }
 
 .note, .hint {

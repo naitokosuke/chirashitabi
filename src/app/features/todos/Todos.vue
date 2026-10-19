@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, useId } from "vue";
 
-import { CtButton, CtInput } from "../../../ui/index";
+import { CtAvatar, CtBadge, CtButton, CtCheckbox, CtInput } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -47,8 +47,8 @@ function dueText(t: Todo) {
     date: shortDate(t.due, i18n.locale),
   });
 }
-function setDone(n: Memo, e: Event) {
-  if (e.target instanceof HTMLInputElement) store.update(n.id, { checked: e.target.checked });
+function setDone(n: Memo, checked: boolean) {
+  store.update(n.id, { checked });
 }
 /** Booked: its number and page can be written in the note later */
 function markBooked(n: Memo) {
@@ -58,7 +58,9 @@ function markBooked(n: Memo) {
 
 <template>
   <article class="todos" :aria-labelledby="`${id}-title`">
-    <h2 :id="`${id}-title`">{{ i18n.t("todo.title") }}<small v-if="open > 0">{{ open }}</small></h2>
+    <h2 :id="`${id}-title`">{{ i18n.t("todo.title") }}<CtBadge v-if="open > 0" filled>{{
+        open
+      }}</CtBadge></h2>
     <form @submit.prevent="add">
       <CtInput
         v-model="title"
@@ -79,27 +81,29 @@ function markBooked(n: Memo) {
         :data-done="t.done || undefined"
         :data-late="isLate(t, today) || undefined"
       >
-        <input
+        <CtCheckbox
           v-if="t.kind === 'task'"
-          type="checkbox"
           :aria-label="t.memo.title"
-          :checked="t.done"
-          @change="(e) => setDone(t.memo, e)"
+          :model-value="t.done"
+          @update:model-value="(checked) => setDone(t.memo, checked)"
         />
-        <span v-else class="badge">{{ i18n.t("todo.booking") }}</span>
+        <CtBadge v-else dashed>{{ i18n.t("todo.booking") }}</CtBadge>
         <button class="title" type="button" @click="() => emit('open', t.memo.id)">{{
           t.memo.title
         }}</button>
         <small v-if="dueText(t) !== ''">{{ dueText(t) }}</small>
-        <span v-if="whoOf(t) !== undefined" class="who" :style="`--who: ${whoOf(t)?.color}`">{{
-          whoOf(t)?.name
-        }}</span>
-        <button
+        <span v-if="whoOf(t) !== undefined" class="who"><CtAvatar
+            :color="whoOf(t)?.color"
+            size="dot"
+          />{{
+            whoOf(t)?.name
+          }}</span>
+        <CtButton
           v-if="t.kind === 'booking'"
           class="booked"
-          type="button"
+          variant="text"
           @click="() => markBooked(t.memo)"
-        >{{ i18n.t("shiori.markBooked") }}</button>
+        >{{ i18n.t("shiori.markBooked") }}</CtButton>
       </li>
     </ul>
   </article>
@@ -119,17 +123,6 @@ function markBooked(n: Memo) {
     display: flex;
     align-items: center;
     gap: 8px;
-
-    > small {
-      min-width: 22px;
-      padding: 1px 7px;
-      border-radius: 999px;
-      background: var(--ink);
-      color: var(--bg);
-      font-size: var(--font-xs);
-      text-align: center;
-      font-variant-numeric: tabular-nums;
-    }
   }
 
   /* a line to write the next one in, as quick as a note */
@@ -163,23 +156,7 @@ function markBooked(n: Memo) {
       min-height: var(--tap);
       border-block-end: 1px solid var(--line);
 
-      > input {
-        width: 20px;
-        height: 20px;
-        margin: 0;
-        accent-color: var(--ink);
-      }
-
       /* a plan still to book, in place of the box: it is done by booking it */
-      > .badge {
-        padding: 1px 6px;
-        border: 1px dashed color-mix(in oklch, var(--ink) 45%, transparent);
-        border-radius: 6px;
-        font-size: var(--font-2xs);
-        font-weight: 700;
-        color: var(--muted);
-      }
-
       > .title {
         flex: 1;
         min-width: 0;
@@ -208,26 +185,11 @@ function markBooked(n: Memo) {
         gap: 4px;
         font-size: var(--font-xs);
         color: var(--muted);
-
-        &::before {
-          content: "";
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: var(--who);
-        }
       }
 
+      /* the way it is done, small as the line's other notes */
       > .booked {
-        min-height: var(--tap);
-        padding: 0 4px;
-        border: 0;
-        background: none;
-        color: var(--ink);
         font-size: var(--font-xs);
-        font-weight: 700;
-        text-decoration: underline;
-        text-underline-offset: 3px;
       }
 
       &[data-done] > .title {
