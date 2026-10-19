@@ -3,7 +3,7 @@ import { computed, onMounted, ref, shallowRef, useId } from "vue";
 
 import { encode } from "uqr";
 
-import { CtAvatar, CtButton, CtField, CtInput } from "../../../ui/index";
+import { CtAvatar, CtButton, CtField, CtInput, CtPanel } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -115,7 +115,7 @@ onMounted(() => {
         <CtButton @click="() => invited.refetch()">{{ i18n.t("rooms.retry") }}</CtButton>
       </p>
 
-      <ul>
+      <CtPanel as="ul" class="members" pad="none">
         <li v-for="m in persons" :key="m.id">
           <CtAvatar :color="m.color" :name="m.name" />
           <span class="who">
@@ -153,7 +153,7 @@ onMounted(() => {
             }}</CtButton>
           </span>
         </li>
-      </ul>
+      </CtPanel>
 
       <form v-if="me.role === 'owner' && open" class="invite" @submit.prevent="sendInvite">
         <CtField :for="`${id}-email`" :label="i18n.t('people.email')">
@@ -248,14 +248,8 @@ h2 {
   line-height: 1.35;
 }
 
-ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.members {
   display: grid;
-  border-radius: 14px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
 
   > li {
     display: flex;

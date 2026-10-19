@@ -19,6 +19,7 @@ export { default as CtField } from "./components/field/CtField.vue";
 export { default as CtInput } from "./components/field/CtInput.vue";
 export { default as CtGlass } from "./components/glass/CtGlass.vue";
 export { default as CtHoldButton } from "./components/hold-button/CtHoldButton.vue";
+export { default as CtPanel } from "./components/panel/CtPanel.vue";
 export { default as CtPaper } from "./components/paper/CtPaper.vue";
 export { default as CtScrollRow } from "./components/scroll-row/CtScrollRow.vue";
 export { default as CtSegmented } from "./components/segmented/CtSegmented.vue";
