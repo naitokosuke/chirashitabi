@@ -32,6 +32,9 @@
   );
   /* glass: what floats over the desk (the dock), letting it show through, blurred */
   --glass: light-dark(rgb(255 255 255 / 0.72), oklch(0.26 0.005 260 / 0.72));
+  /* how the desk shows through it, and the hairline round its edge */
+  --glass-blur: blur(16px) saturate(1.5);
+  --glass-edge: inset 0 0 0 1px color-mix(in oklch, var(--line) 80%, transparent);
   --danger: light-dark(oklch(0.53 0.19 27), oklch(0.72 0.15 27));
   /* what is written on the one filled tool, the ink one (the write button, the primary button) */
   --on-ink: light-dark(#fff, oklch(0.185 0.004 260));

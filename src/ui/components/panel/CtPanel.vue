@@ -4,18 +4,26 @@
  * form, a list, a notice). `as` is the element it is (a form, a list, a section), so it keeps
  * its meaning. `pad` is the room inside it: `none` for a list whose rows have their own, `sm`
  * for a menu of buttons, `md` for most, `lg` for a form. `float` lifts it over what it covers
- * (a menu, a panel opened from a button).
+ * (a menu, a panel opened from a button). `sunken` is a panel set into a panel (a flight in the
+ * trip's settings), in the desk's color, its fields back on the surface.
  */
 const { as = "div", pad = "md" } = defineProps<{
-  as?: "div" | "section" | "article" | "form" | "ul" | "ol" | "p";
+  as?: "div" | "section" | "article" | "form" | "fieldset" | "ul" | "ol" | "p";
   pad?: "none" | "sm" | "md" | "lg";
   float?: boolean;
+  sunken?: boolean;
 }>();
 defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <component :is="as" class="panel" :data-pad="pad" :data-float="float || undefined">
+  <component
+    :is="as"
+    class="panel"
+    :data-pad="pad"
+    :data-float="float || undefined"
+    :data-sunken="sunken || undefined"
+  >
     <slot></slot>
   </component>
 </template>
@@ -23,6 +31,9 @@ defineSlots<{ default(): unknown }>();
 <style scoped>
 .panel {
   margin: 0;
+  /* a fieldset's own edge and room give way to the panel's */
+  border: 0;
+  min-inline-size: 0;
   border-radius: 14px;
   background: var(--surface);
   /* the hairline drawn inside, so it takes no room */
@@ -46,6 +57,11 @@ defineSlots<{ default(): unknown }>();
     box-shadow:
       inset 0 0 0 1px var(--line),
       var(--shadow-float);
+  }
+
+  &[data-sunken] {
+    background: var(--bg);
+    --field-bg: var(--surface);
   }
 }
 </style>
