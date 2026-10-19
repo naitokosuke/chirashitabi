@@ -21,6 +21,7 @@ export { default as CtFab } from "./components/fab/CtFab.vue";
 export { default as CtCheckbox } from "./components/field/CtCheckbox.vue";
 export { default as CtChipInput } from "./components/field/CtChipInput.vue";
 export { default as CtField } from "./components/field/CtField.vue";
+export { default as CtFileInput } from "./components/field/CtFileInput.vue";
 export { default as CtInput } from "./components/field/CtInput.vue";
 export { default as CtSelect } from "./components/field/CtSelect.vue";
 export { default as CtTextarea } from "./components/field/CtTextarea.vue";
