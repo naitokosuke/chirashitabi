@@ -58,12 +58,7 @@ const HOLD_MS = 600;
   <div
     v-show="visibility !== 'hidden'"
     class="card"
-    :data-kind="note.kind"
-    :data-print="print || undefined"
-    :data-dragging="dragging || undefined"
-    :data-pop="pop || undefined"
-    :data-selected="selected || undefined"
-    :data-visibility="visibility"
+    :class="[`kind-${note.kind}`, `visibility-${visibility}`, { print, dragging, pop, selected }]"
     :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}`"
     :data-id="note.id"
     :tabindex="note.kind !== 'suggestion' && visibility !== 'dimmed' ? 0 : undefined"
@@ -87,7 +82,7 @@ const HOLD_MS = 600;
       <template #strip><span :id="`${id}-strip`">{{ i18n.t("note.suggestion") }}</span></template>
       <!-- five lines of it on the desk; picked, all of it -->
       <template #default>
-        <p :id="`${id}-title`" class="title" data-lines="5" :data-open="selected || undefined">{{
+        <p :id="`${id}-title`" class="title lines-5" :class="{ open: selected }">{{
           note.title
         }}</p>
       </template>
@@ -156,7 +151,7 @@ const HOLD_MS = 600;
           @click.stop
         ><Icon :size="11" :src="externalIcon" /><span class="site">{{ siteOf(note.link) }}</span></a
         >
-        <p class="title" :data-lines="print ? 2 : 3">{{ note.title }}</p>
+        <p class="title" :class="print ? 'lines-2' : 'lines-3'">{{ note.title }}</p>
         <!-- the words, a few lines of them (a page's own line stays off its print, for the
              booklet); a link in them is its site, as every link on the desk is -->
         <p v-if="note.body !== '' && !(print && note.link !== null)" class="words"><template
@@ -243,7 +238,7 @@ const HOLD_MS = 600;
   }
 
   /* held: it comes up off the desk a little larger and askew, with one small overshoot */
-  &[data-dragging] {
+  &.dragging {
     --lift: 1.05;
     --tilt: -2deg;
     z-index: var(--z-drag);
@@ -260,13 +255,13 @@ const HOLD_MS = 600;
     }
   }
 
-  &[data-visibility="dimmed"] {
+  &.visibility-dimmed {
     opacity: .22;
     filter: saturate(.2);
     pointer-events: none;
   }
 
-  &[data-pop] {
+  &.pop {
     animation: pop .5s cubic-bezier(.2,1.4,.4,1) both;
 
     @media (--reduced-motion) {
@@ -274,12 +269,12 @@ const HOLD_MS = 600;
     }
   }
 
-  &[data-selected] {
+  &.selected {
     z-index: var(--z-float);
   }
 
   /* a print is the wider cut */
-  &[data-print] {
+  &.print {
     width: 220px;
   }
 }
@@ -307,16 +302,16 @@ const HOLD_MS = 600;
   overflow: hidden;
 
   /* a proposal is a sentence: five lines of it, all of it once picked */
-  &[data-lines="5"] {
+  &.lines-5 {
     -webkit-line-clamp: 5;
   }
 
-  &[data-open] {
+  &.open {
     -webkit-line-clamp: unset;
   }
 
   /* a print's caption under its picture: two lines of it */
-  &[data-lines="2"] {
+  &.lines-2 {
     -webkit-line-clamp: 2;
   }
 }
@@ -466,13 +461,13 @@ const HOLD_MS = 600;
  * A text box: the desk's own lettering, no paper and no shadow, in the desk's ink so it reads
  * in either theme, as wide as its longest line up to a point. Picked, it is framed like a card.
  */
-.card[data-kind="text"] {
+.card.kind-text {
   width: max-content;
   max-width: 560px;
   padding: var(--text-box-pad);
   border-radius: 4px;
 
-  &[data-selected] {
+  &.selected {
     box-shadow: 0 0 0 2px var(--ink);
   }
 }
@@ -492,15 +487,15 @@ const HOLD_MS = 600;
  * A sticker: the picture alone, its outline traced in white like a die-cut sticker and lifted
  * off the desk by a soft shadow that follows the cut. Picked, it is framed like a card.
  */
-.card[data-kind="sticker"] {
+.card.kind-sticker {
   width: var(--sticker-size);
   border-radius: 4px;
 
-  &[data-selected] {
+  &.selected {
     box-shadow: 0 0 0 2px var(--ink);
   }
 
-  &[data-dragging] > .cutout {
+  &.dragging > .cutout {
     filter: var(--sticker-edge) drop-shadow(0 8px 10px rgb(0 0 0 / .22));
   }
 }
