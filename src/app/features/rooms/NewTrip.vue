@@ -10,7 +10,9 @@ import {
   CtCalendar,
   CtField,
   CtHeading,
+  CtHint,
   CtInput,
+  CtMessage,
   CtSwatches,
   type CtDateRange,
   type CtOption,
@@ -161,8 +163,8 @@ onMounted(() => nameEl.value?.focus());
     </div>
 
     <footer>
-      <p v-if="error !== null" role="alert">{{ i18n.t("rooms.createFailed") }}</p>
-      <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
+      <CtMessage v-if="error !== null" role="alert">{{ i18n.t("rooms.createFailed") }}</CtMessage>
+      <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
       <CtButton
         size="lg"
         type="submit"
@@ -209,11 +211,5 @@ footer {
   padding: 12px var(--page-margin) calc(12px + env(safe-area-inset-bottom, 0px));
   border-block-start: 1px solid var(--line);
   background: var(--bg);
-
-  > p {
-    margin: 0;
-    font-size: var(--font-sm);
-    color: var(--ink);
-  }
 }
 </style>

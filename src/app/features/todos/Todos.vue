@@ -3,7 +3,15 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, useId } from "vue";
 
-import { CtAvatar, CtBadge, CtButton, CtCheckbox, CtHeading, CtInput } from "../../../ui/index";
+import {
+  CtAvatar,
+  CtBadge,
+  CtButton,
+  CtCheckbox,
+  CtHeading,
+  CtHint,
+  CtInput,
+} from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -73,7 +81,7 @@ function markBooked(n: Memo) {
         i18n.t("todo.add")
       }}</CtButton>
     </form>
-    <p v-if="todos.length === 0">{{ i18n.t("todo.empty") }}</p>
+    <CtHint v-if="todos.length === 0" size="sm">{{ i18n.t("todo.empty") }}</CtHint>
     <ul v-else>
       <li
         v-for="t in todos"
@@ -130,12 +138,6 @@ function markBooked(n: Memo) {
     > input {
       flex: 1;
     }
-  }
-
-  > p {
-    margin: 0;
-    color: var(--muted);
-    font-size: var(--font-sm);
   }
 
   > ul {

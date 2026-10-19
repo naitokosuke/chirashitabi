@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { CtChip, CtScrollRow } from "../../../ui/index";
+import { CtChip, CtHint, CtScrollRow } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -28,7 +28,7 @@ function toggleOnly() {
         :count="t.count"
         @click="() => tags.toggleTag(t.name)"
       >#{{ t.name }}</CtChip>
-      <p v-if="tags.tagList.length === 0">{{ i18n.t("filter.none") }}</p>
+      <CtHint v-if="tags.tagList.length === 0" size="sm">{{ i18n.t("filter.none") }}</CtHint>
     </CtScrollRow>
     <!--
       Outside the row, at its end, and only while a tag is picked (they mean nothing before):
@@ -52,9 +52,6 @@ function toggleOnly() {
 
   /* the chip row says so when the room has no tags yet */
   > div > p {
-    margin: 0;
-    font-size: var(--font-sm);
-    color: var(--muted);
     white-space: nowrap;
   }
 
