@@ -26,7 +26,7 @@ import { Map as MLMap, Marker } from "maplibre-gl";
 import { useRoute, useRouter } from "vue-router";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { CtChip, CtChipRow, CtFab, safeUrl } from "../../../../ui/index";
+import { CtChip, CtFab, CtScrollRow, safeUrl } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
 
@@ -365,7 +365,7 @@ function fitAll() {
       <!-- no bar: the days float along the top of the map, over it -->
       <div class="top">
         <div class="days">
-          <CtChipRow>
+          <CtScrollRow inset>
             <CtChip :selected="day === null" @click="showAllDays">{{ i18n.t("map.all") }}</CtChip>
             <CtChip
               v-for="d in trip?.days"
@@ -373,21 +373,23 @@ function fitAll() {
               :selected="isDay(d.date)"
               @click="() => toggleDay(d.date)"
             >{{ i18n.t("map.route", { date: short(d.date) }) }}</CtChip>
-          </CtChipRow>
+          </CtScrollRow>
         </div>
         <!-- the desk's filter follows the pins here, and can be cleared here -->
-        <CtChipRow v-if="tags.selected.size > 0" class="filter">
-          <CtChip class="clear" @click="() => tags.selected.clear()">{{
-            i18n.t("filter.clear")
-          }}</CtChip>
-          <CtChip
-            v-for="t in tags.tagList.filter((x) => tags.selected.has(x.name))"
-            :key="t.name"
-            selected
-            toggle
-            @click="() => tags.toggleTag(t.name)"
-          >#{{ t.name }}</CtChip>
-        </CtChipRow>
+        <div v-if="tags.selected.size > 0" class="filter">
+          <CtScrollRow inset>
+            <CtChip class="clear" @click="() => tags.selected.clear()">{{
+              i18n.t("filter.clear")
+            }}</CtChip>
+            <CtChip
+              v-for="t in tags.tagList.filter((x) => tags.selected.has(x.name))"
+              :key="t.name"
+              selected
+              toggle
+              @click="() => tags.toggleTag(t.name)"
+            >#{{ t.name }}</CtChip>
+          </CtScrollRow>
+        </div>
         <p v-if="noPin > 0">{{
           i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin })
         }}</p>
@@ -605,12 +607,11 @@ section {
         }
       }
 
-      /* the filter, a row as tall as its chips under the days */
+      /* the filter, a row of its own under the days */
       > .filter {
-        flex: none;
-        padding-block: 2px 8px;
+        display: flex;
 
-        > .clear {
+        .clear {
           border-style: dashed;
         }
       }

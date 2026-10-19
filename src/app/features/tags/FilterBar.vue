@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { CtChip, CtChipRow } from "../../../ui/index";
+import { CtChip, CtScrollRow } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -19,7 +19,7 @@ function toggleOnly() {
 
 <template>
   <div class="filter">
-    <CtChipRow>
+    <CtScrollRow inset>
       <CtChip
         v-for="t in tags.tagList"
         :key="t.name"
@@ -29,7 +29,7 @@ function toggleOnly() {
         @click="() => tags.toggleTag(t.name)"
       >#{{ t.name }}</CtChip>
       <p v-if="tags.tagList.length === 0">{{ i18n.t("filter.none") }}</p>
-    </CtChipRow>
+    </CtScrollRow>
     <!--
       Outside the row, at its end, and only while a tag is picked (they mean nothing before):
       appearing narrows the row, it never pushes a chip along.
