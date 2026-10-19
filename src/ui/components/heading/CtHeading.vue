@@ -1,0 +1,63 @@
+<script setup lang="ts" vapor>
+/**
+ * A heading at one of the app's few sizes, by what it heads:
+ *
+ * - `page`: the large title a page opens with (a trip's name, the app's name).
+ * - `sheet`: the title of a sheet over a view (a new note, a new trip).
+ * - `section`: a part of a page (to-dos, people, a day in the booklet).
+ * - `card`: what a card is (a pin's note).
+ * - `minor`: a small heading inside a section.
+ *
+ * `as` is its rank in the page's outline (`h1`, `h2`, `h3`), which the size does not decide.
+ * `muted` steps it back into the muted ink. Where it sits (its margins) is the owner's.
+ */
+const { as = "h2", level = "section" } = defineProps<{
+  as?: "h1" | "h2" | "h3";
+  level?: "page" | "sheet" | "section" | "card" | "minor";
+  muted?: boolean;
+}>();
+defineSlots<{ default(): unknown }>();
+</script>
+
+<template>
+  <component :is="as" class="heading" :data-level="level" :data-muted="muted || undefined">
+    <slot></slot>
+  </component>
+</template>
+
+<style scoped>
+/* no margin of its own, and at no weight, so the owner's margin for it always holds */
+:where(.heading) {
+  margin: 0;
+}
+
+.heading {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+
+  &[data-level="page"] {
+    font-size: var(--font-display);
+    line-height: 1.2;
+  }
+  &[data-level="sheet"] {
+    font-size: var(--font-4xl);
+    line-height: 1.25;
+  }
+  &[data-level="section"] {
+    font-size: var(--font-2xl);
+    line-height: 1.35;
+  }
+  &[data-level="card"] {
+    font-size: var(--font-lg);
+    line-height: 1.4;
+  }
+  &[data-level="minor"] {
+    font-size: var(--font-md);
+    line-height: 1.5;
+  }
+
+  &[data-muted] {
+    color: var(--muted);
+  }
+}
+</style>

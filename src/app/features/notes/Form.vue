@@ -35,6 +35,7 @@ import {
   CtChip,
   CtChoiceList,
   CtField,
+  CtHeading,
   CtInput,
   CtSelect,
   CtTextarea,
@@ -641,7 +642,10 @@ function submit() {
       <Icon :size="16" :src="backIcon" />{{ mode.back }}
     </CtBackButton>
     <div>
-      <h2 class="title">{{ i18n.t(editing ? "form.titleEdit" : "form.titleNew") }}</h2>
+      <!-- as a sheet, a sheet's title; as the memo tab, a page like home, its large title -->
+      <CtHeading class="title" :level="docked ? 'page' : 'sheet'">{{
+        i18n.t(editing ? "form.titleEdit" : "form.titleNew")
+      }}</CtHeading>
       <!-- on a computer, side by side: what the note is, then the details of the plan -->
       <div class="what">
         <CtField :for="`${id}-text`" :label="i18n.t('form.note')">
@@ -904,11 +908,6 @@ form {
     /* a page like home: a large title at the top */
     > div {
       padding-block-start: var(--page-top);
-
-      > .title {
-        font-size: var(--font-display);
-        line-height: 1.2;
-      }
     }
   }
 
@@ -953,13 +952,6 @@ form {
         flex-direction: column;
         gap: 16px;
       }
-    }
-
-    > .title {
-      margin: 0;
-      font-size: var(--font-4xl);
-      font-weight: 700;
-      line-height: 1.25;
     }
 
     /* each field (CtField) puts 6px between what it holds; the margins below are what goes past it */

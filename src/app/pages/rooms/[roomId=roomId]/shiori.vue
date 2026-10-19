@@ -9,6 +9,7 @@ import {
   CtCheckbox,
   CtChip,
   CtGlass,
+  CtHeading,
   CtPanel,
   CtPaper,
   CtScrollRow,
@@ -523,7 +524,7 @@ function adoptDraft() {
       </CtPanel>
 
       <!-- the open day's heading stays put while its page slides; only the characters that change move -->
-      <h2 :aria-label="heading.map((p) => p.text).join('')"><CtTextMorph :parts="heading" /></h2>
+      <CtHeading :aria-label="heading.map((p) => p.text).join('')"><CtTextMorph :parts="heading" /></CtHeading>
     </div>
 
     <div ref="page" class="page">
@@ -681,7 +682,9 @@ function adoptDraft() {
 
           <!-- read mode: the maybes, faded, at the end of the strip -->
           <template v-if="!editing && forDay(day, 'idea').length > 0">
-            <h3 data-turn>{{ i18n.t("shiori.ifTime") }}</h3>
+            <CtHeading as="h3" data-turn level="minor" muted>{{
+              i18n.t("shiori.ifTime")
+            }}</CtHeading>
             <ol class="maybes">
               <li
                 v-for="n in forDay(day, 'idea')"
@@ -744,7 +747,7 @@ function adoptDraft() {
         <!-- ---------- appendix ---------- -->
         <template v-else>
           <section v-for="t in APPENDIX_TAGS" :key="t">
-            <h2 data-turn>#{{ t }}</h2>
+            <CtHeading data-turn>#{{ t }}</CtHeading>
             <ul><li
                 v-for="n in byTag(t)"
                 :key="n.id"
@@ -761,12 +764,14 @@ function adoptDraft() {
           </section>
           <!-- the plan out to a calendar: confirmed notes, flights and stays -->
           <section class="out">
-            <h2 data-turn>{{ i18n.t("shiori.out") }}</h2>
+            <CtHeading data-turn>{{ i18n.t("shiori.out") }}</CtHeading>
             <CtButton data-turn @click="downloadCalendar">{{ i18n.t("shiori.calendar") }}</CtButton>
             <p data-turn>{{ i18n.t("shiori.calendarHint") }}</p>
             <!-- the booklet as a page anyone with its link can read -->
             <template v-if="worker.api !== null">
-              <h3 data-turn>{{ i18n.t("shiori.publicTitle") }}</h3>
+              <CtHeading as="h3" data-turn level="minor">{{
+                i18n.t("shiori.publicTitle")
+              }}</CtHeading>
               <p data-turn>{{ i18n.t("shiori.publicHint") }}</p>
               <div v-if="published !== null" class="link" data-turn>
                 <a :href="safeUrl(published.url)" rel="noopener noreferrer" target="_blank">{{
@@ -961,8 +966,6 @@ article {
     /* the open day's heading, at the foot of the lead, over the page */
     > h2 {
       margin: 14px 0 10px;
-      font-size: var(--font-2xl);
-      font-weight: 700;
 
       /* the date after "1日目", quieter; its characters are the morph's own */
       :deep(.date) {
@@ -1280,8 +1283,6 @@ article {
 
       > h3 {
         margin: 18px 0 6px;
-        font-size: var(--font-md);
-        color: var(--muted);
       }
 
       /* a member's draft of the day (a class: the flights above are a div on the page too) */
@@ -1362,8 +1363,6 @@ article {
 
         > h2 {
           margin: 20px 0 10px;
-          font-size: var(--font-2xl);
-          font-weight: 700;
         }
 
         > ul {
@@ -1411,7 +1410,6 @@ article {
         &.out {
           > h3 {
             margin: 22px 0 6px;
-            font-size: var(--font-md);
           }
 
           > .link {

@@ -3,7 +3,15 @@ import { computed, onMounted, ref, shallowRef, useId } from "vue";
 
 import { encode } from "uqr";
 
-import { CtAvatar, CtButton, CtField, CtInput, CtListItem, CtPanel } from "../../../ui/index";
+import {
+  CtAvatar,
+  CtButton,
+  CtField,
+  CtHeading,
+  CtInput,
+  CtListItem,
+  CtPanel,
+} from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -116,7 +124,7 @@ onMounted(() => {
   <!-- once the room has said who this device is in it -->
   <div v-show="me !== undefined" class="people" role="group" :aria-labelledby="`${id}-title`">
     <template v-if="me !== undefined">
-      <h2 :id="`${id}-title`">{{ i18n.t("people.title") }}</h2>
+      <CtHeading :id="`${id}-title`">{{ i18n.t("people.title") }}</CtHeading>
       <p v-if="invited.status.value === 'error'" class="note" role="alert">
         {{ i18n.t("people.loadFailed") }}
         <CtButton @click="() => invited.refetch()">{{ i18n.t("rooms.retry") }}</CtButton>
@@ -252,13 +260,6 @@ onMounted(() => {
 .people {
   display: grid;
   gap: 12px;
-}
-
-h2 {
-  margin: 0;
-  font-size: var(--font-2xl);
-  font-weight: 700;
-  line-height: 1.35;
 }
 
 .out {
