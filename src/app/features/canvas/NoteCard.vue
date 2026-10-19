@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { computed, useId } from "vue";
 
-import { CtHoldButton, CtPaper, safeUrl } from "../../../ui/index";
+import { CtBadge, CtHoldButton, CtPaper, safeUrl } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -178,9 +178,12 @@ const HOLD_MS = 600;
       </template>
       <template #foot>
         <!-- its day on the trip, once it has one: the desk shows how far the plan has come -->
-        <time v-if="note.schedule !== null" class="day" :datetime="note.schedule.date.toString()">{{
-          day
-        }}</time>
+        <CtBadge
+          v-if="note.schedule !== null"
+          as="time"
+          class="day"
+          :datetime="note.schedule.date.toString()"
+        >{{ day }}</CtBadge>
       </template>
     </CtPaper>
     <!-- picked: a handle above to turn it, one at the corner to resize it (the canvas drives both) -->
@@ -401,16 +404,7 @@ const HOLD_MS = 600;
 
 /* a day, wherever it is on the desk: a small stamp, at the end of its line */
 .day {
-  flex-shrink: 0;
   margin-inline-start: auto;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--paper-ink) 10%, transparent);
-  font-size: var(--font-xs);
-  font-weight: 700;
-  line-height: 22px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 
 /*
