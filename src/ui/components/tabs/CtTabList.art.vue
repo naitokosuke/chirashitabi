@@ -36,4 +36,9 @@ const label = computed(() => DAYS.find((d) => d.value === day.value)?.label);
       </CtTabPanel>
     </div>
   </variant>
+  <variant name="Pill">
+    <div class="frame">
+      <CtTabList v-model="day" label="Days" :tabs="DAYS" variant="pill" />
+    </div>
+  </variant>
 </art>

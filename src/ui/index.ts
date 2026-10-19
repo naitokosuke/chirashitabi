@@ -17,6 +17,7 @@ export { default as CtDockItem } from "./components/dock/CtDockItem.vue";
 export { default as CtFab } from "./components/fab/CtFab.vue";
 export { default as CtField } from "./components/field/CtField.vue";
 export { default as CtInput } from "./components/field/CtInput.vue";
+export { default as CtGlass } from "./components/glass/CtGlass.vue";
 export { default as CtHoldButton } from "./components/hold-button/CtHoldButton.vue";
 export { default as CtPaper } from "./components/paper/CtPaper.vue";
 export { default as CtSegmented } from "./components/segmented/CtSegmented.vue";

@@ -5,6 +5,7 @@ import { computed, ref, useTemplateRef } from "vue";
 
 import {
   CtButton,
+  CtGlass,
   CtSegmented,
   CtTabList,
   CtTabPanel,
@@ -447,19 +448,23 @@ function adoptDraft() {
   <article>
     <!-- no bar: the days and the edit/read switch float along the top, on glass -->
     <div class="top">
-      <CtTabList
-        class="tabs"
-        :label="i18n.t('shiori.days')"
-        :tabs="dayTabs"
-        :model-value="activeTab"
-        @update:model-value="showTab"
-      />
-      <CtSegmented
-        :model-value="pickedMode"
-        :label="i18n.t('shiori.mode')"
-        :options="modes"
-        @update:model-value="setMode"
-      />
+      <CtGlass class="days">
+        <CtTabList
+          :label="i18n.t('shiori.days')"
+          :tabs="dayTabs"
+          variant="pill"
+          :model-value="activeTab"
+          @update:model-value="showTab"
+        />
+      </CtGlass>
+      <CtGlass class="mode">
+        <CtSegmented
+          :model-value="pickedMode"
+          :label="i18n.t('shiori.mode')"
+          :options="modes"
+          @update:model-value="setMode"
+        />
+      </CtGlass>
     </div>
 
     <!-- what holds for the whole trip stays put above the page; only the day's page morphs -->
@@ -822,51 +827,15 @@ article {
 
     > * {
       pointer-events: auto;
-      border-radius: 999px;
-      background: var(--glass);
-      backdrop-filter: blur(16px) saturate(1.5);
-      -webkit-backdrop-filter: blur(16px) saturate(1.5);
-      box-shadow:
-        inset 0 0 0 1px color-mix(in oklch, var(--line) 80%, transparent),
-        var(--shadow-tool);
     }
 
-    /*
-     * The days: as wide as they need, scrolling past the column's width. On glass, the open
-     * day is the same raised pill as the switch beside it, not an underline on the glass's edge.
-     */
-    .tabs {
+    /* the days: as wide as they need, scrolling past the column's width */
+    > .days {
       flex: 0 1 auto;
-      min-width: 0;
-      padding: 2px;
-      border-block-end: 0;
-      /* the days float over their pill here, and no further */
-      isolation: isolate;
-
-      /* on a phone the days run past the screen: the row fades out at its end, saying so */
-      @media (--narrow) {
-        padding-inline-end: 20px;
-        mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
-      }
-
-      > :deep(button) {
-        z-index: var(--z-float);
-        min-height: 32px;
-        padding: 0 14px;
-        border-radius: 999px;
-      }
-
-      > :deep(span) {
-        border: 0;
-        border-radius: 999px;
-        background: var(--surface);
-        box-shadow:
-          var(--shadow-tool),
-          0 0 0 1px var(--line);
-      }
     }
 
-    > :last-child {
+    /* the edit/read switch, at the end */
+    > .mode {
       flex-shrink: 0;
       margin-inline-start: auto;
     }
