@@ -54,7 +54,7 @@ function submit(event: Event) {
 
     /* its foot sits on the dock's footprint, not on the screen's edge */
     > .foot {
-      padding-block-end: 12px;
+      padding-block-end: var(--space-6);
     }
   }
 }
@@ -63,14 +63,14 @@ function submit(event: Event) {
 .body {
   flex: 1;
   overflow-y: auto;
-  padding: var(--top-clear) var(--sheet-inline, var(--page-margin)) 24px;
+  padding: var(--top-clear) var(--sheet-inline, var(--page-margin)) var(--space-12);
 }
 
 .foot {
   flex-shrink: 0;
-  padding: 12px var(--sheet-inline, var(--page-margin))
+  padding: var(--space-6) var(--sheet-inline, var(--page-margin))
     calc(12px + env(safe-area-inset-bottom, 0px));
-  border-block-start: 1px solid var(--line);
+  border-block-start: var(--line-width) solid var(--line);
   background: var(--bg);
 }
 </style>

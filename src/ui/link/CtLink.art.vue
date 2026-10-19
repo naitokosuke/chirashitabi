@@ -12,14 +12,14 @@ defineArt("./CtLink.vue", {
 <style scoped>
 .stack {
   display: grid;
-  gap: 12px;
-  max-width: 420px;
+  gap: var(--space-6);
+  max-width: var(--stage-md);
 }
 
 .line {
   margin: 0;
   display: flex;
-  gap: 12px;
+  gap: var(--space-6);
   font-size: var(--font-sm);
   color: var(--muted);
 }

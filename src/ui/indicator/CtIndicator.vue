@@ -108,7 +108,7 @@ const edges = computed(() => {
   inset-inline-start: var(--l, 0);
   inset-inline-end: calc(100% - var(--r, 0));
   height: var(--h, 0);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   opacity: 0;
   pointer-events: none;
 
@@ -120,11 +120,11 @@ const edges = computed(() => {
     background: var(--ink);
   }
   &[data-look="ring"] {
-    box-shadow: inset 0 0 0 2px var(--ink);
+    box-shadow: inset 0 0 0 var(--ring-width) var(--ink);
   }
   &[data-look="surface"] {
     background: var(--surface);
-    box-shadow: var(--shadow-tool), 0 0 0 1px var(--line);
+    box-shadow: var(--shadow-tool), 0 0 0 var(--line-width) var(--line);
   }
 
   &[data-ready] {

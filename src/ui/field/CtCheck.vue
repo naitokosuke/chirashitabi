@@ -23,11 +23,11 @@ defineSlots<{ default(): unknown }>();
 .check {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-6);
   min-height: var(--tap);
 
   &[data-quiet] {
-    gap: 8px;
+    gap: var(--space-4);
     font-size: var(--font-sm);
     color: var(--muted);
   }

@@ -77,8 +77,8 @@ const slots = useSlots();
   /* its own block, so the first margin inside stays inside */
   display: flow-root;
   box-sizing: border-box;
-  width: 164px;
-  border-radius: 6px;
+  width: var(--size-paper);
+  border-radius: var(--radius-3);
   background: var(--paper);
   color: var(--paper-ink);
   box-shadow: var(--shadow-paper);
@@ -92,7 +92,7 @@ const slots = useSlots();
   &[data-selected] {
     box-shadow:
       var(--shadow-float),
-      0 0 0 2px var(--ink);
+      0 0 0 var(--ring-width) var(--ink);
   }
 
   /* held: off the desk, its shadow fallen far and soft; still framed if it is the one picked */
@@ -108,7 +108,7 @@ const slots = useSlots();
   &[data-lifted][data-selected] {
     box-shadow:
       var(--shadow-lift),
-      0 0 0 2px var(--ink);
+      0 0 0 var(--ring-width) var(--ink);
   }
 
   /* the agent's slip is cut square: a machine's paper, never a person's soft corner */
@@ -116,29 +116,29 @@ const slots = useSlots();
     border-radius: 0;
 
     > .body:not(:empty) {
-      padding-block-start: 10px;
+      padding-block-start: var(--space-5);
     }
 
     /* a slip's answers, side by side across it */
     > .foot {
-      gap: 8px;
-      padding-block-start: 10px;
+      gap: var(--space-4);
+      padding-block-start: var(--space-5);
     }
   }
 
   /* a print: a person's soft corner, wider, the picture in a wide mount */
   &[data-variant="print"] {
-    width: 220px;
+    width: var(--size-print);
 
     > .body:not(:empty) {
-      padding: 12px 16px 0;
+      padding: var(--space-6) var(--space-8) 0;
     }
 
     > .foot {
-      padding: 8px 16px 16px;
+      padding: var(--space-4) var(--space-8) var(--space-8);
 
       &:empty {
-        padding: 0 0 16px;
+        padding: 0 0 var(--space-8);
       }
     }
   }
@@ -150,7 +150,7 @@ const slots = useSlots();
     > .body {
       flex: 1;
       min-width: 0;
-      padding: 10px 12px;
+      padding: var(--space-5) var(--space-6);
     }
   }
 
@@ -168,24 +168,24 @@ const slots = useSlots();
 /* the fold down a row's start edge: lightness only, so a yellow fold stays yellow */
 .tab {
   flex-shrink: 0;
-  width: 76px;
+  width: var(--size-fold);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 10px 6px;
-  border-radius: 6px 0 0 6px;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-3);
+  border-radius: var(--radius-3) 0 0 var(--radius-3);
   background: oklch(from var(--paper) calc(l - 0.045) c h);
 }
 
 /* a word pressed in the paper's ink across the top end corner */
 .stamp {
   position: absolute;
-  inset-block-start: 6px;
-  inset-inline-end: 10px;
-  padding: 1px 8px;
-  border: 2px solid var(--paper-ink);
-  border-radius: 4px;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-5);
+  padding: var(--space-px) var(--space-4);
+  border: var(--ring-width) solid var(--paper-ink);
+  border-radius: var(--radius-2);
   color: var(--paper-ink);
   font-size: var(--font-sm);
   font-weight: 700;
@@ -199,10 +199,10 @@ const slots = useSlots();
 .strip {
   display: flex;
   align-items: center;
-  height: 20px;
-  padding-inline: 12px;
+  height: var(--size-strip);
+  padding-inline: var(--space-6);
   background: color-mix(in oklch, var(--paper-ink) 5%, transparent);
-  border-block-end: 1px dashed color-mix(in oklch, var(--paper-ink) 35%, transparent);
+  border-block-end: var(--line-width) dashed color-mix(in oklch, var(--paper-ink) 35%, transparent);
 }
 
 .label {
@@ -217,7 +217,7 @@ const slots = useSlots();
 }
 
 .body {
-  padding: 12px 12px 0;
+  padding: var(--space-6) var(--space-6) 0;
 
   /* nothing written: no room for it either */
   &:empty {
@@ -228,21 +228,21 @@ const slots = useSlots();
 .foot {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-6);
   min-width: 0;
-  padding: 8px 12px 12px;
+  padding: var(--space-4) var(--space-6) var(--space-6);
 
   &:empty {
-    padding: 0 0 12px;
+    padding: 0 0 var(--space-6);
   }
 }
 
 /* a print: the picture in an ink-edged frame, a wide mount of the paper round it */
 .picture {
-  margin: 16px 16px 0;
-  border-radius: 2px;
+  margin: var(--space-8) var(--space-8) 0;
+  border-radius: var(--radius-1);
   overflow: hidden;
   background: color-mix(in oklch, var(--paper-ink) 6%, transparent);
-  outline: 1px solid color-mix(in oklch, var(--paper-ink) 35%, transparent);
+  outline: var(--line-width) solid color-mix(in oklch, var(--paper-ink) 35%, transparent);
 }
 </style>

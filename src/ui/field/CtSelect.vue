@@ -18,10 +18,10 @@ defineSlots<{ default(): unknown }>();
 <style scoped>
 select {
   width: 100%;
-  min-height: 46px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  min-height: var(--size-field);
+  padding: var(--space-5) var(--space-6);
+  border: var(--line-width) solid var(--line);
+  border-radius: var(--radius-5);
   background: var(--field-bg, var(--surface));
   color: var(--ink);
   font: inherit;
@@ -33,7 +33,7 @@ select {
 
   &[data-size="sm"] {
     min-height: var(--tap);
-    padding: 2px;
+    padding: var(--space-1);
     font-size: var(--font-xs);
     font-weight: 700;
     text-align: center;

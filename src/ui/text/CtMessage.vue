@@ -24,7 +24,7 @@ p {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 12px;
+  gap: var(--space-3) var(--space-6);
   font-size: var(--font-sm);
   color: var(--ink);
 
@@ -33,10 +33,10 @@ p {
   }
 
   &[data-boxed] {
-    padding: 12px 14px;
-    border-radius: 14px;
+    padding: var(--space-6) var(--space-7);
+    border-radius: var(--radius-7);
     background: var(--surface);
-    box-shadow: inset 0 0 0 1px var(--line);
+    box-shadow: inset 0 0 0 var(--line-width) var(--line);
     font-size: var(--font-md);
   }
 }

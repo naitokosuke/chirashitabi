@@ -10,8 +10,8 @@ defineArt("./CtShareBar.vue", {
 <style scoped>
 .stack {
   display: grid;
-  gap: 24px;
-  max-width: 420px;
+  gap: var(--space-12);
+  max-width: var(--stage-md);
 }
 </style>
 

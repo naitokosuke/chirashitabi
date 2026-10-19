@@ -21,8 +21,8 @@ const day = ref("11/4");
 /* the view it floats over; the menu places itself against it */
 .view {
   position: relative;
-  height: 180px;
-  border-radius: 12px;
+  height: var(--stage-short);
+  border-radius: var(--radius-6);
   background: var(--wash);
 }
 </style>

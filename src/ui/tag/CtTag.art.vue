@@ -15,13 +15,13 @@ const MEMBERS = [
 <style scoped>
 .stack {
   display: grid;
-  gap: 12px;
-  max-width: 480px;
+  gap: var(--space-6);
+  max-width: var(--stage-lg);
 }
 
 a {
   display: block;
-  border-radius: 12px 20px 20px 12px;
+  border-radius: var(--radius-6) var(--radius-10) var(--radius-10) var(--radius-6);
   color: inherit;
   text-decoration: none;
 }

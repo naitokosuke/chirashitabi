@@ -38,16 +38,16 @@ const { chosen, ready } = useIndicator(list, () => [props.modelValue, props.opti
 [role="radiogroup"] {
   position: relative;
   display: flex;
-  padding: 2px;
-  border-radius: 999px;
+  padding: var(--space-1);
+  border-radius: var(--radius-pill);
   /* the track: a wash of ink, or what it sits on when that is its track (CtGlass) */
   background: var(--track-bg, var(--wash));
 
   > button {
     position: relative;
-    min-height: 32px; /* with the track's 2px it is the 36px a thumb is asked to hit */
-    padding: 0 12px;
-    border-radius: 999px;
+    min-height: calc(var(--tap) - 2 * var(--space-1)); /* with the track's padding it is the tap a thumb is asked to hit */
+    padding: 0 var(--space-6);
+    border-radius: var(--radius-pill);
     font-size: var(--font-sm);
     font-weight: 700;
     color: var(--muted);

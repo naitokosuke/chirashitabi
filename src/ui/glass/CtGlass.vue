@@ -16,7 +16,7 @@ div {
   --track-bg: transparent;
   display: flex;
   min-width: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--glass);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);

@@ -20,7 +20,7 @@ defineSlots<{ default(): unknown; note?(): unknown }>();
 <style scoped>
 div {
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
   min-width: 0;
 
   > label,
@@ -30,7 +30,7 @@ div {
     color: var(--muted);
 
     > em {
-      margin-inline-start: 8px;
+      margin-inline-start: var(--space-4);
       font-style: normal;
       font-weight: 400;
       color: var(--ink);

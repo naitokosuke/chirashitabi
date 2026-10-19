@@ -13,7 +13,7 @@ const days = ref(4);
 
 <style scoped>
 .frame {
-  max-width: 220px;
+  max-width: var(--stage-sm);
 }
 </style>
 

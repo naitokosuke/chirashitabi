@@ -53,9 +53,9 @@ const props = defineProps<{
 figure {
   > div {
     display: flex;
-    gap: 2px;
-    height: 10px;
-    border-radius: 999px;
+    gap: var(--space-1);
+    height: var(--size-key);
+    border-radius: var(--radius-pill);
     overflow: hidden;
     background: var(--line);
 
@@ -67,23 +67,23 @@ figure {
 
   > ul {
     list-style: none;
-    margin: 10px 0 0;
+    margin: var(--space-5) 0 0;
     padding: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 16px;
+    gap: var(--space-2) var(--space-8);
     font-size: var(--font-sm);
     color: var(--muted);
 
     > li {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: var(--space-3);
 
       > span {
-        width: 10px;
-        height: 10px;
-        border-radius: 3px;
+        width: var(--size-key);
+        height: var(--size-key);
+        border-radius: var(--radius-1);
         background: var(--key);
       }
 

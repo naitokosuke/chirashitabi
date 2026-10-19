@@ -26,11 +26,11 @@ const mode = ref("edit");
 .desk {
   display: flex;
   align-items: center;
-  gap: 8px;
-  max-width: 420px;
-  padding: 24px 12px;
-  border-radius: 12px;
-  background: repeating-linear-gradient(45deg, var(--wash) 0 12px, transparent 12px 24px);
+  gap: var(--space-4);
+  max-width: var(--stage-md);
+  padding: var(--space-12) var(--space-6);
+  border-radius: var(--radius-6);
+  background: repeating-linear-gradient(45deg, var(--wash) 0 var(--space-6), transparent var(--space-6) var(--space-12));
 }
 
 /* as the booklet lays them out: the days scroll in what is left, the switch keeps its width */

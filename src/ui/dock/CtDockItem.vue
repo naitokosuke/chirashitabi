@@ -50,7 +50,7 @@ button {
   height: var(--cell);
   padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-6);
   background: transparent;
   color: var(--muted);
   text-decoration: none;
@@ -77,8 +77,8 @@ button {
   }
 
   &:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
+    outline: var(--ring-width) solid var(--ink);
+    outline-offset: var(--ring-offset);
   }
 
   /* the icon grows from its foot, up out of the glass */
@@ -87,7 +87,7 @@ button {
     place-items: center;
     width: var(--cell);
     height: var(--cell);
-    border-radius: 12px;
+    border-radius: var(--radius-6);
     scale: var(--m, 1);
     transform-origin: 50% 100%;
     transition:
@@ -110,10 +110,10 @@ button {
   > .tip {
     position: absolute;
     inset-inline-start: 50%;
-    inset-block-end: calc(var(--cell) * var(--m, 1) + 10px);
-    translate: -50% 4px;
-    padding: 4px 10px;
-    border-radius: 8px;
+    inset-block-end: calc(var(--cell) * var(--m, 1) + var(--space-5));
+    translate: -50% var(--space-2);
+    padding: var(--space-2) var(--space-5);
+    border-radius: var(--radius-4);
     background: var(--ink);
     color: var(--on-ink);
     font-size: var(--font-xs);

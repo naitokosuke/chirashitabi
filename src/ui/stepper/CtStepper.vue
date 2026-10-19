@@ -55,17 +55,17 @@ const step = (by: number) => (model.value = Math.min(max, Math.max(min, model.va
 div {
   display: flex;
   align-items: center;
-  min-height: 46px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  min-height: var(--size-field);
+  border: var(--line-width) solid var(--line);
+  border-radius: var(--radius-5);
   background: var(--field-bg, var(--surface));
 
   > button {
     display: grid;
     place-items: center;
-    width: 46px;
+    width: var(--size-field);
     align-self: stretch;
-    border-radius: 10px;
+    border-radius: var(--radius-5);
     color: var(--ink);
 
     &:disabled {
@@ -75,7 +75,7 @@ div {
 
     /* inside the box's edge, which would cut it off */
     &:focus-visible {
-      outline-offset: -2px;
+      outline-offset: calc(-1 * var(--ring-offset));
     }
   }
 

@@ -44,9 +44,9 @@ div:has(> div) {
     &::before {
       content: "";
       flex-shrink: 0;
-      width: 1px;
-      height: 28px;
-      margin-inline: 6px;
+      width: var(--line-width);
+      height: var(--size-divider);
+      margin-inline: var(--space-3);
       background: var(--line);
     }
   }

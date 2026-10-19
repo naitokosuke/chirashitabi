@@ -34,6 +34,8 @@ watch(
     }
     const eased = css.getPropertyValue("--ease-morph").trim();
     const easing = eased === "" ? "ease-out" : eased;
+    // how much the characters blur as they come and go (tokens.css)
+    const blur = `blur(${css.getPropertyValue("--blur-morph").trim()})`;
 
     // where every character is now
     const before = new Map<number, { x: number; y: number }>();
@@ -53,7 +55,7 @@ watch(
         .animate(
           [
             { opacity: 1, filter: "blur(0)", transform: "none" },
-            { opacity: 0, filter: "blur(3px)", transform: "translateY(-0.3em)" },
+            { opacity: 0, filter: blur, transform: "translateY(-0.3em)" },
           ],
           { duration, easing },
         )
@@ -76,7 +78,7 @@ watch(
       } else {
         g.animate(
           [
-            { opacity: 0, filter: "blur(3px)", transform: "translateY(0.3em)" },
+            { opacity: 0, filter: blur, transform: "translateY(0.3em)" },
             { opacity: 1, filter: "blur(0)", transform: "none" },
           ],
           { duration, easing, fill: "backwards" },
@@ -107,8 +109,8 @@ span {
   white-space: pre;
   > span:first-child {
     position: absolute;
-    width: 1px;
-    height: 1px;
+    width: var(--space-px);
+    height: var(--space-px);
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;

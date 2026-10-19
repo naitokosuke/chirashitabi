@@ -21,16 +21,16 @@ const name = ref("Taiwan trip");
 <style scoped>
 .stage {
   position: relative;
-  height: 420px;
-  max-width: 420px;
+  height: var(--stage-md);
+  max-width: var(--stage-md);
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: var(--radius-6);
 }
 
 .fields {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--space-9);
 }
 
 .act {

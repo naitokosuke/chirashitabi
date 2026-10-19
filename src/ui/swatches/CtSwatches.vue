@@ -4,7 +4,7 @@ import { useTemplateRef } from "vue";
 import CtIndicator, { useIndicator } from "../indicator/CtIndicator.vue";
 
 /**
- * Colors to pick one of: a row of them, the chosen one ringed in ink (CtIndicator, hollow, 4px
+ * Colors to pick one of: a row of them, the chosen one ringed in ink (CtIndicator, hollow, a step
  * out). Picking another, the ring stretches across to it and contracts around it.
  */
 const props = defineProps<{ colors: readonly string[]; modelValue: string; label: string }>();
@@ -37,20 +37,20 @@ const { chosen, ready } = useIndicator(root, () => [props.modelValue, props.colo
   position: relative;
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: var(--space-7);
 
   /* the color itself */
   > button {
-    width: 36px;
-    height: 36px;
+    width: var(--tap);
+    height: var(--tap);
     padding: 0;
     border-radius: 50%;
     border: 0;
     background: var(--swatch);
 
     &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: 8px;
+      outline: var(--ring-width) solid var(--ink);
+      outline-offset: var(--space-4);
     }
   }
 }

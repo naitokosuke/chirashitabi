@@ -20,13 +20,13 @@ defineSlots<{ default(): unknown }>();
 
 button {
   position: absolute;
-  inset-inline-end: 16px;
+  inset-inline-end: var(--space-8);
   /* above the dock's footprint, at the bottom end of the view */
-  inset-block-end: calc(var(--dock-clear) + 16px);
+  inset-block-end: calc(var(--dock-clear) + var(--space-8));
   z-index: var(--z-chrome);
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
+  width: var(--size-fab);
+  height: var(--size-fab);
+  border-radius: var(--radius-9);
   background: var(--ink);
   color: var(--on-ink);
   display: flex;

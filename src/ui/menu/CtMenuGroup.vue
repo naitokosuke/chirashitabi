@@ -16,9 +16,9 @@ div {
   flex-basis: 100%;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  padding-block-end: 4px;
-  border-block-end: 1px solid var(--line);
+  gap: var(--space-2);
+  padding-block-end: var(--space-2);
+  border-block-end: var(--line-width) solid var(--line);
   font-variant-numeric: tabular-nums;
 }
 </style>

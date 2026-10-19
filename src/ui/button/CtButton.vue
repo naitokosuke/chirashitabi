@@ -60,10 +60,10 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-3);
   min-height: var(--tap);
-  padding: 0 14px;
-  border-radius: 999px;
+  padding: 0 var(--space-7);
+  border-radius: var(--radius-pill);
   background: var(--wash);
   color: var(--ink);
   font-size: var(--font-sm);
@@ -80,8 +80,8 @@ button {
   /* waiting (on the agent, on the Worker): a dot breathing before the words, which say what is happening */
   &[aria-busy="true"]::before {
     content: "";
-    width: 6px;
-    height: 6px;
+    width: var(--size-dot-sm);
+    height: var(--size-dot-sm);
     border-radius: 50%;
     background: currentColor;
     animation: breathe 1s ease-in-out infinite alternate;
@@ -92,8 +92,8 @@ button {
   }
 
   &[data-size="lg"] {
-    min-height: 46px;
-    padding: 0 20px;
+    min-height: var(--size-field);
+    padding: 0 var(--space-10);
     font-size: var(--font-base);
   }
 
@@ -123,9 +123,9 @@ button {
   }
 
   &[data-variant="ask"] {
-    padding: 0 12px;
+    padding: 0 var(--space-6);
     background: var(--surface);
-    border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
+    border: var(--line-width) dashed color-mix(in oklch, var(--ink) 30%, var(--line));
 
     /* the agent cannot be asked now: said by the words going grey, the edge stays */
     &:disabled {
@@ -136,7 +136,7 @@ button {
 
   &[data-variant="blank"] {
     background: transparent;
-    border: 1.5px dashed color-mix(in oklch, var(--ink) 28%, transparent);
+    border: var(--line-width-drawn) dashed color-mix(in oklch, var(--ink) 28%, transparent);
     color: var(--muted);
 
     @media (--can-hover) {
@@ -149,13 +149,13 @@ button {
   &[data-variant="text"] {
     /* a thumb's height to hit, taken back out of the line so the line keeps its own */
     margin-block: calc((1lh - var(--tap)) / 2);
-    padding: 0 4px;
-    border-radius: 4px;
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-2);
     background: none;
     color: inherit;
     font-size: inherit;
     text-decoration: underline;
-    text-underline-offset: 3px;
+    text-underline-offset: var(--underline-offset);
 
     /* among a line's small notes: as small as they are */
     &[data-size="sm"] {

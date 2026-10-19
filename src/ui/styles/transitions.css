@@ -12,11 +12,11 @@
 }
 .ct-morph-enter-from {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(var(--space-4));
 }
 .ct-morph-leave-to {
   opacity: 0;
-  transform: translateY(-6px);
+  transform: translateY(calc(-1 * var(--space-3)));
 }
 
 .ct-fade-enter-active,
@@ -36,7 +36,7 @@
 }
 .ct-slide-enter-from,
 .ct-slide-leave-to {
-  transform: translateX(28px);
+  transform: translateX(var(--space-14));
   opacity: 0;
 }
 
@@ -84,7 +84,7 @@
 :root:active-view-transition-type(theme-dark)::view-transition-old(root) {
   mask-image: radial-gradient(
     circle at var(--theme-x) var(--theme-y),
-    #000 calc(var(--ink-r) - 56px),
+    #000 calc(var(--ink-r) - var(--space-28)),
     transparent var(--ink-r)
   );
 }
@@ -101,12 +101,12 @@
     --ink-r: 0px;
   }
   to {
-    --ink-r: calc(var(--theme-r) + 56px);
+    --ink-r: calc(var(--theme-r) + var(--space-28));
   }
 }
 @keyframes ct-dusk {
   from {
-    --ink-r: calc(var(--theme-r) + 56px);
+    --ink-r: calc(var(--theme-r) + var(--space-28));
   }
   to {
     --ink-r: 0px;

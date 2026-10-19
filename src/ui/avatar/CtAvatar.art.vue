@@ -13,7 +13,7 @@ defineArt("./CtAvatar.vue", {
 .row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-6);
 }
 </style>
 

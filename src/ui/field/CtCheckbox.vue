@@ -13,8 +13,8 @@ const model = defineModel<boolean>({ default: false });
 <style scoped>
 input {
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
+  width: var(--size-check);
+  height: var(--size-check);
   margin: 0;
   accent-color: var(--ink);
 }

@@ -28,7 +28,7 @@ function remove(t: string) {
 
 <style scoped>
 .form {
-  max-width: 360px;
+  max-width: var(--stage-sm);
 }
 </style>
 

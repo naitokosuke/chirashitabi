@@ -20,7 +20,7 @@ const parts = computed(() => [
 .row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-6);
 
   > h2 {
     margin: 0;

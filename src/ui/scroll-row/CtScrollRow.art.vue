@@ -20,7 +20,7 @@ const SLIPS = ["Shaved ice", "Honey lager", "EasyCard", "Night market", "Temple"
 /* narrower than what is in it, so the row has to scroll */
 .frame {
   display: flex;
-  max-width: 360px;
+  max-width: var(--stage-sm);
 }
 
 li {

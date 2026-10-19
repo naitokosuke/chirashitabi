@@ -20,8 +20,8 @@ function toggle() {
 <style scoped>
 .stack {
   display: grid;
-  gap: 16px;
-  max-width: 360px;
+  gap: var(--space-8);
+  max-width: var(--stage-sm);
 }
 
 .slip {

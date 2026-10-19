@@ -186,10 +186,10 @@ onBeforeUnmount(() => {
 .set {
   flex-shrink: 0;
   display: flex;
-  gap: 6px;
+  gap: var(--space-3);
   min-inline-size: 100%;
   inline-size: max-content;
-  padding-inline-start: 10px;
+  padding-inline-start: var(--space-5);
 }
 
 /* let go, it settles; under a pointer it follows at once */

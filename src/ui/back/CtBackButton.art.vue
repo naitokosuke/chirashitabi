@@ -10,8 +10,8 @@ defineArt("./CtBackButton.vue", {
 <style scoped>
 .sheet {
   position: relative;
-  height: 160px;
-  border-radius: 12px;
+  height: var(--stage-short);
+  border-radius: var(--radius-6);
   background: var(--bg);
 }
 </style>

@@ -13,8 +13,8 @@ defineArt("./CtTicket.vue", {
 <style scoped>
 .stack {
   display: grid;
-  gap: 8px;
-  max-width: 420px;
+  gap: var(--space-4);
+  max-width: var(--stage-md);
 }
 </style>
 
