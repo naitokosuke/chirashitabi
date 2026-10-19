@@ -21,7 +21,7 @@ const away = ref(false);
 
 <style scoped>
 .screen {
-  height: 220px;
+  height: var(--stage-tall);
   transform: translate(0);
 }
 </style>

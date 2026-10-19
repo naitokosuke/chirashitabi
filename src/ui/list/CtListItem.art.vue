@@ -14,7 +14,7 @@ defineArt("./CtListItem.vue", {
 
 <style scoped>
 .frame {
-  max-width: 420px;
+  max-width: var(--stage-md);
 }
 </style>
 

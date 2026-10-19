@@ -62,9 +62,9 @@ defineSlots<{ default?(): unknown }>();
   --tag-ink: var(--on-ink);
   position: relative;
   display: grid;
-  gap: 4px;
-  padding: 16px 20px 16px 52px;
-  border-radius: 12px 20px 20px 12px;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-10) var(--space-8) var(--space-26);
+  border-radius: var(--radius-6) var(--radius-10) var(--radius-10) var(--radius-6);
   background: var(--ink);
   color: var(--tag-ink);
   box-shadow: var(--shadow-paper);
@@ -73,7 +73,7 @@ defineSlots<{ default?(): unknown }>();
   &[data-past] {
     --tag-ink: var(--ink);
     background: var(--surface);
-    box-shadow: inset 0 0 0 1px var(--line);
+    box-shadow: inset 0 0 0 var(--line-width) var(--line);
   }
 
   /* in a link: picked up, a little, as a tag is when reached for; pressed down when taken */
@@ -86,12 +86,12 @@ defineSlots<{ default?(): unknown }>();
   @media (--can-hover) {
     a:hover > & {
       box-shadow: var(--shadow-lift);
-      translate: 0 -1px;
+      translate: 0 calc(-1 * var(--space-px));
     }
   }
 
   a:active > & {
-    translate: 0 1px;
+    translate: 0 var(--space-px);
     box-shadow: var(--shadow-tool);
   }
 
@@ -99,12 +99,12 @@ defineSlots<{ default?(): unknown }>();
   &[data-variant="blank"] {
     display: flex;
     align-items: center;
-    gap: 8px;
-    min-height: 72px;
+    gap: var(--space-4);
+    min-height: var(--size-tag-blank);
     padding-block: 0;
     background: transparent;
     box-shadow: none;
-    border: 1.5px dashed color-mix(in oklch, var(--ink) 28%, transparent);
+    border: var(--line-width-drawn) dashed color-mix(in oklch, var(--ink) 28%, transparent);
     color: var(--muted);
     font-size: var(--font-base);
     font-weight: 700;
@@ -116,7 +116,7 @@ defineSlots<{ default?(): unknown }>();
     > .hole {
       background: none;
       box-shadow: none;
-      border: 1.5px dashed color-mix(in oklch, var(--ink) 28%, transparent);
+      border: var(--line-width-drawn) dashed color-mix(in oklch, var(--ink) 28%, transparent);
     }
 
     @media (--can-hover) {
@@ -137,7 +137,7 @@ defineSlots<{ default?(): unknown }>();
 
   /* where a tag will hang, while the list is on its way */
   &[data-variant="loading"] {
-    height: 104px;
+    height: var(--size-tag);
     padding: 0;
     background: var(--wash);
     box-shadow: none;
@@ -147,22 +147,22 @@ defineSlots<{ default?(): unknown }>();
 /* the punched hole, with the ring that keeps it from tearing */
 .hole {
   position: absolute;
-  inset-inline-start: 18px;
+  inset-inline-start: var(--space-9);
   inset-block-start: 50%;
   translate: 0 -50%;
-  width: 14px;
-  height: 14px;
+  width: var(--size-hole);
+  height: var(--size-hole);
   border-radius: 50%;
   background: var(--bg);
   box-shadow:
-    inset 0 1px 2px rgb(0 0 0 / 0.35),
-    0 0 0 3px color-mix(in oklch, var(--tag-ink) 22%, transparent);
+    inset 0 var(--space-px) var(--space-1) rgb(0 0 0 / 0.35),
+    0 0 0 var(--hole-ring) color-mix(in oklch, var(--tag-ink) 22%, transparent);
 }
 
 .head {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: var(--space-6);
   min-width: 0;
 }
 
@@ -205,8 +205,8 @@ p {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-block-start: 8px;
+  gap: var(--space-6);
+  margin-block-start: var(--space-4);
   font-size: var(--font-xs);
   opacity: 0.8;
 
@@ -216,24 +216,24 @@ p {
     padding: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 12px;
+    gap: var(--space-2) var(--space-6);
     min-width: 0;
 
     > li {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: var(--space-3);
 
       /* whose hand: round for a person, square for the agent */
       > span {
-        width: 8px;
-        height: 8px;
+        width: var(--size-dot);
+        height: var(--size-dot);
         border-radius: 50%;
         background: var(--who);
-        box-shadow: 0 0 0 1.5px color-mix(in oklch, var(--tag-ink) 70%, transparent);
+        box-shadow: 0 0 0 var(--line-width-drawn) color-mix(in oklch, var(--tag-ink) 70%, transparent);
 
         &[data-agent] {
-          border-radius: 1px;
+          border-radius: var(--radius-1);
         }
       }
     }

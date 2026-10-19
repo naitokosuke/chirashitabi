@@ -19,11 +19,11 @@ const label = computed(() => DAYS.find((d) => d.value === day.value)?.label);
 <style scoped>
 /* narrower than the days, so the row has to scroll */
 .frame {
-  max-width: 360px;
+  max-width: var(--stage-sm);
 }
 
 .plan {
-  padding: 16px 4px;
+  padding: var(--space-8) var(--space-2);
 }
 </style>
 

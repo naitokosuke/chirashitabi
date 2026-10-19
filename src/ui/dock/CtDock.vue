@@ -133,9 +133,9 @@ function onLeave() {
 
 nav {
   /* an icon's cell at rest; `--m` (per item) is how much it has grown under the pointer */
-  --cell: 40px;
+  --cell: var(--size-dock-cell);
   @media (--wide) {
-    --cell: 44px;
+    --cell: var(--size-dock-cell-wide);
   }
 
   position: fixed;
@@ -149,16 +149,16 @@ nav {
   display: flex;
   align-items: center;
   height: var(--dock-height);
-  max-width: calc(100vw - 16px);
-  padding: 0 8px;
-  border-radius: 22px;
+  max-width: calc(100vw - var(--space-8));
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-11);
   background: var(--glass);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   /* a hairline, and a lit top edge as glass has */
   box-shadow:
     var(--glass-edge),
-    inset 0 1px 0 light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.08)),
+    inset 0 var(--line-width) 0 light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.08)),
     var(--shadow-float);
   transition:
     translate var(--duration-morph) var(--ease-morph),
@@ -168,10 +168,10 @@ nav {
   > .dot {
     position: absolute;
     inset-inline-start: 50%;
-    inset-block-end: 5px;
-    width: 4px;
-    height: 4px;
-    margin-inline-start: -2px;
+    inset-block-end: var(--space-2);
+    width: var(--size-dot-xs);
+    height: var(--size-dot-xs);
+    margin-inline-start: calc(var(--size-dot-xs) / -2);
     border-radius: 50%;
     background: var(--ink);
     translate: var(--x, 0) 0;

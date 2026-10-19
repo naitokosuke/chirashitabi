@@ -14,10 +14,10 @@
 <style scoped>
 input {
   width: 100%;
-  min-height: 46px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  min-height: var(--size-field);
+  padding: var(--space-4);
+  border: var(--line-width) solid var(--line);
+  border-radius: var(--radius-5);
   background: var(--field-bg, var(--surface));
   color: var(--muted);
   font: inherit;
@@ -28,11 +28,11 @@ input {
   }
 
   &::file-selector-button {
-    margin-inline-end: 10px;
-    min-height: 32px;
-    padding: 0 12px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
+    margin-inline-end: var(--space-5);
+    min-height: var(--size-inset-control);
+    padding: 0 var(--space-6);
+    border: var(--line-width) solid var(--line);
+    border-radius: var(--radius-pill);
     background: var(--bg);
     color: var(--ink);
     font: inherit;

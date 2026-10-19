@@ -38,15 +38,15 @@ button {
       position: absolute;
       inset: 0;
       /* a paper's corner */
-      border-radius: 6px;
+      border-radius: var(--radius-3);
     }
 
     &:focus-visible {
       outline: none;
 
       &::after {
-        outline: 2px solid var(--ink);
-        outline-offset: 2px;
+        outline: var(--ring-width) solid var(--ink);
+        outline-offset: var(--ring-offset);
       }
     }
   }

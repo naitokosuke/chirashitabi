@@ -27,12 +27,12 @@ const slots = useSlots();
 li {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 60px;
-  padding: 10px 14px;
+  gap: var(--space-6);
+  min-height: var(--size-row);
+  padding: var(--space-5) var(--space-7);
 
   & + li {
-    border-block-start: 1px solid var(--line);
+    border-block-start: var(--line-width) solid var(--line);
   }
 
   > .main {
@@ -41,7 +41,7 @@ li {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 2px 8px;
+    gap: var(--space-1) var(--space-4);
 
     > b {
       min-width: 0;
@@ -61,7 +61,7 @@ li {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
-    gap: 6px;
+    gap: var(--space-3);
   }
 
   &[data-faded] > .main > b {

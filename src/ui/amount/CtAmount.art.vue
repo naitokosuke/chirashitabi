@@ -11,8 +11,8 @@ defineArt("./CtAmount.vue", {
 <style scoped>
 .stack {
   display: grid;
-  gap: 16px;
-  max-width: 420px;
+  gap: var(--space-8);
+  max-width: var(--stage-md);
 }
 </style>
 

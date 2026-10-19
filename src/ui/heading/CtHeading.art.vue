@@ -10,7 +10,7 @@ defineArt("./CtHeading.vue", {
 <style scoped>
 .stack {
   display: grid;
-  gap: 12px;
+  gap: var(--space-6);
 }
 </style>
 

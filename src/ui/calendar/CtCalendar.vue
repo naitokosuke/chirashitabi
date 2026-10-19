@@ -173,10 +173,10 @@ async function walk(e: KeyboardEvent, day: Temporal.PlainDate) {
 
 .calendar {
   display: grid;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: var(--line-width) solid var(--line);
+  border-radius: var(--radius-7);
   background: var(--surface);
 }
 
@@ -197,13 +197,13 @@ header {
     width: var(--tap);
     height: var(--tap);
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: transparent;
     color: var(--ink);
 
     > svg {
-      width: 18px;
-      height: 18px;
+      width: var(--size-icon);
+      height: var(--size-icon);
       fill: none;
       stroke: currentColor;
       stroke-width: 2;
@@ -212,8 +212,8 @@ header {
     }
 
     &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: -2px;
+      outline: var(--ring-width) solid var(--ink);
+      outline-offset: calc(-1 * var(--ring-offset));
     }
 
     @media (--can-hover) {
@@ -231,7 +231,7 @@ table {
 }
 
 th {
-  padding-block-end: 4px;
+  padding-block-end: var(--space-2);
   font-size: var(--font-xs);
   font-weight: 700;
   color: var(--muted);
@@ -242,7 +242,7 @@ th {
  * the side the band runs on, so it reads as one stroke from the first day to the last
  */
 td {
-  padding: 2px 0;
+  padding: var(--space-1) 0;
   background-clip: content-box;
 
   &[data-within] {
@@ -259,12 +259,12 @@ td {
     display: grid;
     place-items: center;
     width: 100%;
-    max-width: 44px;
+    max-width: var(--size-day);
     aspect-ratio: 1;
     margin-inline: auto;
     padding: 0;
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: transparent;
     color: var(--ink);
     font-size: var(--font-md);
@@ -273,18 +273,18 @@ td {
     /* today: its number underlined */
     &[aria-current="date"] {
       font-weight: 700;
-      text-decoration: underline 2px;
-      text-underline-offset: 4px;
+      text-decoration: underline var(--underline-width);
+      text-underline-offset: var(--underline-offset);
     }
 
     &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: -2px;
+      outline: var(--ring-width) solid var(--ink);
+      outline-offset: calc(-1 * var(--ring-offset));
     }
 
     @media (--can-hover) {
       &:hover {
-        box-shadow: inset 0 0 0 1px var(--ink);
+        box-shadow: inset 0 0 0 var(--line-width) var(--ink);
       }
     }
   }
@@ -297,7 +297,7 @@ td {
     font-weight: 700;
 
     &:focus-visible {
-      outline-offset: 2px;
+      outline-offset: var(--ring-offset);
     }
   }
 }

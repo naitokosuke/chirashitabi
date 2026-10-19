@@ -235,15 +235,15 @@ onBeforeUnmount(() => {
 
 button {
   --tone: var(--ink);
-  --radius: 999px;
+  --radius: var(--radius-pill);
   /* how far the wave on the fill's edge swings */
-  --wave: 5px;
+  --wave: var(--space-2);
   position: relative;
   isolation: isolate;
   display: inline-grid;
   place-items: center;
   min-height: var(--tap);
-  padding: 0 14px;
+  padding: 0 var(--space-7);
   border-radius: var(--radius);
   border: 0;
   background: var(--wash);
@@ -273,7 +273,7 @@ button {
     --tone: var(--muted);
     background: var(--surface);
     color: var(--muted);
-    box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--ink) 35%, transparent);
+    box-shadow: inset 0 0 0 var(--line-width-drawn) color-mix(in oklch, var(--ink) 35%, transparent);
   }
 
   &[data-danger] {
@@ -302,8 +302,8 @@ button {
   }
 
   &:focus-visible {
-    outline: 2px solid var(--tone);
-    outline-offset: 2px;
+    outline: var(--ring-width) solid var(--tone);
+    outline-offset: var(--ring-offset);
   }
 }
 
@@ -311,7 +311,7 @@ button {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   white-space: nowrap;
 }
 
@@ -379,14 +379,14 @@ button {
   }
   to {
     opacity: 0;
-    box-shadow: 0 0 0 10px color-mix(in oklch, var(--tone) 0%, transparent);
+    box-shadow: 0 0 0 var(--space-5) color-mix(in oklch, var(--tone) 0%, transparent);
   }
 }
 
 .unseen {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--space-px);
+  height: var(--space-px);
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;

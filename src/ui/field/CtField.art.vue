@@ -19,9 +19,9 @@ const nights = ref(3);
 <style scoped>
 .card {
   display: grid;
-  gap: 16px;
-  padding: 16px;
-  border-radius: 16px;
+  gap: var(--space-8);
+  padding: var(--space-8);
+  border-radius: var(--radius-8);
   background: var(--surface);
   --field-bg: var(--bg);
 }

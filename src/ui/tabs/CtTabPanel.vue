@@ -30,6 +30,8 @@ export function usePageTurn(page: Readonly<Ref<HTMLElement | null>>) {
     const css = getComputedStyle(el);
     const ease = css.getPropertyValue("--ease-morph").trim();
     const easing = ease === "" ? "ease-out" : ease;
+    // how far each piece rises into place (tokens.css)
+    const rise = css.getPropertyValue("--space-5").trim();
 
     // a second turn while the first is clearing: skip straight to the new content
     running?.cancel();
@@ -55,7 +57,7 @@ export function usePageTurn(page: Readonly<Ref<HTMLElement | null>>) {
     (pieces.length > 0 ? pieces : [el]).forEach((piece, i) => {
       piece.animate(
         [
-          { opacity: 0, transform: "translateY(10px)" },
+          { opacity: 0, transform: `translateY(${rise})` },
           { opacity: 1, transform: "none" },
         ],
         { duration, easing, delay: Math.min(i, STAGGER_MAX) * STAGGER_MS, fill: "backwards" },

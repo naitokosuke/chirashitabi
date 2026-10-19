@@ -10,8 +10,8 @@ defineArt("./CtFab.vue", {
 <style scoped>
 .view {
   position: relative;
-  height: 240px;
-  border-radius: 12px;
+  height: var(--stage-tall);
+  border-radius: var(--radius-6);
   background: var(--wash);
 }
 </style>

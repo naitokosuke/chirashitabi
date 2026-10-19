@@ -41,7 +41,7 @@ const { chosen, ready } = useIndicator(root, () => [props.modelValue, props.opti
   position: relative;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-3);
 
   /* a chip (CtChip) with no fill of its own: the ink behind it is the fill; over the ink */
   > button {
@@ -50,9 +50,9 @@ const { chosen, ready } = useIndicator(root, () => [props.modelValue, props.opti
     display: inline-flex;
     align-items: center;
     min-height: var(--tap);
-    padding: 0 12px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
+    padding: 0 var(--space-6);
+    border-radius: var(--radius-pill);
+    border: var(--line-width) solid var(--line);
     background: transparent;
     font-size: var(--font-sm);
     font-weight: 700;
@@ -74,8 +74,8 @@ const { chosen, ready } = useIndicator(root, () => [props.modelValue, props.opti
     }
 
     &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: 2px;
+      outline: var(--ring-width) solid var(--ink);
+      outline-offset: var(--ring-offset);
     }
   }
 }

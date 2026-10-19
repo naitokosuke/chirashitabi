@@ -23,9 +23,9 @@ defineSlots<{ default(): unknown }>();
 <style scoped>
 button {
   flex: 1;
-  min-inline-size: 84px;
-  padding: 0 16px;
-  border-radius: 16px;
+  min-inline-size: var(--size-swipe-action);
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-8);
   background: var(--ink);
   color: var(--on-ink);
   font-size: var(--font-sm);

@@ -40,11 +40,11 @@ const { size = "md" } = defineProps<{
   }
 
   > .label {
-    margin-inline-end: 8px;
+    margin-inline-end: var(--space-4);
   }
 
   > .aside {
-    margin-inline-start: 8px;
+    margin-inline-start: var(--space-4);
     font-weight: 400;
     color: var(--muted);
   }

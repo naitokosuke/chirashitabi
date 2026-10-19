@@ -27,23 +27,23 @@ const minutes = ref("60");
 <style scoped>
 .form {
   display: grid;
-  gap: 16px;
-  max-width: 360px;
+  gap: var(--space-8);
+  max-width: var(--stage-sm);
 }
 
 /* a slip's time tab: the two small fields on paper */
 .tab {
   display: grid;
-  gap: 4px;
-  width: 76px;
-  padding: 10px 6px;
+  gap: var(--space-2);
+  width: var(--size-fold);
+  padding: var(--space-5) var(--space-3);
   background: var(--paper-white);
 }
 
 label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-4);
 }
 </style>
 

@@ -45,11 +45,11 @@ button {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   min-height: var(--tap);
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-pill);
+  border: var(--line-width) solid var(--line);
   background: var(--surface);
   font-size: var(--font-sm);
   font-weight: 700;
@@ -76,7 +76,7 @@ button {
     border-style: dashed;
   }
   &[data-size="sm"] {
-    min-height: 32px;
+    min-height: var(--size-inset-control);
   }
   &[data-suggested]:not([data-selected]) {
     color: var(--ink);

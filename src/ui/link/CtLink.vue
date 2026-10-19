@@ -32,12 +32,12 @@ a {
   align-items: center;
   min-height: var(--tap);
   margin-block: calc((1lh - var(--tap)) / 2);
-  border-radius: 4px;
+  border-radius: var(--radius-2);
   color: var(--ink);
   font-weight: 700;
   overflow-wrap: anywhere;
   text-decoration: underline;
-  text-underline-offset: 3px;
+  text-underline-offset: var(--underline-offset);
 
   &[data-quiet] {
     color: var(--muted);

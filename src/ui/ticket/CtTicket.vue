@@ -28,13 +28,13 @@ const slots = useSlots();
 <style scoped>
 .ticket {
   display: grid;
-  gap: 4px;
+  gap: var(--space-2);
   color: var(--ink);
 
   > p {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: var(--space-4);
     margin: 0;
     font-size: var(--font-sm);
     color: var(--muted);

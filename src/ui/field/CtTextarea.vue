@@ -22,9 +22,9 @@ defineExpose({ focus: () => el.value?.focus() });
 <style scoped>
 textarea {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  padding: var(--space-5) var(--space-6);
+  border: var(--line-width) solid var(--line);
+  border-radius: var(--radius-5);
   background: var(--field-bg, var(--surface));
   color: var(--ink);
   font: inherit;
@@ -36,8 +36,8 @@ textarea {
   }
 
   &[data-size="lg"] {
-    min-height: 120px;
-    padding: 12px;
+    min-height: var(--size-textarea-lg);
+    padding: var(--space-6);
     font-size: var(--font-xl);
   }
 

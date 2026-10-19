@@ -13,7 +13,7 @@ defineArt("./CtBadge.vue", {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-6);
 }
 </style>
 

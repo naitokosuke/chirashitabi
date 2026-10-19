@@ -33,24 +33,24 @@ function commit() {
 .box {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-3);
   align-items: center;
-  min-height: 46px;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  min-height: var(--size-field);
+  padding: var(--space-3) var(--space-4);
+  border: var(--line-width) solid var(--line);
+  border-radius: var(--radius-5);
   background: var(--field-bg, var(--surface));
 
   /* the box is the field: it takes the focus ring for the input inside it */
   &:focus-within {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
+    outline: var(--ring-width) solid var(--ink);
+    outline-offset: var(--ring-offset);
   }
 
   > input {
     flex: 1;
-    min-width: 80px;
-    height: 32px;
+    min-width: var(--size-word);
+    height: var(--size-inset-control);
     border: 0;
     background: transparent;
     font: inherit;

@@ -34,7 +34,7 @@
   --glass: light-dark(rgb(255 255 255 / 0.72), oklch(0.26 0.005 260 / 0.72));
   /* how the desk shows through it, and the hairline round its edge */
   --glass-blur: blur(16px) saturate(1.5);
-  --glass-edge: inset 0 0 0 1px color-mix(in oklch, var(--line) 80%, transparent);
+  --glass-edge: inset 0 0 0 var(--line-width) color-mix(in oklch, var(--line) 80%, transparent);
   --danger: light-dark(oklch(0.53 0.19 27), oklch(0.72 0.15 27));
   /* what is written on the one filled tool, the ink one (the write button, the primary button) */
   --on-ink: light-dark(#fff, oklch(0.185 0.004 260));
@@ -52,7 +52,7 @@
 
   /* a text box on the desk, at its own size (it is scaled like a card), and the room around its words */
   --text-box-size: 24px;
-  --text-box-pad: 2px 6px;
+  --text-box-pad: var(--space-1) var(--space-3);
 
   /*
    * A sticker on the desk, at its own size, and its white die-cut edge: each shadow grows the
@@ -74,6 +74,117 @@
   --font-4xl: 22px;
   /* the one display size: the trip's name on the home view */
   --font-display: 32px;
+
+  /*
+   * Room: one scale in steps of 2px, `--space-N` being N steps (gap, padding, margin, inset).
+   * Nothing is spaced by a number of its own.
+   */
+  --space-px: 1px;
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 10px;
+  --space-6: 12px;
+  --space-7: 14px;
+  --space-8: 16px;
+  --space-9: 18px;
+  --space-10: 20px;
+  --space-12: 24px;
+  --space-14: 28px;
+  --space-16: 32px;
+  --space-20: 40px;
+  --space-26: 52px;
+  --space-28: 56px;
+
+  /* Corners: on the same steps, and the pill (a radius past any height) */
+  --radius-1: 2px;
+  --radius-2: 4px;
+  --radius-3: 6px;
+  --radius-4: 8px;
+  --radius-5: 10px;
+  --radius-6: 12px;
+  --radius-7: 14px;
+  --radius-8: 16px;
+  --radius-9: 18px;
+  --radius-10: 20px;
+  --radius-11: 22px;
+  --radius-pill: 999px;
+
+  /*
+   * Lines: a hairline (an edge, a rule), a drawn line (a dashed outline still to be filled in),
+   * and the ring of focus or of a pick, set off from what it rings
+   */
+  --line-width: 1px;
+  --line-width-drawn: 1.5px;
+  --ring-width: 2px;
+  --ring-offset: 2px;
+  /* a link's or a text button's underline, and today's in the calendar, set off from the words */
+  --underline-width: 2px;
+  --underline-offset: 3px;
+  /* how much words blur as they fade out of a heading that morphs (CtTextMorph) */
+  --blur-morph: 3px;
+
+  /*
+   * Sizes: what is drawn the same wherever it is. A field (and the act at a form's foot); a
+   * control set inside a field or a track; a box to tick and a count's badge; a face, and the
+   * larger one at the head of a trip; the one filled tool; a row of a list, and of a menu
+   */
+  --size-field: 46px;
+  --size-inset-control: 32px;
+  --size-check: 22px;
+  --size-badge: 22px;
+  --size-face: 36px;
+  --size-face-lg: 40px;
+  --size-fab: 56px;
+  --size-row: 60px;
+  --size-menu-row: 40px;
+  /* a line to write many lines in, on a computer */
+  --size-textarea-lg: 120px;
+  /* the least a line to write a word in (a tag) is given beside its chips */
+  --size-word: 80px;
+  /* an action a row slides aside to show */
+  --size-swipe-action: 84px;
+  /* an icon in a calendar's month header */
+  --size-icon: 18px;
+  /* a day in a calendar, at most */
+  --size-day: 44px;
+  /* an icon's cell in the dock at rest, and on a wider screen */
+  --size-dock-cell: 40px;
+  --size-dock-cell-wide: 44px;
+  /* the dock's dividers, as tall as an icon's glyph */
+  --size-divider: 28px;
+  /* dots: whose (a member's color), under way (breathing), what is open (the dock) */
+  --size-dot: 8px;
+  --size-dot-sm: 6px;
+  --size-dot-xs: 4px;
+  /* a share's piece of the bar, and its key */
+  --size-key: 10px;
+
+  /*
+   * Paper: a sticky's width, a print's, the strip across an agent's slip, and the fold down a
+   * row's start edge (a plan's time)
+   */
+  --size-paper: 164px;
+  --size-print: 220px;
+  --size-strip: 20px;
+  --size-fold: 76px;
+
+  /*
+   * A trip's tag: its punched hole and the ring that keeps it from tearing, the blank tag's
+   * height, and a tag's while the list is on its way
+   */
+  --size-hole: 14px;
+  --hole-ring: 3px;
+  --size-tag-blank: 72px;
+  --size-tag: 104px;
+
+  /* Musea's stages (*.art.vue): how wide a part is shown, and how tall a stage it floats on */
+  --stage-sm: 360px;
+  --stage-md: 420px;
+  --stage-lg: 480px;
+  --stage-short: 180px;
+  --stage-tall: 240px;
 
   /* Depth: neutral, offset down, soft. Paper lifts; a tool on the desk lifts gently */
   --shadow-tool: 0 1px 2px light-dark(rgb(17 19 24 / 0.05), rgb(0 0 0 / 0.3));
@@ -109,21 +220,22 @@
   &[data-offline] {
     --top-inset: calc(env(safe-area-inset-top, 0px) + var(--notice));
   }
-  --top-clear: calc(var(--top-inset) + var(--top-row) + 8px);
+  --top-clear: calc(var(--top-inset) + var(--top-row) + var(--space-4));
   /* where a page with nothing floating over it (home, the memo, the trips) starts: a large title */
-  --page-top: calc(var(--top-inset) + 28px);
+  --page-top: calc(var(--top-inset) + var(--space-14));
   --dock-height: 60px;
-  --dock-gap: 12px;
+  --dock-gap: var(--space-6);
   --dock-clear: calc(env(safe-area-inset-bottom, 0px) + var(--dock-gap) + var(--dock-height));
 
   /*
    * The inline margin of a page column (the booklet, the form, the home view): a phone's
-   * edge, and on a wide screen whatever centers a 648px column. The percentage resolves
+   * edge, and on a wide screen whatever centers the column (`--column`). The percentage resolves
    * where it is used, against the box being padded.
    */
-  --page-margin: 16px;
+  --column: 648px;
+  --page-margin: var(--space-8);
   @media (--wide) {
-    --page-margin: calc((100% - 648px) / 2);
+    --page-margin: calc((100% - var(--column)) / 2);
   }
 
   /* Stacking, low to high */

@@ -27,29 +27,29 @@ span {
   flex-shrink: 0;
   display: inline-grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: var(--size-face);
+  height: var(--size-face);
   border-radius: 50%;
   background: oklch(from var(--who, var(--muted)) min(l, 0.52) c h);
   color: var(--on-tint);
   font-weight: 700;
 
   &[data-size="lg"] {
-    width: 40px;
-    height: 40px;
+    width: var(--size-face-lg);
+    height: var(--size-face-lg);
     font-size: var(--font-lg);
   }
 
   /* beside a name: the color as it is, not deepened, since nothing is written on it */
   &[data-size="dot"] {
-    width: 8px;
-    height: 8px;
+    width: var(--size-dot);
+    height: var(--size-dot);
     background: var(--who, var(--muted));
   }
 
   &[data-pending] {
     background: transparent;
-    border: 1.5px dashed color-mix(in oklch, var(--ink) 35%, transparent);
+    border: var(--line-width-drawn) dashed color-mix(in oklch, var(--ink) 35%, transparent);
   }
 }
 </style>

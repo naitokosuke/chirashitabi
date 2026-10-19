@@ -18,16 +18,16 @@ const open = ref<string | null>(null);
 <style scoped>
 .trips {
   display: grid;
-  gap: 8px;
-  max-width: 360px;
+  gap: var(--space-4);
+  max-width: var(--stage-sm);
   padding: 0;
   list-style: none;
 }
 
 .trip {
   display: block;
-  padding: 16px;
-  border-radius: 12px;
+  padding: var(--space-8);
+  border-radius: var(--radius-6);
   background: var(--surface);
   color: inherit;
   text-decoration: none;

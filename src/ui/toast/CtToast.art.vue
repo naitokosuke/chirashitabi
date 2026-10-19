@@ -13,13 +13,13 @@ defineArt("./CtToast.vue", {
 <style scoped>
 .stack {
   display: grid;
-  gap: 16px;
-  max-width: 480px;
+  gap: var(--space-8);
+  max-width: var(--stage-lg);
 }
 
 .band {
-  height: 40px;
-  line-height: 24px;
+  height: var(--notice);
+  line-height: calc(var(--notice) - var(--space-2));
 }
 </style>
 

@@ -73,10 +73,10 @@ onMounted(() => void reveal(false));
 [role="tablist"] {
   position: relative;
   display: flex;
-  gap: 4px;
+  gap: var(--space-2);
   overflow-x: auto;
   scrollbar-width: none;
-  border-block-end: 1px solid var(--line);
+  border-block-end: var(--line-width) solid var(--line);
 
   &::-webkit-scrollbar {
     display: none;
@@ -85,7 +85,7 @@ onMounted(() => void reveal(false));
   > button {
     position: relative;
     flex-shrink: 0;
-    padding: 10px 14px;
+    padding: var(--space-5) var(--space-7);
     font-size: var(--font-sm);
     font-weight: 700;
     color: var(--muted);
@@ -96,12 +96,12 @@ onMounted(() => void reveal(false));
     }
   }
 
-  /* as tall as the tab; only its bottom 2px is drawn */
+  /* as tall as the tab; only its bottom ring's width is drawn */
   > span {
     position: absolute;
     inset-block-start: 0;
     inset-inline-start: 0;
-    border-block-end: 2px solid var(--ink);
+    border-block-end: var(--ring-width) solid var(--ink);
     pointer-events: none;
 
     &[data-ready] {
@@ -114,23 +114,23 @@ onMounted(() => void reveal(false));
   /* the tabs over a track, the chosen one on a raised pill under it, as CtSegmented's */
   &[data-variant="pill"] {
     min-width: 0;
-    padding: 2px;
+    padding: var(--space-1);
     border-block-end: 0;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--track-bg, var(--wash));
     /* the tabs float over their pill here, and no further */
     isolation: isolate;
 
     @media (--narrow) {
-      padding-inline-end: 20px;
-      mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+      padding-inline-end: var(--space-10);
+      mask-image: linear-gradient(to right, #000 calc(100% - var(--space-12)), transparent);
     }
 
     > button {
       z-index: var(--z-float);
-      min-height: 32px; /* with the track's 2px it is the 36px a thumb is asked to hit */
-      padding: 0 14px;
-      border-radius: 999px;
+      min-height: calc(var(--tap) - 2 * var(--space-1)); /* with the track's padding it is the tap a thumb is asked to hit */
+      padding: 0 var(--space-7);
+      border-radius: var(--radius-pill);
 
       @media (--can-hover) {
         &:not([aria-selected="true"]):hover {
@@ -141,11 +141,11 @@ onMounted(() => void reveal(false));
 
     > span {
       border: 0;
-      border-radius: 999px;
+      border-radius: var(--radius-pill);
       background: var(--surface);
       box-shadow:
         var(--shadow-tool),
-        0 0 0 1px var(--line);
+        0 0 0 var(--line-width) var(--line);
     }
   }
 }

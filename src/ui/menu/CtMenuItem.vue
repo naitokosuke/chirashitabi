@@ -23,9 +23,9 @@ defineSlots<{ default(): unknown }>();
 @import "../styles/media.css";
 
 button {
-  min-height: 40px;
-  padding: 0 12px;
-  border-radius: 10px;
+  min-height: var(--size-menu-row);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-5);
   font-size: var(--font-md);
   font-weight: 700;
 

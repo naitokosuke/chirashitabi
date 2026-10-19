@@ -19,11 +19,11 @@ import { state } from "./harness";
 <style scoped>
 .tag {
   display: block;
-  padding: 24px;
+  padding: var(--space-12);
   background: var(--surface);
 }
 
 .off {
-  min-inline-size: 84px;
+  min-inline-size: var(--size-swipe-action);
 }
 </style>

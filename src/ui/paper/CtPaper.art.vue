@@ -11,8 +11,8 @@ defineArt("./CtPaper.vue", {
 <style scoped>
 .rows {
   display: grid;
-  gap: 12px;
-  max-width: 420px;
+  gap: var(--space-6);
+  max-width: var(--stage-md);
 }
 
 .title {
@@ -21,7 +21,7 @@ defineArt("./CtPaper.vue", {
 }
 
 .words {
-  margin: 4px 0 0;
+  margin: var(--space-2) 0 0;
   font-size: var(--font-2xs);
   color: var(--paper-muted);
 }

@@ -36,15 +36,15 @@ defineSlots<{ default(): unknown }>();
 .badge {
   flex-shrink: 0;
   display: inline-block;
-  min-width: 22px;
+  min-width: var(--size-badge);
   margin: 0;
-  padding: 0 7px;
-  border-radius: 999px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
   background: color-mix(in oklch, var(--ink) 10%, transparent);
   color: var(--ink);
   font-size: var(--font-xs);
   font-weight: 700;
-  line-height: 22px;
+  line-height: var(--size-badge);
   text-align: center;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -55,18 +55,18 @@ defineSlots<{ default(): unknown }>();
   }
 
   &[data-dashed] {
-    border: 1px dashed color-mix(in oklch, var(--ink) 45%, transparent);
+    border: var(--line-width) dashed color-mix(in oklch, var(--ink) 45%, transparent);
     background: transparent;
     color: var(--muted);
     font-size: var(--font-2xs);
-    line-height: 20px;
+    line-height: calc(var(--size-badge) - 2 * var(--line-width));
   }
 
   &[data-float] {
-    padding: 4px 10px;
+    padding: var(--space-2) var(--space-5);
     background: var(--surface);
     box-shadow:
-      inset 0 0 0 1px var(--line),
+      inset 0 0 0 var(--line-width) var(--line),
       var(--shadow-tool);
     line-height: 1.5;
     white-space: normal;
@@ -77,13 +77,13 @@ defineSlots<{ default(): unknown }>();
   &[data-busy] {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-4);
 
     &::before {
       content: "";
       flex-shrink: 0;
-      width: 6px;
-      height: 6px;
+      width: var(--size-dot-sm);
+      height: var(--size-dot-sm);
       border-radius: 50%;
       background: currentColor;
       animation: breathe 1s ease-in-out infinite alternate;

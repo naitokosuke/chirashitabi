@@ -41,10 +41,10 @@ defineSlots<{ default(): unknown }>();
   /* a fieldset's own edge and room give way to the panel's */
   border: 0;
   min-inline-size: 0;
-  border-radius: 14px;
+  border-radius: var(--radius-7);
   background: var(--surface);
   /* the hairline drawn inside, so it takes no room */
-  box-shadow: inset 0 0 0 1px var(--line);
+  box-shadow: inset 0 0 0 var(--line-width) var(--line);
   list-style: none;
   /* its fields set into it, in the desk's color */
   --field-bg: var(--bg);
@@ -53,18 +53,18 @@ defineSlots<{ default(): unknown }>();
     padding: 0;
   }
   &[data-pad="sm"] {
-    padding: 6px;
+    padding: var(--space-3);
   }
   &[data-pad="md"] {
-    padding: 12px 14px;
+    padding: var(--space-6) var(--space-7);
   }
   &[data-pad="lg"] {
-    padding: 16px;
+    padding: var(--space-8);
   }
 
   &[data-float] {
     box-shadow:
-      inset 0 0 0 1px var(--line),
+      inset 0 0 0 var(--line-width) var(--line),
       var(--shadow-float);
   }
 

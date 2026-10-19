@@ -10,15 +10,15 @@ defineArt("./CtPanel.vue", {
 <style scoped>
 .frame {
   display: grid;
-  gap: 16px;
-  max-width: 360px;
+  gap: var(--space-8);
+  max-width: var(--stage-sm);
 }
 
 li {
-  padding: 12px 14px;
+  padding: var(--space-6) var(--space-7);
 
   & + li {
-    border-block-start: 1px solid var(--line);
+    border-block-start: var(--line-width) solid var(--line);
   }
 }
 </style>

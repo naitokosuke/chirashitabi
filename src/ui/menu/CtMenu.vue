@@ -56,15 +56,15 @@ defineExpose({
 div {
   position: absolute;
   z-index: var(--z-menu);
-  max-width: calc(100% - 16px);
+  max-width: calc(100% - var(--space-8));
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  padding: 6px;
-  border-radius: 14px;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-7);
   background: var(--surface);
   box-shadow:
-    inset 0 0 0 1px var(--line),
+    inset 0 0 0 var(--line-width) var(--line),
     var(--shadow-float);
 }
 </style>

@@ -24,19 +24,19 @@ const emit = defineEmits<{ choose: [item: T] }>();
 @import "../styles/media.css";
 ul {
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
 
   button {
     display: grid;
-    gap: 2px;
+    gap: var(--space-1);
     width: 100%;
     min-height: var(--tap);
-    padding: 8px 12px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
+    padding: var(--space-4) var(--space-6);
+    border: var(--line-width) solid var(--line);
+    border-radius: var(--radius-5);
     background: var(--field-bg, var(--surface));
     color: var(--ink);
     text-align: start;

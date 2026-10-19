@@ -26,7 +26,7 @@ const chosen = ref("");
 
 <style scoped>
 .frame {
-  max-width: 360px;
+  max-width: var(--stage-sm);
 }
 </style>
 

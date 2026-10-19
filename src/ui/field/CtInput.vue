@@ -24,10 +24,10 @@ defineExpose({ focus: () => el.value?.focus() });
 <style scoped>
 input {
   min-width: 0;
-  min-height: 46px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  min-height: var(--size-field);
+  padding: var(--space-5) var(--space-6);
+  border: var(--line-width) solid var(--line);
+  border-radius: var(--radius-5);
   background: var(--field-bg, var(--surface));
   color: var(--ink);
   font: inherit;
@@ -44,7 +44,7 @@ input {
   &[data-size="sm"] {
     width: 100%;
     min-height: var(--tap);
-    padding: 4px;
+    padding: var(--space-2);
     font-size: var(--font-md);
     font-weight: 700;
     font-variant-numeric: tabular-nums;

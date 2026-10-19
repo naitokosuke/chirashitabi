@@ -28,17 +28,17 @@ defineSlots<{ default(): unknown }>();
 .byline {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   margin: 0;
   color: var(--muted);
 
   &[data-size="xs"] {
-    gap: 4px;
+    gap: var(--space-2);
     font-size: var(--font-xs);
   }
 
   &[data-strong] {
-    gap: 8px;
+    gap: var(--space-4);
     font-weight: 700;
   }
 }

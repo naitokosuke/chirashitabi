@@ -4,7 +4,7 @@
  * chips, tags, slips of paper. What is in it is the slot's; `as="ul"` makes the row a list
  * (the slot then gives `li`s). It grows to the width it is given.
  *
- * `inset` starts the row at a view's edge margin (16px), for a row floating along the top of
+ * `inset` starts the row at a view's edge margin (`--space-8`), for a row floating along the top of
  * a view. Otherwise it starts where its box does, and keeps a little room round what is in it
  * for a shadow or a focus ring that scrolling would cut off, taken back out of its margin so
  * the row sits where its box is.
@@ -25,13 +25,13 @@ ul {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   overflow-x: auto;
   scrollbar-width: none;
-  margin: -4px 0 -8px -4px;
-  padding: 4px 28px 8px 4px;
+  margin: calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-4)) calc(-1 * var(--space-2));
+  padding: var(--space-2) var(--space-14) var(--space-4) var(--space-2);
   list-style: none;
-  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--space-14)), transparent);
 
   &::-webkit-scrollbar {
     display: none;
@@ -39,7 +39,7 @@ ul {
 
   &[data-inset] {
     margin-inline-start: 0;
-    padding-inline-start: 16px;
+    padding-inline-start: var(--space-8);
   }
 }
 </style>
