@@ -13,7 +13,10 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <label class="check" :for="id" :data-quiet="quiet || undefined"><CtCheckbox :id v-model="model" /><slot></slot></label>
+  <label class="check" :for="id" :data-quiet="quiet || undefined">
+    <CtCheckbox :id v-model="model" />
+    <slot />
+  </label>
 </template>
 
 <style scoped>

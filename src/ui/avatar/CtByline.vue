@@ -18,11 +18,10 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <component :is="as" class="byline" :data-size="size" :data-strong="strong || undefined"><CtAvatar
-      v-if="color !== undefined"
-      :color
-      size="dot"
-    /><slot></slot></component>
+  <component :is="as" class="byline" :data-size="size" :data-strong="strong || undefined">
+    <CtAvatar v-if="color !== undefined" :color size="dot" />
+    <slot />
+  </component>
 </template>
 
 <style scoped>

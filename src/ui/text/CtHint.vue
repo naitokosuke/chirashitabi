@@ -18,7 +18,9 @@ defineSlots<{ default(): unknown }>();
     :data-size="size === 'xs' ? undefined : size"
     :data-strong="strong || undefined"
     :data-danger="danger || undefined"
-  ><slot></slot></p>
+  >
+    <slot />
+  </p>
 </template>
 
 <style scoped>
