@@ -6,7 +6,7 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "lib": ["ES2022"],
-    "types": ["../worker-configuration.d.ts"],
+    "types": ["../worker-configuration.d.ts", "vite-plus/test/importMeta"],
     "skipLibCheck": true,
     "declaration": true,
     "emitDeclarationOnly": true,

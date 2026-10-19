@@ -76,6 +76,8 @@ export default defineConfig({
   // their notices travel with the code that carries them
   build: { license: true },
   compiler: { vapor: true },
+  // a module's own tests (import.meta.vitest) are left out of the build
+  define: { "import.meta.vitest": "undefined" },
   typecheck: true,
   // the tests run in Node, but a `*.browser.test.ts` in a real Chromium: what a pointer does
   test: {
@@ -86,6 +88,8 @@ export default defineConfig({
           name: "node",
           include: ["{src,worker}/**/*.test.ts"],
           exclude: ["**/*.browser.test.ts"],
+          // a module may keep its tests in itself, under `if (import.meta.vitest !== undefined)`
+          includeSource: ["{src,worker}/**/*.ts"],
         },
       },
       // vite-plus's defineProject, which lets the browser resolve vitest (a dependency of

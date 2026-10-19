@@ -6,7 +6,7 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite-plus/client", "@vizejs/vite-plugin"],
+    "types": ["vite-plus/client", "@vizejs/vite-plugin", "vite-plus/test/importMeta"],
     "skipLibCheck": true,
     "noEmit": true,
     "jsx": "preserve"

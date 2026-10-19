@@ -8,7 +8,7 @@
  */
 import * as v from "valibot";
 
-import { AirportCodeSchema, type AirportCode } from "./airports";
+import { AirportCodeSchema, type AirportCode } from "./airport";
 import { HexColorSchema } from "./color";
 import { ImageIdSchema, MemberIdSchema, NoteIdSchema } from "./ids";
 import { CurrencyCodeSchema } from "./money";
@@ -151,7 +151,7 @@ export type Leg = v.InferOutput<typeof LegSchema>;
 
 /**
  * A flight as the travellers write it from their ticket: where it leaves from and lands (each an
- * airport's code on the list, airports.ts), and, when they know them, its number and when, in
+ * airport's code on the list, airport-list.ts), and, when they know them, its number and when, in
  * each airport's own local time (YYYY-MM-DDTHH:MM; null for not known yet). The landing may read
  * earlier than the leaving, across time zones, so their order is not checked.
  */
