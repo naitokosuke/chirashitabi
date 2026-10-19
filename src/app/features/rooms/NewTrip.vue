@@ -7,6 +7,8 @@ import {
   CtButton,
   CtChipPick,
   CtCalendar,
+  CtField,
+  CtInput,
   CtSwatches,
   type CtDateRange,
   type CtOption,
@@ -95,7 +97,7 @@ async function create() {
   }
 }
 
-const nameEl = useTemplateRef<HTMLInputElement>("nameEl");
+const nameEl = useTemplateRef<{ focus(): void }>("nameEl");
 onMounted(() => nameEl.value?.focus());
 </script>
 
@@ -119,9 +121,8 @@ onMounted(() => nameEl.value?.focus());
         :members="preview.members"
       />
 
-      <div class="field">
-        <label :for="`${id}-name`">{{ i18n.t("rooms.name") }}</label>
-        <input
+      <CtField :for="`${id}-name`" :label="i18n.t('rooms.name')">
+        <CtInput
           :id="`${id}-name`"
           ref="nameEl"
           v-model="name"
@@ -130,32 +131,31 @@ onMounted(() => nameEl.value?.focus());
           required
           :placeholder="i18n.t('rooms.namePlaceholder')"
         />
-      </div>
+      </CtField>
 
-      <div class="field">
-        <span>
-          {{ i18n.t("rooms.dates") }}
-          <em v-if="dates.end === null" aria-live="polite">{{ i18n.t("rooms.pickLast") }}</em>
-        </span>
-        <CtCalendar
-          v-model:range="dates"
-          :max-days="MAX_DAYS"
-          :locale="i18n.locale"
-          :prev-label="i18n.t('rooms.prevMonth')"
-          :next-label="i18n.t('rooms.nextMonth')"
-        />
-      </div>
+      <CtField :label="i18n.t('rooms.dates')">
+        <template #note>
+          <span v-if="dates.end === null" aria-live="polite">{{ i18n.t("rooms.pickLast") }}</span>
+        </template>
+        <template #default>
+          <CtCalendar
+            v-model:range="dates"
+            :max-days="MAX_DAYS"
+            :locale="i18n.locale"
+            :prev-label="i18n.t('rooms.prevMonth')"
+            :next-label="i18n.t('rooms.nextMonth')"
+          />
+        </template>
+      </CtField>
 
-      <div class="field">
-        <span>{{ i18n.t("rooms.currency") }}</span>
+      <CtField :label="i18n.t('rooms.currency')">
         <CtChipPick v-model="currency" :options="currencies" :label="i18n.t('rooms.currency')" />
-      </div>
+      </CtField>
 
       <!-- no name for the person: told apart by color alone, for now -->
-      <div class="field">
-        <span>{{ i18n.t("rooms.color") }}</span>
+      <CtField :label="i18n.t('rooms.color')">
         <CtSwatches v-model="color" :colors="MEMBER_COLORS" :label="i18n.t('rooms.color')" />
-      </div>
+      </CtField>
     </div>
 
     <footer>
@@ -234,48 +234,6 @@ onMounted(() => nameEl.value?.focus());
 /* the tag rests on the desk above the fields, with room under it before the first one */
 .preview {
   margin-block-end: 10px;
-}
-
-.field {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-
-  /* a field's name, above it */
-  > label,
-  > span {
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-
-    /* what the field waits for, after its name */
-    > em {
-      margin-inline-start: 8px;
-      font-style: normal;
-      font-weight: 400;
-      color: var(--ink);
-    }
-  }
-
-  > input {
-    min-height: 46px;
-    padding: 10px 12px;
-    font: inherit;
-    font-size: var(--font-lg);
-    color: var(--ink);
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-
-    &::placeholder {
-      color: var(--muted);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: 2px;
-    }
-  }
 }
 
 /* the one action, always in reach under the fields */

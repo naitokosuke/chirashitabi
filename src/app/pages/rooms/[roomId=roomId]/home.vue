@@ -548,6 +548,8 @@ section {
           background: var(--surface);
           border: 1px solid var(--line);
           border-radius: 14px;
+          /* its line to write in is set into the card, in the desk's color */
+          --field-bg: var(--bg);
         }
 
         > .people {

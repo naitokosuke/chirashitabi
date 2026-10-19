@@ -3,7 +3,7 @@ import { computed, onMounted, ref, shallowRef, useId } from "vue";
 
 import { encode } from "uqr";
 
-import { CtButton } from "../../../ui/index";
+import { CtButton, CtField, CtInput } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -156,29 +156,30 @@ onMounted(() => {
       </ul>
 
       <form v-if="me.role === 'owner' && open" class="invite" @submit.prevent="sendInvite">
-        <label :for="`${id}-email`">{{ i18n.t("people.email") }}</label>
-        <div>
-          <input
-            :id="`${id}-email`"
-            v-model="email"
-            autocapitalize="off"
-            autocomplete="off"
-            enterkeyhint="send"
-            inputmode="email"
-            maxlength="254"
-            required
-            spellcheck="false"
-            type="email"
-          />
-          <CtButton
-            size="lg"
-            type="submit"
-            variant="primary"
-            :disabled="invite.isLoading.value || email.trim() === '' || cut.offline"
-          >
-            {{ i18n.t(invite.isLoading.value ? "people.inviting" : "people.invite") }}
-          </CtButton>
-        </div>
+        <CtField :for="`${id}-email`" :label="i18n.t('people.email')">
+          <div class="line">
+            <CtInput
+              :id="`${id}-email`"
+              v-model="email"
+              autocapitalize="off"
+              autocomplete="off"
+              enterkeyhint="send"
+              inputmode="email"
+              maxlength="254"
+              required
+              spellcheck="false"
+              type="email"
+            />
+            <CtButton
+              size="lg"
+              type="submit"
+              variant="primary"
+              :disabled="invite.isLoading.value || email.trim() === '' || cut.offline"
+            >
+              {{ i18n.t(invite.isLoading.value ? "people.inviting" : "people.invite") }}
+            </CtButton>
+          </div>
+        </CtField>
         <p class="hint">{{ i18n.t(cut.offline ? "offline.unavailable" : "people.inviteHint") }}</p>
         <details class="qr">
           <summary>{{ i18n.t("people.qr") }}</summary>
@@ -326,32 +327,13 @@ ul {
   display: grid;
   gap: 6px;
 
-  > label {
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-  }
-
-  > div {
+  /* the address and the button that sends it, on one line */
+  .line {
     display: flex;
     gap: 8px;
 
     > input {
       flex: 1;
-      min-width: 0;
-      min-height: 46px;
-      padding: 10px 12px;
-      font: inherit;
-      font-size: var(--font-lg);
-      color: var(--ink);
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-
-      &:focus-visible {
-        outline: 2px solid var(--ink);
-        outline-offset: 2px;
-      }
     }
   }
 }

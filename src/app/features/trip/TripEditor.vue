@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, reactive, useId } from "vue";
 
-import { CtButton } from "../../../ui/index";
+import { CtButton, CtField, CtInput } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -173,19 +173,16 @@ function save() {
 
 <template>
   <form class="editor" @submit.prevent="save">
-    <div class="field">
-      <label :for="`${id}-name`">{{ i18n.t("rooms.name") }}</label>
-      <input :id="`${id}-name`" v-model="form.name" :maxlength="MAX_NAME" required />
-    </div>
+    <CtField :for="`${id}-name`" :label="i18n.t('rooms.name')">
+      <CtInput :id="`${id}-name`" v-model="form.name" :maxlength="MAX_NAME" required />
+    </CtField>
 
     <div class="row">
-      <div class="field">
-        <label :for="`${id}-first`">{{ i18n.t("rooms.firstDay") }}</label>
-        <input :id="`${id}-first`" v-model="form.firstDay" required type="date" />
-      </div>
-      <div class="field">
-        <span :id="`${id}-days`">{{ i18n.t("rooms.days") }}</span>
-        <div class="stepper" role="group" :aria-labelledby="`${id}-days`">
+      <CtField :for="`${id}-first`" :label="i18n.t('rooms.firstDay')">
+        <CtInput :id="`${id}-first`" v-model="form.firstDay" required type="date" />
+      </CtField>
+      <CtField :label="i18n.t('rooms.days')">
+        <div class="stepper" role="group" :aria-label="i18n.t('rooms.days')">
           <button
             type="button"
             :aria-label="i18n.t('rooms.fewer')"
@@ -204,7 +201,7 @@ function save() {
             <Icon :size="18" :src="plusIcon" />
           </button>
         </div>
-      </div>
+      </CtField>
     </div>
     <p v-if="dropped > 0" class="note" role="status">{{
       i18n.t("trip.dropped", { count: dropped })
@@ -233,33 +230,30 @@ function save() {
             :placeholder="leg === 'out' ? 'TSA' : i18n.t('flight.airportHint')"
           />
         </div>
-        <div class="field">
-          <label :for="`${id}-${leg}-no`">{{ i18n.t("flight.number") }}</label>
-          <input
+        <CtField :for="`${id}-${leg}-no`" :label="i18n.t('flight.number')">
+          <CtInput
             :id="`${id}-${leg}-no`"
             v-model="form.flights[leg].number"
             autocapitalize="characters"
             :maxlength="MAX_FLIGHT_NO"
             :placeholder="leg === 'out' ? 'BR 191' : 'BR 192'"
           />
-        </div>
+        </CtField>
         <div class="row">
-          <div class="field">
-            <label :for="`${id}-${leg}-dep`">{{ i18n.t("flight.departs") }}</label>
-            <input
+          <CtField :for="`${id}-${leg}-dep`" :label="i18n.t('flight.departs')">
+            <CtInput
               :id="`${id}-${leg}-dep`"
               v-model="form.flights[leg].departs"
               type="datetime-local"
             />
-          </div>
-          <div class="field">
-            <label :for="`${id}-${leg}-arr`">{{ i18n.t("flight.arrives") }}</label>
-            <input
+          </CtField>
+          <CtField :for="`${id}-${leg}-arr`" :label="i18n.t('flight.arrives')">
+            <CtInput
               :id="`${id}-${leg}-arr`"
               v-model="form.flights[leg].arrives"
               type="datetime-local"
             />
-          </div>
+          </CtField>
         </div>
       </template>
       <CtButton v-else class="start" variant="blank" @click="() => addFlight(leg)">
@@ -275,10 +269,9 @@ function save() {
         <button class="remove" type="button" @click="() => removeStay(i)">{{
           i18n.t("stay.remove")
         }}</button>
-        <div class="field">
-          <label :for="`${id}-stay-${i}-name`">{{ i18n.t("stay.name") }}</label>
-          <input :id="`${id}-stay-${i}-name`" v-model="s.name" :maxlength="MAX_NAME" required />
-        </div>
+        <CtField :for="`${id}-stay-${i}-name`" :label="i18n.t('stay.name')">
+          <CtInput :id="`${id}-stay-${i}-name`" v-model="s.name" :maxlength="MAX_NAME" required />
+        </CtField>
         <!-- or its place found by its name on OpenStreetMap, one chosen: no link needed -->
         <div v-if="worker.api !== null" class="find">
           <CtButton
@@ -300,13 +293,11 @@ function save() {
           <p v-else-if="found.has(s)" class="hint">{{ i18n.t("form.placesCredit") }}</p>
         </div>
         <div class="row">
-          <div class="field">
-            <label :for="`${id}-stay-${i}-in`">{{ i18n.t("stay.checkIn") }}</label>
-            <input :id="`${id}-stay-${i}-in`" v-model="s.checkIn" required type="date" />
-          </div>
-          <div class="field">
-            <label :for="`${id}-stay-${i}-nights`">{{ i18n.t("stay.nights") }}</label>
-            <input
+          <CtField :for="`${id}-stay-${i}-in`" :label="i18n.t('stay.checkIn')">
+            <CtInput :id="`${id}-stay-${i}-in`" v-model="s.checkIn" required type="date" />
+          </CtField>
+          <CtField :for="`${id}-stay-${i}-nights`" :label="i18n.t('stay.nights')">
+            <CtInput
               :id="`${id}-stay-${i}-nights`"
               v-model.number="s.nights"
               inputmode="numeric"
@@ -315,11 +306,10 @@ function save() {
               required
               type="number"
             />
-          </div>
+          </CtField>
         </div>
-        <div class="field">
-          <label :for="`${id}-stay-${i}-url`">{{ i18n.t("stay.link") }}</label>
-          <input
+        <CtField :for="`${id}-stay-${i}-url`" :label="i18n.t('stay.link')">
+          <CtInput
             :id="`${id}-stay-${i}-url`"
             v-model="s.mapsUrl"
             inputmode="url"
@@ -327,7 +317,7 @@ function save() {
             @change="() => onStayLink(s)"
             @paste="() => onStayPaste(s)"
           />
-        </div>
+        </CtField>
         <p aria-live="polite" class="hint">{{ i18n.t(stayLinkState(s)) }}</p>
       </div>
       <CtButton class="start" variant="blank" @click="addStay"><Icon :size="16" :src="plusIcon" />{{ i18n.t("stay.add") }}</CtButton>
@@ -351,36 +341,8 @@ function save() {
   border-radius: 16px;
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--line);
-}
-
-.field {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-  > label,
-  > span {
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-  }
-  > input {
-    min-width: 0;
-    min-height: 46px;
-    padding: 10px 12px;
-    font: inherit;
-    font-size: var(--font-lg);
-    color: var(--ink);
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    &::placeholder {
-      color: var(--muted);
-    }
-    &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: 2px;
-    }
-  }
+  /* the fields are set into the card, in the desk's color */
+  --field-bg: var(--bg);
 }
 
 .row {
@@ -450,9 +412,7 @@ fieldset {
   background: var(--bg);
   box-shadow: inset 0 0 0 1px var(--line);
   /* inside a card the fields sit on the surface again, so they stand out from it */
-  :deep(input) {
-    background: var(--surface);
-  }
+  --field-bg: var(--surface);
 }
 
 /* taking a flight or a stay away: quiet, in the card's corner, the danger's color only on intent */
