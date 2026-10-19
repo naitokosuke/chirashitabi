@@ -10,7 +10,8 @@
  *   and written in the line's own ink and size; the line's height is its tap's.
  *
  * `size` `lg` is the act at the foot of a form, as tall as a field. `type` `submit` sends the form it is in. While
- * what it set going is under way (`busy`), a dot breathes before its words.
+ * what it set going is under way (`busy`), a dot breathes before its words. With `label`, the
+ * slot is a glyph alone and `label` names it: the button is a round, a thumb's width.
  */
 const {
   variant = "quiet",
@@ -22,6 +23,7 @@ const {
   type?: "button" | "submit";
   disabled?: boolean;
   busy?: boolean;
+  label?: string;
 }>();
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
 defineSlots<{ default(): unknown }>();
@@ -34,6 +36,8 @@ defineSlots<{ default(): unknown }>();
     :data-variant="variant"
     :data-size="size"
     :aria-busy="busy || undefined"
+    :aria-label="label"
+    :data-glyph="label === undefined ? undefined : ''"
     @click="(e) => emit('click', e)"
   >
     <slot></slot>
@@ -82,6 +86,12 @@ button {
     min-height: 46px;
     padding: 0 20px;
     font-size: var(--font-base);
+  }
+
+  /* a glyph alone: round, as wide as it is tall */
+  &[data-glyph] {
+    min-width: var(--tap);
+    padding: 0;
   }
 
   &[data-variant="quiet"] {

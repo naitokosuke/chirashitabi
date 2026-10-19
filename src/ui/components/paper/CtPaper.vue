@@ -11,7 +11,8 @@
  *   corner of a person's paper with a wide mount round the picture (`picture`) in an ink-edged
  *   frame, the words under it (default slot) and a stamp (`foot`).
  *
- * `selected` frames it in ink, `lifted` raises it as a finger holds it.
+ * `selected` frames it in ink, `lifted` raises it as a finger holds it. What is put on it (a
+ * CtButton, a CtChip) is drawn in the paper's ink, not the desk's (tokens.css, data-paper).
  */
 const {
   variant = "note",
@@ -34,12 +35,13 @@ const {
     :data-lifted="lifted || undefined"
     :style="`--paper: ${paper}`"
   >
-    <div v-if="variant === 'proposal'" class="strip">
+    <!-- what is on it is written in the paper's ink (data-paper); its frame stays the desk's -->
+    <div v-if="variant === 'proposal'" class="strip" data-paper>
       <b class="label"><slot name="strip"></slot></b>
     </div>
-    <div v-if="variant === 'print'" class="picture"><slot name="picture"></slot></div>
-    <div class="body"><slot></slot></div>
-    <div class="foot"><slot name="foot"></slot></div>
+    <div v-if="variant === 'print'" class="picture" data-paper><slot name="picture"></slot></div>
+    <div class="body" data-paper><slot></slot></div>
+    <div class="foot" data-paper><slot name="foot"></slot></div>
   </div>
 </template>
 
