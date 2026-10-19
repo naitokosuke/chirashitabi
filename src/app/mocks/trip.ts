@@ -18,7 +18,7 @@ export const mockTrip = (): TripSnapshot => ({
   flights: {
     out: {
       number: "BR 191",
-      // both on the list (airports.json), as the room would have checked
+      // both on the list (airports-data.json), as the room would have checked
       from: v.parse(AirportCodeSchema, "HND"),
       to: v.parse(AirportCodeSchema, "TSA"),
       departs: Temporal.PlainDateTime.from("2026-11-03T08:50"),

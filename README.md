@@ -94,7 +94,7 @@ src/app/            The app
              the stays (or the airports on a flight's day); how far apart two points are, minutes on foot or
              by a ride; directions between two points; opening hours read (hours.ts: open on a day, a plan
              that falls while shut);
-             airports (airports.json from OurAirports, fetched when first needed; suggestions as typed)
+             airports (airports-data.json from OurAirports, fetched when first needed; suggestions as typed)
     canvas/  Sticky note card (a text box and a sticker too); TextField (words being written on the desk); transform
              (screen <-> world, zoom, pinch, fit); useViewport (the animated view); usePlace (adding
              a note on the canvas, placed even before the canvas is opened)
@@ -122,10 +122,10 @@ src/contract/       What the app and the Worker both hold to; each takes it thro
   ids.ts         RoomId, MemberId, NoteId, ImageId, Email: brands, and the checks that make them
   brand.ts, color.ts, money.ts, record.ts   Brand; HexColor; CurrencyCode; isRecord
   place.ts       LatLng; a Google Maps link's point, and whether it is a short link
-  airports.json  The airports with an IATA code and scheduled service, from OurAirports (scripts/airports.mjs)
-  airport.ts     An airport and its code: a row of airports.json as one, and the one a name or code means
-  airport-list.ts   airports.json, loaded: a flight's code is checked against it, and one kept from before
-                 codes were required is given one by the name it had
+  airports-data.json  The airports with an IATA code and scheduled service, from OurAirports (scripts/airports.mjs)
+  airport.ts     An airport and its code: a row of airports-data.json as one, and the one a name or code means;
+                 the list loaded, for a flight's code to be checked against it and one kept from before codes
+                 were required to be given one by the name it had (the app fetches the list instead)
 
 src/ui/             The design system: props, slots and events only, no app imports
   styles/        Tokens (colors, type, z-index, motion), base, transitions (ct-morph / ct-fade / ct-slide),
@@ -156,7 +156,7 @@ src/ui/             The design system: props, slots and events only, no app impo
 
 public/             favicon.svg: three notes scattered on a red tile, served as they are
 scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop (see "Running against the Worker");
-                    airports.mjs: rebuilds src/contract/airports.json from OurAirports (public domain)
+                    airports.mjs: rebuilds src/contract/airports-data.json from OurAirports (public domain)
 
 .claude/skills/impeccable/   A text-only copy of the Impeccable design skill (SKILL.md + reference/, no scripts
                              or hooks); PROVENANCE.md says what is left out and why
@@ -178,7 +178,7 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
   expand.ts         A short Google Maps link (maps.app.goo.gl) read as the link its redirect names
   preview.ts        What a page a note links to says of itself (Open Graph; YouTube's oEmbed): title, a line,
                     its picture, fetched within a fence (docs/auth-and-security.md, "Previewing links")
-  airports.ts       The airports a flight may name (src/contract's airport-list.ts)
+  airports.ts       The airports a flight may name (src/contract's airport.ts)
   booklet.ts        The booklet as a public page: one static HTML file written from the room's data, plan only,
                     escaped, no script; served on the booklet host from R2 (index.ts)
   room.ts           Room: the trip, its notes and members in SQLite, and which pictures it has (their bytes
