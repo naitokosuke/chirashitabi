@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { computed } from "vue";
 
-import { CtTicket, safeUrl } from "../../../ui/index";
+import { CtHint, CtLink, CtTicket, safeUrl } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -29,9 +29,9 @@ const href = computed(() => {
     :label
   >
     <p class="name">{{ stay.name }}</p>
-    <a v-if="href !== undefined" :href="safeUrl(href)" rel="noopener noreferrer" target="_blank">{{
-      i18n.t("stay.open")
-    }}</a>
+    <CtHint v-if="href !== undefined" size="sm"><CtLink :href quiet>{{
+        i18n.t("stay.open")
+      }}</CtLink></CtHint>
   </CtTicket>
 </template>
 
@@ -42,11 +42,5 @@ const href = computed(() => {
   font-size: var(--font-lg);
   font-weight: 700;
   overflow-wrap: anywhere;
-}
-
-a {
-  justify-self: start;
-  font-size: var(--font-sm);
-  color: var(--muted);
 }
 </style>
