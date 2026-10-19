@@ -8,11 +8,13 @@
  * - `card`: what a card is (a pin's note).
  * - `minor`: a small heading inside a section.
  *
- * `as` is its rank in the page's outline (`h1`, `h2`, `h3`), which the size does not decide.
+ * `as` is its rank in the page's outline (`h1`, `h2`, `h3`), which the size does not decide;
+ * a `legend` names its fieldset (a flight in the trip's settings) and a `p` heads a part that is
+ * not in the outline (one stay of a few).
  * `muted` steps it back into the muted ink. Where it sits (its margins) is the owner's.
  */
 const { as = "h2", level = "section" } = defineProps<{
-  as?: "h1" | "h2" | "h3";
+  as?: "h1" | "h2" | "h3" | "legend" | "p";
   level?: "page" | "sheet" | "section" | "card" | "minor";
   muted?: boolean;
 }>();
@@ -26,9 +28,10 @@ defineSlots<{ default(): unknown }>();
 </template>
 
 <style scoped>
-/* no margin of its own, and at no weight, so the owner's margin for it always holds */
+/* no margin (nor a legend's room) of its own, at no weight, so the owner's margin always holds */
 :where(.heading) {
   margin: 0;
+  padding: 0;
 }
 
 .heading {

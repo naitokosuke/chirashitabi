@@ -482,13 +482,13 @@ function adoptDraft() {
 
     <!-- what holds for the whole trip stays put above the page; only the day's page morphs -->
     <div class="lead">
-      <p><template v-if="range !== ''">{{ range }} · </template>{{
+      <CtHint size="sm"><template v-if="range !== ''">{{ range }} · </template>{{
           totalAll > 0
             ? i18n.t("shiori.summary", { fixed: fixedCount, total: price(totalFixed) })
             : i18n.t("shiori.summaryCount", { fixed: fixedCount })
         }}<small v-if="totalAll > totalFixed">{{
           i18n.t("shiori.withMaybes", { total: price(totalAll) })
-        }}</small></p>
+        }}</small></CtHint>
 
       <!-- tray: memos without a day (edit mode only) -->
       <CtPanel v-if="editing" as="section">
@@ -888,8 +888,6 @@ article {
 
     > p {
       margin: 10px 0 0;
-      font-size: var(--font-sm);
-      color: var(--muted);
 
       > small {
         font-size: var(--font-xs);

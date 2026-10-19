@@ -32,6 +32,7 @@ import {
   CtChip,
   CtFab,
   CtHeading,
+  CtHint,
   CtLink,
   CtPanel,
   CtScrollRow,
@@ -426,7 +427,7 @@ function fitAll() {
 
       <CtPanel v-if="selected !== null" as="article" float :style="`--card:${paperFor(selected)}`">
         <CtHeading level="card">{{ selected.title }}</CtHeading>
-        <p v-if="selected.body !== ''">{{ selected.body }}</p>
+        <CtHint v-if="selected.body !== ''" size="sm">{{ selected.body }}</CtHint>
         <footer>
           <span v-for="t in selected.tags" :key="t">#{{ t }} </span>
           <span v-if="selected.budget !== null && selected.budget > 0">{{ price(selected.budget) }} </span>
@@ -684,8 +685,6 @@ section {
 
       > p {
         margin: 2px 0 0;
-        font-size: var(--font-sm);
-        color: var(--muted);
       }
 
       /* tags, budget, when */
