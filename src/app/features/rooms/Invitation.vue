@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
-import { CtSwatches } from "../../../ui/index";
+import { CtButton, CtSwatches } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -85,12 +85,18 @@ async function no() {
       {{ i18n.t(failed === "join" ? "rooms.joinFailed" : "rooms.declineFailed") }}
     </p>
     <div class="answer">
-      <button class="primary" type="submit" :disabled="busy || profile === null || cut.offline">
+      <CtButton
+        class="join"
+        size="lg"
+        type="submit"
+        variant="primary"
+        :disabled="busy || profile === null || cut.offline"
+      >
         {{ i18n.t(accept.isLoading.value ? "rooms.joining" : "rooms.join") }}
-      </button>
-      <button type="button" :disabled="busy || cut.offline" @click="no">{{
+      </CtButton>
+      <CtButton size="lg" :disabled="busy || cut.offline" @click="no">{{
         i18n.t("rooms.decline")
-      }}</button>
+      }}</CtButton>
     </div>
   </form>
 </template>
@@ -158,33 +164,8 @@ async function no() {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  > button {
-    min-height: 46px;
-    padding: 0 18px;
-    border-radius: 999px;
-    border: 0;
-    background: var(--wash);
-    color: var(--ink);
-    font: inherit;
-    font-size: var(--font-base);
-    font-weight: 700;
-    &:disabled {
-      opacity: 0.35;
-    }
-    &:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: 3px;
-    }
-  }
-  > .primary {
+  > .join {
     flex: 1;
-    background: var(--ink);
-    color: var(--on-ink);
-    @media (--can-hover) {
-      &:not(:disabled):hover {
-        box-shadow: var(--shadow-float);
-      }
-    }
   }
 }
 </style>

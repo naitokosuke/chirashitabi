@@ -3,6 +3,8 @@ import { computed, onMounted, ref, shallowRef, useId } from "vue";
 
 import { encode } from "uqr";
 
+import { CtButton } from "../../../ui/index";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import { KEPT_DAYS } from "../rooms/api";
@@ -110,7 +112,7 @@ onMounted(() => {
       <h2 :id="`${id}-title`">{{ i18n.t("people.title") }}</h2>
       <p v-if="invited.status.value === 'error'" class="note" role="alert">
         {{ i18n.t("people.loadFailed") }}
-        <button type="button" @click="() => invited.refetch()">{{ i18n.t("rooms.retry") }}</button>
+        <CtButton @click="() => invited.refetch()">{{ i18n.t("rooms.retry") }}</CtButton>
       </p>
 
       <ul>
@@ -124,19 +126,18 @@ onMounted(() => {
           <!-- the owner may take the other person out; twice, the second time naming them -->
           <span v-if="me.role === 'owner' && m.role !== 'owner'" class="acts">
             <template v-if="asked({ kind: 'remove', member: m.id })">
-              <button class="danger" type="button" @click="() => remove(m.id)">
+              <CtButton variant="primary" @click="() => remove(m.id)">
                 {{ i18n.t("people.removeConfirm") }}
-              </button>
-              <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
+              </CtButton>
+              <CtButton @click="cancel">{{ i18n.t("people.cancel") }}</CtButton>
             </template>
-            <button
+            <CtButton
               v-else
-              type="button"
               :disabled="cut.offline"
               @click="() => ask({ kind: 'remove', member: m.id })"
             >
               {{ i18n.t("people.remove") }}
-            </button>
+            </CtButton>
           </span>
         </li>
         <!-- a seat held for someone invited: a blank face until they answer (the owner's only) -->
@@ -147,9 +148,9 @@ onMounted(() => {
             <small>{{ i18n.t("people.pending") }}</small>
           </span>
           <span class="acts">
-            <button type="button" :disabled="cut.offline" @click="() => uninvite(address)">{{
+            <CtButton :disabled="cut.offline" @click="() => uninvite(address)">{{
               i18n.t("people.uninvite")
-            }}</button>
+            }}</CtButton>
           </span>
         </li>
       </ul>
@@ -169,13 +170,14 @@ onMounted(() => {
             spellcheck="false"
             type="email"
           />
-          <button
-            class="primary"
+          <CtButton
+            size="lg"
             type="submit"
+            variant="primary"
             :disabled="invite.isLoading.value || email.trim() === '' || cut.offline"
           >
             {{ i18n.t(invite.isLoading.value ? "people.inviting" : "people.invite") }}
-          </button>
+          </CtButton>
         </div>
         <p class="hint">{{ i18n.t(cut.offline ? "offline.unavailable" : "people.inviteHint") }}</p>
         <details class="qr">
@@ -205,35 +207,25 @@ onMounted(() => {
       <div class="out">
         <template v-if="me.role === 'owner'">
           <template v-if="asked({ kind: 'delete' })">
-            <button class="danger" type="button" @click="deleteTrip">
+            <CtButton variant="primary" @click="deleteTrip">
               {{ i18n.t("people.deleteConfirm", { count: KEPT_DAYS }) }}
-            </button>
-            <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
+            </CtButton>
+            <CtButton @click="cancel">{{ i18n.t("people.cancel") }}</CtButton>
           </template>
-          <button
-            v-else
-            type="button"
-            :disabled="cut.offline"
-            @click="() => ask({ kind: 'delete' })"
-          >
+          <CtButton v-else :disabled="cut.offline" @click="() => ask({ kind: 'delete' })">
             {{ i18n.t("people.delete") }}
-          </button>
+          </CtButton>
         </template>
         <template v-else>
           <template v-if="asked({ kind: 'leave' })">
-            <button class="danger" type="button" @click="leave">{{
+            <CtButton variant="primary" @click="leave">{{
               i18n.t("people.leaveConfirm")
-            }}</button>
-            <button type="button" @click="cancel">{{ i18n.t("people.cancel") }}</button>
+            }}</CtButton>
+            <CtButton @click="cancel">{{ i18n.t("people.cancel") }}</CtButton>
           </template>
-          <button
-            v-else
-            type="button"
-            :disabled="cut.offline"
-            @click="() => ask({ kind: 'leave' })"
-          >
+          <CtButton v-else :disabled="cut.offline" @click="() => ask({ kind: 'leave' })">
             {{ i18n.t("people.leave") }}
-          </button>
+          </CtButton>
         </template>
       </div>
     </template>
@@ -330,47 +322,6 @@ ul {
   margin-block-start: 8px;
 }
 
-button {
-  min-height: var(--tap);
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 0;
-  background: var(--wash);
-  color: var(--ink);
-  font: inherit;
-  font-size: var(--font-sm);
-  font-weight: 700;
-
-  &:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
-  }
-
-  &:disabled {
-    opacity: 0.35;
-  }
-
-  @media (--can-hover) {
-    &:not(:disabled):hover {
-      background: color-mix(in oklch, var(--ink) 12%, var(--bg));
-    }
-  }
-}
-
-/* the second tap of something that takes someone out: it says what it will do, in ink */
-button.danger,
-button.primary {
-  background: var(--ink);
-  color: var(--on-ink);
-
-  @media (--can-hover) {
-    &:not(:disabled):hover {
-      background: var(--ink);
-      box-shadow: var(--shadow-float);
-    }
-  }
-}
-
 .invite {
   display: grid;
   gap: 6px;
@@ -401,10 +352,6 @@ button.primary {
         outline: 2px solid var(--ink);
         outline-offset: 2px;
       }
-    }
-
-    > button {
-      min-height: 46px;
     }
   }
 }

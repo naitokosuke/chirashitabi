@@ -5,6 +5,8 @@ import { computed, ref } from "vue";
 
 import { useRoute, useRouter } from "vue-router";
 
+import { CtButton } from "../../../../ui/index";
+
 import { formatMoney } from "../../../shared/money";
 
 import { useI18n } from "../../../i18n/useI18n";
@@ -122,7 +124,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
               :label="i18n.t('stay.title')"
               :stay="s"
             />
-            <button type="button" @click="() => (editing = true)">{{ i18n.t("trip.edit") }}</button>
+            <CtButton @click="() => (editing = true)">{{ i18n.t("trip.edit") }}</CtButton>
           </template>
         </div>
 
@@ -242,20 +244,6 @@ section {
 
       > button {
         justify-self: start;
-        min-height: var(--tap);
-        padding: 0 14px;
-        border-radius: 999px;
-        border: 0;
-        background: var(--wash);
-        color: var(--ink);
-        font: inherit;
-        font-size: var(--font-sm);
-        font-weight: 700;
-
-        &:focus-visible {
-          outline: 2px solid var(--ink);
-          outline-offset: 2px;
-        }
       }
     }
 

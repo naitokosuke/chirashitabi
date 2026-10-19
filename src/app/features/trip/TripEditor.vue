@@ -3,6 +3,8 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, reactive, useId } from "vue";
 
+import { CtButton } from "../../../ui/index";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import Icon from "../../icons/Icon.vue";
@@ -260,9 +262,9 @@ function save() {
           </div>
         </div>
       </template>
-      <button v-else class="add" type="button" @click="() => addFlight(leg)">
+      <CtButton v-else class="start" variant="blank" @click="() => addFlight(leg)">
         <Icon :size="16" :src="plusIcon" />{{ i18n.t(leg === "out" ? "flight.addOut" : "flight.addBack") }}
-      </button>
+      </CtButton>
     </fieldset>
 
     <!-- where the nights are spent: each a few fields, in the order they come -->
@@ -279,12 +281,12 @@ function save() {
         </div>
         <!-- or its place found by its name on OpenStreetMap, one chosen: no link needed -->
         <div v-if="worker.api !== null" class="find">
-          <button
-            class="quiet"
-            type="button"
+          <CtButton
+            class="start"
+            :busy="finding.has(s)"
             :disabled="s.name.trim() === '' || finding.has(s)"
             @click="() => findStay(s)"
-          >{{ i18n.t(finding.has(s) ? "stay.finding" : "stay.find") }}</button>
+          >{{ i18n.t(finding.has(s) ? "stay.finding" : "stay.find") }}</CtButton>
           <ul v-if="(found.get(s)?.length ?? 0) > 0">
             <li v-for="p in found.get(s)" :key="`${p.at.lat},${p.at.lng}`">
               <button type="button" @click="() => chooseStay(s, p)"><b>{{ p.name }}</b><small>{{
@@ -328,16 +330,14 @@ function save() {
         </div>
         <p aria-live="polite" class="hint">{{ i18n.t(stayLinkState(s)) }}</p>
       </div>
-      <button class="add" type="button" @click="addStay"><Icon :size="16" :src="plusIcon" />{{ i18n.t("stay.add") }}</button>
+      <CtButton class="start" variant="blank" @click="addStay"><Icon :size="16" :src="plusIcon" />{{ i18n.t("stay.add") }}</CtButton>
     </fieldset>
 
     <footer>
-      <button class="primary" type="submit" :disabled="settings === null">{{
+      <CtButton size="lg" type="submit" variant="primary" :disabled="settings === null">{{
         i18n.t("trip.save")
-      }}</button>
-      <button class="quiet" type="button" @click="() => emit('close')">{{
-        i18n.t("people.cancel")
-      }}</button>
+      }}</CtButton>
+      <CtButton size="lg" @click="() => emit('close')">{{ i18n.t("people.cancel") }}</CtButton>
     </footer>
   </form>
 </template>
@@ -543,46 +543,14 @@ button.remove {
   color: var(--ink);
 }
 
-button.add, button.quiet, button.primary {
+/* a button in a column of fields keeps to its words, at the start */
+.start {
   justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: var(--tap);
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 0;
-  background: var(--wash);
-  color: var(--ink);
-  font: inherit;
-  font-size: var(--font-sm);
-  font-weight: 700;
-  &:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
-  }
-  &:disabled {
-    opacity: 0.35;
-  }
-}
-
-/* a flight still to add: the outline of a button, as the blank luggage tag is of a tag */
-button.add {
-  background: transparent;
-  border: 1.5px dashed color-mix(in oklch, var(--ink) 28%, transparent);
-  color: var(--muted);
 }
 
 footer {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  > button.primary {
-    min-height: 46px;
-    padding: 0 22px;
-    font-size: var(--font-base);
-    background: var(--ink);
-    color: var(--on-ink);
-  }
 }
 </style>
