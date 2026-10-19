@@ -168,7 +168,7 @@ export default defineConfig({
       },
     ],
     options: { typeAware: true, typeCheck: true },
-    vize: {
+    vue: {
       preset: "opinionated",
       rules: {
         // I don't like this rule🫠
@@ -192,7 +192,7 @@ export default defineConfig({
     },
   },
   fmt: {
-    vize: true,
+    vue: true,
     // written by vue-router's plugin on every build, as it writes it
     // and the airports, as scripts/airports.mjs writes them: one line, kept small
     ignorePatterns: ["src/app/typed-router.d.ts", "src/contract/airports.json"],

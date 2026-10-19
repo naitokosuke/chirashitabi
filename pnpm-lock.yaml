@@ -240,11 +240,11 @@ importers:
         specifier: 'catalog:'
         version: 5.0.1(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(msw@3.0.2(@types/node@26.6.3)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3))(playwright@1.63.0)(vitest@5.0.1)
       '@vizejs/vite-plugin':
-        specifier: 0.474.0
-        version: 0.474.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)(vite-plus@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0(@vitejs/devtools-rolldown@0.8.0)(@voidzero-dev/vite-plus-core@1.0.0)(crossws@0.4.15(srvx@1.0.5))(srvx@1.0.5))(@vitest/browser-playwright@5.0.1)(@vitest/ui@5.0.1)(esbuild@0.28.1)(msw@3.0.2(@types/node@26.6.3)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3))(typescript@5.9.3))(vue@3.6.0-rc.10(typescript@5.9.3))
+        specifier: 0.480.0
+        version: 0.480.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)(vite-plus@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0(@vitejs/devtools-rolldown@0.8.0)(@voidzero-dev/vite-plus-core@1.0.0)(crossws@0.4.15(srvx@1.0.5))(srvx@1.0.5))(@vitest/browser-playwright@5.0.1)(@vitest/ui@5.0.1)(esbuild@0.28.1)(msw@3.0.2(@types/node@26.6.3)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3))(typescript@5.9.3))(vue@3.6.0-rc.10(typescript@5.9.3))
       '@vizejs/vite-plugin-musea':
-        specifier: 0.474.0
-        version: 0.474.0(@vizejs/vite-plugin@0.474.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)(vite-plus@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0(@vitejs/devtools-rolldown@0.8.0)(@voidzero-dev/vite-plus-core@1.0.0)(crossws@0.4.15(srvx@1.0.5))(srvx@1.0.5))(@vitest/browser-playwright@5.0.1)(@vitest/ui@5.0.1)(esbuild@0.28.1)(msw@3.0.2(@types/node@26.6.3)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3))(typescript@5.9.3))(vue@3.6.0-rc.10(typescript@5.9.3)))(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(playwright@1.63.0)
+        specifier: 0.480.0
+        version: 0.480.0(@vizejs/vite-plugin@0.480.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)(vite-plus@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0(@vitejs/devtools-rolldown@0.8.0)(@voidzero-dev/vite-plus-core@1.0.0)(crossws@0.4.15(srvx@1.0.5))(srvx@1.0.5))(@vitest/browser-playwright@5.0.1)(@vitest/ui@5.0.1)(esbuild@0.28.1)(msw@3.0.2(@types/node@26.6.3)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3))(typescript@5.9.3))(vue@3.6.0-rc.10(typescript@5.9.3)))(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(playwright@1.63.0)
       '@vue/devtools-api':
         specifier: ^8.2.1
         version: 8.2.1
@@ -1595,64 +1595,64 @@ packages:
   '@vitest/utils@5.0.1':
     resolution: {integrity: sha512-E9+yEA+jsfaoxZcUHFzEqUrQcoNh2EwrPT5efIqkUPUwD5Ua2Li9BRWaYeRwvzvdLgTSVrre8oKNeyrfg7KkdQ==}
 
-  '@vizejs/native-darwin-arm64@0.474.0':
-    resolution: {integrity: sha512-DOndYUgSDajtLBP5c9QJu3rkg89y+rCwZNULbZl94t18CkJMnBktGcd4f6XOvN/LZTU3ehVwqZFmNWUNjwmhvw==}
+  '@vizejs/native-darwin-arm64@0.480.0':
+    resolution: {integrity: sha512-7T4jt9lYTltMIJvUuiJ08VAanxEnIDUcLkbr5fOeNFcS6nwSiGfmkedGcVjkfHZjd+senBw5lRlxWydYOF0mgQ==}
     engines: {node: '>=22'}
     cpu: [arm64]
     os: [darwin]
 
-  '@vizejs/native-darwin-x64@0.474.0':
-    resolution: {integrity: sha512-+hFz78lSDlnvkV3+uIL+WgjxnrKk7NnXDrxJMiM7TLHLxnlkC6zn+9LBjY3u5YKaR57AWvfNqB4HmOtUKn99rA==}
+  '@vizejs/native-darwin-x64@0.480.0':
+    resolution: {integrity: sha512-5NndrrOJ3S3PuGzm3/0KjPhHtjif/xILiP7f2JV5psrMpl1YkWOVFMjQdtvNGsi8uD0K5X/ZpHSFx/hvlEln8g==}
     engines: {node: '>=22'}
     cpu: [x64]
     os: [darwin]
 
-  '@vizejs/native-linux-arm64-gnu@0.474.0':
-    resolution: {integrity: sha512-LncQM9O6JuDaiDCF72KA7BI2Jqh1X2pC0aiDa+u2F9R7B7kgVuXIedaiT1WwcuyGQhJ11PaHMIxl0LVfWygHrg==}
+  '@vizejs/native-linux-arm64-gnu@0.480.0':
+    resolution: {integrity: sha512-suXGvLedgSokLRvseO1AbFttS7UK4NhtWvMYJW4ipBQ5lnj60KhqnvVcyGya2bSQnqmN69cXJGlMQBL2f3oOeg==}
     engines: {node: '>=22'}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@vizejs/native-linux-arm64-musl@0.474.0':
-    resolution: {integrity: sha512-IHsWrpfWFWYp0WhHicOk8n0JJUL3v1kRnWCrRpDe+o4ETF8rQLRbsAl/tO8YcXuBppP/xlMNNAFmkKlsKjoLyA==}
+  '@vizejs/native-linux-arm64-musl@0.480.0':
+    resolution: {integrity: sha512-wGPP6pJHKAAtIJ6FfC1BGkySkz+JPivRiAEsT4BvgqCrdjvaY2LtLsU4VOkjmBq1Av5zSLiH/LuCVEFpLtoMeQ==}
     engines: {node: '>=22'}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@vizejs/native-linux-x64-gnu@0.474.0':
-    resolution: {integrity: sha512-chqWxFfFLZiuz2xFUQUn4qWayzTpiBTvZIxI+qaItoJQ5jF0IQ871uY7Lz8lBYS3aS/PkRBO16neQkscwz83pg==}
+  '@vizejs/native-linux-x64-gnu@0.480.0':
+    resolution: {integrity: sha512-XBL3k+fjDL+ltYZrPpdJaCZda+L3p+1Q9msQpcHw0/4v0tinglr7XMcKIr+5RVkJlAcDWMjzQLiJzEeqvAG0Fw==}
     engines: {node: '>=22'}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@vizejs/native-linux-x64-musl@0.474.0':
-    resolution: {integrity: sha512-hkJCtQm9vnVaQBi4Xob60TVm6qQ0yN4XnwuvXnFPrBK5DW/lq7sJTvlGxGsN48amU21utYWHQ87FTSLgWKQPnA==}
+  '@vizejs/native-linux-x64-musl@0.480.0':
+    resolution: {integrity: sha512-dHwQS2bF42RnsZCuhgHGycCDb5c/N5RU8B55o/aGdwE1PGE21DRdOGBWfimHufNs5EYkz5e99W03R2ZuXVSOpw==}
     engines: {node: '>=22'}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@vizejs/native-win32-arm64-msvc@0.474.0':
-    resolution: {integrity: sha512-ToJbUZxuQNH9hp1IxE/wuIYx/UHZRd3UzBoLmYS7mUQFQcnO04shLyPRF8VA1bSlncvxeU+HdTCsGwilTojrmw==}
+  '@vizejs/native-win32-arm64-msvc@0.480.0':
+    resolution: {integrity: sha512-vC3ahTaFFCyyWDrgYFuPsS9VoDvhgyZ+UCJTtwek9+hPdz/pfbkUm3twER3gdLAkwn4ODBQMxGGw1YqrJeKXrA==}
     engines: {node: '>=22'}
     cpu: [arm64]
     os: [win32]
 
-  '@vizejs/native-win32-x64-msvc@0.474.0':
-    resolution: {integrity: sha512-zrzynk6TAoLXAc7bnJjunkYucA76jA2EVxfvyx8C4p8ShCWaVxnuu6CInHE3NTgFRF2cVXa4FCg7aybqPUb2qw==}
+  '@vizejs/native-win32-x64-msvc@0.480.0':
+    resolution: {integrity: sha512-WOna0Dz19gY7a/gIKObhfyAYqtgl8hXFiPa37S+nnAX+BLinxtKad3m80K5lHnePOwuU9JHjNCgvh1uL+4HJgQ==}
     engines: {node: '>=22'}
     cpu: [x64]
     os: [win32]
 
-  '@vizejs/native@0.474.0':
-    resolution: {integrity: sha512-Icwrn57Jn01f64ixv0Hnjbfag7Ti0j59A11NRweEY9n+DIYTxIZYK39WDf2pfbCFN3XtsyZLr16VhP40oBD2Bw==}
+  '@vizejs/native@0.480.0':
+    resolution: {integrity: sha512-ljxisP03NyW4H8PRRhviWPTbGNkSMPxPKmCputdoJFYLFII6mSszI2uOm6EdRtJjno5L+wZySodekDMbSs80Qw==}
     engines: {node: '>=22'}
 
-  '@vizejs/unplugin@0.474.0':
-    resolution: {integrity: sha512-I0hVcjqOTWF02yAI2PLV2KN7+B12KoseWiK2pcKRRAftJ8UbcjVpURWPD35X1I5r4UdyJLj1P+HVoQ1yvXUTwA==}
+  '@vizejs/unplugin@0.480.0':
+    resolution: {integrity: sha512-duLpkBAupOBMVERUwleCx9xjj4ofz+O5U2B/o4kgdpIjDwpS7LxviU/dcYeGhU1Hjmarac6MdReJ4RTM4UiCAw==}
     engines: {node: '>=22'}
     peerDependencies:
       webpack: ^4.46.0 || ^5.0.0
@@ -1660,12 +1660,12 @@ packages:
       webpack:
         optional: true
 
-  '@vizejs/vite-plugin-musea@0.474.0':
-    resolution: {integrity: sha512-9rNI9dW816QVkD9vyn2rNSxv0oE0mYe9HQuP9fLUnPuK5DBWBMS/9olc0BJFt4TcwXInb2JBiKUzQnso+SZBEg==}
+  '@vizejs/vite-plugin-musea@0.480.0':
+    resolution: {integrity: sha512-DP0K7zHjbDxEn6GzjxzO45g3FcdIR3AjLaJ3gKwJjHyro4vsiET9+se40HE2UCLLCdV3ogJW4qzYLRkxPfJRZg==}
     engines: {node: '>=22'}
     hasBin: true
     peerDependencies:
-      '@vizejs/vite-plugin': 0.474.0
+      '@vizejs/vite-plugin': 0.480.0
       axe-core: ^4.7.0
       playwright: ^1.40.0
       vite: ^7.3.0 || ^8.0.0
@@ -1675,8 +1675,8 @@ packages:
       playwright:
         optional: true
 
-  '@vizejs/vite-plugin@0.474.0':
-    resolution: {integrity: sha512-dZqqSHxJhEDIZcq5ugtiaUr0dnBfqxonKxW39p1JwxiF4GKQX1OrbGOkvagIRFs8mtEJ6XuJmdQxXOy1191LKQ==}
+  '@vizejs/vite-plugin@0.480.0':
+    resolution: {integrity: sha512-g4274sonePvUeSnxiQdHG4uT5MH8/wrYxsb9yBZzMgKUm0d25NyHa3+VbmDjm+VkwXT0Ij4lbFbjtSQYm988Gg==}
     engines: {node: '>=22'}
     peerDependencies:
       vite: ^7.3.0 || ^8.0.0
@@ -3050,8 +3050,8 @@ packages:
       jsdom:
         optional: true
 
-  vize@0.474.0:
-    resolution: {integrity: sha512-4eQbH9JewRRX6iAVIVg2nJ9YelGodllSU3xVMLVp9ocK5ZemQtfXxLdKEnN2TejYefc1bQi3MzmLAQUL3bc26w==}
+  vize@0.480.0:
+    resolution: {integrity: sha512-hSE9guI3glsTkPOOI4EZCtpt2ZaF7+3QQ33164qU6VJFe9h6dIH1Tu+TUhNdUNxXTem19iH9+ZsJZN1fS1Fe5A==}
     engines: {node: '>=22'}
     hasBin: true
     peerDependencies:
@@ -4120,44 +4120,44 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.2.0
 
-  '@vizejs/native-darwin-arm64@0.474.0':
+  '@vizejs/native-darwin-arm64@0.480.0':
     optional: true
 
-  '@vizejs/native-darwin-x64@0.474.0':
+  '@vizejs/native-darwin-x64@0.480.0':
     optional: true
 
-  '@vizejs/native-linux-arm64-gnu@0.474.0':
+  '@vizejs/native-linux-arm64-gnu@0.480.0':
     optional: true
 
-  '@vizejs/native-linux-arm64-musl@0.474.0':
+  '@vizejs/native-linux-arm64-musl@0.480.0':
     optional: true
 
-  '@vizejs/native-linux-x64-gnu@0.474.0':
+  '@vizejs/native-linux-x64-gnu@0.480.0':
     optional: true
 
-  '@vizejs/native-linux-x64-musl@0.474.0':
+  '@vizejs/native-linux-x64-musl@0.480.0':
     optional: true
 
-  '@vizejs/native-win32-arm64-msvc@0.474.0':
+  '@vizejs/native-win32-arm64-msvc@0.480.0':
     optional: true
 
-  '@vizejs/native-win32-x64-msvc@0.474.0':
+  '@vizejs/native-win32-x64-msvc@0.480.0':
     optional: true
 
-  '@vizejs/native@0.474.0':
+  '@vizejs/native@0.480.0':
     optionalDependencies:
-      '@vizejs/native-darwin-arm64': 0.474.0
-      '@vizejs/native-darwin-x64': 0.474.0
-      '@vizejs/native-linux-arm64-gnu': 0.474.0
-      '@vizejs/native-linux-arm64-musl': 0.474.0
-      '@vizejs/native-linux-x64-gnu': 0.474.0
-      '@vizejs/native-linux-x64-musl': 0.474.0
-      '@vizejs/native-win32-arm64-msvc': 0.474.0
-      '@vizejs/native-win32-x64-msvc': 0.474.0
+      '@vizejs/native-darwin-arm64': 0.480.0
+      '@vizejs/native-darwin-x64': 0.480.0
+      '@vizejs/native-linux-arm64-gnu': 0.480.0
+      '@vizejs/native-linux-arm64-musl': 0.480.0
+      '@vizejs/native-linux-x64-gnu': 0.480.0
+      '@vizejs/native-linux-x64-musl': 0.480.0
+      '@vizejs/native-win32-arm64-msvc': 0.480.0
+      '@vizejs/native-win32-x64-msvc': 0.480.0
 
-  '@vizejs/unplugin@0.474.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)':
+  '@vizejs/unplugin@0.480.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)':
     dependencies:
-      '@vizejs/native': 0.474.0
+      '@vizejs/native': 0.480.0
       oxc-transform: 0.144.0
       unplugin: 3.3.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)
     transitivePeerDependencies:
@@ -4170,26 +4170,26 @@ snapshots:
       - unloader
       - vite
 
-  '@vizejs/vite-plugin-musea@0.474.0(@vizejs/vite-plugin@0.474.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)(vite-plus@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0(@vitejs/devtools-rolldown@0.8.0)(@voidzero-dev/vite-plus-core@1.0.0)(crossws@0.4.15(srvx@1.0.5))(srvx@1.0.5))(@vitest/browser-playwright@5.0.1)(@vitest/ui@5.0.1)(esbuild@0.28.1)(msw@3.0.2(@types/node@26.6.3)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3))(typescript@5.9.3))(vue@3.6.0-rc.10(typescript@5.9.3)))(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(playwright@1.63.0)':
+  '@vizejs/vite-plugin-musea@0.480.0(@vizejs/vite-plugin@0.480.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)(vite-plus@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0(@vitejs/devtools-rolldown@0.8.0)(@voidzero-dev/vite-plus-core@1.0.0)(crossws@0.4.15(srvx@1.0.5))(srvx@1.0.5))(@vitest/browser-playwright@5.0.1)(@vitest/ui@5.0.1)(esbuild@0.28.1)(msw@3.0.2(@types/node@26.6.3)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3))(typescript@5.9.3))(vue@3.6.0-rc.10(typescript@5.9.3)))(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(playwright@1.63.0)':
     dependencies:
-      '@vizejs/native': 0.474.0
-      '@vizejs/vite-plugin': 0.474.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)(vite-plus@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0(@vitejs/devtools-rolldown@0.8.0)(@voidzero-dev/vite-plus-core@1.0.0)(crossws@0.4.15(srvx@1.0.5))(srvx@1.0.5))(@vitest/browser-playwright@5.0.1)(@vitest/ui@5.0.1)(esbuild@0.28.1)(msw@3.0.2(@types/node@26.6.3)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3))(typescript@5.9.3))(vue@3.6.0-rc.10(typescript@5.9.3))
+      '@vizejs/native': 0.480.0
+      '@vizejs/vite-plugin': 0.480.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)(vite-plus@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0(@vitejs/devtools-rolldown@0.8.0)(@voidzero-dev/vite-plus-core@1.0.0)(crossws@0.4.15(srvx@1.0.5))(srvx@1.0.5))(@vitest/browser-playwright@5.0.1)(@vitest/ui@5.0.1)(esbuild@0.28.1)(msw@3.0.2(@types/node@26.6.3)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3))(typescript@5.9.3))(vue@3.6.0-rc.10(typescript@5.9.3))
       pngjs: 7.0.0
       typescript: 6.0.3
       vite: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3)'
     optionalDependencies:
       playwright: 1.63.0
 
-  '@vizejs/vite-plugin@0.474.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)(vite-plus@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0(@vitejs/devtools-rolldown@0.8.0)(@voidzero-dev/vite-plus-core@1.0.0)(crossws@0.4.15(srvx@1.0.5))(srvx@1.0.5))(@vitest/browser-playwright@5.0.1)(@vitest/ui@5.0.1)(esbuild@0.28.1)(msw@3.0.2(@types/node@26.6.3)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3))(typescript@5.9.3))(vue@3.6.0-rc.10(typescript@5.9.3))':
+  '@vizejs/vite-plugin@0.480.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)(vite-plus@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0(@vitejs/devtools-rolldown@0.8.0)(@voidzero-dev/vite-plus-core@1.0.0)(crossws@0.4.15(srvx@1.0.5))(srvx@1.0.5))(@vitest/browser-playwright@5.0.1)(@vitest/ui@5.0.1)(esbuild@0.28.1)(msw@3.0.2(@types/node@26.6.3)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3))(typescript@5.9.3))(vue@3.6.0-rc.10(typescript@5.9.3))':
     dependencies:
-      '@vizejs/native': 0.474.0
-      '@vizejs/unplugin': 0.474.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)
+      '@vizejs/native': 0.480.0
+      '@vizejs/unplugin': 0.480.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(esbuild@0.28.1)
       jsonc-parser: 3.3.1
       oxc-parser: 0.144.0
       picomatch: 4.0.5
       tinyglobby: 0.2.17
       vite: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3)'
-      vize: 0.474.0(vue@3.6.0-rc.10(typescript@5.9.3))
+      vize: 0.480.0(vue@3.6.0-rc.10(typescript@5.9.3))
     optionalDependencies:
       vite-plus: 1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0(@vitejs/devtools-rolldown@0.8.0)(@voidzero-dev/vite-plus-core@1.0.0)(crossws@0.4.15(srvx@1.0.5))(srvx@1.0.5))(@vitest/browser-playwright@5.0.1)(@vitest/ui@5.0.1)(esbuild@0.28.1)(msw@3.0.2(@types/node@26.6.3)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.8.0)(esbuild@0.28.1)(typescript@5.9.3))(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3))(typescript@5.9.3)
     transitivePeerDependencies:
@@ -5259,9 +5259,9 @@ snapshots:
     transitivePeerDependencies:
       - msw
 
-  vize@0.474.0(vue@3.6.0-rc.10(typescript@5.9.3)):
+  vize@0.480.0(vue@3.6.0-rc.10(typescript@5.9.3)):
     dependencies:
-      '@vizejs/native': 0.474.0
+      '@vizejs/native': 0.480.0
       oxc-transform: 0.144.0
     optionalDependencies:
       '@typescript/typescript-darwin-arm64': 7.0.2
