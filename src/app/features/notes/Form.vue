@@ -28,7 +28,15 @@ import {
   watch,
 } from "vue";
 
-import { CtBackButton, CtButton, CtChip, CtField, CtInput, useFlip } from "../../../ui/index";
+import {
+  CtBackButton,
+  CtButton,
+  CtChip,
+  CtChoiceList,
+  CtField,
+  CtInput,
+  useFlip,
+} from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -760,14 +768,19 @@ function submit() {
               :busy="places.kind === 'asking'"
               @click="findPlaces"
             >{{ i18n.t("form.findPlace") }}</CtButton>
-            <ul v-if="found.length > 0">
-              <li v-for="p in found" :key="`${p.at.lat},${p.at.lng}`">
-                <button type="button" @click="() => choosePlace(p)">
-                  <span>{{ p.name }}</span>
-                  <small>{{ p.address }}</small>
-                </button>
-              </li>
-            </ul>
+            <CtChoiceList
+              v-if="found.length > 0"
+              dashed
+              :items="
+                found.map((p) => ({
+                  key: `${p.at.lat},${p.at.lng}`,
+                  label: p.name,
+                  detail: p.address,
+                  place: p,
+                }))
+              "
+              @choose="(it) => choosePlace(it.place)"
+            />
             <p v-if="found.length > 0 || namedByOsm" class="credit">{{
               i18n.t("form.placesCredit")
             }}</p>
@@ -1018,46 +1031,9 @@ form {
         gap: 8px;
         margin-top: 2px;
 
-        /* each place: its name, and where it is under it; a tap makes it the memo's */
+        /* the places to choose, as wide as the field */
         > ul {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          display: grid;
-          gap: 6px;
           align-self: stretch;
-
-          button {
-            width: 100%;
-            display: grid;
-            gap: 2px;
-            padding: 10px 12px;
-            text-align: start;
-            border-radius: 10px;
-            background: var(--surface);
-            border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
-            color: var(--ink);
-
-            > span {
-              font-size: var(--font-md);
-              font-weight: 700;
-            }
-
-            > small {
-              font-size: var(--font-xs);
-              color: var(--muted);
-              overflow: hidden;
-              text-overflow: ellipsis;
-              white-space: nowrap;
-            }
-
-            @media (--can-hover) {
-              &:hover {
-                border-style: solid;
-                border-color: var(--ink);
-              }
-            }
-          }
         }
 
         > p {
