@@ -28,7 +28,7 @@ import {
   watch,
 } from "vue";
 
-import { CtChip, useFlip } from "../../../ui/index";
+import { CtButton, CtChip, useFlip } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -675,13 +675,13 @@ function submit() {
           </div>
           <!-- Clef looks at the words and the photo; what it finds fitting moves up the row -->
           <div v-if="worker.api !== null && (askByTap || tagState !== 'idle')" class="suggested">
-            <button
+            <CtButton
               v-if="askByTap"
-              type="button"
+              variant="ask"
               :disabled="tagState === 'asking' || !text.trim() || cut.offline"
-              :aria-busy="tagState === 'asking'"
+              :busy="tagState === 'asking'"
               @click="() => askForTags(true)"
-            >{{ i18n.t("form.suggestTags") }}</button>
+            >{{ i18n.t("form.suggestTags") }}</CtButton>
             <p v-if="tagState !== 'idle'" aria-live="polite">{{ i18n.t(TAG_STATE[tagState]) }}</p>
             <p v-else-if="askByTap && cut.offline">{{ i18n.t("offline.unavailable") }}</p>
           </div>
@@ -754,12 +754,12 @@ function submit() {
           }}</p>
           <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
           <div v-if="worker.api !== null" class="places">
-            <button
-              type="button"
+            <CtButton
+              variant="ask"
               :disabled="places.kind === 'asking' || !text.trim() || cut.offline"
-              :aria-busy="places.kind === 'asking'"
+              :busy="places.kind === 'asking'"
               @click="findPlaces"
-            >{{ i18n.t("form.findPlace") }}</button>
+            >{{ i18n.t("form.findPlace") }}</CtButton>
             <ul v-if="found.length > 0">
               <li v-for="p in found" :key="`${p.at.lat},${p.at.lng}`">
                 <button type="button" @click="() => choosePlace(p)">
@@ -848,9 +848,14 @@ function submit() {
     </div>
     <footer>
       <label v-if="!docked && !editing" class="again"><input v-model="keepOpen" type="checkbox" />{{ i18n.t("form.addAnother") }}</label>
-      <button type="submit" :disabled="!text.trim() || photo === 'sending'">{{
+      <CtButton
+        size="lg"
+        type="submit"
+        variant="primary"
+        :disabled="!text.trim() || photo === 'sending'"
+      >{{
         i18n.t(saveLabel)
-      }}</button>
+      }}</CtButton>
       <p v-if="!editing">{{ i18n.t(hintKey) }}</p>
     </footer>
   </form>
@@ -1053,45 +1058,13 @@ form {
         }
       }
 
-      /* the ask for tags, dashed like every ask of the agent's, then what came back */
-      /* the ask for the place, dashed like every ask of the agent's, then the places to choose */
+      /* the ask for the place, then the places to choose */
       > .places {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
         gap: 8px;
         margin-top: 8px;
-
-        > button {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          min-height: var(--tap);
-          padding: 0 12px;
-          border-radius: 999px;
-          background: var(--surface);
-          border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
-          font-size: var(--font-sm);
-          font-weight: 700;
-          color: var(--ink);
-
-          &:disabled {
-            color: var(--muted);
-          }
-
-          &[aria-busy="true"]::before {
-            content: "";
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: currentColor;
-            animation: breathe 1s ease-in-out infinite alternate;
-
-            @media (--reduced-motion) {
-              animation: none;
-            }
-          }
-        }
 
         /* each place: its name, and where it is under it; a tap makes it the memo's */
         > ul {
@@ -1147,45 +1120,13 @@ form {
         }
       }
 
+      /* the ask for tags, then what came back */
       > .suggested {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         gap: 6px;
         margin-top: 8px;
-
-        /* the ask itself */
-        > button:first-child {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          min-height: var(--tap);
-          padding: 0 12px;
-          border-radius: 999px;
-          background: var(--surface);
-          border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
-          font-size: var(--font-sm);
-          font-weight: 700;
-          color: var(--ink);
-
-          &:disabled {
-            color: var(--muted);
-          }
-
-          /* waiting on Clef: a dot breathing before the label */
-          &[aria-busy="true"]::before {
-            content: "";
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: currentColor;
-            animation: breathe 1s ease-in-out infinite alternate;
-
-            @media (--reduced-motion) {
-              animation: none;
-            }
-          }
-        }
 
         > p {
           flex-basis: 100%;
@@ -1270,25 +1211,6 @@ form {
     flex-direction: column;
     gap: 8px;
 
-    > button {
-      height: 52px;
-      border-radius: 999px;
-      background: var(--ink);
-      color: var(--on-ink);
-      font-size: var(--font-xl);
-      font-weight: 700;
-
-      &:disabled {
-        opacity: 0.4;
-      }
-
-      @media (--can-hover) {
-        &:not(:disabled):hover {
-          box-shadow: var(--shadow-float);
-        }
-      }
-    }
-
     > p {
       margin: 0;
       text-align: center;
@@ -1342,15 +1264,6 @@ form {
   /* the memo tab's footer sits on the dock's footprint, not on the screen's edge */
   &[data-docked] > footer {
     padding-block-end: 12px;
-  }
-}
-
-@keyframes breathe {
-  from {
-    opacity: 0.25;
-  }
-  to {
-    opacity: 1;
   }
 }
 </style>

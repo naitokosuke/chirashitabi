@@ -4,6 +4,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import { computed, onMounted, ref, useId, useTemplateRef } from "vue";
 
 import {
+  CtButton,
   CtChipPick,
   CtCalendar,
   CtSwatches,
@@ -160,9 +161,14 @@ onMounted(() => nameEl.value?.focus());
     <footer>
       <p v-if="error !== null" role="alert">{{ i18n.t("rooms.createFailed") }}</p>
       <p v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</p>
-      <button class="primary" type="submit" :disabled="busy || filled === null || cut.offline">
+      <CtButton
+        size="lg"
+        type="submit"
+        variant="primary"
+        :disabled="busy || filled === null || cut.offline"
+      >
         {{ i18n.t(busy ? "rooms.creating" : "rooms.create") }}
-      </button>
+      </CtButton>
     </footer>
   </form>
 </template>
@@ -285,32 +291,6 @@ footer {
     margin: 0;
     font-size: var(--font-sm);
     color: var(--ink);
-  }
-}
-
-.primary {
-  min-height: 48px;
-  padding: 0 18px;
-  font-size: var(--font-base);
-  font-weight: 700;
-  color: var(--on-ink);
-  background: var(--ink);
-  border: 0;
-  border-radius: 999px;
-
-  &:disabled {
-    opacity: 0.35;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 3px;
-  }
-
-  @media (--can-hover) {
-    &:not(:disabled):hover {
-      box-shadow: var(--shadow-float);
-    }
   }
 }
 </style>

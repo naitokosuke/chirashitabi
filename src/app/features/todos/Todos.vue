@@ -3,6 +3,8 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, useId } from "vue";
 
+import { CtButton } from "../../../ui/index";
+
 import { useI18n } from "../../i18n/useI18n";
 
 import { useMembers } from "../members/useMembers";
@@ -65,7 +67,9 @@ function markBooked(n: Memo) {
         :aria-label="i18n.t('todo.new')"
         :placeholder="i18n.t('todo.placeholder')"
       />
-      <button type="submit" :disabled="title.trim() === ''">{{ i18n.t("todo.add") }}</button>
+      <CtButton type="submit" variant="primary" :disabled="title.trim() === ''">{{
+        i18n.t("todo.add")
+      }}</CtButton>
     </form>
     <p v-if="todos.length === 0">{{ i18n.t("todo.empty") }}</p>
     <ul v-else>
@@ -144,21 +148,6 @@ function markBooked(n: Memo) {
       color: var(--ink);
       font: inherit;
       font-size: var(--font-base);
-    }
-
-    > button {
-      min-height: var(--tap);
-      padding: 0 14px;
-      border-radius: 10px;
-      border: 0;
-      background: var(--ink);
-      color: var(--bg);
-      font-size: var(--font-sm);
-      font-weight: 700;
-
-      &:disabled {
-        opacity: 0.4;
-      }
     }
   }
 

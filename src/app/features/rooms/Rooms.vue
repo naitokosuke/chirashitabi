@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, shallowRef } from "vue";
 
-import { CtHoldButton, CtSwipeRow, safeUrl } from "../../../ui/index";
+import { CtButton, CtHoldButton, CtSwipeRow, safeUrl } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -161,12 +161,12 @@ function retry() {
         </p>
         <p v-else-if="joining !== null" class="notice" role="alert">
           {{ i18n.t("rooms.failed") }}
-          <button type="button" @click="retry">{{ i18n.t("rooms.retry") }}</button>
+          <CtButton variant="primary" @click="retry">{{ i18n.t("rooms.retry") }}</CtButton>
         </p>
         <p v-if="removeFailed" class="notice" role="alert">{{ i18n.t("people.failed") }}</p>
         <p v-if="listStatus === 'error'" class="notice" role="alert">
           {{ i18n.t("rooms.listFailed") }}
-          <button type="button" @click="retry">{{ i18n.t("rooms.retry") }}</button>
+          <CtButton variant="primary" @click="retry">{{ i18n.t("rooms.retry") }}</CtButton>
         </p>
 
         <!-- two blank tags where the trips will hang, so nothing jumps when they arrive -->
@@ -348,17 +348,6 @@ function retry() {
   box-shadow: inset 0 0 0 1px var(--line);
   font-size: var(--font-md);
   color: var(--ink);
-
-  > button {
-    min-height: var(--tap);
-    padding: 0 14px;
-    border-radius: 999px;
-    border: 0;
-    background: var(--ink);
-    color: var(--on-ink);
-    font-size: var(--font-sm);
-    font-weight: 700;
-  }
 }
 
 h2 {

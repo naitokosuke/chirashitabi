@@ -48,7 +48,7 @@ import {
 
 import { useRoute, useRouter } from "vue-router";
 
-import { CtFab } from "../../../../ui/index";
+import { CtButton, CtFab } from "../../../../ui/index";
 
 import { useI18n } from "../../../i18n/useI18n";
 
@@ -794,15 +794,15 @@ watch(
 
       <div class="top">
         <FilterBar />
-        <button
+        <CtButton
           v-if="worker.api !== null"
-          type="button"
+          variant="ask"
           :disabled="thinking || cut.offline"
-          :aria-busy="thinking"
+          :busy="thinking"
           :aria-expanded="asking.kind !== 'closed'"
           :aria-controls="askId"
           @click="toggleAsk"
-        >{{ i18n.t(thinking ? "canvas.thinking" : "canvas.askIdeas") }}</button>
+        >{{ i18n.t(thinking ? "canvas.thinking" : "canvas.askIdeas") }}</CtButton>
       </div>
 
       <!--
@@ -830,8 +830,8 @@ watch(
             @keydown="onAskKey"
           />
           <div>
-            <button type="button" @click="toggleAsk">{{ i18n.t("common.close") }}</button>
-            <button type="submit">{{ i18n.t("canvas.ask") }}</button>
+            <CtButton @click="toggleAsk">{{ i18n.t("common.close") }}</CtButton>
+            <CtButton type="submit" variant="primary">{{ i18n.t("canvas.ask") }}</CtButton>
           </div>
         </form>
       </Transition>
@@ -992,40 +992,10 @@ section {
         pointer-events: auto;
       }
 
-      /* dashed, like the booklet's ask for a draft */
+      /* the ask floats over the desk, lifted off it as the tools are */
       > button {
         flex-shrink: 0;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        min-height: var(--tap);
-        padding: 0 12px;
-        border-radius: 999px;
-        background: var(--surface);
-        border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
         box-shadow: var(--shadow-tool);
-        color: var(--ink);
-        font-size: var(--font-sm);
-        font-weight: 700;
-        white-space: nowrap;
-
-        &:disabled {
-          color: var(--muted);
-        }
-
-        /* waiting on the Worker: a dot breathing before the label */
-        &[aria-busy="true"]::before {
-          content: "";
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: currentColor;
-          animation: breathe 1s ease-in-out infinite alternate;
-
-          @media (--reduced-motion) {
-            animation: none;
-          }
-        }
       }
     }
 
@@ -1109,20 +1079,6 @@ section {
         display: flex;
         justify-content: flex-end;
         gap: 6px;
-
-        > button {
-          min-height: var(--tap);
-          padding: 0 14px;
-          border-radius: 999px;
-          font-size: var(--font-sm);
-          font-weight: 700;
-          color: var(--muted);
-        }
-
-        > [type="submit"] {
-          background: var(--ink);
-          color: var(--on-ink);
-        }
       }
     }
 
@@ -1312,15 +1268,6 @@ section {
 }
 
 /* every frame keeps the ring's translate: it expands around where the card landed */
-@keyframes breathe {
-  from {
-    opacity: 0.25;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 @keyframes ring {
   0% {
     transform: translate(var(--x), var(--y)) scale(.6);

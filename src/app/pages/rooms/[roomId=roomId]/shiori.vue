@@ -4,6 +4,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import { computed, ref, useTemplateRef } from "vue";
 
 import {
+  CtButton,
   CtSegmented,
   CtTabList,
   CtTabPanel,
@@ -492,15 +493,13 @@ function adoptDraft() {
         </ul>
         <div v-if="picking !== null">
           <span>{{ i18n.t("shiori.putOn", { title: picking.title }) }}</span>
-          <button
+          <CtButton
             v-for="d in trip?.days"
             :key="d.date.toString()"
-            type="button"
+            variant="primary"
             @click="() => putPickedOn(d.date)"
-          >{{ short(d.date) }}</button>
-          <button type="button" @click="() => (pickingId = null)">{{
-            i18n.t("shiori.later")
-          }}</button>
+          >{{ short(d.date) }}</CtButton>
+          <CtButton @click="() => (pickingId = null)">{{ i18n.t("shiori.later") }}</CtButton>
         </div>
       </section>
 
@@ -702,13 +701,15 @@ function adoptDraft() {
                 }}</button></div>
             </div>
             <template v-else>
-              <button
+              <CtButton
                 data-turn
-                type="button"
+                variant="ask"
                 :disabled="drafting || cut.offline"
-                :aria-busy="drafting && askedHere"
+                :busy="drafting && askedHere"
                 @click="askForDraft"
-              >{{ i18n.t(drafting && askedHere ? "shiori.drafting" : "shiori.askDraft") }}</button>
+              >{{
+                i18n.t(drafting && askedHere ? "shiori.drafting" : "shiori.askDraft")
+              }}</CtButton>
               <p v-if="cut.offline" data-turn>{{ i18n.t("offline.unavailable") }}</p>
               <p v-if="draftFailure !== null && askedHere && !drafting" aria-live="polite">{{
                 i18n.t(draftFailure)
@@ -741,9 +742,7 @@ function adoptDraft() {
           <!-- the plan out to a calendar: confirmed notes, flights and stays -->
           <section class="out">
             <h2 data-turn>{{ i18n.t("shiori.out") }}</h2>
-            <button data-turn type="button" @click="downloadCalendar">{{
-              i18n.t("shiori.calendar")
-            }}</button>
+            <CtButton data-turn @click="downloadCalendar">{{ i18n.t("shiori.calendar") }}</CtButton>
             <p data-turn>{{ i18n.t("shiori.calendarHint") }}</p>
             <!-- the booklet as a page anyone with its link can read -->
             <template v-if="worker.api !== null">
@@ -754,18 +753,17 @@ function adoptDraft() {
                   published.url
                 }}</a>
                 <small>{{ i18n.t("shiori.publishedAt", { at: publishedOn }) }}</small>
-                <button type="button" @click="copyLink">{{
+                <CtButton @click="copyLink">{{
                   i18n.t(copied ? "shiori.copied" : "shiori.copyLink")
-                }}</button>
+                }}</CtButton>
               </div>
               <p v-else data-turn>{{
                 i18n.t(isOwner ? "shiori.notPublished" : "shiori.ownerPublishes")
               }}</p>
               <div v-if="isOwner" class="actions" data-turn>
-                <button
-                  type="button"
+                <CtButton
                   :disabled="publish.isLoading.value || cut.offline"
-                  :aria-busy="publish.isLoading.value"
+                  :busy="publish.isLoading.value"
                   @click="publishNow"
                 >{{
                   i18n.t(
@@ -775,13 +773,12 @@ function adoptDraft() {
                         ? "shiori.publish"
                         : "shiori.republish",
                   )
-                }}</button>
-                <button
+                }}</CtButton>
+                <CtButton
                   v-if="published !== null"
-                  type="button"
                   :disabled="withdraw.isLoading.value || cut.offline"
                   @click="() => withdraw.mutate()"
-                >{{ i18n.t("shiori.withdraw") }}</button>
+                >{{ i18n.t("shiori.withdraw") }}</CtButton>
               </div>
               <p v-if="publishFailure !== null" aria-live="polite" class="failed">{{
                 i18n.t(publishFailure)
@@ -995,23 +992,6 @@ article {
           font-size: var(--font-sm);
           font-weight: 700;
           margin-inline-end: 4px;
-        }
-
-        > button {
-          min-height: 36px;
-          padding: 0 12px;
-          border-radius: 999px;
-          background: var(--ink);
-          color: var(--on-ink);
-          font-size: var(--font-sm);
-          font-weight: 700;
-
-          /* "later" */
-          &:last-child {
-            background: transparent;
-            color: var(--muted);
-            border: 1px solid var(--line);
-          }
         }
       }
     }
@@ -1454,21 +1434,6 @@ article {
       /* ask for a draft */
       > button {
         margin-block-start: 14px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        min-height: 40px;
-        padding: 0 14px;
-        border-radius: 999px;
-        background: var(--surface);
-        border: 1px dashed color-mix(in oklch, var(--ink) 30%, var(--line));
-        color: var(--ink);
-        font-size: var(--font-sm);
-        font-weight: 700;
-
-        &:disabled {
-          color: var(--muted);
-        }
       }
 
       /* a Worker call that did not go through; trying again is the button's own tap */
@@ -1594,44 +1559,8 @@ article {
           }
         }
 
-        /* taking the plan out: quiet buttons, what each gives beside it */
-        &.out > button,
-        &.out > .actions > button,
-        &.out > .link > button {
-          min-height: var(--tap);
-          padding: 0 16px;
-          border-radius: 999px;
-          border: 1px solid var(--line);
-          background: var(--surface);
-          color: var(--ink);
-          font-size: var(--font-sm);
-          font-weight: 700;
-        }
       }
     }
-  }
-
-  /* waiting on the Worker (asking for a draft, exporting): a dot breathing before the label, the label saying what is happening */
-  button[aria-busy="true"]::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    animation: breathe 1s ease-in-out infinite alternate;
-
-    @media (--reduced-motion) {
-      animation: none;
-    }
-  }
-}
-
-@keyframes breathe {
-  from {
-    opacity: 0.25;
-  }
-  to {
-    opacity: 1;
   }
 }
 </style>
