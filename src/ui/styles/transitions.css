@@ -41,7 +41,7 @@
 }
 
 /*
- * View Transitions (useViewTransition). Only named regions morph; everything else is shown
+ * View Transitions (the theme's switch, useTheme). Only named regions morph; everything else is shown
  * live at once. Switching tabs takes none: the views are kept layers that cross-fade.
  * A page whose content is replaced (a booklet's day) does not cross-fade, which would show two
  * different pages through each other: it turns, with usePageTurn.
