@@ -7,6 +7,7 @@ import {
   CtButton,
   CtChoiceList,
   CtField,
+  CtHeading,
   CtHint,
   CtInput,
   CtMessage,
@@ -207,7 +208,9 @@ function save() {
     <CtHint>{{ i18n.t("flight.localTime") }}</CtHint>
     <template v-for="leg in LEGS" :key="leg">
       <CtPanel v-if="form.flights[leg].on" as="fieldset" sunken>
-        <legend>{{ i18n.t(leg === "out" ? "flight.out" : "flight.back") }}</legend>
+        <CtHeading as="legend" level="minor">{{
+          i18n.t(leg === "out" ? "flight.out" : "flight.back")
+        }}</CtHeading>
         <CtButton class="remove" danger @click="() => removeFlight(leg)">{{
           i18n.t("flight.remove")
         }}</CtButton>
@@ -254,7 +257,9 @@ function save() {
       </CtPanel>
       <!-- not added yet: its name, and the outline of the button that adds it -->
       <fieldset v-else>
-        <legend>{{ i18n.t(leg === "out" ? "flight.out" : "flight.back") }}</legend>
+        <CtHeading as="legend" level="minor">{{
+          i18n.t(leg === "out" ? "flight.out" : "flight.back")
+        }}</CtHeading>
         <CtButton class="start" variant="blank" @click="() => addFlight(leg)">
           <Icon :size="16" :src="plusIcon" />{{ i18n.t(leg === "out" ? "flight.addOut" : "flight.addBack") }}
         </CtButton>
@@ -263,9 +268,9 @@ function save() {
 
     <!-- where the nights are spent: each a few fields, in the order they come -->
     <fieldset>
-      <legend>{{ i18n.t("stay.title") }}</legend>
+      <CtHeading as="legend" level="minor">{{ i18n.t("stay.title") }}</CtHeading>
       <CtPanel v-for="(s, i) in form.stays" :key="rowOf(s)" class="stay" sunken>
-        <p class="head">{{ i18n.t("stay.nth", { n: i + 1 }) }}</p>
+        <CtHeading as="p" level="minor">{{ i18n.t("stay.nth", { n: i + 1 }) }}</CtHeading>
         <CtButton class="remove" danger @click="() => removeStay(i)">{{
           i18n.t("stay.remove")
         }}</CtButton>
@@ -366,9 +371,6 @@ fieldset {
   border: 0;
   > legend {
     float: left;
-    padding: 0;
-    font-size: var(--font-md);
-    font-weight: 700;
   }
 }
 
@@ -385,11 +387,6 @@ fieldset {
   position: relative;
   display: grid;
   gap: 12px;
-  > .head {
-    margin: 0;
-    font-size: var(--font-md);
-    font-weight: 700;
-  }
 }
 
 /* the stay's place found by its name: the ask, then the places to choose, each a line */
