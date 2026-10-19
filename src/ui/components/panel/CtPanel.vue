@@ -7,7 +7,7 @@
  * (a menu, a panel opened from a button).
  */
 const { as = "div", pad = "md" } = defineProps<{
-  as?: "div" | "section" | "form" | "ul" | "ol" | "p";
+  as?: "div" | "section" | "article" | "form" | "ul" | "ol" | "p";
   pad?: "none" | "sm" | "md" | "lg";
   float?: boolean;
 }>();

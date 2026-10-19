@@ -26,7 +26,7 @@ import { Map as MLMap, Marker } from "maplibre-gl";
 import { useRoute, useRouter } from "vue-router";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { CtChip, CtFab, CtScrollRow, safeUrl } from "../../../../ui/index";
+import { CtButton, CtChip, CtFab, CtPanel, CtScrollRow, safeUrl } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
 
@@ -415,7 +415,7 @@ function fitAll() {
           :src="plusIcon"
         /></CtFab>
 
-      <article v-if="selected !== null" :style="`--card:${paperFor(selected)}`">
+      <CtPanel v-if="selected !== null" as="article" float :style="`--card:${paperFor(selected)}`">
         <h2>{{ selected.title }}</h2>
         <p v-if="selected.body !== ''">{{ selected.body }}</p>
         <footer>
@@ -427,13 +427,13 @@ function fitAll() {
           <a :href="safeUrl(selectedLink)" rel="noopener noreferrer" target="_blank">{{
             i18n.t("map.openInGoogleMaps")
           }}</a>
-          <button type="button" @click="editSelected">{{ i18n.t("common.edit") }}</button>
-          <button type="button" :aria-label="i18n.t('common.close')" @click="closeCard"><Icon
+          <CtButton @click="editSelected">{{ i18n.t("common.edit") }}</CtButton>
+          <CtButton class="close" :label="i18n.t('common.close')" @click="closeCard"><Icon
               :size="18"
               :src="closeIcon"
-            /></button>
+            /></CtButton>
         </div>
-      </article>
+      </CtPanel>
     </div>
   </section>
 </template>
@@ -664,11 +664,6 @@ section {
       inset-inline: 12px;
       inset-block-end: calc(var(--dock-clear) + 88px);
       z-index: var(--z-float-top);
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow-float);
 
       > h2 {
         margin: 0;
@@ -716,27 +711,19 @@ section {
         font-size: var(--font-sm);
         font-weight: 700;
 
-        > a,
-        > button {
+        > a {
           min-height: var(--tap);
           padding: 0 8px;
           display: inline-flex;
           align-items: center;
-          border-radius: 10px;
-        }
-
-        > a {
           color: var(--ink);
           text-decoration: underline;
           text-underline-offset: 3px;
         }
 
-        /* close */
-        > button:last-child {
+        /* close, at the end */
+        > .close {
           margin-inline-start: auto;
-          width: var(--tap);
-          justify-content: center;
-          color: var(--muted);
         }
       }
     }

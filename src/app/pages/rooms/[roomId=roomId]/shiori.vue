@@ -6,6 +6,7 @@ import { computed, ref, useTemplateRef } from "vue";
 import {
   CtAvatar,
   CtButton,
+  CtChip,
   CtGlass,
   CtPanel,
   CtPaper,
@@ -576,6 +577,7 @@ function adoptDraft() {
                 <strong v-if="legWarning(way) !== ''">{{ legWarning(way) }}</strong>
               </li>
               <li
+                data-paper
                 data-turn
                 :data-status="n.schedule.status"
                 :style="`--card:${paperFor(n)}`"
@@ -640,15 +642,16 @@ function adoptDraft() {
                     >{{ i18n.t("shiori.markBooked") }}</CtButton>
                   </p>
                   <div v-if="editing">
-                    <button
-                      type="button"
-                      :data-status="n.schedule.status"
+                    <!-- three steps in one ink: a dashed maybe, a filled confirmed, a plain done -->
+                    <CtChip
+                      :dashed="n.schedule.status === 'idea'"
+                      :selected="n.schedule.status === 'fixed'"
                       @click="() => nextStatus(n)"
-                    >{{ i18n.t(`status.${n.schedule.status}`) }}</button>
+                    >{{ i18n.t(`status.${n.schedule.status}`) }}</CtChip>
                     <span v-if="n.budget !== null && n.budget > 0">{{ price(n.budget) }}</span>
-                    <button type="button" @click="() => assign(n, null)">{{
+                    <CtButton class="off" variant="text" @click="() => assign(n, null)">{{
                       i18n.t("shiori.removeDay")
-                    }}</button>
+                    }}</CtButton>
                   </div>
                   <p v-else class="meta"><span v-if="n.budget !== null && n.budget > 0">{{
                       price(n.budget)
@@ -696,7 +699,7 @@ function adoptDraft() {
 
           <!-- a member's draft of the day (edit mode) -->
           <template v-if="editing && worker.api !== null && forDay(day).length > 0">
-            <div v-if="draft !== null && draft.date.equals(day)" class="draft" data-turn>
+            <div v-if="draft !== null && draft.date.equals(day)" class="draft" data-paper data-turn>
               <div><CtAvatar :color="drafter?.color" size="dot" />{{ drafter?.name ?? i18n.t("member.someone") }}<small>{{
                   i18n.t("shiori.draft")
                 }}</small></div>
@@ -704,11 +707,12 @@ function adoptDraft() {
               <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}<small
                     v-if="it.minutes !== null"
                   >{{ ` · ${long(it.minutes)}` }}</small></li></ol>
-              <div><button type="button" @click="adoptDraft">{{
+              <div>
+                <CtButton variant="primary" @click="adoptDraft">{{
                   i18n.t("shiori.adoptDraft")
-                }}</button><button type="button" @click="() => (draft = null)">{{
-                  i18n.t("common.dismiss")
-                }}</button></div>
+                }}</CtButton>
+                <CtButton @click="() => (draft = null)">{{ i18n.t("common.dismiss") }}</CtButton>
+              </div>
             </div>
             <template v-else>
               <CtButton
@@ -1228,41 +1232,16 @@ article {
               align-items: center;
               margin-block-start: 6px;
 
-              > button:first-child {
-                min-height: var(--tap);
-                padding: 0 12px;
-                border-radius: 999px;
-                font-size: var(--font-xs);
-                font-weight: 700;
-                /* three steps in one ink: a dashed maybe, a filled confirmed, an outlined done */
-                background: transparent;
-                border: 1px dashed color-mix(in oklch, var(--paper-ink) 45%, transparent);
-                color: var(--paper-ink);
-
-                &[data-status="fixed"] {
-                  background: var(--paper-ink);
-                  border: 1px solid var(--paper-ink);
-                  color: var(--paper-white);
-                }
-
-                &[data-status="done"] {
-                  border: 1px solid var(--paper-ink);
-                }
-              }
-
               > span {
                 color: var(--paper-muted);
                 font-size: var(--font-sm);
               }
 
-              > button:last-child {
+              /* taking it off the day: quiet, at the row's end */
+              > .off {
                 margin-inline-start: auto;
-                min-height: var(--tap);
-                padding: 0 8px;
                 font-size: var(--font-xs);
                 color: var(--paper-muted);
-                text-decoration: underline;
-                text-underline-offset: 3px;
               }
             }
 
@@ -1351,26 +1330,6 @@ article {
         > div:last-child {
           display: flex;
           gap: 6px;
-
-          > button {
-            min-height: 34px;
-            padding: 0 12px;
-            border-radius: 999px;
-            font-size: var(--font-sm);
-            font-weight: 700;
-
-            /* adopt */
-            &:first-child {
-              background: var(--paper-ink);
-              color: var(--paper-white);
-            }
-
-            /* dismiss */
-            &:last-child {
-              color: var(--paper-muted);
-              box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--paper-ink) 18%, transparent);
-            }
-          }
         }
       }
 
