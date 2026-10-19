@@ -134,10 +134,7 @@ async function walk(e: KeyboardEvent, day: Temporal.PlainDate) {
           <td
             v-for="day in week"
             :key="day.toString()"
-            :data-start="shown(day) && stateOf(day).start ? '' : undefined"
-            :data-end="shown(day) && stateOf(day).end ? '' : undefined"
-            :data-within="shown(day) && stateOf(day).within ? '' : undefined"
-            :data-spans="shown(day) && stateOf(day).spans ? '' : undefined"
+            :class="shown(day) ? stateOf(day) : undefined"
           >
             <button
               v-if="shown(day)"
@@ -245,13 +242,13 @@ td {
   padding: var(--space-1) 0;
   background-clip: content-box;
 
-  &[data-within] {
+  &.within {
     background-color: var(--wash);
   }
-  &[data-spans][data-start] {
+  &.spans.start {
     background-image: linear-gradient(to right, transparent 50%, var(--wash) 50%);
   }
-  &[data-spans][data-end] {
+  &.spans.end {
     background-image: linear-gradient(to left, transparent 50%, var(--wash) 50%);
   }
 
@@ -290,8 +287,8 @@ td {
   }
 
   /* the two ends: the ink fill, the one "on" color */
-  &[data-start] > button,
-  &[data-end] > button {
+  &.start > button,
+  &.end > button {
     background: var(--ink);
     color: var(--on-ink);
     font-weight: 700;

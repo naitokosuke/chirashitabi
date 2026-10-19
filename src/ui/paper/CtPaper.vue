@@ -22,7 +22,7 @@ import { useSlots } from "vue";
  * and the paper lie flatter, for one that is only a maybe; its ink stays at full.
  *
  * `selected` frames it in ink, `lifted` raises it as a finger holds it. What is put on it (a
- * CtButton, a CtChip) is drawn in the paper's ink, not the desk's (tokens.css, data-paper).
+ * CtButton, a CtChip) is drawn in the paper's ink, not the desk's (tokens.css, .on-paper).
  */
 const {
   variant = "note",
@@ -47,23 +47,19 @@ const slots = useSlots();
 <template>
   <div
     class="paper"
-    :data-variant="variant"
-    :data-selected="selected || undefined"
-    :data-lifted="lifted || undefined"
-    :data-wide="wide || variant === 'row' || undefined"
-    :data-faded="faded || undefined"
+    :class="[variant, { selected, lifted, wide: wide || variant === 'row', faded }]"
     :style="`--paper: ${paper}`"
   >
-    <!-- what is on it is written in the paper's ink (data-paper); its frame stays the desk's -->
-    <div v-if="variant === 'proposal'" class="strip" data-paper>
-      <b class="label"><slot name="strip"></slot></b>
+    <!-- what is on it is written in the paper's ink (on-paper); its frame stays the desk's -->
+    <div v-if="variant === 'proposal'" class="strip on-paper">
+      <b class="label"><slot name="strip" /></b>
     </div>
-    <div v-if="variant === 'print'" class="picture" data-paper><slot name="picture"></slot></div>
-    <div v-if="variant === 'row' && slots.tab !== undefined" class="tab" data-paper>
-      <slot name="tab"></slot>
+    <div v-if="variant === 'print'" class="picture on-paper"><slot name="picture" /></div>
+    <div v-if="variant === 'row' && slots.tab !== undefined" class="tab on-paper">
+      <slot name="tab" />
     </div>
-    <div class="body" data-paper><slot></slot></div>
-    <div v-if="variant !== 'row'" class="foot" data-paper><slot name="foot"></slot></div>
+    <div class="body on-paper"><slot /></div>
+    <div v-if="variant !== 'row'" class="foot on-paper"><slot name="foot" /></div>
     <span v-if="stamp !== undefined" class="stamp">{{ stamp }}</span>
   </div>
 </template>
@@ -89,30 +85,30 @@ const slots = useSlots();
   }
 
   /* picked: framed in ink */
-  &[data-selected] {
+  &.selected {
     box-shadow:
       var(--shadow-float),
       0 0 0 var(--ring-width) var(--ink);
   }
 
   /* held: off the desk, its shadow fallen far and soft; still framed if it is the one picked */
-  &[data-lifted] {
+  &.lifted {
     box-shadow: var(--shadow-lift);
     transition-timing-function: var(--ease-spring);
   }
 
-  &[data-wide] {
+  &.wide {
     width: auto;
   }
 
-  &[data-lifted][data-selected] {
+  &.lifted.selected {
     box-shadow:
       var(--shadow-lift),
       0 0 0 var(--ring-width) var(--ink);
   }
 
   /* the agent's slip is cut square: a machine's paper, never a person's soft corner */
-  &[data-variant="proposal"] {
+  &.proposal {
     border-radius: 0;
 
     > .body:not(:empty) {
@@ -127,7 +123,7 @@ const slots = useSlots();
   }
 
   /* a print: a person's soft corner, wider, the picture in a wide mount */
-  &[data-variant="print"] {
+  &.print {
     width: var(--size-print);
 
     > .body:not(:empty) {
@@ -144,7 +140,7 @@ const slots = useSlots();
   }
 
   /* a row: level along the column, the tab down its start edge, the words beside it */
-  &[data-variant="row"] {
+  &.row {
     display: flex;
 
     > .body {
@@ -155,7 +151,7 @@ const slots = useSlots();
   }
 
   /* only a maybe: the stock fades toward white (in either theme, paper stays light), flatter */
-  &[data-faded] {
+  &.faded {
     background: color-mix(in oklch, var(--paper) 45%, var(--paper-white));
     box-shadow: var(--shadow-tool);
 

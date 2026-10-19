@@ -18,7 +18,7 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <component :is="as" class="byline" :data-size="size" :data-strong="strong || undefined">
+  <component :is="as" class="byline" :class="[`size-${size}`, { strong }]">
     <CtAvatar v-if="color !== undefined" :color size="dot" />
     <slot />
   </component>
@@ -32,12 +32,12 @@ defineSlots<{ default(): unknown }>();
   margin: 0;
   color: var(--muted);
 
-  &[data-size="xs"] {
+  &.size-xs {
     gap: var(--space-2);
     font-size: var(--font-xs);
   }
 
-  &[data-strong] {
+  &.strong {
     gap: var(--space-4);
     font-weight: 700;
   }

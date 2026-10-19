@@ -53,10 +53,10 @@ describe("held", () => {
     expect(page.getByRole("button", { name: "Delete forever" }).element()).toBe(el());
     const { x, y } = middle();
     pointer("pointerdown", x, y);
-    await expect.poll(() => el().dataset.state).toBe("holding");
+    await expect.poll(() => el().classList.contains("holding")).toBe(true);
     await expect.poll(fill, { timeout: HOLD_TIME * 3 }).toBe(1);
     expect(state.held).toBe(1);
-    expect(el().dataset.state).toBe("done");
+    expect(el().classList.contains("done")).toBe(true);
     expect(el().textContent).toContain("Deleted");
     pointer("pointerup", x, y);
     await wait(HOLD_TIME);
@@ -73,7 +73,7 @@ describe("held", () => {
     pointer("pointerup", x, y);
     await expect.poll(fill).toBe(0);
     expect(state.held).toBe(0);
-    expect(el().dataset.state).toBe("idle");
+    expect(el().classList.contains("idle")).toBe(true);
   });
 
   test("a pointer drifting off it lets go", async () => {

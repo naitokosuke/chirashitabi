@@ -66,7 +66,7 @@ label {
       <CtField :for="`${id}-photo`" label="Photo">
         <CtFileInput :id="`${id}-photo`" accept="image/*" />
       </CtField>
-      <div class="tab" data-paper>
+      <div class="tab on-paper">
         <CtInput v-model="time" aria-label="Time" size="sm" type="time" />
         <CtSelect v-model="minutes" aria-label="How long" size="sm">
           <option value="">-</option>

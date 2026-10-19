@@ -13,7 +13,7 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <label class="check" :for="id" :data-quiet="quiet || undefined">
+  <label class="check" :for="id" :class="{ quiet }">
     <CtCheckbox :id v-model="model" />
     <slot />
   </label>
@@ -26,7 +26,7 @@ defineSlots<{ default(): unknown }>();
   gap: var(--space-6);
   min-height: var(--tap);
 
-  &[data-quiet] {
+  &.quiet {
     gap: var(--space-4);
     font-size: var(--font-sm);
     color: var(--muted);

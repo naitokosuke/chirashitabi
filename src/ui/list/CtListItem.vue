@@ -13,7 +13,7 @@ const slots = useSlots();
 </script>
 
 <template>
-  <li :data-faded="faded || undefined">
+  <li :class="{ faded }">
     <slot name="start"></slot>
     <span class="main">
       <b>{{ title }}</b>
@@ -64,7 +64,7 @@ li {
     gap: var(--space-3);
   }
 
-  &[data-faded] > .main > b {
+  &.faded > .main > b {
     color: var(--muted);
   }
 }

@@ -32,22 +32,22 @@ defineSlots<{ default?(): unknown }>();
 </script>
 
 <template>
-  <div v-if="variant === 'loading'" aria-hidden="true" class="tag" data-variant="loading"></div>
-  <div v-else-if="variant === 'blank'" class="tag" data-variant="blank">
+  <div v-if="variant === 'loading'" aria-hidden="true" class="tag loading"></div>
+  <div v-else-if="variant === 'blank'" class="tag blank">
     <span aria-hidden="true" class="hole"></span>
     <slot></slot>
   </div>
-  <div v-else class="tag" :data-past="past || undefined">
+  <div v-else class="tag" :class="{ past }">
     <span aria-hidden="true" class="hole"></span>
     <div class="head">
-      <p class="name" :data-unnamed="unnamed || undefined">{{ name }}</p>
+      <p class="name" :class="{ unnamed }">{{ name }}</p>
       <p v-if="when !== ''" class="when">{{ when }}</p>
     </div>
     <p v-if="dates !== ''" class="dates">{{ dates }}</p>
     <div v-if="members.length > 0 || memos !== undefined" class="foot">
       <ul v-if="members.length > 0">
         <li v-for="m in members" :key="`${m.kind}:${m.name}:${m.color}`">
-          <span :data-agent="m.kind === 'agent' || undefined" :style="`--who: ${m.color}`"></span>{{ m.name }}
+          <span :class="{ agent: m.kind === 'agent' }" :style="`--who: ${m.color}`"></span>{{ m.name }}
         </li>
       </ul>
       <p v-if="memos !== undefined">{{ memos }}</p>
@@ -70,7 +70,7 @@ defineSlots<{ default?(): unknown }>();
   box-shadow: var(--shadow-paper);
 
   /* over: white, on a hairline, in ink, behind the trips still to come */
-  &[data-past] {
+  &.past {
     --tag-ink: var(--ink);
     background: var(--surface);
     box-shadow: inset 0 0 0 var(--line-width) var(--line);
@@ -96,7 +96,7 @@ defineSlots<{ default?(): unknown }>();
   }
 
   /* the blank: the tag's outline, dashed, its hole too, its words in muted ink until reached for */
-  &[data-variant="blank"] {
+  &.blank {
     display: flex;
     align-items: center;
     gap: var(--space-4);
@@ -136,7 +136,7 @@ defineSlots<{ default?(): unknown }>();
   }
 
   /* where a tag will hang, while the list is on its way */
-  &[data-variant="loading"] {
+  &.loading {
     height: var(--size-tag);
     padding: 0;
     background: var(--wash);
@@ -181,7 +181,7 @@ p {
   white-space: nowrap;
   text-wrap: balance;
 
-  &[data-unnamed] {
+  &.unnamed {
     opacity: 0.45;
   }
 }
@@ -232,7 +232,7 @@ p {
         background: var(--who);
         box-shadow: 0 0 0 var(--line-width-drawn) color-mix(in oklch, var(--tag-ink) 70%, transparent);
 
-        &[data-agent] {
+        &.agent {
           border-radius: var(--radius-1);
         }
       }

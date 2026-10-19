@@ -53,7 +53,7 @@ onMounted(() => void reveal(false));
 </script>
 
 <template>
-  <div ref="list" role="tablist" :aria-label="label" :data-variant="variant">
+  <div ref="list" role="tablist" :aria-label="label" :class="variant">
     <button
       v-for="t in tabs"
       :key="t.value"
@@ -63,7 +63,7 @@ onMounted(() => void reveal(false));
       @click="() => emit('update:modelValue', t.value)"
     >{{ t.label }}</button>
     <!-- the underline (or the pill) slides and stretches to the selected tab -->
-    <span aria-hidden="true" :data-ready="ready || undefined" :style></span>
+    <span aria-hidden="true" :class="{ ready }" :style></span>
   </div>
 </template>
 
@@ -104,7 +104,7 @@ onMounted(() => void reveal(false));
     border-block-end: var(--ring-width) solid var(--ink);
     pointer-events: none;
 
-    &[data-ready] {
+    &.ready {
       transition:
         transform var(--duration-morph) var(--ease-morph),
         width var(--duration-morph) var(--ease-morph);
@@ -112,7 +112,7 @@ onMounted(() => void reveal(false));
   }
 
   /* the tabs over a track, the chosen one on a raised pill under it, as CtSegmented's */
-  &[data-variant="pill"] {
+  &.pill {
     min-width: 0;
     padding: var(--space-1);
     border-block-end: 0;

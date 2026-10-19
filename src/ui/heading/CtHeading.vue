@@ -22,7 +22,7 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <component :is="as" class="heading" :data-level="level" :data-muted="muted || undefined">
+  <component :is="as" class="heading" :class="[`level-${level}`, { muted }]">
     <slot></slot>
   </component>
 </template>
@@ -38,28 +38,28 @@ defineSlots<{ default(): unknown }>();
   font-weight: 700;
   overflow-wrap: anywhere;
 
-  &[data-level="page"] {
+  &.level-page {
     font-size: var(--font-display);
     line-height: 1.2;
   }
-  &[data-level="sheet"] {
+  &.level-sheet {
     font-size: var(--font-4xl);
     line-height: 1.25;
   }
-  &[data-level="section"] {
+  &.level-section {
     font-size: var(--font-2xl);
     line-height: 1.35;
   }
-  &[data-level="card"] {
+  &.level-card {
     font-size: var(--font-lg);
     line-height: 1.4;
   }
-  &[data-level="minor"] {
+  &.level-minor {
     font-size: var(--font-md);
     line-height: 1.5;
   }
 
-  &[data-muted] {
+  &.muted {
     color: var(--muted);
   }
 }

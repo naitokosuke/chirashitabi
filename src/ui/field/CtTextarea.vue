@@ -16,7 +16,7 @@ defineExpose({ focus: () => el.value?.focus() });
 </script>
 
 <template>
-  <textarea ref="el" v-model="model" :data-size="size" :data-dashed="dashed || undefined"></textarea>
+  <textarea ref="el" v-model="model" :class="[`size-${size}`, { dashed }]"></textarea>
 </template>
 
 <style scoped>
@@ -35,13 +35,13 @@ textarea {
     color: var(--muted);
   }
 
-  &[data-size="lg"] {
+  &.size-lg {
     min-height: var(--size-textarea-lg);
     padding: var(--space-6);
     font-size: var(--font-xl);
   }
 
-  &[data-dashed] {
+  &.dashed {
     border-style: dashed;
     border-color: color-mix(in oklch, var(--ink) 25%, var(--line));
   }

@@ -14,11 +14,7 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <p
-    :data-size="size === 'xs' ? undefined : size"
-    :data-strong="strong || undefined"
-    :data-danger="danger || undefined"
-  >
+  <p :class="[size === undefined ? undefined : `size-${size}`, { strong, danger }]">
     <slot />
   </p>
 </template>
@@ -36,24 +32,24 @@ p {
   overflow-wrap: anywhere;
   text-wrap: pretty;
 
-  &[data-size="sm"] {
+  &.size-sm {
     font-size: var(--font-sm);
   }
 
-  &[data-size="md"] {
+  &.size-md {
     font-size: var(--font-md);
   }
 
-  &[data-size="lg"] {
+  &.size-lg {
     font-size: var(--font-lg);
   }
 
-  &[data-strong] {
+  &.strong {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
   }
 
-  &[data-danger] {
+  &.danger {
     color: var(--danger);
   }
 }

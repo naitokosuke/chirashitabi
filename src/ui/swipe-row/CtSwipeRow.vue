@@ -136,7 +136,7 @@ onBeforeUnmount(() => {
     ref="root"
     class="row"
     role="presentation"
-    :data-sliding="drag !== null || undefined"
+    :class="{ sliding: drag !== null }"
     :style
     @pointerdown="down"
     @pointermove="move"
@@ -193,7 +193,7 @@ onBeforeUnmount(() => {
 }
 
 /* let go, it settles; under a pointer it follows at once */
-.row:not([data-sliding]) {
+.row:not(.sliding) {
   > .content {
     transition: translate var(--duration-swap) var(--ease-morph);
   }

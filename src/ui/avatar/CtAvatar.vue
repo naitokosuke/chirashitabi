@@ -16,8 +16,7 @@ const { size = "md" } = defineProps<{
 <template>
   <span
     aria-hidden="true"
-    :data-size="size"
-    :data-pending="pending || undefined"
+    :class="[`size-${size}`, { pending }]"
     :style="color === undefined ? undefined : `--who: ${color}`"
   >{{ size === "dot" || pending ? "" : name?.slice(0, 1) }}</span>
 </template>
@@ -34,20 +33,20 @@ span {
   color: var(--on-tint);
   font-weight: 700;
 
-  &[data-size="lg"] {
+  &.size-lg {
     width: var(--size-face-lg);
     height: var(--size-face-lg);
     font-size: var(--font-lg);
   }
 
   /* beside a name: the color as it is, not deepened, since nothing is written on it */
-  &[data-size="dot"] {
+  &.size-dot {
     width: var(--size-dot);
     height: var(--size-dot);
     background: var(--who, var(--muted));
   }
 
-  &[data-pending] {
+  &.pending {
     background: transparent;
     border: var(--line-width-drawn) dashed color-mix(in oklch, var(--ink) 35%, transparent);
   }

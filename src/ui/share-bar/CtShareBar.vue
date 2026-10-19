@@ -20,12 +20,12 @@ const props = defineProps<{
       <span
         v-for="p in props.parts"
         :key="p.key"
-        :data-tone="p.tone"
+        :class="`tone-${p.tone}`"
         :style="`flex-grow: ${p.count}`"
       ></span>
     </div>
     <ul>
-      <li v-for="p in props.parts" :key="p.key" :data-tone="p.tone">
+      <li v-for="p in props.parts" :key="p.key" :class="`tone-${p.tone}`">
         <span aria-hidden="true"></span>{{ p.label }}<b>{{ p.count }}</b>
       </li>
     </ul>
@@ -38,15 +38,15 @@ const props = defineProps<{
 }
 
 /* each part's ink, shared by its piece of the bar and its key */
-[data-tone="full"] {
+.tone-full {
   --key: var(--ink);
 }
 
-[data-tone="half"] {
+.tone-half {
   --key: color-mix(in oklch, var(--ink) 35%, var(--bg));
 }
 
-[data-tone="faint"] {
+.tone-faint {
   --key: color-mix(in oklch, var(--ink) 12%, var(--bg));
 }
 

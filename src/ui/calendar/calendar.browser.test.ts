@@ -34,15 +34,13 @@ const day = (iso: string) =>
   });
 const cell = (iso: string) => document.querySelector(`[data-date="${iso}"]`)!.parentElement!;
 const banded = () =>
-  [...document.querySelectorAll("td[data-within]")].map(
-    (td) => td.querySelector("button")!.dataset.date,
-  );
+  [...document.querySelectorAll("td.within")].map((td) => td.querySelector("button")!.dataset.date);
 
 describe("with range", () => {
   test("opens on the range's month, its ends inked and the days between banded", () => {
     expect(document.querySelector("h3")!.textContent).toBe("November 2026");
-    expect(cell("2026-11-03").hasAttribute("data-start")).toBe(true);
-    expect(cell("2026-11-06").hasAttribute("data-end")).toBe(true);
+    expect(cell("2026-11-03").classList.contains("start")).toBe(true);
+    expect(cell("2026-11-06").classList.contains("end")).toBe(true);
     expect(banded()).toEqual(["2026-11-04", "2026-11-05"]);
   });
 
@@ -81,11 +79,11 @@ describe("without range", () => {
   test("a tap picks the one day", async () => {
     state.range = false;
     await nextTick();
-    expect(cell("2026-11-03").hasAttribute("data-start")).toBe(true);
+    expect(cell("2026-11-03").classList.contains("start")).toBe(true);
     await userEvent.click(day("2026-11-12"));
     expect(state.day.toString()).toBe("2026-11-12");
-    expect(cell("2026-11-12").hasAttribute("data-start")).toBe(true);
-    expect(cell("2026-11-03").hasAttribute("data-start")).toBe(false);
+    expect(cell("2026-11-12").classList.contains("start")).toBe(true);
+    expect(cell("2026-11-03").classList.contains("start")).toBe(false);
     expect(banded()).toEqual([]);
   });
 });

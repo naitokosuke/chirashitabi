@@ -9,7 +9,7 @@ defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <div :data-closed="open ? undefined : ''" :inert="!open">
+  <div :class="{ closed: !open }" :inert="!open">
     <div><slot></slot></div>
   </div>
 </template>
@@ -27,7 +27,7 @@ div:has(> div) {
     grid-template-columns var(--duration-morph) var(--ease-morph),
     opacity var(--duration-swap) ease;
 
-  &[data-closed] {
+  &.closed {
     grid-template-columns: 0fr;
     opacity: 0;
   }
