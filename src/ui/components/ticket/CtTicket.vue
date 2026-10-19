@@ -1,13 +1,16 @@
 <script setup lang="ts" vapor>
+import { useSlots } from "vue";
+
 import CtPanel from "../panel/CtPanel.vue";
 
 /**
  * A strip of ticket on a panel: a small line above (what it is in ink, then `detail`, and
- * `aside` at its end, such as when) and what it is for in large type in the slot (a route, a
- * place's name), with anything else under it.
+ * `aside` at its end, such as when), what it is for in the slot, set large and bold (a route,
+ * a place's name), and anything else under it in `below` (the way there).
  */
 defineProps<{ label: string; detail?: string; aside?: string }>();
-defineSlots<{ default(): unknown }>();
+defineSlots<{ default(): unknown; below?(): unknown }>();
+const slots = useSlots();
 </script>
 
 <template>
@@ -17,7 +20,8 @@ defineSlots<{ default(): unknown }>();
       <span v-if="detail !== undefined && detail !== ''">{{ detail }}</span>
       <small v-if="aside !== undefined">{{ aside }}</small>
     </p>
-    <slot></slot>
+    <div class="main"><slot></slot></div>
+    <slot v-if="slots.below !== undefined" name="below"></slot>
   </CtPanel>
 </template>
 
@@ -46,5 +50,12 @@ defineSlots<{ default(): unknown }>();
       font-weight: 700;
     }
   }
+}
+
+.main {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 </style>

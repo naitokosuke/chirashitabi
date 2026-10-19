@@ -149,13 +149,14 @@ onMounted(() => {
           <!-- the owner may take the other person out; twice, the second time naming them -->
           <template v-if="me.role === 'owner' && m.role !== 'owner'" #end>
             <template v-if="asked({ kind: 'remove', member: m.id })">
-              <CtButton variant="primary" @click="() => remove(m.id)">
+              <CtButton danger variant="primary" @click="() => remove(m.id)">
                 {{ i18n.t("people.removeConfirm") }}
               </CtButton>
               <CtButton @click="cancel">{{ i18n.t("people.cancel") }}</CtButton>
             </template>
             <CtButton
               v-else
+              danger
               :disabled="cut.offline"
               @click="() => ask({ kind: 'remove', member: m.id })"
             >
@@ -231,23 +232,23 @@ onMounted(() => {
       <div class="out">
         <template v-if="me.role === 'owner'">
           <template v-if="asked({ kind: 'delete' })">
-            <CtButton variant="primary" @click="deleteTrip">
+            <CtButton danger variant="primary" @click="deleteTrip">
               {{ i18n.t("people.deleteConfirm", { count: KEPT_DAYS }) }}
             </CtButton>
             <CtButton @click="cancel">{{ i18n.t("people.cancel") }}</CtButton>
           </template>
-          <CtButton v-else :disabled="cut.offline" @click="() => ask({ kind: 'delete' })">
+          <CtButton v-else danger :disabled="cut.offline" @click="() => ask({ kind: 'delete' })">
             {{ i18n.t("people.delete") }}
           </CtButton>
         </template>
         <template v-else>
           <template v-if="asked({ kind: 'leave' })">
-            <CtButton variant="primary" @click="leave">{{
+            <CtButton danger variant="primary" @click="leave">{{
               i18n.t("people.leaveConfirm")
             }}</CtButton>
             <CtButton @click="cancel">{{ i18n.t("people.cancel") }}</CtButton>
           </template>
-          <CtButton v-else :disabled="cut.offline" @click="() => ask({ kind: 'leave' })">
+          <CtButton v-else danger :disabled="cut.offline" @click="() => ask({ kind: 'leave' })">
             {{ i18n.t("people.leave") }}
           </CtButton>
         </template>
