@@ -103,11 +103,9 @@ async function onShelf(kind: "restoring" | "purging", id: RoomId, run: () => Pro
   }
 }
 /** A deleted trip back on the shelf */
-const restore = trips.restore;
-const bringBack = (id: RoomId) => onShelf("restoring", id, () => restore.mutateAsync(id));
+const bringBack = (id: RoomId) => onShelf("restoring", id, () => trips.restore.mutateAsync(id));
 /** A deleted trip gone for good now, by its owner */
-const purge = trips.purge;
-const purgeForGood = (id: RoomId) => onShelf("purging", id, () => purge.mutateAsync(id));
+const purgeForGood = (id: RoomId) => onShelf("purging", id, () => trips.purge.mutateAsync(id));
 const untilLabel = (until: Temporal.PlainDate) =>
   i18n.t("rooms.restoreUntil", { date: shortDate(until, i18n.locale) });
 
@@ -125,14 +123,21 @@ const labelOf = (r: RoomSummary) => {
   const t = tagOf(r);
   return [t.name, t.when, t.dates].filter((s) => s !== "").join(", ");
 };
-/** A plain click goes in here; a modified one is left to the browser (a new tab, a new window) */
-function follow(e: MouseEvent, to: () => unknown) {
-  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+/**
+ * A plain click goes in here, and says so; a modified one is left to the browser (a new tab, a
+ * new window)
+ */
+function follow(e: MouseEvent) {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return false;
   e.preventDefault();
-  to();
+  return true;
 }
-const enter = (e: MouseEvent, id: RoomId) => follow(e, () => emit("open", id));
-const startCreating = (e: MouseEvent) => follow(e, () => emit("create"));
+function enter(e: MouseEvent, id: RoomId) {
+  if (follow(e)) emit("open", id);
+}
+function startCreating(e: MouseEvent) {
+  if (follow(e)) emit("create");
+}
 
 /** Opening a trip this device has nothing of: still trying, or given up; null otherwise */
 const joining = computed(() => {

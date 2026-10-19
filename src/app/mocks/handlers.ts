@@ -72,7 +72,6 @@ const wire = <S extends v.GenericSchema>(schema: S, value: unknown): v.InferOutp
 const forbidden = () => new HttpResponse(null, { status: 403 });
 const notFound = () => new HttpResponse(null, { status: 404 });
 const badRequest = () => new HttpResponse(null, { status: 400 });
-const now = () => Temporal.Now.instant();
 /** A moment as the room stamps it */
 const stamp = (t: Temporal.Instant): IsoInstant => v.parse(IsoInstantSchema, t.toString());
 
@@ -146,7 +145,7 @@ const roomSocket = socket.addEventListener("connection", ({ client, params }) =>
     if (typeof e.data !== "string") return;
     const sent: unknown = JSON.parse(e.data);
     const cid = parseCid(sent);
-    const at = now();
+    const at = Temporal.Now.instant();
     // checked, and a new note stamped with whose it is and when, as the Worker's room does
     const mutation = parseMutation(sent, { by: YUKI, updatedAt: stamp(at) }, isAirportCode);
     if (mutation === null) {
@@ -208,7 +207,7 @@ const agent = [
     }
     await wait(THINKING_MS);
     const titles = ["Night view from Elephant Mountain", "Beef noodles at Yongkang Street"];
-    const updatedAt = stamp(now());
+    const updatedAt = stamp(Temporal.Now.instant());
     titles.forEach((title, i) => {
       const note: WireNote = {
         id: v.parse(NoteIdSchema, crypto.randomUUID()),
@@ -347,7 +346,7 @@ const publishing = [
     const slug = crypto.randomUUID().replace(/-/g, "").slice(0, 22);
     room.publication = {
       url: `https://shiori.chirashitabi.app/r/${slug}/shiori`,
-      at: stamp(now()),
+      at: stamp(Temporal.Now.instant()),
     };
     return HttpResponse.json({ publication: room.publication });
   }),
@@ -400,12 +399,12 @@ const members = [
     return HttpResponse.json({});
   }),
   // Yuki owns every room here, and the owner never leaves their own
-  http.post("/api/rooms/:roomId/leave", () => forbidden()),
+  http.post("/api/rooms/:roomId/leave", forbidden),
   http.post("/api/rooms/:roomId/delete", ({ params }) => {
     const id = roomId(params.roomId);
     const room = open(params.roomId);
     if (id === null || room === undefined) return forbidden();
-    room.deletedAt = now().toString();
+    room.deletedAt = Temporal.Now.instant().toString();
     tell(id, { type: "gone", reason: "deleted" });
     for (const c of sockets.get(id) ?? []) c.close(4001, "deleted");
     return HttpResponse.json({});
@@ -424,7 +423,7 @@ const members = [
     return HttpResponse.json({});
   }),
   // nobody has invited Yuki anywhere
-  http.post("/api/invitations/:roomId/:answer", () => notFound()),
+  http.post("/api/invitations/:roomId/:answer", notFound),
 ];
 
 // ---- the person's trips ----

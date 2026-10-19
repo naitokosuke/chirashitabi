@@ -6,5 +6,5 @@ export const parser = defineParamParser({
     const n = Number(value);
     return value !== "" && Number.isFinite(n) ? n : miss();
   },
-  set: (value) => String(value),
+  set: String,
 });
