@@ -6,6 +6,7 @@ import { encode } from "uqr";
 import {
   CtAvatar,
   CtButton,
+  CtDisclosure,
   CtField,
   CtHeading,
   CtHint,
@@ -204,8 +205,7 @@ onMounted(() => {
           </div>
         </CtField>
         <CtHint>{{ i18n.t(cut.offline ? "offline.unavailable" : "people.inviteHint") }}</CtHint>
-        <details class="qr">
-          <summary>{{ i18n.t("people.qr") }}</summary>
+        <CtDisclosure class="qr" :label="i18n.t('people.qr')">
           <svg
             v-if="qr !== null"
             role="img"
@@ -217,7 +217,7 @@ onMounted(() => {
             <path fill="#000" :d="qr.path" />
           </svg>
           <CtHint>{{ i18n.t("people.qrHint") }}</CtHint>
-        </details>
+        </CtDisclosure>
       </form>
       <CtHint v-else-if="me.role === 'owner'">
         {{ i18n.t("people.full", { count: SEATS }) }}
@@ -288,17 +288,6 @@ onMounted(() => {
 
 /* black on white whatever the theme: what a camera reads best */
 .qr {
-  > summary {
-    width: fit-content;
-    min-height: var(--tap);
-    display: flex;
-    align-items: center;
-    font-size: var(--font-sm);
-    font-weight: 700;
-    color: var(--muted);
-    cursor: pointer;
-  }
-
   > svg {
     display: block;
     width: min(240px, 100%);

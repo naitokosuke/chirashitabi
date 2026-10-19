@@ -15,6 +15,7 @@ import {
   CtMessage,
   CtPanel,
   CtPaper,
+  CtPress,
   CtScrollRow,
   CtSegmented,
   CtSelect,
@@ -501,13 +502,9 @@ function adoptDraft() {
           <li v-for="n in unassigned" :key="n.id">
             <CtPaper :paper="paperFor(n)" :selected="picking?.id === n.id">
               <template #default>
-                <button
-                  type="button"
-                  :aria-pressed="picking?.id === n.id"
-                  @click="() => togglePick(n)"
-                >{{
+                <CtPress cover :aria-pressed="picking?.id === n.id" @click="() => togglePick(n)">{{
                   n.title
-                }}</button>
+                }}</CtPress>
               </template>
               <template #foot>
                 <span v-for="t in n.tags" :key="t">#{{ t }}</span>
@@ -920,30 +917,10 @@ article {
         flex-shrink: 0;
         align-self: stretch;
         display: flex;
-
-        button {
-          text-align: start;
-          font-size: var(--font-sm);
-          font-weight: 700;
-          line-height: 1.35;
-
-          /* the button is the whole slip: its box is stretched over the paper, and so is its ring */
-          &::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            border-radius: 6px;
-          }
-
-          &:focus-visible {
-            outline: none;
-
-            &::after {
-              outline: 2px solid var(--ink);
-              outline-offset: 2px;
-            }
-          }
-        }
+        /* the slip's title (a CtPress over the whole slip) in this type */
+        font-size: var(--font-sm);
+        font-weight: 700;
+        line-height: 1.35;
 
         span {
           font-size: var(--font-xs);

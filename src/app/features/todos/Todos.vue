@@ -12,6 +12,7 @@ import {
   CtHeading,
   CtHint,
   CtInput,
+  CtPress,
 } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
@@ -97,9 +98,9 @@ function markBooked(n: Memo) {
           @update:model-value="(checked) => setDone(t.memo, checked)"
         />
         <CtBadge v-else dashed>{{ i18n.t("todo.booking") }}</CtBadge>
-        <button class="title" type="button" @click="() => emit('open', t.memo.id)">{{
+        <CtPress class="title" @click="() => emit('open', t.memo.id)">{{
           t.memo.title
-        }}</button>
+        }}</CtPress>
         <small v-if="dueText(t) !== ''">{{ dueText(t) }}</small>
         <CtByline v-if="whoOf(t) !== undefined" :color="whoOf(t)?.color" size="xs">{{
           whoOf(t)?.name
@@ -152,20 +153,12 @@ function markBooked(n: Memo) {
       column-gap: 10px;
       min-height: var(--tap);
       border-block-end: 1px solid var(--line);
+      font-size: var(--font-base);
 
       /* a plan still to book, in place of the box: it is done by booking it */
       > .title {
         flex: 1;
         min-width: 0;
-        min-height: var(--tap);
-        padding: 0;
-        border: 0;
-        background: none;
-        color: var(--ink);
-        font: inherit;
-        font-size: var(--font-base);
-        text-align: start;
-        overflow-wrap: anywhere;
       }
 
       > small {
