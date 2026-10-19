@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { CtButton } from "../../../ui/index";
+import { CtButton, CtToast } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -12,12 +12,12 @@ const i18n = useI18n();
 <template>
   <!-- the live region stays, so what lands in it is read out -->
   <div role="status">
-    <div v-if="toast.current !== null" class="toast">
-      <span>{{ toast.current.text }}</span>
-      <CtButton v-if="toast.current.undo !== undefined" variant="text" @click="toast.undo">{{
-        i18n.t("canvas.undo")
-      }}</CtButton>
-    </div>
+    <CtToast v-if="toast.current !== null" class="toast">
+      <template #default>{{ toast.current.text }}</template>
+      <template v-if="toast.current.undo !== undefined" #action>
+        <CtButton variant="text" @click="toast.undo">{{ i18n.t("canvas.undo") }}</CtButton>
+      </template>
+    </CtToast>
   </div>
 </template>
 
@@ -30,21 +30,5 @@ const i18n = useI18n();
   max-width: 480px;
   margin-inline: auto;
   z-index: var(--z-menu);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 14px;
-  background: var(--ink);
-  color: var(--on-ink);
-  font-size: var(--font-md);
-  font-weight: 700;
-  box-shadow: var(--shadow-float);
-
-  /* the action is the toast's own ink, told apart by its underline, not by a color */
-  > button {
-    flex-shrink: 0;
-  }
 }
 </style>

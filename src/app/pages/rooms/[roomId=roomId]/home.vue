@@ -5,7 +5,7 @@ import { computed, ref } from "vue";
 
 import { useRoute, useRouter } from "vue-router";
 
-import { CtAvatar, CtButton, CtHeading, CtPanel } from "../../../../ui/index";
+import { CtAvatar, CtButton, CtHeading, CtPanel, CtShareBar } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
 
@@ -76,10 +76,8 @@ const piles = computed(() => {
   const memos = (notes.value ?? []).filter((n) => n.kind === "memo");
   const fixed = memos.filter((n) => n.schedule !== null && n.schedule.status !== "idea").length;
   const loose = memos.filter((n) => n.schedule === null).length;
-  return { fixed, maybe: memos.length - fixed - loose, loose, total: memos.length };
+  return { fixed, maybe: memos.length - fixed - loose, loose };
 });
-/** A pile's share of the bar, as a flex-grow; an empty desk shows one empty bar */
-const share = (count: number) => (piles.value.total === 0 ? 0 : count);
 
 const fixedTotal = computed(() => budgetOf(undefined, true));
 const allTotal = computed(() => budgetOf(undefined, false));
@@ -151,24 +149,13 @@ const allTotal = computed(() => budgetOf(undefined, false));
         </CtPanel>
 
         <!-- how far the plan has come: one bar, three piles -->
-        <figure>
-          <div aria-hidden="true">
-            <span class="confirmed" :style="`flex-grow: ${share(piles.fixed)}`"></span>
-            <span class="maybe" :style="`flex-grow: ${share(piles.maybe)}`"></span>
-            <span class="loose" :style="`flex-grow: ${share(piles.loose)}`"></span>
-          </div>
-          <ul>
-            <li class="confirmed"><span aria-hidden="true"></span>{{ i18n.t("home.fixed") }}<b>{{
-                piles.fixed
-              }}</b></li>
-            <li class="maybe"><span aria-hidden="true"></span>{{ i18n.t("home.maybe") }}<b>{{
-                piles.maybe
-              }}</b></li>
-            <li class="loose"><span aria-hidden="true"></span>{{ i18n.t("home.loose") }}<b>{{
-                piles.loose
-              }}</b></li>
-          </ul>
-        </figure>
+        <CtShareBar
+          :parts="[
+            { key: 'fixed', label: i18n.t('home.fixed'), count: piles.fixed, tone: 'full' },
+            { key: 'maybe', label: i18n.t('home.maybe'), count: piles.maybe, tone: 'half' },
+            { key: 'loose', label: i18n.t('home.loose'), count: piles.loose, tone: 'faint' },
+          ]"
+        />
 
         <p class="budget"><small>{{ i18n.t("home.budget") }}</small>{{ price(fixedTotal) }}<small
             v-if="allTotal > fixedTotal"
@@ -364,66 +351,6 @@ section {
             color: var(--paper-ink);
             white-space: nowrap;
             text-overflow: ellipsis;
-          }
-        }
-      }
-    }
-
-    .main > figure {
-      margin: 0;
-
-      /* each pile's ink, shared by its piece of the bar and its key */
-      .confirmed {
-        --key: var(--ink);
-      }
-
-      .maybe {
-        --key: color-mix(in oklch, var(--ink) 35%, var(--bg));
-      }
-
-      .loose {
-        --key: color-mix(in oklch, var(--ink) 12%, var(--bg));
-      }
-
-      > div {
-        display: flex;
-        gap: 2px;
-        height: 10px;
-        border-radius: 999px;
-        overflow: hidden;
-        background: var(--line);
-
-        > span {
-          flex-basis: 0;
-          background: var(--key);
-        }
-      }
-
-      > ul {
-        list-style: none;
-        margin: 10px 0 0;
-        padding: 0;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px 16px;
-        font-size: var(--font-sm);
-        color: var(--muted);
-
-        > li {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-
-          > span {
-            width: 10px;
-            height: 10px;
-            border-radius: 3px;
-            background: var(--key);
-          }
-
-          > b {
-            color: var(--ink);
-            font-variant-numeric: tabular-nums;
           }
         }
       }

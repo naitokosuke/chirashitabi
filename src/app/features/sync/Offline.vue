@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, onMounted, watch } from "vue";
 
-import { CtButton } from "../../../ui/index";
+import { CtBanner, CtButton } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -45,14 +45,14 @@ const since = computed(() => {
 <template>
   <!-- the live region stays, so the band coming is read out; online, nothing of it is on the page -->
   <div role="status">
-    <div v-if="cut.offline" class="band">
-      <span>{{
+    <CtBanner v-if="cut.offline" class="band">
+      <template #default>{{
         since === "" ? i18n.t("offline.out") : i18n.t("offline.in", { time: since })
-      }}</span>
-      <CtButton v-if="since !== ''" variant="text" @click="room.reconnect">{{
-        i18n.t("rooms.retry")
-      }}</CtButton>
-    </div>
+      }}</template>
+      <template v-if="since !== ''" #action>
+        <CtButton variant="text" @click="room.reconnect">{{ i18n.t("rooms.retry") }}</CtButton>
+      </template>
+    </CtBanner>
   </div>
 </template>
 
@@ -63,18 +63,7 @@ const since = computed(() => {
   inset-inline: 0;
   inset-block-start: 0;
   z-index: var(--z-notice);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 10px;
-  box-sizing: border-box;
   height: var(--top-inset);
-  padding: 0 12px 4px;
-  background: var(--ink);
-  color: var(--on-ink);
-  font-size: var(--font-xs);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
   line-height: calc(var(--notice) - 4px);
 }
 </style>

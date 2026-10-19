@@ -4,6 +4,7 @@
  * Pass `toggle` when it switches something on and off (sets aria-pressed).
  * `float` lifts it off what it floats over (a map, the desk) with a tool's shadow.
  * `dashed` draws its edge dashed: a chip that clears the others, or one the agent offered.
+ * `size="sm"` is a chip set inside a box with others, as the chips of a CtChipInput.
  */
 defineProps<{
   selected?: boolean;
@@ -11,6 +12,7 @@ defineProps<{
   toggle?: boolean;
   float?: boolean;
   dashed?: boolean;
+  size?: "md" | "sm";
 }>();
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
 </script>
@@ -21,6 +23,7 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
     :data-selected="selected || undefined"
     :data-float="float || undefined"
     :data-dashed="dashed || undefined"
+    :data-size="size === 'sm' ? 'sm' : undefined"
     :aria-pressed="toggle ? selected : undefined"
     @click="(e) => emit('click', e)"
   >
@@ -64,6 +67,9 @@ button {
   }
   &[data-dashed] {
     border-style: dashed;
+  }
+  &[data-size="sm"] {
+    min-height: 32px;
   }
   small {
     font-size: var(--font-2xs);
