@@ -48,7 +48,7 @@ import {
 
 import { useRoute, useRouter } from "vue-router";
 
-import { CtButton, CtFab } from "../../../../ui/index";
+import { CtButton, CtChip, CtFab } from "../../../../ui/index";
 
 import { useI18n } from "../../../i18n/useI18n";
 
@@ -883,22 +883,21 @@ watch(
       </div>
 
       <div class="jump">
-        <button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button>
+        <CtChip @click="fitAll">{{ i18n.t("common.fitAll") }}</CtChip>
       </div>
 
       <!--
         a sticker from the photos, a tile over the write button's; on a computer one is also
         pasted or dropped on the desk
       -->
-      <button
+      <CtFab
         v-if="worker.api !== null"
         class="sticker"
-        type="button"
-        :aria-label="i18n.t(sticking ? 'canvas.stickerSending' : 'canvas.sticker')"
+        :label="i18n.t(sticking ? 'canvas.stickerSending' : 'canvas.sticker')"
         :disabled="sticking"
         :aria-busy="sticking"
         @click="pickSticker"
-      ><Icon :size="24" :src="stickerIcon" /></button>
+      ><Icon :size="24" :src="stickerIcon" /></CtFab>
       <!--
         PNG first and no HEIC: iOS then hands a photo over as PNG, which keeps a lifted
         subject's see-through parts; handed over as HEIC it reached the page opaque
@@ -929,18 +928,16 @@ watch(
           role="group"
           :aria-label="i18n.t('canvas.day')"
         >
-          <button
+          <CtChip
             v-for="d in trip?.days"
             :key="d.date.toString()"
-            type="button"
-            :aria-pressed="onMenuDay(d.date)"
+            toggle
+            :selected="onMenuDay(d.date)"
             @click="() => setMenuDay(d.date)"
-          >{{ shortDate(d.date, i18n.locale) }}</button>
-          <button
-            type="button"
-            :aria-pressed="menuMemo.schedule === null"
-            @click="() => setMenuDay(null)"
-          >{{ i18n.t("canvas.noDay") }}</button>
+          >{{ shortDate(d.date, i18n.locale) }}</CtChip>
+          <CtChip toggle :selected="menuMemo.schedule === null" @click="() => setMenuDay(null)">{{
+            i18n.t("canvas.noDay")
+          }}</CtChip>
         </div>
         <!-- the agent's ideas built on this note; a sticker has no words to build on -->
         <button
@@ -1141,31 +1138,17 @@ section {
       }
     }
 
-    /* level with the write button's middle */
+    /* level with the write button's middle: a chip (--tap tall) floating over the desk */
     > .jump {
       position: absolute;
       inset-inline-start: 16px;
-      inset-block-end: calc(var(--dock-clear) + 24px);
+      inset-block-end: calc(var(--dock-clear) + 16px + (56px - var(--tap)) / 2);
       z-index: var(--z-chrome);
       display: flex;
       gap: 8px;
 
       > button {
-        min-height: 40px;
-        padding: 0 14px;
-        border-radius: 999px;
-        background: var(--surface);
-        border: 1px solid var(--line);
         box-shadow: var(--shadow-tool);
-        font-size: var(--font-sm);
-        font-weight: 700;
-        color: var(--muted);
-
-        @media (--can-hover) {
-          &:hover {
-            color: var(--ink);
-          }
-        }
       }
     }
 
@@ -1174,30 +1157,11 @@ section {
      * new on the desk in the thumb's reach
      */
     > .sticker {
-      position: absolute;
-      inset-inline-end: 16px;
       inset-block-end: calc(var(--dock-clear) + 16px + 56px + 12px);
-      z-index: var(--z-chrome);
-      width: 56px;
-      height: 56px;
-      border-radius: 18px;
-      background: var(--ink);
-      color: var(--on-ink);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: var(--shadow-float);
-      transition: box-shadow var(--duration-swap) ease, opacity var(--duration-swap) ease;
 
       /* sending: the tile fades while it waits */
       &:disabled {
         opacity: 0.5;
-      }
-
-      @media (--can-hover) {
-        &:hover {
-          box-shadow: var(--shadow-lift);
-        }
       }
     }
 
@@ -1245,24 +1209,7 @@ section {
         border-block-end: 1px solid var(--line);
 
         > button {
-          min-height: var(--tap);
-          padding: 0 10px;
-          border-radius: 999px;
-          font-size: var(--font-sm);
-          font-weight: 700;
           font-variant-numeric: tabular-nums;
-          color: var(--muted);
-
-          @media (--can-hover) {
-            &:hover {
-              background: var(--wash);
-            }
-          }
-
-          &[aria-pressed="true"] {
-            background: var(--ink);
-            color: var(--surface);
-          }
         }
       }
     }

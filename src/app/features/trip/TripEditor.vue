@@ -429,10 +429,6 @@ button.remove {
   font: inherit;
   font-size: var(--font-xs);
   font-weight: 700;
-  &:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
-  }
   @media (--can-hover) {
     &:hover {
       color: var(--danger);
@@ -482,10 +478,6 @@ button.remove {
       > small {
         font-size: var(--font-xs);
         color: var(--muted);
-      }
-      &:focus-visible {
-        outline: 2px solid var(--ink);
-        outline-offset: 2px;
       }
     }
   }
