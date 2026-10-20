@@ -14,7 +14,7 @@ vp run fmt     # format the SFCs (Vize) and the rest
 vp run musea   # the component gallery (Vize Musea) at /__musea__
 vp build
 vp run analyze                      # VITE_MOCK=false build, then what it is made of (Vite DevTools) at localhost:9999
-vp run check:worker                 # wrangler types + tsc on worker/, writing .worker-types/ (before `vp run check`)
+vp run check:worker                 # wrangler types + tsc on src/worker/, writing .worker-types/ (before `vp run check`)
 vp run deploy                       # VITE_MOCK=false build, then wrangler deploy
 ```
 
@@ -135,6 +135,8 @@ src/shared/         Values with no trip in them, which the contract re-exports
   email.ts       Email: an address, trimmed and lowercased
   list.ts        listOf: the entries of a list from elsewhere that read as one
   money.ts       CurrencyCode
+  parse.ts       parserOf: a schema as a parser for a value from elsewhere, its output or null
+  result.ts      Result: a value, or why there is none
   uuid.ts        A UUID as crypto.randomUUID() writes it
 
 src/ui/             The design system: props, slots and events only, no app imports
@@ -164,16 +166,10 @@ src/ui/             The design system: props, slots and events only, no app impo
   index.ts       The public entry
   musea.preview.ts     Musea's preview app: the interop plugin, so it mounts the Vapor components
 
-public/             favicon.svg: three notes scattered on a red tile, served as they are
-scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop (see "Running against the Worker");
-                    airports.mjs: rebuilds src/contract/airports-data.json from OurAirports (public domain)
-
-.claude/skills/impeccable/   A text-only copy of the Impeccable design skill (SKILL.md + reference/, no scripts
-                             or hooks); PROVENANCE.md says what is left out and why
-
-worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run check:worker` type-checks it
-                    and writes its declarations to .worker-types/, git-ignored, where the app's hc client
-                    reads the API's routes from)
+src/worker/         The Cloudflare Worker, its own program (tsconfig.json here: Workers types, no DOM; the
+                    app's tsconfig leaves it out). wrangler.jsonc at the root; `vp run check:worker`
+                    type-checks it and writes its declarations to .worker-types/, git-ignored, where the
+                    app's hc client reads the API's routes from
   index.ts          A Hono app: branches on the hostname, then identify -> Origin check -> the room API;
                     one structured log event (evlog's Hono middleware) per API request, read with `wrangler tail`
   access.ts         AccessVerifier: the Access JWT -> a verified e-mail (signature, aud, iss, exp, nbf)
@@ -195,10 +191,17 @@ worker/             The Cloudflare Worker (wrangler.jsonc at the root; `vp run c
                     in the R2 bucket chirashitabi-images); the socket: snapshot on connect,
                     mutations checked, stamped (by, updatedAt), written and sent to the other sockets
   wire.ts           What crosses the socket and the checks it must pass (src/contract's wire.ts and room.ts)
-  types.ts          Ids, colors, money, places and isRecord (the rest of src/contract)
+  types.ts          Ids, colors, money, places and Result (the rest of src/contract)
   api.test.ts       The Worker in workerd via wrangler's test harness, Access stood in for by a throwaway key
   env.d.ts          ANTHROPIC_API_KEY (a secret), and ACCESS_CERTS_URL and ANTHROPIC_BASE_URL, which only
                     the tests set
+
+public/             favicon.svg: three notes scattered on a red tile, served as they are
+scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop (see "Running against the Worker");
+                    airports.mjs: rebuilds src/contract/airports-data.json from OurAirports (public domain)
+
+.claude/skills/impeccable/   A text-only copy of the Impeccable design skill (SKILL.md + reference/, no scripts
+                             or hooks); PROVENANCE.md says what is left out and why
 
 docs/               Design notes: auth-and-security.md (one hostname behind Access, rooms and members, agents,
                     paid-API budgets, what stays public), data-fetching.md (the room in the query cache),
@@ -224,7 +227,7 @@ Currencies and member colors arrive as plain strings too; `currencyCode` and `he
 
 - Tiles come from OpenFreeMap (`https://tiles.openfreemap.org/styles/liberty`): free, no key.
 - Coordinates come from the Google Maps link pasted into the form. A short `maps.app.goo.gl` link is read by the Worker
-  (`worker/expand.ts`), and the point comes from where it leads.
+  (`src/worker/expand.ts`), and the point comes from where it leads.
 - When there are no coordinates, long-press the map to place the note.
 - Google Maps is only an "open" link; no Google key ever ships to the browser (see `docs/auth-and-security.md`).
 

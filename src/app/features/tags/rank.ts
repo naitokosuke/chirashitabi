@@ -44,7 +44,7 @@ export function rankTags(options: readonly TagOption[], text: string): TagOption
     .map(({ o }) => o);
 }
 
-/** Clef finds a tag this likely or more fitting; the Worker draws the same line (worker/clef.ts) */
+/** Clef finds a tag this likely or more fitting; the Worker draws the same line (src/worker/clef.ts) */
 export const FITS_AT = 0.5;
 
 /** A tag the text names, or Clef found likely: shown as fitting, not only as one in use */

@@ -33,5 +33,5 @@ export {
   type WireRoomSummary,
   type WireStay,
   type WireTrip,
-} from "../src/contract/wire";
-export { SEATS, parseTag, type NoteColor, type NoteStatus, type Tag } from "../src/contract/room";
+} from "../contract/wire";
+export { SEATS, parseTag, type NoteColor, type NoteStatus, type Tag } from "../contract/room";

@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "analyze": "ANALYZE=true VITE_MOCK=false vp build",
-    "check:worker": "wrangler types && tsc -p worker",
+    "check:worker": "wrangler types && tsc -p src/worker",
     "deploy": "VITE_MOCK=false vp build && wrangler deploy",
     "musea": "MUSEA=true vp dev --open /__musea__"
   },

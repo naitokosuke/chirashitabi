@@ -68,7 +68,7 @@ const filled = computed(() =>
 
 /** The tag the trip will get, drawn as the form is filled in */
 const preview = computed(() => {
-  // the person, nameless, in their color; and the agent, in every trip from the start (worker/room.ts)
+  // the person, nameless, in their color; and the agent, in every trip from the start (src/worker/room.ts)
   const members: RoomSummary["members"] = [
     { kind: "person" as const, name: "", color: parseHexColor(color.value) },
     { kind: "agent" as const, name: "Claude", color: parseHexColor("#d97757") },

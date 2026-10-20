@@ -212,13 +212,13 @@ The Worker is fetching a URL the user typed, so the fetch is fenced.
   Then the name (the `q`, else the path's place) is looked up on OpenStreetMap's geocoder, which is free, and its first place's point comes back beside the link.
   The log keeps the shape it led to (`place`, `search`, …), not the place.
 
-This is `worker/expand.ts`, answered at `POST /api/rooms/<id>/expand`.
-Wrangler's test harness follows a redirect even with `redirect: "manual"`, so a runtime that followed is held to the same rule on the URL it ended at; `worker/expand.test.ts` shows how a `Location` is read.
+This is `src/worker/expand.ts`, answered at `POST /api/rooms/<id>/expand`.
+Wrangler's test harness follows a redirect even with `redirect: "manual"`, so a runtime that followed is held to the same rule on the URL it ended at; `src/worker/expand.test.ts` shows how a `Location` is read.
 
 ## Previewing links
 
 A note may carry the page its idea came from (a blog post, a video), and the Worker reads that page once for its title, a line and its picture (Open Graph; YouTube through its oEmbed, which takes no key).
-A browser cannot read another site's HTML, so the Worker fetches a URL the member pasted, and the fetch is fenced (`worker/preview.ts`).
+A browser cannot read another site's HTML, so the Worker fetches a URL the member pasted, and the fetch is fenced (`src/worker/preview.ts`).
 
 - Only an http(s) address with a named host is fetched: no other scheme, no address by number, no bare name (`localhost`, `intranet`), nothing under `.local`, and never the app's or the booklet's host.
   A redirect is followed at most three times, each hop held to the same rule, and the page is never fetched by a browser's cookies: the Worker has none.
@@ -229,7 +229,7 @@ A browser cannot read another site's HTML, so the Worker fetches a URL the membe
   A note linking to one keeps the link and takes a screenshot as its picture.
 - Each preview counts against the member's budget like any other outbound call; the log keeps the page's site, never its address.
 
-This is `POST /api/rooms/<id>/preview`; `worker/preview.test.ts` holds the fence's rules, `worker/api.test.ts` the route against a stub of the pages.
+This is `POST /api/rooms/<id>/preview`; `src/worker/preview.test.ts` holds the fence's rules, `src/worker/api.test.ts` the route against a stub of the pages.
 
 ## What stays outside Access
 
@@ -242,7 +242,7 @@ A secret URL is fine there as long as the page costs nothing to view.
 - Only the owner publishes (`POST /api/rooms/<id>/publish`) or takes it down (`/withdraw`); whether the room has a public page at all is theirs.
   Every member sees whether it is up and its link (`/publication`).
   The room records who published it and when.
-- The page is one HTML file the room writes from its own data when the owner publishes (`worker/booklet.ts`), kept in R2 at `booklets/<slug>/shiori.html`; nothing a browser sends ends up on the public host.
+- The page is one HTML file the room writes from its own data when the owner publishes (`src/worker/booklet.ts`), kept in R2 at `booklets/<slug>/shiori.html`; nothing a browser sends ends up on the public host.
   It is a snapshot: it shows the plan as it was then, until the owner publishes again.
 - It carries the plan and nothing private: the trip's name and days, each day's line, its flights and where its night is spent, and the confirmed notes with their times, words and links.
   No budget, no booking number or page, no picture (pictures stay behind the room's membership), no member's name, no maybe.

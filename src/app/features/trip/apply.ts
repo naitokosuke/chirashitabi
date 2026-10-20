@@ -18,7 +18,7 @@ export function applyToDays(days: Day[], m: Mutation): Day[] {
 
 /**
  * `count` days from `first`, each keeping the intro of the day at its place in the trip before
- * (day 2's is still day 2's), as the room does (worker/room.ts)
+ * (day 2's is still day 2's), as the room does (src/worker/room.ts)
  */
 function datesOf(days: Day[], first: Temporal.PlainDate, count: number): Day[] {
   const same = days.length === count && days[0] !== undefined && days[0].date.equals(first);

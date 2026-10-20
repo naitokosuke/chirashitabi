@@ -16,5 +16,7 @@
     "noEmit": true,
     "jsx": "preserve"
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts"],
+  // the Worker is its own program (src/worker/tsconfig.json): Workers types, not the DOM
+  "exclude": ["src/worker"]
 }
