@@ -82,7 +82,7 @@ describe("newStay and stayOf", () => {
 
   test("its link sets its pin; a blank link clears both; a stay with no name is not one yet", () => {
     const blank = newStay([], first);
-    expect(stayOf(blank)).toEqual({ ok: false, why: "name" });
+    expect(stayOf(blank)).toEqual({ ok: false, reason: "name" });
     const s = stayOf({ ...blank, name: " Inn ", mapsUrl: "https://maps.google.com/?q=25.1,121.8" });
     expect(s).toMatchObject({ ok: true, value: { name: "Inn", pin: { lat: 25.1, lng: 121.8 } } });
     expect(stayOf({ ...blank, name: "Inn", pin: { lat: 1, lng: 2 } })).toMatchObject({
@@ -90,7 +90,7 @@ describe("newStay and stayOf", () => {
     });
     expect(stayOf({ ...blank, name: "Inn", mapsUrl: "javascript:alert(1)" })).toEqual({
       ok: false,
-      why: "link",
+      reason: "link",
     });
   });
 });
@@ -110,7 +110,7 @@ describe("newFlight and flightOf", () => {
   });
 
   test("an airport not named or not on the list, or a time half typed, is not one yet", () => {
-    const notYet = (why: string) => ({ ok: false, why });
+    const notYet = (reason: string) => ({ ok: false, reason });
     expect(flightOf({ ...newFlight(), from: "HND" }, airports)).toEqual(notYet("airport"));
     expect(flightOf({ ...newFlight(), from: "HND", to: "Taipei" }, airports)).toEqual(
       notYet("airport"),

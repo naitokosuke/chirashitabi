@@ -11,7 +11,7 @@ import { tagOf, type Note } from "../features/notes/types";
 import { isShortMapsLink } from "../features/place/google-maps";
 import { roomId, RoomIdSchema, type RoomId } from "../features/rooms/types";
 import { applyToRoom, type RoomState } from "../features/sync/ledger";
-import { reviveMember, reviveMutation, reviveNote, reviveTrip } from "../features/sync/wire";
+import { reviveMutation, reviveNote, reviveTrip } from "../features/sync/wire";
 import type { TripSnapshot } from "../features/trip/types";
 
 import { CLAUDE, mockMembers, YUKI } from "./members";
@@ -448,7 +448,7 @@ const mine = [
     const id = roomId(crypto.randomUUID());
     if (!body.success || id === null) return badRequest();
     const { trip, me } = body.output;
-    const creator = reviveMember({ id: YUKI, kind: "person", role: "owner", ...me });
+    const creator: Member = { id: YUKI, kind: "person", role: "owner", ...me };
     rooms.set(id, {
       state: {
         notes: [],

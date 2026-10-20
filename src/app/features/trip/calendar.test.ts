@@ -9,6 +9,7 @@ import type { NoteId } from "../notes/id";
 import type { Memo, NoteStatus } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 import type { HttpUrl } from "../place/google-maps";
+import type { RoomId } from "../rooms/types";
 
 import { calendarOf, fold, type CalendarWords } from "./calendar";
 import type { TripSnapshot } from "./types";
@@ -105,7 +106,7 @@ describe("calendarOf", () => {
       schedule: { date: date("2026-11-04"), time: null, status: "done" },
     }),
   ];
-  const ics = calendarOf(trip, notes, "room1", now, words);
+  const ics = calendarOf(trip, notes, "room1" as RoomId, now, words);
 
   test("a calendar of CRLF lines, named after the trip", () => {
     expect(ics.startsWith("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n")).toBe(true);

@@ -7,7 +7,7 @@
 
 import * as v from "valibot";
 
-import { listOf } from "./types";
+import { listOf, type LatLng } from "./types";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 export const USER_AGENT = "chirashitabi/1.0 (+https://chirashitabi.app)";
@@ -110,7 +110,7 @@ export function placesFrom(raw: unknown): Place[] {
  */
 export async function reverseGeocode(
   env: Env,
-  at: { lat: number; lng: number },
+  at: LatLng,
   lang: "ja" | "en",
 ): Promise<{ place: Place | null } | null> {
   const params = new URLSearchParams({
@@ -165,7 +165,7 @@ const ReverseSchema = v.object({
  * sight), else the most telling part of its address (a building, then the street); the point
  * stays the one pinned. Null when there is nothing there (the sea: `{ "error": … }`).
  */
-export function placeAt(raw: unknown, at: { lat: number; lng: number }): Place | null {
+export function placeAt(raw: unknown, at: LatLng): Place | null {
   const r = v.safeParse(ReverseSchema, raw);
   if (!r.success) return null;
   const { display_name: line, address } = r.output;

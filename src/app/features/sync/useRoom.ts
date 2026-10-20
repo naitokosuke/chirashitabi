@@ -8,6 +8,7 @@ import { type EntryKeyTagged, useQueryCache } from "@pinia/colada";
 
 import { useI18n } from "../../i18n/useI18n";
 
+import type { ImageId } from "../notes/id";
 import { imageSrc } from "../notes/image";
 import type { Note } from "../notes/types";
 import { roomId, type RoomId } from "../rooms/types";
@@ -21,14 +22,7 @@ import { linked, opened, OUT, synced } from "./session";
 import { createRoomSocket } from "./socket";
 import type { Mutation } from "./types";
 import { useSync } from "./useSync";
-import {
-  newCid,
-  reviveMember,
-  reviveMutation,
-  reviveNote,
-  reviveTrip,
-  type GoneReason,
-} from "./wire";
+import { newCid, reviveMutation, reviveNote, reviveTrip, type GoneReason } from "./wire";
 
 const STORAGE_KEY = "chirashitabi:room";
 
@@ -66,7 +60,7 @@ export const useRoom = defineStore("room", () => {
    * keeps every picture that comes through it (sw.js), so one fetched now is there on the
    * plane, whether or not a card showing it was ever on screen
    */
-  const warmed = new Set<string>();
+  const warmed = new Set<ImageId>();
   function warm(room: RoomId, notes: Note[]) {
     if (!navigator.onLine) return;
     for (const n of notes) {
@@ -121,7 +115,7 @@ export const useRoom = defineStore("room", () => {
         ledger.snapshot({
           notes: msg.notes.map(reviveNote),
           trip: reviveTrip(msg.trip),
-          members: msg.members.map(reviveMember),
+          members: msg.members,
         }),
       );
       sync.session = synced(sync.session, msg.me, Temporal.Now.instant());
@@ -145,7 +139,7 @@ export const useRoom = defineStore("room", () => {
       }
     },
     onMembers(members) {
-      show(ledger.members(members.map(reviveMember)));
+      show(ledger.members(members));
       // whom the owner still waits on, and the trip's tag in the list, changed with them
       const s = sync.session;
       if (s.kind !== "out") refresh(s.room);

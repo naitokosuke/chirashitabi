@@ -2,17 +2,18 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import type { CurrencyCode } from "../../shared/money";
 
+import type { Leg } from "../../../contract/wire";
 import type { AirportCode } from "../place/airports";
 import type { HttpUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
+
+// which flight, the one there or the one home, as the app takes it from the contract
+export type { Leg } from "../../../contract/wire";
 
 export interface Day {
   date: Temporal.PlainDate;
   intro: string; // 2-3 lines written for the booklet, not a note
 }
-
-/** Which flight: the one there, or the one home */
-export type Leg = "out" | "back";
 
 /**
  * A flight as written from the ticket: where it leaves from and lands (airports on the list), its

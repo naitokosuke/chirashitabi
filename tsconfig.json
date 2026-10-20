@@ -5,6 +5,7 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["vite-plus/client", "@vizejs/vite-plugin", "vite-plus/test/importMeta"],
     "skipLibCheck": true,

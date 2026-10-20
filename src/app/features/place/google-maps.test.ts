@@ -40,6 +40,13 @@ describe("parseMapsUrl and isShortMapsLink", () => {
     });
   });
 
+  test("numbers off the map are no point, and the next pattern is tried", () => {
+    expect(parseMapsUrl("https://www.google.com/maps/@999.1,999.2,15z")).toBeNull();
+    expect(
+      parseMapsUrl("https://www.google.com/maps/place/x/@999.1,999.2,15z/data=!3d25.05!4d121.51"),
+    ).toEqual({ lat: 25.05, lng: 121.51 });
+  });
+
   test("a short link is one Google Maps hands out to share, and only that", () => {
     expect(isShortMapsLink("https://maps.app.goo.gl/AbC123")).toBe(true);
     expect(isShortMapsLink("https://goo.gl/maps/xyz")).toBe(true);

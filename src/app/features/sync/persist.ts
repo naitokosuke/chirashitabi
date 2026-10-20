@@ -3,6 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import * as v from "valibot";
 
 import { MemberIdSchema, type MemberId } from "../members/types";
+import type { RoomId } from "../rooms/types";
 
 import type { Pending, RoomState } from "./ledger";
 import {
@@ -12,7 +13,6 @@ import {
   WireMutationSchema,
   WireNoteSchema,
   WireTripSchema,
-  reviveMember,
   reviveMutation,
   reviveNote,
   reviveTrip,
@@ -27,7 +27,7 @@ import {
 
 /** 2: who this device is (`me`) is kept too */
 const VERSION = 2;
-const keyOf = (roomId: string) => `chirashitabi:room:${roomId}`;
+const keyOf = (roomId: RoomId) => `chirashitabi:room:${roomId}`;
 
 /**
  * What keep() writes, read back as the room's own messages are: one from another version, or
@@ -66,7 +66,7 @@ export interface Kept {
 }
 
 /** Keeps the room; a full or blocked storage keeps nothing, and the room still works */
-export function keep(storage: Storage, roomId: string, room: Kept) {
+export function keep(storage: Storage, roomId: RoomId, room: Kept) {
   const saved = { v: VERSION, ...room };
   try {
     storage.setItem(keyOf(roomId), JSON.stringify(saved));
@@ -76,7 +76,7 @@ export function keep(storage: Storage, roomId: string, room: Kept) {
 }
 
 /** Nothing of the room is kept any more: this device's person is out of it, or it was deleted */
-export function forget(storage: Storage, roomId: string) {
+export function forget(storage: Storage, roomId: RoomId) {
   try {
     storage.removeItem(keyOf(roomId));
   } catch {
@@ -85,7 +85,7 @@ export function forget(storage: Storage, roomId: string) {
 }
 
 /** The room as it was kept, or null: never kept, from another version, without who this device is, or unreadable */
-export function kept(storage: Storage, roomId: string): Kept | null {
+export function kept(storage: Storage, roomId: RoomId): Kept | null {
   try {
     const raw = storage.getItem(keyOf(roomId));
     if (raw === null) return null;
@@ -97,7 +97,7 @@ export function kept(storage: Storage, roomId: string): Kept | null {
       confirmed: {
         notes: saved.confirmed.notes.map(reviveNote),
         trip: saved.confirmed.trip === null ? null : reviveTrip(saved.confirmed.trip),
-        members: saved.confirmed.members.map(reviveMember),
+        members: saved.confirmed.members,
       },
       pending: saved.pending.map((p) => ({
         cid: p.cid,

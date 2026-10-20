@@ -13,7 +13,6 @@ import {
   type IsoDateTime,
   type IsoTime,
   type WireBooking,
-  type WireMember,
   type WireMemoPatch,
   type WireMutation,
   type WireFlight,
@@ -23,7 +22,6 @@ import {
   type WireStay,
   type WireTrip,
 } from "../../../contract/wire";
-import type { Member } from "../members/types";
 import type { Booking, MemoPatch, Note, Schedule } from "../notes/types";
 import type { Flight, Stay, TripSnapshot } from "../trip/types";
 
@@ -67,50 +65,21 @@ const booking = (b: WireBooking): Booking =>
     ? { state: "needed", by: b.by === null ? null : Temporal.PlainDate.from(b.by) }
     : b;
 
+// what a note kept on a device from before lacks, the contract's schema has already defaulted
 export function reviveNote(n: WireNote): Note {
-  const card = {
-    id: n.id,
-    title: n.title,
-    color: n.color,
-    x: n.x,
-    y: n.y,
-    rot: n.rot,
-    // a note kept on a device before cards could be resized is its own size
-    scale: n.scale ?? 1,
-    by: n.by,
-    updatedAt: Temporal.Instant.from(n.updatedAt),
-  };
-  if (n.kind === "suggestion") return { ...card, kind: "suggestion" };
-  if (n.kind === "text") return { ...card, kind: "text" };
-  if (n.kind === "sticker") return { ...card, kind: "sticker", image: n.image };
+  const updatedAt = Temporal.Instant.from(n.updatedAt);
+  if (n.kind !== "memo") return { ...n, updatedAt };
   return {
-    ...card,
-    kind: "memo",
-    body: n.body,
-    tags: n.tags,
-    mapsUrl: n.mapsUrl,
-    pin: n.pin,
+    ...n,
+    updatedAt,
     schedule: n.schedule === null ? null : schedule(n.schedule),
-    budget: n.budget,
-    checked: n.checked,
-    // a note kept on a device before pictures has none
-    image: n.image ?? null,
-    // nor one kept before a memo said how long it takes
-    minutes: n.minutes ?? null,
-    // nor one kept before its opening hours were its own
-    hours: n.hours ?? null,
-    // nor one kept before a memo could say where its idea came from
-    link: n.link ?? null,
-    // nor one kept before bookings
-    booking: n.booking == null ? null : booking(n.booking),
-    // nor one kept before to-dos had a day and someone to do them
-    due: n.due == null ? null : Temporal.PlainDate.from(n.due),
-    assignee: n.assignee ?? null,
+    booking: n.booking === null ? null : booking(n.booking),
+    due: n.due === null ? null : Temporal.PlainDate.from(n.due),
   };
 }
 
-const reviveFlight = (f: WireFlight | null | undefined): Flight | null =>
-  f == null
+const reviveFlight = (f: WireFlight | null): Flight | null =>
+  f === null
     ? null
     : {
         number: f.number,
@@ -127,29 +96,20 @@ export const reviveTrip = (t: WireTrip): TripSnapshot => ({
   days: t.days.map((d) => ({ date: Temporal.PlainDate.from(d.date), intro: d.intro })),
   currency: t.currency,
   center: t.center,
-  // a trip kept on a device before flights has none
-  flights: { out: reviveFlight(t.flights?.out), back: reviveFlight(t.flights?.back) },
-  // nor one kept before stays
-  stays: (t.stays ?? []).map(reviveStay),
+  flights: { out: reviveFlight(t.flights.out), back: reviveFlight(t.flights.back) },
+  stays: t.stays.map(reviveStay),
 });
 
 const reviveStay = (s: WireStay): Stay => ({ ...s, checkIn: Temporal.PlainDate.from(s.checkIn) });
 
-export const reviveMember = (m: WireMember): Member => {
-  const common = { id: m.id, name: m.name, color: m.color };
-  // a person kept on a device before roles were sent is a guest until the room's snapshot says
-  return m.kind === "agent"
-    ? { ...common, kind: "agent" }
-    : { ...common, kind: "person", role: m.role === "owner" ? "owner" : "guest" };
-};
-
+// parsed JSON has no key set to undefined: one that is there is in the patch
 const revivePatch = (p: WireMemoPatch): MemoPatch => {
   const { schedule: s, booking: b, due: d, ...rest } = p;
   return {
     ...rest,
-    ...(Object.hasOwn(p, "schedule") ? { schedule: s == null ? null : schedule(s) } : {}),
-    ...(Object.hasOwn(p, "booking") ? { booking: b == null ? null : booking(b) } : {}),
-    ...(Object.hasOwn(p, "due") ? { due: d == null ? null : Temporal.PlainDate.from(d) } : {}),
+    ...(s === undefined ? {} : { schedule: s === null ? null : schedule(s) }),
+    ...(b === undefined ? {} : { booking: b === null ? null : booking(b) }),
+    ...(d === undefined ? {} : { due: d === null ? null : Temporal.PlainDate.from(d) }),
   };
 };
 

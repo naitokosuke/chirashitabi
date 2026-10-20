@@ -3,6 +3,7 @@ import type { Temporal } from "temporal-polyfill-lite";
 import * as v from "valibot";
 
 import { TagSchema, type NoteColor, type NoteStatus, type Tag } from "../../../contract/room";
+import type { WireMemoPatch } from "../../../contract/wire";
 import type { MemberId } from "../members/types";
 import type { HttpUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
@@ -137,8 +138,8 @@ export type NoteInput = Pick<
  */
 export type FormTarget = { kind: "new"; pin: LatLng | null } | { kind: "edit"; id: NoteId };
 
-/** What can change on a memo after it is written */
-export type MemoPatch = Partial<Omit<Memo, "id" | "kind" | "by" | "updatedAt">>;
+/** What can change on a memo after it is written: what the room takes in a `note:update` */
+export type MemoPatch = Partial<Pick<Memo, keyof WireMemoPatch>>;
 
 /** Tags with a meaning of their own: packing notes never need a day or a pin */
 export const PACKING_TAG = v.parse(TagSchema, "Packing");

@@ -5,11 +5,14 @@ import type { CurrencyCode } from "../../shared/money";
 
 import type { MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
+import type { RoomId } from "../rooms/types";
 
 import { createRoomSocket, type SocketLike, type SocketStatus } from "./socket";
 import type { Mutation } from "./types";
 import type { Cid, IsoInstant, ServerMessage } from "./wire";
 
+const ROOM_1 = "room-1" as RoomId;
+const ROOM_2 = "room-2" as RoomId;
 const C1 = "c1" as Cid;
 const C2 = "c2" as Cid;
 const AT = "2026-10-01T00:00:00Z" as IsoInstant;
@@ -98,7 +101,7 @@ afterEach(() => vi.useRealTimers());
 describe("createRoomSocket", () => {
   test("connecting until the first snapshot, then connected", () => {
     const { socket, statuses, last } = setup();
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     expect(socket.status).toBe("connecting");
     last().serve(snapshot);
     expect(statuses.at(-1)).toBe("connected");
@@ -106,7 +109,7 @@ describe("createRoomSocket", () => {
 
   test("sends at once while connected, with the cid beside the mutation when there is one", () => {
     const { socket, last } = setup();
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     last().serve(snapshot);
     expect(socket.send(intro)).toBe(true);
     expect(socket.send(intro, C1)).toBe(true);
@@ -115,7 +118,7 @@ describe("createRoomSocket", () => {
 
   test("while down nothing is sent, and the snapshot finds the socket connected so the caller can send again", () => {
     const { socket, sockets, snapshots, last } = setup();
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     last().serve(snapshot);
     last().drop();
     expect(socket.status).toBe("reconnecting");
@@ -129,7 +132,7 @@ describe("createRoomSocket", () => {
 
   test("acks and rejections that name a cid go to the caller", () => {
     const { socket, answers, last } = setup();
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     last().serve(snapshot);
     last().serve({ type: "ack", cid: C1, updatedAt: AT });
     last().serve({ type: "rejected", cid: C2, reason: "no such note" });
@@ -139,7 +142,7 @@ describe("createRoomSocket", () => {
 
   test("backs off 1s, 2s, 4s… and gives up after eight tries", () => {
     const { socket, sockets, last } = setup();
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     last().drop();
     vi.advanceTimersByTime(999);
     expect(sockets).toHaveLength(1);
@@ -159,7 +162,7 @@ describe("createRoomSocket", () => {
 
   test("a snapshot resets the back-off", () => {
     const { socket, sockets, last } = setup();
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     last().drop();
     vi.advanceTimersByTime(1000);
     last().drop();
@@ -173,7 +176,7 @@ describe("createRoomSocket", () => {
   test("a rejection that names no cid closes the socket so the next snapshot is the truth", () => {
     const { socket, last } = setup();
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     last().serve(snapshot);
     last().serve({ type: "rejected", reason: "too many messages" });
     expect(last().closed).toEqual({ code: 4000, reason: "resync" });
@@ -181,7 +184,7 @@ describe("createRoomSocket", () => {
 
   test("relays a member's mutation", () => {
     const { socket, mutations, last } = setup();
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     last().serve(snapshot);
     const msg: ServerMessage = {
       type: "mutation",
@@ -201,7 +204,7 @@ describe("createRoomSocket", () => {
       JSON.stringify({ type: "hello" }),
     ]) {
       const { socket, mutations, last } = setup();
-      socket.connect("room-1");
+      socket.connect(ROOM_1);
       last().serve(snapshot);
       last().say(data);
       expect(mutations).toEqual([]);
@@ -212,7 +215,7 @@ describe("createRoomSocket", () => {
   test("a snapshot it cannot read is no connection: the socket closes, for another try", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const { socket, statuses, last } = setup();
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     last().serve({ ...snapshot, me: "yuki" as MemberId });
     expect(statuses).not.toContain("connected");
     expect(last().closed).toEqual({ code: 4000, reason: "resync" });
@@ -220,7 +223,7 @@ describe("createRoomSocket", () => {
 
   test("leaving closes the socket, and an old socket's close is ignored", () => {
     const { socket, sockets, last } = setup();
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     last().serve(snapshot);
     last().drop();
     socket.leave();
@@ -228,7 +231,7 @@ describe("createRoomSocket", () => {
     vi.advanceTimersByTime(60_000);
     expect(sockets).toHaveLength(1);
 
-    socket.connect("room-2");
+    socket.connect(ROOM_2);
     const first = sockets[0]!;
     first.drop(); // the old socket closing late changes nothing
     expect(socket.status).toBe("connecting");
@@ -238,7 +241,7 @@ describe("createRoomSocket", () => {
 
   test("reconnect tries again at once after giving up", () => {
     const { socket, sockets, last } = setup();
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     for (let i = 0; i < 8; i++) {
       last().drop();
       vi.advanceTimersByTime(30_000);
@@ -252,7 +255,7 @@ describe("createRoomSocket", () => {
 
   test("passes on who is in the room now", () => {
     const { socket, people, last } = setup();
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     last().serve(snapshot);
     const members = [
       {
@@ -269,7 +272,7 @@ describe("createRoomSocket", () => {
 
   test("out of the room it leaves, says why, and does not try again when the room closes it", () => {
     const { socket, sockets, gone, last } = setup();
-    socket.connect("room-1");
+    socket.connect(ROOM_1);
     last().serve(snapshot);
     last().serve({ type: "gone", reason: "removed" });
     expect(gone).toEqual(["removed"]);

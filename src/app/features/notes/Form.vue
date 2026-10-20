@@ -230,7 +230,7 @@ function onLink() {
     .then((answer) => {
       if (link.value.trim() !== raw) return;
       if (!answer.ok) {
-        linkState.value = { kind: answer.refused.ceiling };
+        linkState.value = { kind: answer.reason.ceiling };
         return;
       }
       const found = answer.value;
@@ -333,7 +333,7 @@ async function askForTags(byTap: boolean) {
     if (!got.ok) {
       // past the budget: Clef stops asking by itself for this memo
       asks = MAX_ASKS;
-      tagState.value = got.refused.ceiling;
+      tagState.value = got.reason.ceiling;
       return;
     }
     offered.value = got.value;
@@ -489,7 +489,7 @@ async function findPlaces() {
       tags: [...form.value.tags, ...inline],
       lang: i18n.locale === "en" ? "en" : "ja",
     });
-    if (!answer.ok) places.value = { kind: answer.refused.ceiling };
+    if (!answer.ok) places.value = { kind: answer.reason.ceiling };
     else if (answer.value.length === 0) places.value = { kind: "none" };
     else places.value = { kind: "idle", found: answer.value };
   } catch {

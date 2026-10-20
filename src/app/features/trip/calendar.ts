@@ -1,6 +1,7 @@
 import { Temporal } from "temporal-polyfill-lite";
 
 import type { Note, Scheduled } from "../notes/types";
+import type { RoomId } from "../rooms/types";
 
 import { checkOut, flightDays } from "./itinerary";
 import type { Leg, TripSnapshot } from "./types";
@@ -116,7 +117,7 @@ const isShown = (n: Note): n is Scheduled =>
 export function calendarOf(
   trip: TripSnapshot,
   notes: Note[],
-  room: string,
+  room: RoomId,
   now: Temporal.Instant,
   words: CalendarWords,
 ): string {

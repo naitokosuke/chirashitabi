@@ -1,5 +1,9 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
+import type { Result } from "../../shared/result";
+
+import type { Locale } from "../../i18n/locale";
+
 import type { MemberId } from "../members/types";
 import type { ImageId, NoteId } from "../notes/id";
 import type { Scheduled, Tag } from "../notes/types";
@@ -21,12 +25,6 @@ export type OverBudget = { kind: "over"; ceiling: "day" | "trip" };
 /** The room already keeps as many pictures as it may */
 export type RoomFull = { kind: "full" };
 
-/**
- * A call's answer, or what the Worker declined: an outcome to say, not a failure. A failure
- * (offline, an error from the Worker) is thrown.
- */
-export type Answer<T, Refused> = { ok: true; value: T } | { ok: false; refused: Refused };
-
 /** What the Cloudflare Worker will do for the room, besides sync */
 export interface WorkerApi {
   /**
@@ -38,12 +36,12 @@ export interface WorkerApi {
     at: { x: number; y: number };
     ask: string;
     about: NoteId | null;
-  }): Promise<Answer<number, OverBudget>>;
+  }): Promise<Result<number, OverBudget>>;
   /**
    * Keep a picture in the room (shrunk on the device first, notes/image.ts); resolves with its
    * id for a card to show
    */
-  uploadImage(image: Blob): Promise<Answer<ImageId, RoomFull>>;
+  uploadImage(image: Blob): Promise<Result<ImageId, RoomFull>>;
   /**
    * Tags that fit a memo as it is being written, judged by Clef on its words and its picture,
    * from the tags in use and the trip's candidates (proposed by the agent once). Every tag
@@ -55,7 +53,7 @@ export interface WorkerApi {
     body: string;
     image: ImageId | null;
     chosen: Tag[];
-  }): Promise<Answer<{ tag: Tag; p: number; isNew: boolean }[], OverBudget>>;
+  }): Promise<Result<{ tag: Tag; p: number; isNew: boolean }[], OverBudget>>;
   /**
    * The trip's candidate tags the agent proposed, none before the first ask for tags; free,
    * so the form ranks them with the tags in use as the words are typed
@@ -70,15 +68,15 @@ export interface WorkerApi {
     title: string;
     body: string;
     tags: string[];
-    lang: "ja" | "en";
-  }): Promise<Answer<FoundPlace[], OverBudget>>;
+    lang: Locale;
+  }): Promise<Result<FoundPlace[], OverBudget>>;
   /**
    * What is at a point pinned on the map, from OpenStreetMap: the place there or the street,
    * named in `lang`; null when it has nothing there. Free, so not budgeted
    */
-  whereIs(at: LatLng, lang: "ja" | "en"): Promise<FoundPlace | null>;
+  whereIs(at: LatLng, lang: Locale): Promise<FoundPlace | null>;
   /** Places by a name typed as it is (a stay's), from OpenStreetMap only. Free, so not budgeted */
-  findByName(query: string, lang: "ja" | "en"): Promise<FoundPlace[]>;
+  findByName(query: string, lang: Locale): Promise<FoundPlace[]>;
   /**
    * The Google Maps link a short one (`maps.app.goo.gl/…`) stands for, so its point can be
    * read; any other link, or one that does not say, comes back as it was. When it leads to a
@@ -86,23 +84,23 @@ export interface WorkerApi {
    */
   expandLink(
     url: string,
-    lang: "ja" | "en",
-  ): Promise<Answer<{ url: string; at: LatLng | null }, OverBudget>>;
+    lang: Locale,
+  ): Promise<Result<{ url: string; at: LatLng | null }, OverBudget>>;
   /** Have a member order a day's notes and give them times */
-  draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<Answer<DayDraft, OverBudget>>;
+  draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<Result<DayDraft, OverBudget>>;
   /**
    * What the page at `url` says of itself, for a note that links to it: its title, a line and
    * its picture, which the room keeps as one of its pictures. Null when the page says nothing
    * (or is no page). Budgeted
    */
-  preview(url: string): Promise<Answer<LinkPreview | null, OverBudget>>;
+  preview(url: string): Promise<Result<LinkPreview | null, OverBudget>>;
   /** The room's booklet as a public page while one is up, else null. Free */
   publication(): Promise<Publication | null>;
   /**
    * The owner puts the booklet up as a public page as it is now, in `lang`, at a new link; the
    * link before stops answering. Budgeted
    */
-  publish(lang: "ja" | "en"): Promise<Answer<Publication, OverBudget>>;
+  publish(lang: Locale): Promise<Result<Publication, OverBudget>>;
   /** The owner takes the public page down */
   withdraw(): Promise<void>;
 }

@@ -41,7 +41,9 @@ export function parseMapsUrl(url: string): LatLng | null {
   ];
   for (const p of pats) {
     const [, lat, lng] = url.match(p) ?? [];
-    if (lat !== undefined && lng !== undefined) return { lat: +lat, lng: +lng };
+    // a pattern reads any number; only one on the map is a point
+    const at = v.safeParse(LatLngSchema, { lat: Number(lat), lng: Number(lng) });
+    if (at.success) return at.output;
   }
   return null;
 }
@@ -50,9 +52,8 @@ export function parseMapsUrl(url: string): LatLng | null {
  * a redirect only the Worker can follow (docs/auth-and-security.md, "Expanding short links")
  */
 export function isShortMapsLink(url: string): boolean {
-  if (!URL.canParse(url)) return false;
-  const u = new URL(url);
-  if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+  const u = URL.parse(url);
+  if (u === null || (u.protocol !== "https:" && u.protocol !== "http:")) return false;
   if (u.hostname === "maps.app.goo.gl" || u.hostname === "g.co") return true;
   return (u.hostname === "app.goo.gl" || u.hostname === "goo.gl") && u.pathname.startsWith("/maps");
 }

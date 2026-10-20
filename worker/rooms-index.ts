@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 
 import type { Done, SeatId } from "./room";
-import type { Email, MemberId, RoomId } from "./types";
+import type { Email, MemberId, Result, RoomId } from "./types";
 
 /** Why a paid call was not reserved */
 export type Refusal = "day" | "trip";
@@ -51,7 +51,7 @@ export class RoomsIndex extends DurableObject<Env> {
    * so only a deploy changes them; a var that is missing or not a number allows nothing.
    * Returns the reservation's id, to refund it if the provider answers with an error.
    */
-  reserve(email: Email, roomId: RoomId): { id: number } | { refused: Refusal } {
+  reserve(email: Email, roomId: RoomId): Result<number, Refusal> {
     const day = new Date().toISOString().slice(0, 10); // UTC
     const sql = this.ctx.storage.sql;
     const spent = (where: string, ...args: string[]) =>
@@ -62,11 +62,15 @@ export class RoomsIndex extends DurableObject<Env> {
           ...args,
         )
         .one().n;
-    if (spent("day = ?", day) >= ceiling(this.env.SPEND_PER_DAY)) return { refused: "day" };
+    if (spent("day = ?", day) >= ceiling(this.env.SPEND_PER_DAY))
+      return { ok: false, reason: "day" };
     if (spent("room_id = ?", roomId) >= ceiling(this.env.SPEND_PER_TRIP))
-      return { refused: "trip" };
+      return { ok: false, reason: "trip" };
     sql.exec("INSERT INTO spends (email, room_id, day) VALUES (?, ?, ?)", email, roomId, day);
-    return { id: sql.exec<{ id: number }>("SELECT last_insert_rowid() AS id").one().id };
+    return {
+      ok: true,
+      value: sql.exec<{ id: number }>("SELECT last_insert_rowid() AS id").one().id,
+    };
   }
 
   /** The provider answered with an error: the reservation was not spent */

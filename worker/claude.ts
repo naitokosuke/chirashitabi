@@ -1,6 +1,7 @@
 import * as v from "valibot";
 
-import type { WireMemo } from "./wire";
+import { NoteIdSchema, type CurrencyCode, type LatLng, type NoteId } from "./types";
+import type { IsoDate, WireMemo } from "./wire";
 
 /**
  * Claude, called from the Worker with the key held as a secret (docs/auth-and-security.md).
@@ -16,7 +17,7 @@ const MAX_TOKENS = 2000;
 export interface DraftProposal {
   reason: string;
   intro: string;
-  items: { id: string; time: string | null; minutes: number | null }[];
+  items: { id: NoteId; time: string | null; minutes: number | null }[];
 }
 
 export interface Usage {
@@ -86,7 +87,7 @@ const describe = (n: WireMemo) => ({
 /** Asks Claude to order a day; the answer is checked against the notes it was given */
 export async function draftDay(
   env: Env,
-  day: { trip: string; currency: string; date: string; notes: WireMemo[] },
+  day: { trip: string; currency: CurrencyCode; date: IsoDate; notes: WireMemo[] },
 ): Promise<ClaudeResult<DraftProposal>> {
   const prompt = [
     `Trip: ${day.trip}. Amounts are in ${day.currency}.`,
@@ -212,7 +213,7 @@ const TAGS_TOOL = {
 /** What the agent reads to propose tags: the trip, the tags in use, and the notes' titles */
 export interface TagContext {
   trip: string;
-  days: string[];
+  days: IsoDate[];
   tags: string[];
   titles: string[];
 }
@@ -301,13 +302,13 @@ const SUGGEST_TOOL = {
  */
 export interface SuggestContext {
   trip: string;
-  days: string[];
-  notes: { title: string; tags: string[]; date: string | null }[];
+  days: IsoDate[];
+  notes: { title: string; tags: string[]; date: IsoDate | null }[];
   about: {
     title: string;
     body: string;
     tags: string[];
-    pin: { lat: number; lng: number } | null;
+    pin: LatLng | null;
   } | null;
 }
 
@@ -393,7 +394,7 @@ const ProposalSchema = v.object({
     v.fallback(
       v.nullable(
         v.object({
-          id: v.string(),
+          id: NoteIdSchema,
           // a time that is not HH:MM is no time
           time: v.fallback(v.nullable(v.pipe(v.string(), v.isoTime())), null),
           // and minutes that are not a whole number within a day are none
@@ -412,11 +413,11 @@ const ProposalSchema = v.object({
  * Claude's answer as a draft, or null. Only notes of the day, each once; a time that is not
  * HH:MM is no time, and minutes outside a day are none. Exported for the tests.
  */
-export function checkProposal(input: unknown, ids: ReadonlySet<string>): DraftProposal | null {
+export function checkProposal(input: unknown, ids: ReadonlySet<NoteId>): DraftProposal | null {
   const answer = v.safeParse(ProposalSchema, input);
   if (!answer.success) return null;
   const { reason, intro } = answer.output;
-  const seen = new Set<string>();
+  const seen = new Set<NoteId>();
   const items: DraftProposal["items"] = [];
   for (const it of answer.output.items) {
     if (it === null || !ids.has(it.id) || seen.has(it.id)) continue;
@@ -456,7 +457,7 @@ const PLACE_TOOL = {
 /** What the agent reads to name a memo's place: the trip, and the memo as it is being written */
 export interface PlaceContext {
   trip: string;
-  days: string[];
+  days: IsoDate[];
 }
 
 /**

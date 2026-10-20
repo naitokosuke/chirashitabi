@@ -409,7 +409,7 @@ const draftFailure = computed(() => {
   if (draftError.value !== null) return "shiori.draftFailed";
   const answer = draftAnswer.value;
   if (answer === undefined || answer.ok) return null;
-  return answer.refused.ceiling === "trip" ? "shiori.draftTripLimit" : "shiori.draftLimit";
+  return answer.reason.ceiling === "trip" ? "shiori.draftTripLimit" : "shiori.draftLimit";
 });
 // ---- the booklet as a public page: anyone sees whether it is up; the owner puts it up or down ----
 const { publication, publish, withdraw } = usePublication();
@@ -420,7 +420,7 @@ const publishFailure = computed(() => {
   if (publish.error.value !== null || withdraw.error.value !== null) return "shiori.publishFailed";
   const answer = publish.data.value;
   if (answer === undefined || answer.ok) return null;
-  return answer.refused.ceiling === "trip" ? "shiori.draftTripLimit" : "shiori.publishLimit";
+  return answer.reason.ceiling === "trip" ? "shiori.draftTripLimit" : "shiori.publishLimit";
 });
 const publishedOn = computed(() =>
   published.value === null

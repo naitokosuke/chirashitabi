@@ -1,4 +1,4 @@
-import type { WireMemo, WireNote, WireTrip } from "./wire";
+import type { NoteColor, WireMemo, WireNote, WireTrip } from "./wire";
 
 /**
  * The booklet as a public page (docs/auth-and-security.md): one static HTML file the Worker
@@ -63,15 +63,15 @@ function placeLink(n: WireMemo): string | null {
     : safeLink(`https://www.google.com/maps?q=${n.pin.lat},${n.pin.lng}`);
 }
 
-/** The paper colors a note may be, as the class its card takes */
-const PAPER: Record<string, string> = {
+/** The paper colors a note may be, as the class its card takes; a new color fails to compile until it has one */
+const PAPER = {
   "#fff1b8": "yellow",
   "#ffd9de": "pink",
   "#d8f0e6": "mint",
   "#dbe7ff": "sky",
   "#ead9ff": "lilac",
   "#ffffff": "white",
-};
+} satisfies Record<NoteColor, string>;
 
 const minutesOf = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 const clock = (m: number) =>
@@ -111,7 +111,7 @@ function noteHtml(n: Scheduled, lang: Lang): string {
         : `${t.slice(0, 5)}–${clock(minutesOf(t) + n.minutes)}`;
   const link = placeLink(n);
   return [
-    `<li class="note ${PAPER[n.color] ?? "white"}"${n.schedule.status === "done" ? " data-done" : ""}>`,
+    `<li class="note ${PAPER[n.color]}"${n.schedule.status === "done" ? " data-done" : ""}>`,
     `<p class="time">${escapeHtml(when)}</p>`,
     "<div>",
     `<h3>${escapeHtml(n.title)}</h3>`,
