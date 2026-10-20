@@ -1,11 +1,9 @@
 export const THEMES = ["light", "dark"] as const;
 export type Theme = (typeof THEMES)[number];
 
-const isTheme = (value: string): value is Theme => THEMES.some((t) => t === value);
-
 /** A stored theme, or null when none was picked (the device's then) or it is not one of ours */
 export const parseTheme = (value: string | null): Theme | null =>
-  value !== null && isTheme(value) ? value : null;
+  THEMES.find((t) => t === value) ?? null;
 
 export const other = (theme: Theme): Theme => (theme === "light" ? "dark" : "light");
 

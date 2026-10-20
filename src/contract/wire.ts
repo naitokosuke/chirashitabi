@@ -43,8 +43,9 @@ export const MAX_SCALE = 3;
 /** What a picture may be, as uploaded: the formats every browser shows */
 export const IMAGE_TYPES = ["image/webp", "image/jpeg", "image/png"] as const;
 export type ImageType = (typeof IMAGE_TYPES)[number];
-/** A media type as a header or a blob gives it, when it is one a picture may be */
-export const isImageType = (type: string): type is ImageType => IMAGE_TYPES.some((t) => t === type);
+/** A media type as a header or a blob gives it, as the one a picture may be; null for another */
+export const parseImageType = (type: string | undefined): ImageType | null =>
+  IMAGE_TYPES.find((t) => t === type) ?? null;
 /** The largest picture, in bytes; the app shrinks one to well under this before sending it */
 export const MAX_IMAGE_BYTES = 1024 * 1024;
 
@@ -500,7 +501,7 @@ export function parseMutation(
   value: unknown,
   stamp: Pick<WireNote, "by" | "updatedAt">,
   // the list a flight's airports must be on, passed in so the app never loads it with these checks
-  onList: (code: AirportCode) => boolean,
+  listed: (code: AirportCode) => AirportCode | null,
 ): WireMutation | null {
   const result = v.safeParse(ClientMutationSchema, value);
   if (!result.success) return null;
@@ -508,7 +509,7 @@ export function parseMutation(
   if (
     m.type === "trip:flight" &&
     m.flight !== null &&
-    !(onList(m.flight.from) && onList(m.flight.to))
+    (listed(m.flight.from) === null || listed(m.flight.to) === null)
   )
     return null;
   return m.type === "note:add" ? { type: "note:add", note: { ...m.note, ...stamp } } : m;

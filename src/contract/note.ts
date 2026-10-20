@@ -4,22 +4,24 @@ export const NoteIdSchema = v.pipe(v.string(), v.nanoid(), v.maxLength(64), v.br
 
 export type NoteId = v.InferOutput<typeof NoteIdSchema>;
 
-/** A note's id, as the device that made the note minted it (uid in useNotes.ts) */
-export const isNoteId = (value: unknown): value is NoteId =>
-  v.safeParse(NoteIdSchema, value).success;
+/** A note's id, as the device that made the note minted it (uid in useNotes.ts), or null */
+export const parseNoteId = (value: unknown): NoteId | null => {
+  const result = v.safeParse(NoteIdSchema, value);
+  return result.success ? result.output : null;
+};
 
 if (import.meta.vitest !== undefined) {
   const { describe, expect, test } = import.meta.vitest;
 
-  describe("isNoteId", () => {
+  describe("parseNoteId", () => {
     test("up to 64 of letters, digits, _ and -", () => {
-      expect(isNoteId("a_B-3")).toBe(true);
-      expect(isNoteId("x".repeat(64))).toBe(true);
+      expect(parseNoteId("a_B-3")).toBe("a_B-3");
+      expect(parseNoteId("x".repeat(64))).toBe("x".repeat(64));
     });
     test("nothing else", () => {
-      expect(isNoteId("")).toBe(false);
-      expect(isNoteId("x".repeat(65))).toBe(false);
-      expect(isNoteId("a.b")).toBe(false);
+      expect(parseNoteId("")).toBeNull();
+      expect(parseNoteId("x".repeat(65))).toBeNull();
+      expect(parseNoteId("a.b")).toBeNull();
     });
   });
 }

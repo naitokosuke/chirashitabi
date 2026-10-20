@@ -22,7 +22,7 @@ import { KEPT_DAYS } from "../rooms/api";
 import { useOffline } from "../sync/useOffline";
 import { useSync } from "../sync/useSync";
 
-import { parseEmail, SEATS, type Email, type MemberId, type Person } from "./types";
+import { parseEmail, SEATS, type Email, type MemberId } from "./types";
 import { useMembers } from "./useMembers";
 
 /**
@@ -42,9 +42,7 @@ const sync = useSync();
 const membership = useMembers();
 const { members, me, invited } = membership;
 
-const persons = computed(() =>
-  (members.value ?? []).filter((m): m is Person => m.kind === "person"),
-);
+const persons = computed(() => (members.value ?? []).filter((m) => m.kind === "person"));
 const open = computed(() => persons.value.length + (invited.data.value?.length ?? 0) < SEATS);
 
 /** What is waiting for a second tap: taking someone out, leaving, or deleting */

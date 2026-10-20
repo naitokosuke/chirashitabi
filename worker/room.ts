@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import * as v from "valibot";
 
-import { airportCodeOf, isAirportCode } from "./airports";
+import { airportCodeOf, parseAirportCode } from "./airports";
 import { renderBooklet } from "./booklet";
 import type { DraftContext, PlaceContext, SuggestContext, TagContext } from "./claude";
 import {
@@ -9,6 +9,7 @@ import {
   type HttpUrl,
   type MemberId,
   MemberIdSchema,
+  parseMemberId,
   type ImageId,
   ImageIdSchema,
   type NoteId,
@@ -510,7 +511,7 @@ export class Room extends DurableObject<Env> {
    */
   deletedFor(by: MemberId): { name: string; deletedAt: string } | null {
     const deletion = this.deletion();
-    if (deletion === null || !this.isPerson(by)) return null;
+    if (deletion === null || this.person(by) === null) return null;
     const { name } = this.ctx.storage.sql
       .exec<{ name: string }>("SELECT name FROM trip WHERE id = 1")
       .one();
@@ -682,9 +683,9 @@ export class Room extends DurableObject<Env> {
     this.assertMember(by);
     const trip = this.trip();
     if (!trip.days.some((d) => d.date === date)) return null;
-    const notes = this.notes().filter(
-      (n): n is WireMemo => n.kind === "memo" && n.schedule?.date === date,
-    );
+    const notes = this.notes()
+      .filter((n) => n.kind === "memo")
+      .filter((n) => n.schedule?.date === date);
     return { trip: trip.name, currency: trip.currency, date, notes };
   }
 
@@ -835,12 +836,13 @@ export class Room extends DurableObject<Env> {
    * who it is in a header nothing outside the Worker can set.
    */
   override fetch(request: Request): Response {
-    const memberId = request.headers.get(Room.MEMBER_HEADER);
-    if (request.headers.get("Upgrade") !== "websocket" || memberId === null) {
+    const asked = request.headers.get(Room.MEMBER_HEADER);
+    if (request.headers.get("Upgrade") !== "websocket" || asked === null) {
       return new Response("Bad Request", { status: 400 });
     }
     // removed or deleted between the index's answer and here
-    if (!this.isPerson(memberId) || this.deletion() !== null)
+    const memberId = this.person(asked);
+    if (memberId === null || this.deletion() !== null)
       return new Response("Forbidden", { status: 403 });
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
@@ -850,8 +852,9 @@ export class Room extends DurableObject<Env> {
   }
 
   override webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
-    const by = this.ctx.getTags(ws)[0];
-    if (by === undefined || !this.isPerson(by)) return ws.close(1008, "no member");
+    const tag = this.ctx.getTags(ws)[0];
+    const by = tag === undefined ? null : this.person(tag);
+    if (by === null) return ws.close(1008, "no member");
     // the client's id for this mutation, once it is known: an answer names it
     let cid: Cid | null = null;
     // what could not be read names no cid; what was read and refused names it when it had one
@@ -877,7 +880,7 @@ export class Room extends DurableObject<Env> {
     cid = parseCid(parsed);
     if (!this.withinRate(by)) return reject("too many messages");
     const updatedAt = stamp();
-    const mutation = parseMutation(parsed, { by, updatedAt }, isAirportCode);
+    const mutation = parseMutation(parsed, { by, updatedAt }, parseAirportCode);
     if (mutation === null) return reject("not a mutation");
 
     // a card on its way under a finger is relayed, not kept; letting go sends the move with a cid
@@ -949,9 +952,9 @@ export class Room extends DurableObject<Env> {
         arrives: IsoDateTime | null;
       }>("SELECT * FROM flights")
       .toArray()) {
-      const { from_place: from, to_place: to } = f;
       // only a flight between airports on the list (one kept from before stays out until set again)
-      if (!isAirportCode(from) || !isAirportCode(to)) continue;
+      const [from, to] = [parseAirportCode(f.from_place), parseAirportCode(f.to_place)];
+      if (from === null || to === null) continue;
       flights[f.leg] = {
         number: f.number,
         from,
@@ -1268,7 +1271,7 @@ export class Room extends DurableObject<Env> {
 
   /** A person in the room's table, the room deleted or not */
   private assertPerson(id: MemberId): void {
-    if (!this.isPerson(id)) throw new Error("not a member");
+    if (this.person(id) === null) throw new Error("not a member");
   }
 
   /** A person in a room that is not deleted: the only one the room acts for */
@@ -1277,11 +1280,12 @@ export class Room extends DurableObject<Env> {
     if (this.deletion() !== null) throw new Error("room deleted");
   }
 
-  private isPerson(id: string): id is MemberId {
+  /** The person `id` names in the room's table, as an id read with its schema; null for none */
+  private person(id: string): MemberId | null {
     const row = this.ctx.storage.sql
-      .exec<{ kind: MemberKind }>("SELECT kind FROM members WHERE id = ?", id)
+      .exec<{ id: string }>("SELECT id FROM members WHERE id = ? AND kind = 'person'", id)
       .toArray()[0];
-    return row?.kind === "person";
+    return row === undefined ? null : parseMemberId(row.id);
   }
 }
 

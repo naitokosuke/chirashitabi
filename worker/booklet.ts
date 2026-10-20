@@ -84,13 +84,16 @@ const dateText = (date: string, lang: Lang) =>
   }).format(new Date(`${date}T00:00:00Z`));
 
 type Scheduled = WireMemo & { schedule: NonNullable<WireMemo["schedule"]> };
-const isConfirmed = (n: WireNote): n is Scheduled =>
-  n.kind === "memo" && n.schedule !== null && n.schedule.status !== "idea";
+/** A memo the booklet shows, for a flatMap: one on a day that is more than a maybe */
+const confirmed = (n: WireNote): Scheduled[] =>
+  n.kind === "memo" && n.schedule !== null && n.schedule.status !== "idea"
+    ? [{ ...n, schedule: n.schedule }]
+    : [];
 
 /** A day's confirmed notes, timed ones by their time and the rest after, as the booklet orders them */
 function dayNotes(notes: WireNote[], date: string): Scheduled[] {
   return notes
-    .filter(isConfirmed)
+    .flatMap(confirmed)
     .filter((n) => n.schedule.date === date)
     .sort((a, b) => {
       const [ta, tb] = [a.schedule.time, b.schedule.time];

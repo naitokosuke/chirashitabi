@@ -1,6 +1,6 @@
 import * as v from "valibot";
 
-import { isImageType, MAX_IMAGE_BYTES, type ImageType } from "./wire";
+import { MAX_IMAGE_BYTES, parseImageType, type ImageType } from "./wire";
 
 /**
  * What a page says of itself (Open Graph: its title, a line and a picture), for a note that
@@ -218,8 +218,8 @@ async function picture(src: string, ours: string[], base?: string): Promise<Prev
   if (u === null) return null;
   const res = await get(u, "image/webp,image/jpeg,image/png", ours, base);
   if (res === null) return null;
-  const type = mediaType(res);
-  if (!isImageType(type)) return null;
+  const type = parseImageType(mediaType(res));
+  if (type === null) return null;
   const bytes = await readUpTo(res, MAX_IMAGE_BYTES);
   return bytes === null || bytes.byteLength === 0 ? null : { bytes, type };
 }

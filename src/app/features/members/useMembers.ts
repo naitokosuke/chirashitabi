@@ -8,7 +8,6 @@ import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
 import { deleteRoom, fetchInvited, invite, leaveRoom, removeMember, uninvite } from "./api";
-import type { Person } from "./types";
 
 /**
  * Who is in the room of the session, and the changes to it over HTTP beside the socket. The
@@ -31,7 +30,7 @@ export const useMembers = defineQuery(() => {
   const { data: members } = useQueryState(() => roomKeys.members(sync.room));
   /** This device's person, once the room has said who is in it */
   const me = computed(() =>
-    members.value?.find((m): m is Person => m.kind === "person" && m.id === sync.me),
+    members.value?.filter((m) => m.kind === "person").find((m) => m.id === sync.me),
   );
 
   const invited = useQuery({

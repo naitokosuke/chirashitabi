@@ -1,6 +1,6 @@
 import type { RouteParams } from "vue-router";
 
-import { isNoteId } from "../../features/notes/id";
+import { parseNoteId } from "../../features/notes/id";
 import { type FormTarget } from "../../features/notes/types";
 
 /** A room's tabs, each a page under `pages/rooms/[roomId=roomId]/` */
@@ -25,7 +25,8 @@ export type SheetQuery = Partial<Omit<RouteParams<"/rooms/[roomId=roomId]">, "ro
  */
 export function sheetOf(query: SheetQuery): FormTarget | null {
   const { sheet, note, lat, lng } = query;
-  if (sheet === "edit" && isNoteId(note)) return { kind: "edit", id: note };
+  const id = sheet === "edit" ? parseNoteId(note) : null;
+  if (id !== null) return { kind: "edit", id };
   if (sheet !== "write") return null;
   const pinned = typeof lat === "number" && typeof lng === "number";
   return { kind: "new", pin: pinned ? { lat, lng } : null };
