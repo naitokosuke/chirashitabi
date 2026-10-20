@@ -18,7 +18,7 @@ jobs:
       - uses: voidzero-dev/setup-vp@v1.21.1
         with:
           cache: true
-      # check:worker first: it generates worker-configuration.d.ts, which worker/tsconfig.json
+      # check:worker first: it generates worker-configuration.d.ts, which src/worker/tsconfig.json
       # names in `types`, and the type-aware lint in `check` reads that tsconfig; and it writes
       # .worker-types/, the Worker's declarations the app's hc client is typed by
       - run: vp run check:worker

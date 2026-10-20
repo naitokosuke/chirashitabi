@@ -43,7 +43,7 @@ const color = ref<(typeof MEMBER_COLORS)[number]>(
 );
 const profile = computed(() => profileOf(color.value));
 
-/** The owner leads the trip's people (worker/room.ts): the invitation is from their color */
+/** The owner leads the trip's people (src/worker/room.ts): the invitation is from their color */
 const from = computed(() => props.room.members.find((m) => m.kind === "person")?.color);
 const tag = computed(() => ({
   name: props.room.name,

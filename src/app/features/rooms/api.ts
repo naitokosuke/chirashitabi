@@ -63,7 +63,7 @@ export function summaryOf(raw: unknown): RoomSummary | null {
   return summary.success ? summary.output : null;
 }
 
-/** How long the room keeps a deleted trip (worker/room.ts, DELETE_AFTER) */
+/** How long the room keeps a deleted trip (src/worker/room.ts, DELETE_AFTER) */
 export const KEPT_DAYS = 30;
 
 /** One deleted trip of `/api/me`: a room id, a name and when it was deleted */

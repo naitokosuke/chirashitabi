@@ -86,10 +86,10 @@ export default defineConfig({
         extends: true,
         test: {
           name: "node",
-          include: ["{src,worker}/**/*.test.ts"],
+          include: ["src/**/*.test.ts"],
           exclude: ["**/*.browser.test.ts"],
           // a module may keep its tests in itself, under `if (import.meta.vitest !== undefined)`
-          includeSource: ["{src,worker}/**/*.ts"],
+          includeSource: ["src/**/*.ts"],
         },
       },
       // vite-plus's defineProject, which lets the browser resolve vitest (a dependency of
