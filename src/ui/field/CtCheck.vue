@@ -7,8 +7,8 @@ import CtCheckbox from "./CtCheckbox.vue";
  * box's, for anything else that names it. The words take the line's ink and size; `quiet`
  * sets them small and muted, for a choice beside a form's act.
  */
-const model = defineModel<boolean>({ default: false });
 defineProps<{ id?: string; quiet?: boolean }>();
+const model = defineModel<boolean>({ default: false });
 defineSlots<{ default(): unknown }>();
 </script>
 

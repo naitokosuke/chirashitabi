@@ -5,9 +5,9 @@
  * holds the word being written; Enter or leaving the line says `commit`, and the owner turns it
  * into a chip and empties the line. `id` and `placeholder` go to the line, for its CtField.
  */
-const model = defineModel<string>({ required: true });
 defineProps<{ id?: string; placeholder?: string }>();
 const emit = defineEmits<{ commit: [] }>();
+const model = defineModel<string>({ required: true });
 defineSlots<{ default(): unknown }>();
 
 function commit() {
