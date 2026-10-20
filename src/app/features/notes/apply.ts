@@ -3,6 +3,7 @@ import type { Temporal } from "temporal-polyfill-lite";
 import type { MemberId } from "../members/types";
 import type { Mutation } from "../sync/types";
 
+import type { NoteId } from "./id";
 import { adopted } from "./input";
 import type { Note } from "./types";
 
@@ -18,7 +19,7 @@ export function applyToNotes(
   by: MemberId,
   at: Temporal.Instant,
 ): Note[] {
-  const edit = (id: string, change: (n: Note) => Note | null): Note[] => {
+  const edit = (id: NoteId, change: (n: Note) => Note | null): Note[] => {
     const i = notes.findIndex((n) => n.id === id);
     const old = notes[i];
     const next = old === undefined ? null : change(old);
@@ -49,7 +50,13 @@ export function applyToNotes(
       return edit(m.id, (n) => (n.kind === "suggestion" ? { ...adopted(n), updatedAt: at } : null));
     case "note:delete":
       return notes.some((n) => n.id === m.id) ? notes.filter((n) => n.id !== m.id) : notes;
-    default:
-      return notes; // not a note's
+    // not a note's; a mutation not named here fails to compile, since this returns Note[]
+    case "day:intro":
+    case "member:profile":
+    case "trip:rename":
+    case "trip:dates":
+    case "trip:flight":
+    case "trip:stays":
+      return notes;
   }
 }

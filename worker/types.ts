@@ -7,9 +7,16 @@ export {
   type CurrencyCode,
   type Email,
   type HexColor,
+  type Result,
 } from "../src/contract";
 export { ImageIdSchema, isImageId, type ImageId } from "../src/contract/image";
 export { isMemberId, MemberIdSchema, type MemberId } from "../src/contract/member";
 export { isNoteId, NoteIdSchema, type NoteId } from "../src/contract/note";
-export { isShortMapsLink, LatLngSchema, parseMapsUrl, type HttpUrl } from "../src/contract/place";
+export {
+  isShortMapsLink,
+  LatLngSchema,
+  parseMapsUrl,
+  type HttpUrl,
+  type LatLng,
+} from "../src/contract/place";
 export { roomId, RoomIdSchema, type RoomId } from "../src/contract/room";

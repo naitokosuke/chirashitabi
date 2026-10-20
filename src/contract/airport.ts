@@ -1,5 +1,7 @@
 import * as v from "valibot";
 
+import { listOf } from "../shared/list";
+
 import rows from "./airports-data.json";
 
 /**
@@ -30,13 +32,7 @@ const AirportRowSchema = v.pipe(
 export type Airport = v.InferOutput<typeof AirportRowSchema>;
 
 /** airports-data.json as the airports; a row that is not one is left out */
-export const airportsOf = (rows: unknown): Airport[] => {
-  const list = v.safeParse(v.array(v.unknown()), rows);
-  return (list.success ? list.output : []).flatMap((row) => {
-    const airport = v.safeParse(AirportRowSchema, row);
-    return airport.success ? [airport.output] : [];
-  });
-};
+export const airportsOf = (rows: unknown): Airport[] => v.parse(listOf(AirportRowSchema), rows);
 
 /**
  * Japanese names people type for the airports a trip from Japan most often uses, which
@@ -85,7 +81,7 @@ export const ALIASES: Readonly<Record<string, string>> = {
 };
 
 /** The airport a flight's from or to names: its code, or its name or a Japanese name as written */
-export function findAirport(airports: Airport[], text: string): Airport | undefined {
+export function findAirport(airports: readonly Airport[], text: string): Airport | undefined {
   const t = text.trim();
   if (t === "") return undefined;
   const code = t.toUpperCase();
@@ -101,8 +97,10 @@ export function findAirport(airports: Airport[], text: string): Airport | undefi
  * nothing else. Pure, so a bundle that never checks a code (the app's, which fetches the list)
  * leaves airports-data.json out.
  */
-const AIRPORTS: Airport[] = /* @__PURE__ */ airportsOf(rows);
-const CODES = /* @__PURE__ */ new Set<string>(/* @__PURE__ */ AIRPORTS.map((a) => a.code));
+const AIRPORTS: readonly Airport[] = /* @__PURE__ */ airportsOf(rows);
+const CODES: ReadonlySet<AirportCode> = /* @__PURE__ */ new Set(
+  /* @__PURE__ */ AIRPORTS.map((a) => a.code),
+);
 
 const AirportCodeOnListSchema = v.pipe(
   AirportCodeSchema,

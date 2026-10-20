@@ -1,7 +1,7 @@
 import { sValidator } from "@hono/standard-validator";
 import { evlog, type EvlogVariables } from "evlog/hono";
 import { initWorkersLogger } from "evlog/workers";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import * as v from "valibot";
 
@@ -12,7 +12,7 @@ import { expand, placeName } from "./expand";
 import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
 import { preview } from "./preview";
 import { bookletKey, Room } from "./room";
-import { RoomsIndex } from "./rooms-index";
+import { RoomsIndex, type Refusal } from "./rooms-index";
 import {
   EmailSchema,
   type Email,
@@ -21,6 +21,7 @@ import {
   ImageIdSchema,
   isShortMapsLink,
   LatLngSchema,
+  type LatLng,
   type MemberId,
   MemberIdSchema,
   NoteIdSchema,
@@ -108,6 +109,12 @@ const member = (action: string, deleted = false) =>
     c.set("room", c.env.ROOM.getByName(roomId));
     await next();
   });
+
+/** A paid call the asker's budget did not reserve (docs/auth-and-security.md): logged, and declined */
+const overBudget = (c: Context<InRoom>, ceiling: Refusal) => {
+  c.var.log.set({ budget: { refused: ceiling } });
+  return c.text(`Budget: ${ceiling}`, 429);
+};
 
 /**
  * The API, under Access. Pictures come first: a GET comes from an <img>, which sends no Origin
@@ -239,7 +246,7 @@ const api = new Hono<ApiEnv>()
       c.var.log.set({ refused: accepted.reason });
       return c.text("Conflict", 409);
     }
-    const memberId = accepted.member;
+    const memberId = accepted.value;
     const added = await index.add(c.var.email, roomId, memberId);
     if (!added.ok) {
       c.var.log.set({ refused: added.reason });
@@ -303,13 +310,10 @@ const api = new Hono<ApiEnv>()
     // reserve, call, settle (docs/auth-and-security.md): nothing is called past the budget
     const index = c.env.ROOMS.getByName("index");
     const reserved = await index.reserve(email, roomId);
-    if ("refused" in reserved) {
-      log.set({ budget: { refused: reserved.refused } });
-      return c.text(`Budget: ${reserved.refused}`, 429);
-    }
+    if (!reserved.ok) return overBudget(c, reserved.reason);
     const result = await draftDay(c.env, { ...day, date });
     if (!result.ok) {
-      if (result.refund) await index.refund(reserved.id);
+      if (result.refund) await index.refund(reserved.value);
       log.set({
         claude: { model: MODEL, ok: false, refunded: result.refund, reason: result.reason },
       });
@@ -344,16 +348,13 @@ const api = new Hono<ApiEnv>()
       // the trip's candidates, once: Claude proposes them the first time anyone asks
       if (candidates.length === 0) {
         const reserved = await index.reserve(email, roomId);
-        if ("refused" in reserved) {
-          log.set({ budget: { refused: reserved.refused } });
-          return c.text(`Budget: ${reserved.refused}`, 429);
-        }
+        if (!reserved.ok) return overBudget(c, reserved.reason);
         const proposed = await proposeTags(c.env, context);
         if (proposed.ok) {
           await room.recordAgentCall(memberId, "tags", proposed.usage);
           await room.saveCandidates(memberId, proposed.value);
           candidates = proposed.value;
-        } else if (proposed.refund) await index.refund(reserved.id);
+        } else if (proposed.refund) await index.refund(reserved.value);
         // without candidates Clef still judges the tags in use
         log.set({ claude: { model: MODEL, ok: proposed.ok, candidates: candidates.length } });
       }
@@ -376,13 +377,10 @@ const api = new Hono<ApiEnv>()
       }
 
       const reserved = await index.reserve(email, roomId);
-      if ("refused" in reserved) {
-        log.set({ budget: { refused: reserved.refused } });
-        return c.text(`Budget: ${reserved.refused}`, 429);
-      }
+      if (!reserved.ok) return overBudget(c, reserved.reason);
       const judged = await judgeTags(c.env, { title, body: text, image }, vocabulary);
       if (!judged.ok) {
-        if (judged.refund) await index.refund(reserved.id);
+        if (judged.refund) await index.refund(reserved.value);
         log.set({
           clef: { model: CLEF_MODEL, ok: false, refunded: judged.refund, reason: judged.reason },
         });
@@ -395,13 +393,13 @@ const api = new Hono<ApiEnv>()
           model: CLEF_MODEL,
           ok: true,
           asked: vocabulary.length,
-          fitting: judged.tags.filter((t) => t.p >= FITS_AT).length,
-          top: judged.tags.slice(0, 3).map((t) => Math.round(t.p * 100) / 100),
+          fitting: judged.value.filter((t) => t.p >= FITS_AT).length,
+          top: judged.value.slice(0, 3).map((t) => Math.round(t.p * 100) / 100),
         },
       });
       const inUse = new Set(context.tags);
       return c.json({
-        tags: judged.tags.map((t) => ({ tag: t.tag, p: t.p, isNew: !inUse.has(t.tag) })),
+        tags: judged.value.map((t) => ({ tag: t.tag, p: t.p, isNew: !inUse.has(t.tag) })),
       });
     },
   )
@@ -423,14 +421,11 @@ const api = new Hono<ApiEnv>()
       const { url, lang } = c.req.valid("json");
       if (!isShortMapsLink(url)) return c.json({ url, at: null });
       const reserved = await c.env.ROOMS.getByName("index").reserve(email, roomId);
-      if ("refused" in reserved) {
-        log.set({ budget: { refused: reserved.refused } });
-        return c.text(`Budget: ${reserved.refused}`, 429);
-      }
+      if (!reserved.ok) return overBudget(c, reserved.reason);
       const expanded = await expand(url, c.env.SHORTLINK_BASE_URL);
       // a short link most often leads to the place's name (`/maps/place/<name>/data=…`, or
       // `?q=<name>`), not its point: then OpenStreetMap finds the name, free, and its point is the link's
-      let at: { lat: number; lng: number } | null = null;
+      let at: LatLng | null = null;
       const point = expanded === null ? null : parseMapsUrl(expanded);
       const name = expanded === null || point !== null ? null : placeName(expanded);
       if (name !== null) {
@@ -463,10 +458,7 @@ const api = new Hono<ApiEnv>()
       const { url } = c.req.valid("json");
       const index = c.env.ROOMS.getByName("index");
       const reserved = await index.reserve(email, roomId);
-      if ("refused" in reserved) {
-        log.set({ budget: { refused: reserved.refused } });
-        return c.text(`Budget: ${reserved.refused}`, 429);
-      }
+      if (!reserved.ok) return overBudget(c, reserved.reason);
       const found = await preview(
         url,
         [c.env.APP_HOST, c.env.BOOKLET_HOST],
@@ -553,13 +545,10 @@ const api = new Hono<ApiEnv>()
       const index = c.env.ROOMS.getByName("index");
       const context = await room.placeContext(memberId);
       const reserved = await index.reserve(email, roomId);
-      if ("refused" in reserved) {
-        log.set({ budget: { refused: reserved.refused } });
-        return c.text(`Budget: ${reserved.refused}`, 429);
-      }
+      if (!reserved.ok) return overBudget(c, reserved.reason);
       const named = await namePlace(c.env, context, { title, body: text, tags });
       if (!named.ok) {
-        if (named.refund) await index.refund(reserved.id);
+        if (named.refund) await index.refund(reserved.value);
         log.set({
           claude: { model: MODEL, ok: false, refunded: named.refund, reason: named.reason },
         });
@@ -622,13 +611,10 @@ const api = new Hono<ApiEnv>()
       });
       const index = c.env.ROOMS.getByName("index");
       const reserved = await index.reserve(email, roomId);
-      if ("refused" in reserved) {
-        log.set({ budget: { refused: reserved.refused } });
-        return c.text(`Budget: ${reserved.refused}`, 429);
-      }
+      if (!reserved.ok) return overBudget(c, reserved.reason);
       const result = await suggestNotes(c.env, context, ask);
       if (!result.ok) {
-        if (result.refund) await index.refund(reserved.id);
+        if (result.refund) await index.refund(reserved.value);
         log.set({
           claude: { model: MODEL, ok: false, refunded: result.refund, reason: result.reason },
         });
@@ -656,23 +642,22 @@ const api = new Hono<ApiEnv>()
     // each publish writes to R2 at a rate the member chooses, so it counts like a paid call
     const index = c.env.ROOMS.getByName("index");
     const reserved = await index.reserve(email, roomId);
-    if ("refused" in reserved) {
-      log.set({ budget: { refused: reserved.refused } });
-      return c.text(`Budget: ${reserved.refused}`, 429);
-    }
+    if (!reserved.ok) return overBudget(c, reserved.reason);
     let published: Awaited<ReturnType<Room["publish"]>>;
     try {
       published = await room.publish(memberId, c.req.valid("json").lang);
     } catch (e) {
-      await index.refund(reserved.id);
+      await index.refund(reserved.value);
       throw e;
     }
     if (!published.ok) {
-      await index.refund(reserved.id);
+      await index.refund(reserved.value);
       return c.text("Forbidden", 403);
     }
-    log.set({ publish: { at: published.at } });
-    return c.json({ publication: { url: bookletUrl(c.env, published.slug), at: published.at } });
+    log.set({ publish: { at: published.value.at } });
+    return c.json({
+      publication: { url: bookletUrl(c.env, published.value.slug), at: published.value.at },
+    });
   })
   .post(`${ROOM}/withdraw`, member("withdraw"), async (c) => {
     const out = await c.var.room.withdraw(c.var.memberId);
@@ -703,7 +688,7 @@ const api = new Hono<ApiEnv>()
       c.var.log.set({ refused: held.reason });
       return c.text("Conflict", 409);
     }
-    const { seat } = held;
+    const { value: seat } = held;
     const invited = await c.env.ROOMS.getByName("index").invite(invitee, roomId, seat);
     if (!invited.ok) {
       await room.closeSeat(seat);

@@ -45,7 +45,7 @@ export interface MemoToTag {
 }
 
 export type ClefResult =
-  | { ok: true; tags: { tag: string; p: number }[] }
+  | { ok: true; value: { tag: string; p: number }[] }
   /** `refund`: the provider answered with an error, so nothing was spent */
   | { ok: false; refund: boolean; reason: string };
 
@@ -107,7 +107,7 @@ export async function judgeTags(env: Env, memo: MemoToTag, tags: string[]): Prom
       return p === null ? [] : [{ tag, p }];
     })
     .sort((a, b) => b.p - a.p);
-  return { ok: true, tags: scored };
+  return { ok: true, value: scored };
 }
 
 /** The provider refused the call (a 4xx or 5xx): nothing was spent */

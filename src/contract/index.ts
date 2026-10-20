@@ -5,3 +5,4 @@ export { hexColor, HexColorSchema, type HexColor } from "../shared/color";
 export { EmailSchema, parseEmail, type Email } from "../shared/email";
 export { listOf } from "../shared/list";
 export { currencyCode, CurrencyCodeSchema, type CurrencyCode } from "../shared/money";
+export type { Result } from "../shared/result";

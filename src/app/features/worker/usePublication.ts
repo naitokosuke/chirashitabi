@@ -1,5 +1,7 @@
 import { defineQuery, useMutation, useQuery, useQueryCache } from "@pinia/colada";
 
+import type { Locale } from "../../i18n/locale";
+
 import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
@@ -29,7 +31,7 @@ export const usePublication = defineQuery(() => {
     publication,
     /** Puts it up in `lang`, at a new link; the answer is the page, or the budget's refusal */
     publish: useMutation({
-      mutation: (lang: "ja" | "en") => api().publish(lang),
+      mutation: (lang: Locale) => api().publish(lang),
       onSuccess: (answer) => {
         if (answer.ok) queryCache.setQueryData(roomKeys.publication(sync.room), answer.value);
       },

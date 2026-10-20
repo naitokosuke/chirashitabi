@@ -4,16 +4,17 @@ import { hc, type ClientResponse } from "hono/client";
 import * as v from "valibot";
 
 import { listOf } from "../../shared/list";
+import type { Result } from "../../shared/result";
 
 import type { Api } from "../../../../.worker-types/worker";
 import { MemberIdSchema } from "../members/types";
-import { ImageIdSchema } from "../notes/id";
+import { ImageIdSchema, NoteIdSchema } from "../notes/id";
 import { TagSchema } from "../notes/types";
 import { HttpUrlSchema } from "../place/google-maps";
 import type { FoundPlace } from "../place/types";
 import type { RoomId } from "../rooms/types";
 
-import type { Answer, OverBudget, Publication, WorkerApi } from "./types";
+import type { OverBudget, Publication, WorkerApi } from "./types";
 
 /** A room's calls; every one says JSON, as the Worker's gate wants, even one with no body */
 const inRoom = hc<Api>("/", { headers: { "Content-Type": "application/json" } }).api.rooms[
@@ -24,11 +25,11 @@ const inRoom = hc<Api>("/", { headers: { "Content-Type": "application/json" } })
 async function budgeted<S extends v.GenericSchema>(
   request: Promise<ClientResponse<unknown>>,
   schema: S,
-): Promise<Answer<v.InferOutput<S>, OverBudget>> {
+): Promise<Result<v.InferOutput<S>, OverBudget>> {
   const res = await request;
   if (res.status === 429) {
     const ceiling = (await res.text()).endsWith("trip") ? "trip" : "day";
-    return { ok: false, refused: { kind: "over", ceiling } };
+    return { ok: false, reason: { kind: "over", ceiling } };
   }
   if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
   return { ok: true, value: await answerOf(res, schema) };
@@ -45,7 +46,7 @@ async function free<S extends v.GenericSchema>(
 }
 
 /** An answer's value read on, a refusal passed along as it was */
-const read = <T, U, R>(answer: Answer<T, R>, f: (value: T) => U): Answer<U, R> =>
+const read = <T, U, R>(answer: Result<T, R>, f: (value: T) => U): Result<U, R> =>
   answer.ok ? { ok: true, value: f(answer.value) } : answer;
 
 /**
@@ -113,7 +114,7 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
       headers: { "Content-Type": image.type },
       body: image,
     });
-    if (res.status === 409) return { ok: false, refused: { kind: "full" } };
+    if (res.status === 409) return { ok: false, reason: { kind: "full" } };
     if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
     const { id } = await answerOf(res, v.object({ id: ImageIdSchema }));
     return { ok: true, value: id };
@@ -191,7 +192,7 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
           intro: v.fallback(v.string(), ""),
           items: listOf(
             v.object({
-              id: v.string(),
+              id: NoteIdSchema,
               time: v.fallback(v.nullable(v.string()), null),
               // a Worker from before drafts said how long sends none
               minutes: v.fallback(

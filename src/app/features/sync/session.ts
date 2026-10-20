@@ -3,8 +3,10 @@ import type { Temporal } from "temporal-polyfill-lite";
 import type { MemberId } from "../members/types";
 import type { RoomId } from "../rooms/types";
 
-/** How the socket to the chosen room is doing (socket.ts) */
-export type Link = "connecting" | "connected" | "reconnecting" | "failed";
+import type { SocketStatus } from "./socket";
+
+/** How the socket to the chosen room is doing, once one is chosen (socket.ts) */
+export type Link = Exclude<SocketStatus, "idle">;
 
 /**
  * Where this device is. It is in a room only once it knows who it is there and has the room as

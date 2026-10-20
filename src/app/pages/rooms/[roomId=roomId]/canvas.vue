@@ -611,7 +611,7 @@ async function askForIdeas() {
     });
     if (!answer.ok) {
       const limit =
-        answer.refused.ceiling === "trip" ? "canvas.ideasTripLimit" : "canvas.ideasLimit";
+        answer.reason.ceiling === "trip" ? "canvas.ideasTripLimit" : "canvas.ideasLimit";
       toast.show(i18n.t(limit));
       return;
     }

@@ -1,5 +1,7 @@
 import * as v from "valibot";
 
+import type { RoomId } from "../rooms/types";
+
 import type { Mutation } from "./types";
 import {
   ServerMessageSchema,
@@ -29,7 +31,7 @@ export interface SocketLike {
 
 export interface RoomSocketOptions {
   /** Opens a socket to a room; defaults to a WebSocket on this origin's `/api/rooms/<id>/ws` */
-  open?: (roomId: string) => SocketLike;
+  open?: (roomId: RoomId) => SocketLike;
   /** The room's state, whole; the socket is connected by then, so what is pending can be sent again */
   onSnapshot(msg: Extract<ServerMessage, { type: "snapshot" }>): void;
   /** A member's change, relayed by the room */
@@ -55,7 +57,7 @@ const OPEN = 1;
 const MAX_ATTEMPTS = 8;
 const MAX_BACKOFF_MS = 30_000;
 
-function openOnThisOrigin(roomId: string): SocketLike {
+function openOnThisOrigin(roomId: RoomId): SocketLike {
   const scheme = location.protocol === "https:" ? "wss" : "ws";
   return new WebSocket(`${scheme}://${location.host}/api/rooms/${roomId}/ws`);
 }
@@ -77,7 +79,7 @@ export function createRoomSocket(options: RoomSocketOptions) {
     | { status: "idle" }
     | {
         status: Exclude<SocketStatus, "idle">;
-        roomId: string;
+        roomId: RoomId;
         ws: SocketLike | null;
         attempt: number;
         timer: ReturnType<typeof setTimeout> | null;
@@ -183,7 +185,7 @@ export function createRoomSocket(options: RoomSocketOptions) {
     options.onStatus("idle");
   }
 
-  function connect(id: string) {
+  function connect(id: RoomId) {
     leave();
     line = { status: "connecting", roomId: id, ws: null, attempt: 0, timer: null };
     options.onStatus("connecting");

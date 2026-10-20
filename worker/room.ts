@@ -13,6 +13,7 @@ import {
   ImageIdSchema,
   type NoteId,
   NoteIdSchema,
+  type Result,
   type RoomId,
   type CurrencyCode,
 } from "./types";
@@ -39,6 +40,7 @@ import {
   type WireMemo,
   type WireMutation,
   type WireNote,
+  type ProfileSchema,
   type WireRoomSummary,
   type WireTrip,
   type GoneReason,
@@ -47,7 +49,7 @@ import {
   type WireStay,
 } from "./wire";
 
-export type MemberKind = "person" | "agent";
+export type MemberKind = WireMember["kind"];
 
 /** Done, or why not: what the room or the index declined, for the Worker to answer and log */
 export type Done<Reason> = { ok: true } | { ok: false; reason: Reason };
@@ -57,23 +59,20 @@ export type SeatRefusal = "not the owner" | "no seat";
 export type RemoveRefusal = "the owner" | "not theirs" | "not in";
 
 /** A mutation the room wrote, as it wrote it, or why it did not */
-type Applied = { ok: true; value: WireMutation } | { ok: false; reason: RejectReason };
+type Applied = Result<WireMutation, RejectReason>;
 
 /** A seat the room holds for an invitation, as it minted it; the index keeps whom it is for */
 const SeatIdSchema = v.pipe(v.string(), v.uuid(), v.brand("SeatId"));
 export type SeatId = v.InferOutput<typeof SeatIdSchema>;
 
-interface Profile {
-  name: string;
-  color: HexColor;
-}
+type Profile = v.InferOutput<typeof ProfileSchema>;
 
 /** Messages a member may send in a window; dragging a card sends one every 80ms */
 const RATE = { window: 10_000, max: 200 };
 
 type NoteRow = {
   id: NoteId;
-  kind: "memo" | "suggestion" | "text" | "sticker";
+  kind: WireNote["kind"];
   title: string;
   color: NoteColor;
   x: number;
@@ -96,7 +95,7 @@ type NoteRow = {
   minutes: number | null;
   hours: string | null;
   link: HttpUrl | null;
-  booking_state: "needed" | "booked" | null;
+  booking_state: WireBooking["state"] | null;
   booking_by: IsoDate | null;
   booking_code: string | null;
   booking_url: HttpUrl | null;
@@ -354,7 +353,7 @@ export class Room extends DurableObject<Env> {
   async publish(
     by: MemberId,
     lang: Lang,
-  ): Promise<{ ok: true; slug: string; at: string } | { ok: false; reason: "not the owner" }> {
+  ): Promise<Result<{ slug: string; at: string }, "not the owner">> {
     this.assertMember(by);
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     // the old file goes first: should anything after fail, the old link answers nothing, and the
@@ -382,7 +381,7 @@ export class Room extends DurableObject<Env> {
       by,
       at,
     );
-    return { ok: true, slug, at };
+    return { ok: true, value: { slug, at } };
   }
 
   /** The owner `by` takes the booklet down: its link answers nothing from now on */
@@ -453,7 +452,7 @@ export class Room extends DurableObject<Env> {
    * back; refused when `by` is not the owner or every seat is taken or held. The index keeps who
    * the seat is for; the room keeps no e-mail.
    */
-  openSeat(by: MemberId): { ok: true; seat: SeatId } | { ok: false; reason: SeatRefusal } {
+  openSeat(by: MemberId): Result<SeatId, SeatRefusal> {
     this.assertMember(by);
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     const sql = this.ctx.storage.sql;
@@ -465,7 +464,7 @@ export class Room extends DurableObject<Env> {
       id,
       new Date().toISOString(),
     );
-    return { ok: true, seat: id };
+    return { ok: true, value: id };
   }
 
   /** The seat is given back: declined, withdrawn, or not recorded in the index after all */
@@ -477,10 +476,7 @@ export class Room extends DurableObject<Env> {
    * The invited person takes their seat as who they say they are; returns their new member id,
    * or why not: the seat is gone (withdrawn), or the room deleted. Everyone in is told.
    */
-  accept(
-    seat: SeatId,
-    me: Profile,
-  ): { ok: true; member: MemberId } | { ok: false; reason: "no seat" | "deleted" } {
+  accept(seat: SeatId, me: Profile): Result<MemberId, "no seat" | "deleted"> {
     if (this.deletion() !== null) return { ok: false, reason: "deleted" };
     const sql = this.ctx.storage.sql;
     if (sql.exec("DELETE FROM invitations WHERE id = ? RETURNING id", seat).toArray().length === 0)
@@ -493,7 +489,7 @@ export class Room extends DurableObject<Env> {
       me.color,
     );
     this.tellMembers();
-    return { ok: true, member: id };
+    return { ok: true, value: id };
   }
 
   /** The index could not record a member `accept` just let in: they are not in after all */
@@ -679,8 +675,8 @@ export class Room extends DurableObject<Env> {
   /** What the agent needs to draft `date`, asked by member `by`; null when the trip has no such day */
   dayForDraft(
     by: MemberId,
-    date: string,
-  ): { trip: string; currency: string; notes: WireMemo[] } | null {
+    date: IsoDate,
+  ): { trip: string; currency: CurrencyCode; notes: WireMemo[] } | null {
     this.assertMember(by);
     const trip = this.trip();
     if (!trip.days.some((d) => d.date === date)) return null;
@@ -851,7 +847,7 @@ export class Room extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
+  override webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
     const by = this.ctx.getTags(ws)[0];
     if (by === undefined || !this.isPerson(by)) return ws.close(1008, "no member");
     // the client's id for this mutation, once it is known: an answer names it
@@ -903,7 +899,7 @@ export class Room extends DurableObject<Env> {
     for (const other of this.ctx.getWebSockets()) if (other !== ws) other.send(out);
   }
 
-  webSocketClose(ws: WebSocket, code: number, reason: string): void {
+  override webSocketClose(ws: WebSocket, code: number, reason: string): void {
     ws.close(code, reason);
   }
 
@@ -1289,40 +1285,42 @@ export class Room extends DurableObject<Env> {
   }
 }
 
-/** Every column of a note, in the order `notesTable` makes them */
-const NOTE_COLUMNS = [
-  "id",
-  "kind",
-  "title",
-  "color",
-  "x",
-  "y",
-  "rot",
-  "by",
-  "updated_at",
-  "body",
-  "tags",
-  "maps_url",
-  "pin_lat",
-  "pin_lng",
-  "sched_date",
-  "sched_time",
-  "sched_status",
-  "budget",
-  "deleted_at",
-  "checked",
-  "image",
-  "scale",
-  "minutes",
-  "hours",
-  "booking_state",
-  "booking_by",
-  "booking_code",
-  "booking_url",
-  "due",
-  "assignee",
-  "link",
-].join(", ");
+/** Every column of a note, in the order `notesTable` makes them; a misspelt one fails to compile */
+const NOTE_COLUMNS = (
+  [
+    "id",
+    "kind",
+    "title",
+    "color",
+    "x",
+    "y",
+    "rot",
+    "by",
+    "updated_at",
+    "body",
+    "tags",
+    "maps_url",
+    "pin_lat",
+    "pin_lng",
+    "sched_date",
+    "sched_time",
+    "sched_status",
+    "budget",
+    "deleted_at",
+    "checked",
+    "image",
+    "scale",
+    "minutes",
+    "hours",
+    "booking_state",
+    "booking_by",
+    "booking_code",
+    "booking_url",
+    "due",
+    "assignee",
+    "link",
+  ] satisfies (keyof NoteRow | "deleted_at")[]
+).join(", ");
 
 /** The notes table as it is now, under `name`: memos, suggestions, text boxes and stickers */
 const notesTable = (name: string) => `
@@ -1407,7 +1405,14 @@ const fromRow = (r: NoteRow): WireNote => {
 };
 
 /** A booking as its columns keep it: the state, then what that state has */
-const bookingColumns = (b: WireBooking | null) =>
+const bookingColumns = (
+  b: WireBooking | null,
+): [
+  NoteRow["booking_state"],
+  NoteRow["booking_by"],
+  NoteRow["booking_code"],
+  NoteRow["booking_url"],
+] =>
   b === null
     ? [null, null, null, null]
     : b.state === "needed"

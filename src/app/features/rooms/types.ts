@@ -1,9 +1,12 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
+import type * as v from "valibot";
+
 import type { HexColor } from "../../shared/color";
 import type { CurrencyCode } from "../../shared/money";
 
 import type { RoomId } from "../../../contract/room";
+import type { ProfileSchema } from "../../../contract/wire";
 import type { LatLng } from "../place/types";
 
 // a room's id, as the app takes it from the contract
@@ -56,7 +59,4 @@ export interface NewRoom {
 }
 
 /** How a person is shown in a room: a color that can go into a style, and a name (blank for now: people are told apart by color alone) */
-export interface Profile {
-  name: string;
-  color: HexColor;
-}
+export type Profile = v.InferOutput<typeof ProfileSchema>;

@@ -1,5 +1,7 @@
 import { Temporal } from "temporal-polyfill-lite";
 
+import type { Result } from "../../shared/result";
+
 import { findAirport, type Airport } from "../place/airports";
 import { httpUrl, parseMapsUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
@@ -78,20 +80,17 @@ export function newStay(stays: StayForm[], first: Temporal.PlainDate): StayForm 
   return { name: "", checkIn: checkIn.toString(), nights: 1, mapsUrl: "", pin: null };
 }
 
-/** Inputs read as what the room takes, or which of them is not one yet */
-export type Read<T, Why> = { ok: true; value: T } | { ok: false; why: Why };
-
 /** A stay's inputs as the room takes it, or which is not one yet */
-export function stayOf(f: StayForm): Read<Stay, "name" | "nights" | "check-in" | "link"> {
+export function stayOf(f: StayForm): Result<Stay, "name" | "nights" | "check-in" | "link"> {
   const name = f.name.trim();
-  if (name === "" || name.length > MAX_NAME) return { ok: false, why: "name" };
+  if (name === "" || name.length > MAX_NAME) return { ok: false, reason: "name" };
   if (!Number.isInteger(f.nights) || f.nights < 1 || f.nights > MAX_DAYS)
-    return { ok: false, why: "nights" };
+    return { ok: false, reason: "nights" };
   let checkIn: Temporal.PlainDate;
   try {
     checkIn = Temporal.PlainDate.from(f.checkIn);
   } catch {
-    return { ok: false, why: "check-in" };
+    return { ok: false, reason: "check-in" };
   }
   const stay = { name, checkIn, nights: f.nights };
   // the link is a stay's only way to a place: no link, no pin; one that names no point keeps the pin it had
@@ -99,7 +98,7 @@ export function stayOf(f: StayForm): Read<Stay, "name" | "nights" | "check-in" |
   if (link === "") return { ok: true, value: { ...stay, mapsUrl: null, pin: null } };
   // only a link the room takes: one it would refuse is not one yet
   const url = httpUrl(link);
-  if (url === null) return { ok: false, why: "link" };
+  if (url === null) return { ok: false, reason: "link" };
   return { ok: true, value: { ...stay, mapsUrl: url, pin: parseMapsUrl(url) ?? f.pin } };
 }
 
@@ -148,17 +147,17 @@ const dateTime = (s: string) => {
 export function flightOf(
   f: FlightForm,
   airports: Airport[],
-): Read<Flight | null, "airport" | "time" | "number"> {
+): Result<Flight | null, "airport" | "time" | "number"> {
   if (!f.on) return { ok: true, value: null };
   const from = findAirport(airports, f.from)?.code;
   const to = findAirport(airports, f.to)?.code;
   const number = f.number.trim();
   const departs = f.departs === "" ? null : dateTime(f.departs);
   const arrives = f.arrives === "" ? null : dateTime(f.arrives);
-  if (from === undefined || to === undefined) return { ok: false, why: "airport" };
+  if (from === undefined || to === undefined) return { ok: false, reason: "airport" };
   if ((f.departs !== "" && departs === null) || (f.arrives !== "" && arrives === null))
-    return { ok: false, why: "time" };
-  if (number.length > MAX_FLIGHT_NO) return { ok: false, why: "number" };
+    return { ok: false, reason: "time" };
+  if (number.length > MAX_FLIGHT_NO) return { ok: false, reason: "number" };
   return { ok: true, value: { number, from, to, departs, arrives } };
 }
 

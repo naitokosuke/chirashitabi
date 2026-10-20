@@ -10,10 +10,13 @@ import type { NoteId } from "../notes/id";
 import type { Memo, Tag } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 import type { HttpUrl } from "../place/google-maps";
+import type { RoomId } from "../rooms/types";
 
 import type { RoomState } from "./ledger";
 import { keep, kept } from "./persist";
 import type { Cid } from "./wire";
+
+const R1 = "r1" as RoomId;
 
 /** A Storage that lives in a Map */
 function memoryStorage(): Storage {
@@ -112,8 +115,8 @@ describe("keep and kept", () => {
         by: YUKI,
       },
     ];
-    keep(storage, "r1", { me: YUKI, confirmed: room, pending, savedAt: at });
-    const back = kept(storage, "r1");
+    keep(storage, R1, { me: YUKI, confirmed: room, pending, savedAt: at });
+    const back = kept(storage, R1);
     expect(back?.savedAt.equals(at)).toBe(true);
     expect(back?.me).toBe(YUKI);
     expect(back?.confirmed).toEqual(room);
@@ -125,44 +128,44 @@ describe("keep and kept", () => {
 
   test("unanswered changes kept before they were signed are this device's", () => {
     const storage = memoryStorage();
-    keep(storage, "r1", { me: YUKI, confirmed: room, pending: [], savedAt: at });
+    keep(storage, R1, { me: YUKI, confirmed: room, pending: [], savedAt: at });
     const saved = JSON.parse(storage.getItem("chirashitabi:room:r1")!) as Record<string, unknown>;
     saved.pending = [
       { cid: "c1", m: { type: "day:intro", date: "2026-11-03", intro: "x" }, at: at.toString() },
     ];
     storage.setItem("chirashitabi:room:r1", JSON.stringify(saved));
-    expect(kept(storage, "r1")?.pending[0]?.by).toBe(YUKI);
+    expect(kept(storage, R1)?.pending[0]?.by).toBe(YUKI);
   });
 
   test("kept without who this device is: nothing, since nothing of it could be signed", () => {
     const storage = memoryStorage();
-    keep(storage, "r1", { me: "" as MemberId, confirmed: room, pending: [], savedAt: at });
-    expect(kept(storage, "r1")).toBeNull();
+    keep(storage, R1, { me: "" as MemberId, confirmed: room, pending: [], savedAt: at });
+    expect(kept(storage, R1)).toBeNull();
   });
 
   test("rooms are kept apart", () => {
     const storage = memoryStorage();
-    keep(storage, "r1", { me: YUKI, confirmed: room, pending: [], savedAt: at });
-    expect(kept(storage, "r2")).toBeNull();
+    keep(storage, R1, { me: YUKI, confirmed: room, pending: [], savedAt: at });
+    expect(kept(storage, "r2" as RoomId)).toBeNull();
   });
 
   test("unreadable or from another version: nothing", () => {
     const storage = memoryStorage();
     storage.setItem("chirashitabi:room:r1", "{not json");
-    expect(kept(storage, "r1")).toBeNull();
+    expect(kept(storage, R1)).toBeNull();
     storage.setItem("chirashitabi:room:r1", JSON.stringify({ v: 1 })); // before `me` was kept
-    expect(kept(storage, "r1")).toBeNull();
+    expect(kept(storage, R1)).toBeNull();
   });
 
   test("this version's, but not what keep() wrote: nothing", () => {
     const storage = memoryStorage();
-    keep(storage, "r1", { me: YUKI, confirmed: room, pending: [], savedAt: at });
+    keep(storage, R1, { me: YUKI, confirmed: room, pending: [], savedAt: at });
     const saved = JSON.parse(storage.getItem("chirashitabi:room:r1")!) as Record<string, unknown>;
     storage.setItem(
       "chirashitabi:room:r1",
       JSON.stringify({ ...saved, confirmed: { notes: [{ id: "n1" }], trip: null, members: [] } }),
     );
-    expect(kept(storage, "r1")).toBeNull();
+    expect(kept(storage, R1)).toBeNull();
   });
 
   test("a storage that refuses keeps nothing and throws nothing", () => {
@@ -171,7 +174,7 @@ describe("keep and kept", () => {
       throw new Error("QuotaExceededError");
     };
     expect(() =>
-      keep(full, "r1", { me: YUKI, confirmed: room, pending: [], savedAt: at }),
+      keep(full, R1, { me: YUKI, confirmed: room, pending: [], savedAt: at }),
     ).not.toThrow();
   });
 });
