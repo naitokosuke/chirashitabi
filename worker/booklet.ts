@@ -1,4 +1,4 @@
-import type { NoteColor, WireMemo, WireNote, WireTrip } from "./wire";
+import type { Lang, NoteColor, WireMemo, WireNote, WireTrip } from "./wire";
 
 /**
  * The booklet as a public page (docs/auth-and-security.md): one static HTML file the Worker
@@ -11,8 +11,6 @@ import type { NoteColor, WireMemo, WireNote, WireTrip } from "./wire";
  * written into a `style` attribute (a note's paper is a class); the page has no script, and the
  * host serves it with a CSP that allows none.
  */
-
-export type Lang = "ja" | "en";
 
 const WORDS = {
   ja: {

@@ -1,6 +1,6 @@
 import * as v from "valibot";
 
-import { IMAGE_TYPES, MAX_IMAGE_BYTES } from "./wire";
+import { isImageType, MAX_IMAGE_BYTES, type ImageType } from "./wire";
 
 /**
  * What a page says of itself (Open Graph: its title, a line and a picture), for a note that
@@ -19,7 +19,7 @@ export interface Preview {
   title: string | null;
   description: string | null;
   /** Its picture's bytes and type, when it has one the room keeps */
-  image: { bytes: Uint8Array; type: string } | null;
+  image: { bytes: Uint8Array; type: ImageType } | null;
 }
 
 /** How much of a page is read for its head */
@@ -219,7 +219,7 @@ async function picture(src: string, ours: string[], base?: string): Promise<Prev
   const res = await get(u, "image/webp,image/jpeg,image/png", ours, base);
   if (res === null) return null;
   const type = mediaType(res);
-  if (!IMAGE_TYPES.some((t) => t === type)) return null;
+  if (!isImageType(type)) return null;
   const bytes = await readUpTo(res, MAX_IMAGE_BYTES);
   return bytes === null || bytes.byteLength === 0 ? null : { bytes, type };
 }

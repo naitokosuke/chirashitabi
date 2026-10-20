@@ -8,6 +8,8 @@
 
 import * as v from "valibot";
 
+import type { ImageType } from "./wire";
+
 /**
  * Clef's answer: for each question (`t0`, `t1`, …), how likely `noul` is; a question it answered
  * some other way has no likelihood
@@ -41,7 +43,7 @@ export const MAX_TAGS = 64;
 export interface MemoToTag {
   title: string;
   body: string;
-  image: { type: string; base64: string } | null;
+  image: { type: ImageType; base64: string } | null;
 }
 
 export type ClefResult =

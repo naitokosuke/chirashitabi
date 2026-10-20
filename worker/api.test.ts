@@ -698,6 +698,12 @@ describe("invitations", () => {
     expect((await post(`/api/rooms/${roomId}/invited`, "seat-a@example.com")).status).toBe(403);
   });
 
+  test("an invitation's path that names no room is not found", async () => {
+    const email = "nopath@example.com";
+    expect((await post("/api/invitations/not-a-room/decline", email)).status).toBe(404);
+    expect((await accept("not-a-room", email)).status).toBe(404);
+  });
+
   test("declining or withdrawing gives the seat back", async () => {
     const owner = "back-owner@example.com";
     const { roomId } = await createRoom(owner);

@@ -42,6 +42,9 @@ export const MAX_SCALE = 3;
 
 /** What a picture may be, as uploaded: the formats every browser shows */
 export const IMAGE_TYPES = ["image/webp", "image/jpeg", "image/png"] as const;
+export type ImageType = (typeof IMAGE_TYPES)[number];
+/** A media type as a header or a blob gives it, when it is one a picture may be */
+export const isImageType = (type: string): type is ImageType => IMAGE_TYPES.some((t) => t === type);
 /** The largest picture, in bytes; the app shrinks one to well under this before sending it */
 export const MAX_IMAGE_BYTES = 1024 * 1024;
 
@@ -107,6 +110,10 @@ export const CidSchema = v.pipe(v.string(), v.nanoid(), v.maxLength(64), v.brand
 export type Cid = v.InferOutput<typeof CidSchema>;
 
 const ColorSchema = v.picklist(COLORS);
+
+/** A language the Worker writes in for the asker: the booklet's words, a place's name */
+export const LangSchema = v.picklist(["ja", "en"]);
+export type Lang = v.InferOutput<typeof LangSchema>;
 
 /** The profile a person sets for themselves; the name may be blank, people are told apart by color for now */
 export const ProfileSchema = v.object({

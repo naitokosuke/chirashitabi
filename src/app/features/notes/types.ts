@@ -100,19 +100,23 @@ export interface Sticker extends CardBase {
 
 export type Note = Memo | Suggestion | TextBox | Sticker;
 
-/** A text box as it is written; who and when are the room's to stamp, as for a memo */
-export type NewText = Omit<TextBox, "by" | "updatedAt">;
-/** A sticker as it is stuck; who and when are the room's to stamp */
-export type NewSticker = Omit<Sticker, "by" | "updatedAt">;
+/**
+ * A note as its writer makes it. Who wrote it and when is the room's to stamp (the Worker
+ * ignores both), so a new note has neither until the room or the ledger applies it. Over a
+ * union it is each kind's own: `Omit` alone would keep only the fields every kind has.
+ */
+type Unstamped<N extends Note> = N extends Note ? Omit<N, "by" | "updatedAt"> : never;
+
+/** Any note as it is made, as `note:add` carries it */
+export type NewNote = Unstamped<Note>;
+export type NewMemo = Unstamped<Memo>;
+/** A text box as it is written */
+export type NewText = Unstamped<TextBox>;
+/** A sticker as it is stuck */
+export type NewSticker = Unstamped<Sticker>;
 
 /** A memo that is on a day */
 export type Scheduled = Memo & { schedule: Schedule };
-
-/**
- * A memo as its writer makes it. Who wrote it and when is the room's to stamp (the Worker
- * ignores both), so a new memo has neither until the room or the ledger applies it.
- */
-export type NewMemo = Omit<Memo, "by" | "updatedAt">;
 
 /** What the form writes */
 export type NoteInput = Pick<

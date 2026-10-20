@@ -22,7 +22,7 @@ import {
   type WireStay,
   type WireTrip,
 } from "../../../contract/wire";
-import type { Booking, MemoPatch, Note, Schedule } from "../notes/types";
+import type { Booking, MemoPatch, NewNote, Note, Schedule } from "../notes/types";
 import type { Flight, Stay, TripSnapshot } from "../trip/types";
 
 import type { Mutation } from "./types";
@@ -190,7 +190,7 @@ const wireFlight = (f: Flight | null): WireFlight | null =>
 
 const wireStay = (s: Stay): WireStay => ({ ...s, checkIn: isoDate(s.checkIn) });
 
-const wireNewNote = (n: Extract<Mutation, { type: "note:add" }>["note"]): WireNewNote =>
+const wireNewNote = (n: NewNote): WireNewNote =>
   n.kind === "memo"
     ? {
         ...n,

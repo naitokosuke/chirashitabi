@@ -7,7 +7,7 @@ import * as v from "valibot";
 
 import { AccessVerifier, Unauthenticated } from "./access";
 import { ASK_LENGTH, draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
-import { CLEF_MODEL, FITS_AT, judgeTags, MAX_TAGS } from "./clef";
+import { CLEF_MODEL, FITS_AT, judgeTags, MAX_TAGS, type MemoToTag } from "./clef";
 import { expand, placeName } from "./expand";
 import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
 import { preview } from "./preview";
@@ -31,8 +31,9 @@ import {
   RoomIdSchema,
 } from "./types";
 import {
-  IMAGE_TYPES,
+  isImageType,
   IsoDateSchema,
+  LangSchema,
   MAX_IMAGE_BYTES,
   NewTripSchema,
   PointSchema,
@@ -61,7 +62,7 @@ const access = (env: Env) =>
 type ApiEnv = { Bindings: Env; Variables: EvlogVariables["Variables"] & { email: Email } };
 
 /** The language the asker reads, English or else Japanese */
-const lang = v.fallback(v.picklist(["ja", "en"]), "ja");
+const lang = v.fallback(LangSchema, "ja");
 /** Words as written, cut to `max` */
 const cut = (max: number) =>
   v.pipe(
@@ -69,13 +70,8 @@ const cut = (max: number) =>
     v.transform((s) => s.slice(0, max)),
   );
 /** And, in a room, which one and who the asker is in it */
-type InRoom = {
-  Bindings: Env;
-  Variables: ApiEnv["Variables"] & {
-    roomId: RoomId;
-    memberId: MemberId;
-    room: DurableObjectStub<Room>;
-  };
+type InRoom = ApiEnv & {
+  Variables: { roomId: RoomId; memberId: MemberId; room: DurableObjectStub<Room> };
 };
 
 /** A room's path; an id that is not a UUID is no room (`member` answers 404) */
@@ -157,7 +153,7 @@ const api = new Hono<ApiEnv>()
     async (c) => {
       const { roomId, memberId, room } = c.var;
       const type = c.req.header("Content-Type") ?? "";
-      if (!IMAGE_TYPES.some((t) => t === type)) return c.text("Unsupported Media Type", 415);
+      if (!isImageType(type)) return c.text("Unsupported Media Type", 415);
       if (Number(c.req.header("Content-Length") ?? "0") > MAX_IMAGE_BYTES)
         return c.text("Payload Too Large", 413);
       const data = await c.req.arrayBuffer();
@@ -222,9 +218,8 @@ const api = new Hono<ApiEnv>()
   })
 
   // An invitation to a room, answered by the person invited
-  .post("/invitations/:roomId/decline", async (c) => {
-    const roomId = toRoomId(c.req.param("roomId"));
-    if (roomId === null) return c.text("Not Found", 404);
+  .post("/invitations/:roomId/decline", roomInPath(), async (c) => {
+    const { roomId } = c.req.valid("param");
     c.var.log.set({ room: roomId, action: "decline" });
     const seat = await c.env.ROOMS.getByName("index").take(c.var.email, roomId);
     if (seat === null) return c.text("Not Found", 404);
@@ -232,9 +227,8 @@ const api = new Hono<ApiEnv>()
     return c.json({});
   })
   // who they will be in the room is theirs to say, checked before the seat is taken
-  .post("/invitations/:roomId/accept", body(ProfileSchema), async (c) => {
-    const roomId = toRoomId(c.req.param("roomId"));
-    if (roomId === null) return c.text("Not Found", 404);
+  .post("/invitations/:roomId/accept", roomInPath(), body(ProfileSchema), async (c) => {
+    const { roomId } = c.req.valid("param");
     c.var.log.set({ room: roomId, action: "accept" });
     const me = c.req.valid("json");
     const index = c.env.ROOMS.getByName("index");
@@ -311,7 +305,7 @@ const api = new Hono<ApiEnv>()
     const index = c.env.ROOMS.getByName("index");
     const reserved = await index.reserve(email, roomId);
     if (!reserved.ok) return overBudget(c, reserved.reason);
-    const result = await draftDay(c.env, { ...day, date });
+    const result = await draftDay(c.env, day);
     if (!result.ok) {
       if (result.refund) await index.refund(reserved.value);
       log.set({
@@ -366,14 +360,13 @@ const api = new Hono<ApiEnv>()
       if (vocabulary.length === 0) return c.json({ tags: [] });
 
       // the picture goes along: Clef looks at it with the words
-      let image: { type: string; base64: string } | null = null;
+      let image: MemoToTag["image"] = null;
       if (imageId !== null && (await room.hasImageFor(memberId, imageId))) {
         const object = await c.env.IMAGES.get(imageKey(roomId, imageId));
-        if (object !== null)
-          image = {
-            type: object.httpMetadata?.contentType ?? "image/webp",
-            base64: toBase64(await object.arrayBuffer()),
-          };
+        // stored with the type it was uploaded as (one of IMAGE_TYPES); one that says none is WebP
+        const type = object?.httpMetadata?.contentType ?? "image/webp";
+        if (object !== null && isImageType(type))
+          image = { type, base64: toBase64(await object.arrayBuffer()) };
       }
 
       const reserved = await index.reserve(email, roomId);
@@ -821,6 +814,13 @@ const imageKey = (roomId: RoomId, id: ImageId) => `rooms/${roomId}/images/${id}`
 function body<S extends v.GenericSchema>(schema: S) {
   return sValidator("json", schema, (result, c) =>
     result.success ? undefined : c.text("Bad Request", 400),
+  );
+}
+
+/** The room in the path, checked as `body` checks JSON: an id that is not a UUID is no room */
+function roomInPath() {
+  return sValidator("param", v.object({ roomId: RoomIdSchema }), (result, c) =>
+    result.success ? undefined : c.text("Not Found", 404),
   );
 }
 

@@ -1,8 +1,10 @@
 // What crosses the socket and the API, and its checks, as the Worker takes them from the contract
 export {
   IMAGE_TYPES,
+  isImageType,
   IsoDateSchema,
   IsoInstantSchema,
+  LangSchema,
   MAX_IMAGE_BYTES,
   MAX_MESSAGE_BYTES,
   NewTripSchema,
@@ -15,7 +17,9 @@ export {
   type IsoDate,
   type IsoDateTime,
   type IsoInstant,
+  type ImageType,
   type IsoTime,
+  type Lang,
   type Leg,
   type RejectReason,
   type ServerMessage,
