@@ -1,7 +1,7 @@
-import type { CurrencyCode } from "../../contract/money";
+import type { CurrencyCode } from "../../contract";
 
 // a currency's code, as the app takes it from the contract
-export { currencyCode, CurrencyCodeSchema, type CurrencyCode } from "../../contract/money";
+export { currencyCode, CurrencyCodeSchema, type CurrencyCode } from "../../contract";
 
 /** "NT$1,500" for TWD, "¥1,500" for JPY */
 export const formatMoney = (amount: number, currency: CurrencyCode, locale: string) =>
