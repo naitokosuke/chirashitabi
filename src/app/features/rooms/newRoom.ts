@@ -1,7 +1,7 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { hexColor } from "../../shared/color";
-import { currencyCode } from "../../shared/money";
+import { parseHexColor } from "../../shared/color";
+import { parseCurrencyCode } from "../../shared/money";
 
 import type { LatLng } from "../place/types";
 
@@ -50,7 +50,7 @@ const date = (s: string) => {
 
 /** A person as the Worker takes one, in `color`, nameless; or null while the color is not one */
 export function profileOf(color: string): Profile | null {
-  const c = hexColor(color);
+  const c = parseHexColor(color);
   return c === null ? null : { name: "", color: c };
 }
 
@@ -59,7 +59,7 @@ export function newRoom(form: RoomForm, center: LatLng): NewRoom | null {
   const name = named(form.name);
   const me = profileOf(form.color);
   const first = date(form.firstDay);
-  const currency = currencyCode(form.currency);
+  const currency = parseCurrencyCode(form.currency);
   const days = Number.isInteger(form.days) && form.days >= 1 && form.days <= MAX_DAYS;
   if (name === null || me === null || first === null || currency === null || !days) return null;
   return { trip: { name, first, days: form.days, currency, center }, me };

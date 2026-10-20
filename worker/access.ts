@@ -40,6 +40,18 @@ const CertsSchema = v.fallback(v.object({ keys: listOf(RsaJwkSchema) }), { keys:
 /** A token's header as Access writes it: RS256, and which key signed it */
 const HeaderSchema = v.object({ alg: v.literal("RS256"), kid: v.string() });
 
+/**
+ * The claims checked, in the shapes the JWT spec gives them: one audience or several, the
+ * issuer, when it expires and, when it says, from when it is valid. The e-mail is parsed on its own.
+ */
+const ClaimsSchema = v.object({
+  aud: v.union([v.string(), v.array(v.string())]),
+  iss: v.string(),
+  exp: v.number(),
+  nbf: v.optional(v.number()),
+  email: v.unknown(),
+});
+
 interface Keys {
   fetchedAt: number;
   byKid: Map<string, CryptoKey>;
@@ -74,15 +86,16 @@ export class AccessVerifier {
     const ok = await crypto.subtle.verify({ name: "RSASSA-PKCS1-v1_5" }, key, bytes(s), signed);
     if (!ok) throw new Unauthenticated("bad signature");
 
-    const claims = json(p);
+    const read = v.safeParse(ClaimsSchema, json(p));
+    if (!read.success) throw new Unauthenticated("unexpected claims");
+    const claims = read.output;
     const now = Math.floor(this.now() / 1000);
-    const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-    if (!aud.includes(this.config.aud)) throw new Unauthenticated("aud is not this application");
+    if (![claims.aud].flat().includes(this.config.aud))
+      throw new Unauthenticated("aud is not this application");
     if (claims.iss !== `https://${this.config.teamDomain}`)
       throw new Unauthenticated("iss is not the team");
-    if (typeof claims.exp !== "number" || now > claims.exp + SKEW_S)
-      throw new Unauthenticated("expired");
-    if (typeof claims.nbf === "number" && now + SKEW_S < claims.nbf)
+    if (now > claims.exp + SKEW_S) throw new Unauthenticated("expired");
+    if (claims.nbf !== undefined && now + SKEW_S < claims.nbf)
       throw new Unauthenticated("not yet valid");
     const email = parseEmail(claims.email);
     if (email === null) throw new Unauthenticated("no email");

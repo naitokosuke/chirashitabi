@@ -21,7 +21,7 @@ import {
 import {
   IsoInstantSchema,
   SEATS,
-  tagOf,
+  parseTag,
   type Tag,
   type Cid,
   type IsoDate,
@@ -1366,7 +1366,7 @@ const notesTable = (name: string) => `
 /** A note's tags as its column keeps them: a JSON array of strings */
 const tagsOf = (column: string): Tag[] => {
   const tags: unknown = JSON.parse(column);
-  return Array.isArray(tags) ? tags.flatMap((t: unknown) => tagOf(t) ?? []) : [];
+  return Array.isArray(tags) ? tags.flatMap((t: unknown) => parseTag(t) ?? []) : [];
 };
 
 const fromRow = (r: NoteRow): WireNote => {

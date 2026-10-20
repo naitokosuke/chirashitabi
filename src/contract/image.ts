@@ -1,5 +1,6 @@
 import * as v from "valibot";
 
+import { parserOf } from "../shared/parse";
 import { UuidSchema } from "../shared/uuid";
 
 export const ImageIdSchema = v.pipe(UuidSchema, v.brand("ImageId"));
@@ -8,10 +9,7 @@ export const ImageIdSchema = v.pipe(UuidSchema, v.brand("ImageId"));
 export type ImageId = v.InferOutput<typeof ImageIdSchema>;
 
 /** An image's id, as the room mints it (a UUID), or null */
-export const parseImageId = (value: unknown): ImageId | null => {
-  const result = v.safeParse(ImageIdSchema, value);
-  return result.success ? result.output : null;
-};
+export const parseImageId = parserOf(ImageIdSchema);
 
 if (import.meta.vitest !== undefined) {
   const { describe, expect, test } = import.meta.vitest;

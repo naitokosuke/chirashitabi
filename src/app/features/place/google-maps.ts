@@ -1,13 +1,13 @@
 import * as v from "valibot";
 
-import { httpUrl, HttpUrlSchema, parseMapsUrl, type HttpUrl } from "../../../contract/place";
+import { parseHttpUrl, HttpUrlSchema, parseMapsUrl, type HttpUrl } from "../../../contract/place";
 
 import type { Pinned } from "./pin";
 import type { LatLng } from "./types";
 
 // a link a note may carry, and reading its point, as the app takes them from the contract
 export {
-  httpUrl,
+  parseHttpUrl,
   HttpUrlSchema,
   isShortMapsLink,
   parseMapsUrl,
@@ -47,7 +47,7 @@ export function placeFromUrl(
   raw: string,
   pin: LatLng | null,
 ): { mapsUrl: HttpUrl | null; pin: LatLng | null } {
-  const mapsUrl = httpUrl(raw.trim());
+  const mapsUrl = parseHttpUrl(raw.trim());
   return { mapsUrl, pin: (mapsUrl === null ? null : parseMapsUrl(mapsUrl)) ?? pin };
 }
 

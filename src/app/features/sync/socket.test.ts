@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 
-import { hexColor } from "../../shared/color";
+import { parseHexColor } from "../../shared/color";
 import type { CurrencyCode } from "../../shared/money";
 
 import type { MemberId } from "../members/types";
@@ -263,7 +263,7 @@ describe("createRoomSocket", () => {
         kind: "person" as const,
         role: "guest" as const,
         name: "Ken",
-        color: hexColor("#d7263d")!,
+        color: parseHexColor("#d7263d")!,
       },
     ];
     last().serve({ type: "members", members });

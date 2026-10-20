@@ -13,7 +13,7 @@ import type { ImageId, NoteId } from "./id";
 // a card's papers and a schedule's statuses, as the app takes them from the contract
 export {
   COLORS,
-  tagOf,
+  parseTag,
   TagSchema,
   type NoteColor,
   type NoteStatus,

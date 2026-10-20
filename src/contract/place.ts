@@ -1,5 +1,7 @@
 import * as v from "valibot";
 
+import { parserOf } from "../shared/parse";
+
 /**
  * A link as written that is http(s), at most 2000 characters: what a note or a stay may carry.
  * Notes come from the other person in the room, so a `javascript:` URL never reaches an href.
@@ -16,10 +18,7 @@ export const HttpUrlSchema = v.pipe(
 export type HttpUrl = v.InferOutput<typeof HttpUrlSchema>;
 
 /** The link as written, or null when it is not one a note may carry */
-export const httpUrl = (value: unknown): HttpUrl | null => {
-  const result = v.safeParse(HttpUrlSchema, value);
-  return result.success ? result.output : null;
-};
+export const parseHttpUrl = parserOf(HttpUrlSchema);
 
 /** A point on the map, as a member may send one: both halves, and nothing else */
 export const LatLngSchema = v.strictObject({

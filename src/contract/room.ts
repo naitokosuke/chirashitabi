@@ -1,5 +1,6 @@
 import * as v from "valibot";
 
+import { parserOf } from "../shared/parse";
 import { UuidSchema } from "../shared/uuid";
 
 // Values both sides name, apart from wire.ts so the app can take them without the checks (and
@@ -11,10 +12,7 @@ export const RoomIdSchema = v.pipe(UuidSchema, v.brand("RoomId"));
 export type RoomId = v.InferOutput<typeof RoomIdSchema>;
 
 /** The id, or null when it is not one the Worker could have made */
-export const roomId = (value: unknown): RoomId | null => {
-  const result = v.safeParse(RoomIdSchema, value);
-  return result.success ? result.output : null;
-};
+export const parseRoomId = parserOf(RoomIdSchema);
 
 /** How many people a room holds; an invitation holds a seat until it is answered */
 export const SEATS = 2;
@@ -32,22 +30,19 @@ export const TagSchema = v.pipe(v.string(), v.nonEmpty(), v.maxLength(40), v.bra
 export type Tag = v.InferOutput<typeof TagSchema>;
 
 /** The tag, or null when the room would not keep it */
-export const tagOf = (value: unknown): Tag | null => {
-  const result = v.safeParse(TagSchema, value);
-  return result.success ? result.output : null;
-};
+export const parseTag = parserOf(TagSchema);
 
 if (import.meta.vitest !== undefined) {
   const { describe, expect, test } = import.meta.vitest;
 
   const uuid = "0f8fad5b-d9cb-469f-a165-70867728950e";
 
-  describe("roomId", () => {
-    test("a UUID, as it is", () => expect(roomId(uuid)).toBe(uuid));
+  describe("parseRoomId", () => {
+    test("a UUID, as it is", () => expect(parseRoomId(uuid)).toBe(uuid));
     test("not one the Worker could have made", () => {
-      expect(roomId(uuid.toUpperCase())).toBeNull();
-      expect(roomId(`${uuid} `)).toBeNull();
-      expect(roomId(42)).toBeNull();
+      expect(parseRoomId(uuid.toUpperCase())).toBeNull();
+      expect(parseRoomId(`${uuid} `)).toBeNull();
+      expect(parseRoomId(42)).toBeNull();
     });
   });
 }

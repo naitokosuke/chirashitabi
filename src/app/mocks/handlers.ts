@@ -6,10 +6,10 @@ import * as v from "valibot";
 import { listOf } from "../shared/list";
 
 import { SEATS, type Member } from "../features/members/types";
-import { NoteIdSchema } from "../features/notes/id";
-import { tagOf, type Note } from "../features/notes/types";
+import { ImageIdSchema, NoteIdSchema, parseImageId, type ImageId } from "../features/notes/id";
+import { parseTag, type Note } from "../features/notes/types";
 import { isShortMapsLink } from "../features/place/google-maps";
-import { roomId, RoomIdSchema, type RoomId } from "../features/rooms/types";
+import { parseRoomId, RoomIdSchema, type RoomId } from "../features/rooms/types";
 import { applyToRoom, type RoomState } from "../features/sync/ledger";
 import { reviveMutation, reviveNote, reviveTrip } from "../features/sync/wire";
 import type { TripSnapshot } from "../features/trip/types";
@@ -27,6 +27,7 @@ import {
   ProfileSchema,
   WireMemberSchema,
   WireNoteSchema,
+  WireRoomSummarySchema,
   WireTripSchema,
   type IsoInstant,
   type ServerMessage,
@@ -43,10 +44,10 @@ import {
 interface MockRoom {
   state: RoomState & { trip: TripSnapshot };
   invited: string[];
-  deletedAt: string | null;
-  images: Map<string, Blob>;
+  deletedAt: IsoInstant | null;
+  images: Map<ImageId, Blob>;
   /** The booklet as a public page: a link that leads nowhere here, and when */
-  publication: { url: string; at: string } | null;
+  publication: { url: string; at: IsoInstant } | null;
 }
 
 /** The seeded trip's room */
@@ -75,12 +76,12 @@ const badRequest = () => new HttpResponse(null, { status: 400 });
 /** A moment as the room stamps it */
 const stamp = (t: Temporal.Instant): IsoInstant => v.parse(IsoInstantSchema, t.toString());
 
-/** The room a request names, if there is one and it is not deleted */
 /** The trip's candidate tags, as the agent would have proposed them */
 const CANDIDATES = ["Airport", "Souvenirs", "Night markets", "Temples", "Tea"].flatMap(
-  (t) => tagOf(t) ?? [],
+  (t) => parseTag(t) ?? [],
 );
 
+/** The room a request names, if there is one and it is not deleted */
 const open = (id: unknown) => {
   const room = find(id);
   return room?.deletedAt === null ? room : undefined;
@@ -88,7 +89,7 @@ const open = (id: unknown) => {
 
 /** The room a request names, deleted or not */
 const find = (id: unknown) => {
-  const room = roomId(id);
+  const room = parseRoomId(id);
   return room === null ? undefined : rooms.get(room);
 };
 
@@ -98,17 +99,23 @@ const textOf = (body: unknown, field: string): string | null => {
   return read.success ? (read.output[field] ?? null) : null;
 };
 
+/**
+ * A room as the list shows it, checked as the Worker's answer is (no days is no first day);
+ * its id goes beside the summary, as the Worker puts it
+ */
 const summary = (id: RoomId, { state }: MockRoom) => ({
   id,
-  name: state.trip.name,
-  first: state.trip.days[0]?.date.toString() ?? null,
-  days: state.trip.days.length,
-  // the people first, the creator leading; the agent after them
-  members: [...state.members]
-    .sort((a, b) => Number(a.kind === "agent") - Number(b.kind === "agent"))
-    .map(({ kind, name, color }) => ({ kind, name, color })),
-  memos: state.notes.filter((n) => n.kind === "memo").length,
-  owner: true,
+  ...wire(WireRoomSummarySchema, {
+    name: state.trip.name,
+    first: state.trip.days[0]?.date ?? null,
+    days: state.trip.days.length,
+    // the people first, the creator leading; the agent after them
+    members: [...state.members]
+      .sort((a, b) => Number(a.kind === "agent") - Number(b.kind === "agent"))
+      .map(({ kind, name, color }) => ({ kind, name, color })),
+    memos: state.notes.filter((n) => n.kind === "memo").length,
+    owner: true,
+  }),
 });
 
 // ---- the room's socket ----
@@ -125,7 +132,7 @@ const tell = (id: RoomId, msg: ServerMessage, except?: WebSocketHandlerConnectio
 };
 
 const roomSocket = socket.addEventListener("connection", ({ client, params }) => {
-  const id = roomId(params.roomId);
+  const id = parseRoomId(params.roomId);
   const room = open(params.roomId);
   if (id === null || room === undefined) {
     client.close(4001, "deleted");
@@ -192,7 +199,7 @@ const agent = [
     });
   }),
   http.post("/api/rooms/:roomId/suggest", async ({ params, request }) => {
-    const id = roomId(params.roomId);
+    const id = parseRoomId(params.roomId);
     const room = open(params.roomId);
     if (id === null || room === undefined) return forbidden();
     const body = v.safeParse(
@@ -269,7 +276,7 @@ const agent = [
     const site = new URL(url).hostname.replace(/^www\./, "");
     const frame = new OffscreenCanvas(640, 360);
     const ctx = frame.getContext("2d");
-    let image: string | null = null;
+    let image: ImageId | null = null;
     if (ctx !== null) {
       const sky = ctx.createLinearGradient(0, 0, 640, 360);
       sky.addColorStop(0, "#5b8def");
@@ -279,7 +286,7 @@ const agent = [
       ctx.fillStyle = "rgba(255,255,255,.9)";
       ctx.font = "bold 40px sans-serif";
       ctx.fillText(site, 32, 200);
-      image = crypto.randomUUID();
+      image = v.parse(ImageIdSchema, crypto.randomUUID());
       room.images.set(image, await frame.convertToBlob({ type: "image/png" }));
     }
     return HttpResponse.json({
@@ -321,12 +328,13 @@ const agent = [
   http.post("/api/rooms/:roomId/images", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const id = crypto.randomUUID();
+    const id = v.parse(ImageIdSchema, crypto.randomUUID());
     room.images.set(id, await request.blob());
     return HttpResponse.json({ id });
   }),
   http.get("/api/rooms/:roomId/images/:id", ({ params }) => {
-    const image = open(params.roomId)?.images.get(String(params.id));
+    const id = parseImageId(params.id);
+    const image = id === null ? undefined : open(params.roomId)?.images.get(id);
     return image === undefined ? notFound() : new HttpResponse(image);
   }),
 ];
@@ -386,7 +394,7 @@ const members = [
     return HttpResponse.json({});
   }),
   http.post("/api/rooms/:roomId/remove", async ({ params, request }) => {
-    const id = roomId(params.roomId);
+    const id = parseRoomId(params.roomId);
     const room = open(params.roomId);
     if (id === null || room === undefined) return forbidden();
     const member = textOf(await request.json(), "member");
@@ -401,10 +409,10 @@ const members = [
   // Yuki owns every room here, and the owner never leaves their own
   http.post("/api/rooms/:roomId/leave", forbidden),
   http.post("/api/rooms/:roomId/delete", ({ params }) => {
-    const id = roomId(params.roomId);
+    const id = parseRoomId(params.roomId);
     const room = open(params.roomId);
     if (id === null || room === undefined) return forbidden();
-    room.deletedAt = Temporal.Now.instant().toString();
+    room.deletedAt = stamp(Temporal.Now.instant());
     tell(id, { type: "gone", reason: "deleted" });
     for (const c of sockets.get(id) ?? []) c.close(4001, "deleted");
     return HttpResponse.json({});
@@ -417,7 +425,7 @@ const members = [
   }),
   // Yuki owns every room here, so she may have a deleted one gone for good
   http.post("/api/rooms/:roomId/purge", ({ params }) => {
-    const id = roomId(params.roomId);
+    const id = parseRoomId(params.roomId);
     if (id === null || rooms.get(id)?.deletedAt == null) return forbidden();
     rooms.delete(id);
     return HttpResponse.json({});
@@ -445,7 +453,7 @@ const mine = [
       v.object({ trip: NewTripSchema, me: ProfileSchema }),
       await request.json(),
     );
-    const id = roomId(crypto.randomUUID());
+    const id = parseRoomId(crypto.randomUUID());
     if (!body.success || id === null) return badRequest();
     const { trip, me } = body.output;
     const creator: Member = { id: YUKI, kind: "person", role: "owner", ...me };

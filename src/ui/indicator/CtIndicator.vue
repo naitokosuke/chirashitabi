@@ -4,12 +4,15 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Ref } 
 /** Whichever child marks itself as the current choice */
 const SELECTED = '[aria-selected="true"], [aria-checked="true"], [aria-current="page"]';
 
+/** Where the chosen child is, in its list's own coordinates */
+type Box = { x: number; y: number; width: number; height: number };
+
 /**
  * Tracks the selected child of `list` so an indicator can morph to it.
  * `list` must be the indicator's positioned parent.
  */
 export function useIndicator(list: Readonly<Ref<HTMLElement | null>>, watchSource: () => unknown) {
-  const box = ref({ x: 0, y: 0, width: 0, height: 0 });
+  const box = ref<Box>({ x: 0, y: 0, width: 0, height: 0 });
   // Stays false until the first position is painted, so the indicator
   // appears in place instead of sliding in from the corner.
   const ready = ref(false);
@@ -64,7 +67,7 @@ const {
   pad = 0,
   look = "ink",
 } = defineProps<{
-  box: { x: number; y: number; width: number; height: number } | null;
+  box: Box | null;
   ready: boolean;
   pad?: number;
   look?: "ink" | "ring" | "surface";

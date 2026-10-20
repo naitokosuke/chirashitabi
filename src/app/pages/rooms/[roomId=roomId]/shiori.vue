@@ -73,6 +73,7 @@ import {
   type Timing,
 } from "../../../features/trip/itinerary";
 import StayLine from "../../../features/trip/StayLine.vue";
+import { LEGS } from "../../../features/trip/types";
 import { useTrip } from "../../../features/trip/useTrip";
 import type { DayDraft } from "../../../features/worker/types";
 import { usePublication } from "../../../features/worker/usePublication";
@@ -115,7 +116,7 @@ const day = computed(() => dayOfTab(tab.value));
 const flightsOn = computed(() => {
   const d = day.value;
   if (d === null) return [];
-  return (["out", "back"] as const).flatMap((leg) => {
+  return LEGS.flatMap((leg) => {
     const f = trip.value?.flights[leg] ?? null;
     const on = f !== null && flightDays(f, leg, trip.value?.days ?? []).some((x) => x.equals(d));
     return on ? [{ leg, flight: f, day: d }] : [];
@@ -214,16 +215,24 @@ function hoursOn(n: Scheduled) {
   return spans.length === 0 ? "" : i18n.t("shiori.hours", { hours: spansText(spans) });
 }
 /** Why the plan falls while the place is shut, or "" when it does not, or nothing can tell */
-function shutWarning(n: Scheduled) {
+function shutWarning(n: Scheduled): string {
   const week = weekOf(n);
   if (week === null) return "";
   const day = weekday(n.schedule.date);
   const time = n.schedule.time;
   // closed all day is worth saying with a time or without
   const fit = fitHours(week, day, time === null ? null : time.hour * 60 + time.minute, n.minutes);
-  if (fit.kind === "closed") return i18n.t("shiori.closedDay");
-  if (fit.kind === "shut") return i18n.t("shiori.shut", { hours: spansText(openOn(week, day)) });
-  return fit.kind === "closes" ? i18n.t("shiori.closes", { time: clockText(fit.at) }) : "";
+  // every kind named: a new one fails to compile here
+  switch (fit.kind) {
+    case "closed":
+      return i18n.t("shiori.closedDay");
+    case "shut":
+      return i18n.t("shiori.shut", { hours: spansText(openOn(week, day)) });
+    case "closes":
+      return i18n.t("shiori.closes", { time: clockText(fit.at) });
+    case "open":
+      return "";
+  }
 }
 /** Still to book and past the day it had to be booked by */
 const bookingLate = (n: Scheduled) =>
@@ -433,7 +442,7 @@ const publishedOn = computed(() =>
       }),
 );
 function publishNow() {
-  publish.mutate(i18n.locale === "en" ? "en" : "ja");
+  publish.mutate(i18n.locale);
 }
 /** The link copied, said for a moment on the button */
 const copied = ref(false);

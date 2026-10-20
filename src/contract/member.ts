@@ -1,5 +1,6 @@
 import * as v from "valibot";
 
+import { parserOf } from "../shared/parse";
 import { UuidSchema } from "../shared/uuid";
 
 export const MemberIdSchema = v.pipe(
@@ -10,10 +11,7 @@ export const MemberIdSchema = v.pipe(
 export type MemberId = v.InferOutput<typeof MemberIdSchema>;
 
 /** A member's id, as a room mints it: a UUID for a person, `agent:<name>` for its agent; or null */
-export const parseMemberId = (value: unknown): MemberId | null => {
-  const result = v.safeParse(MemberIdSchema, value);
-  return result.success ? result.output : null;
-};
+export const parseMemberId = parserOf(MemberIdSchema);
 
 if (import.meta.vitest !== undefined) {
   const { describe, expect, test } = import.meta.vitest;

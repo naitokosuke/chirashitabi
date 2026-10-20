@@ -10,6 +10,9 @@ import type { LatLng } from "../place/types";
 // which flight, the one there or the one home, as the app takes it from the contract
 export type { Leg } from "../../../contract/wire";
 
+/** Both flights, the way there first (a value from contract/wire.ts would bring its checks into the bundle) */
+export const LEGS = ["out", "back"] as const satisfies readonly Leg[];
+
 export interface Day {
   date: Temporal.PlainDate;
   intro: string; // 2-3 lines written for the booklet, not a note

@@ -40,7 +40,7 @@ import {
   type StayForm,
   type TripForm,
 } from "./settings";
-import type { Leg, TripSnapshot } from "./types";
+import { LEGS, type Leg, type TripSnapshot } from "./types";
 import { useTrip } from "./useTrip";
 
 /**
@@ -57,7 +57,6 @@ const { rename, setDates, setFlight, setStays } = useTrip();
 const { notes } = useNotes();
 const worker = useWorker();
 
-const LEGS: readonly Leg[] = ["out", "back"];
 const form = reactive<TripForm>(formOf(props.trip));
 const airports = useAirports();
 const settings = computed(() => settingsOf(form, airports.value));
@@ -117,7 +116,7 @@ function onStayLink(s: StayForm) {
   if (api === null || !isShortMapsLink(short)) return;
   expanding.add(s);
   api
-    .expandLink(short, i18n.locale === "en" ? "en" : "ja")
+    .expandLink(short, i18n.locale)
     .then((answer) => {
       // past the budget the short link stays, as when it could not be read
       if (!answer.ok) return;
@@ -146,7 +145,7 @@ function findStay(s: StayForm) {
   if (api === null || name === "") return;
   finding.add(s);
   api
-    .findByName(name, i18n.locale === "en" ? "en" : "ja")
+    .findByName(name, i18n.locale)
     .then((places) => found.set(s, places))
     .catch(() => found.set(s, []))
     .finally(() => finding.delete(s));
