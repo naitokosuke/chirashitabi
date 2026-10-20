@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { onBeforeUnmount, onMounted, ref, useId, useSlots, useTemplateRef } from "vue";
+import { onBeforeUnmount, onMounted, ref, useId, useTemplateRef } from "vue";
 
 /**
  * A button held down to act, for what cannot be taken back, after React Bits' Hold Button:
@@ -31,7 +31,7 @@ const {
   variant?: "quiet" | "primary" | "outline";
 }>();
 const emit = defineEmits<{ hold: [] }>();
-const slots = useSlots();
+const slots = defineSlots<{ icon?(): unknown; hint?(): unknown }>();
 
 /** How long the fill takes to drain once let go, and how long `done` stays */
 const RELEASE = 200;

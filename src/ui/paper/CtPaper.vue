@@ -1,6 +1,4 @@
 <script setup lang="ts" vapor>
-import { useSlots } from "vue";
-
 /**
  * A piece of paper on the desk. Its stock is whoever it came from (`paper`, the member's
  * paper), so whose it is reads off the whole sheet; its outline says what it is:
@@ -41,7 +39,13 @@ const {
   stamp?: string;
   faded?: boolean;
 }>();
-const slots = useSlots();
+const slots = defineSlots<{
+  strip?(): unknown;
+  picture?(): unknown;
+  tab?(): unknown;
+  default(): unknown;
+  foot?(): unknown;
+}>();
 </script>
 
 <template>
