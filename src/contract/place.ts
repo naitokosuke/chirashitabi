@@ -7,7 +7,9 @@ import * as v from "valibot";
 export const HttpUrlSchema = v.pipe(
   v.string(),
   v.maxLength(2000),
-  v.check((s) => URL.canParse(s) && ["https:", "http:"].includes(new URL(s).protocol)),
+  v.url(),
+  // a failed `url` does not stop the pipe, so this reads what may be no URL
+  v.check((s) => ["https:", "http:"].includes(URL.parse(s)?.protocol ?? "")),
   v.brand("HttpUrl"),
 );
 
