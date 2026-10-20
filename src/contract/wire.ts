@@ -8,10 +8,13 @@
  */
 import * as v from "valibot";
 
+import { HexColorSchema } from "../shared/color";
+import { CurrencyCodeSchema } from "../shared/money";
+
 import { AirportCodeSchema, type AirportCode } from "./airport";
-import { HexColorSchema } from "./color";
-import { ImageIdSchema, MemberIdSchema, NoteIdSchema } from "./ids";
-import { CurrencyCodeSchema } from "./money";
+import { ImageIdSchema } from "./image";
+import { MemberIdSchema } from "./member";
+import { NoteIdSchema } from "./note";
 import { HttpUrlSchema, LatLngSchema } from "./place";
 import { COLORS, STATUSES, TagSchema } from "./room";
 

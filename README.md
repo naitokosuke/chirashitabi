@@ -117,15 +117,25 @@ src/app/            The app
 
 src/contract/       What the app and the Worker both hold to; each takes it through its own modules
                     (the app's types where they were defined, the Worker's wire.ts, airports.ts, types.ts)
+  index.ts       What src/shared defines, as the contract speaks in it
   wire.ts        What crosses the socket and the API (Temporal values as ISO strings), and the checks it must pass
-  room.ts        The values both sides name: seats in a room, a card's papers, a schedule's statuses
-  ids.ts         RoomId, MemberId, NoteId, ImageId, Email: brands, and the checks that make them
-  brand.ts, color.ts, money.ts, record.ts   Brand; HexColor; CurrencyCode; isRecord
+  room.ts        The values both sides name: a room's id, seats in a room, a card's papers, a schedule's statuses
+  member.ts      A member's id: a person's UUID or the room's agent
+  note.ts        A note's id, as the device that made the note minted it
+  image.ts       A picture's id, as the room minted it
   place.ts       LatLng; a Google Maps link's point, and whether it is a short link
   airports-data.json  The airports with an IATA code and scheduled service, from OurAirports (scripts/airports.mjs)
   airport.ts     An airport and its code: a row of airports-data.json as one, and the one a name or code means;
                  the list loaded, for a flight's code to be checked against it and one kept from before codes
                  were required to be given one by the name it had (the app fetches the list instead)
+
+src/shared/         Values with no trip in them, which the contract re-exports
+  brand.ts       Brand
+  color.ts       HexColor
+  email.ts       Email: an address, trimmed and lowercased
+  list.ts        listOf: the entries of a list from elsewhere that read as one
+  money.ts       CurrencyCode
+  uuid.ts        A UUID as crypto.randomUUID() writes it
 
 src/ui/             The design system: props, slots and events only, no app imports
   styles/        Tokens (colors, type, z-index, motion), base, transitions (ct-morph / ct-fade / ct-slide),

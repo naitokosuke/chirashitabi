@@ -1,23 +1,15 @@
 // Ids, colors, money and the rest of the contract's vocabulary, as the Worker takes them
-export type { Brand } from "../src/contract/brand";
-export type { HexColor } from "../src/contract/color";
 export {
   EmailSchema,
-  ImageIdSchema,
-  isImageId,
-  isMemberId,
-  isNoteId,
-  MemberIdSchema,
-  NoteIdSchema,
+  listOf,
   parseEmail,
-  roomId,
-  RoomIdSchema,
+  type Brand,
+  type CurrencyCode,
   type Email,
-  type ImageId,
-  type MemberId,
-  type NoteId,
-  type RoomId,
-} from "../src/contract/ids";
-export type { CurrencyCode } from "../src/contract/money";
+  type HexColor,
+} from "../src/contract";
+export { ImageIdSchema, isImageId, type ImageId } from "../src/contract/image";
+export { isMemberId, MemberIdSchema, type MemberId } from "../src/contract/member";
+export { isNoteId, NoteIdSchema, type NoteId } from "../src/contract/note";
 export { isShortMapsLink, LatLngSchema, parseMapsUrl, type HttpUrl } from "../src/contract/place";
-export { listOf } from "../src/contract/list";
+export { roomId, RoomIdSchema, type RoomId } from "../src/contract/room";
