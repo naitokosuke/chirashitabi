@@ -16,7 +16,7 @@ import { RoomsIndex, type Refusal } from "./rooms-index";
 import {
   EmailSchema,
   type Email,
-  isImageId,
+  parseImageId,
   type ImageId,
   ImageIdSchema,
   isShortMapsLink,
@@ -31,7 +31,7 @@ import {
   RoomIdSchema,
 } from "./types";
 import {
-  isImageType,
+  parseImageType,
   IsoDateSchema,
   LangSchema,
   MAX_IMAGE_BYTES,
@@ -126,8 +126,8 @@ const api = new Hono<ApiEnv>()
 
   .get(`${ROOM}/images/:imageId`, member("image"), async (c) => {
     const { roomId, memberId, room } = c.var;
-    const imageId = c.req.param("imageId");
-    if (!isImageId(imageId) || !(await room.hasImageFor(memberId, imageId)))
+    const imageId = parseImageId(c.req.param("imageId"));
+    if (imageId === null || !(await room.hasImageFor(memberId, imageId)))
       return c.text("Not Found", 404);
     const object = await c.env.IMAGES.get(imageKey(roomId, imageId));
     if (object === null) return c.text("Not Found", 404);
@@ -152,8 +152,8 @@ const api = new Hono<ApiEnv>()
     member("image"),
     async (c) => {
       const { roomId, memberId, room } = c.var;
-      const type = c.req.header("Content-Type") ?? "";
-      if (!isImageType(type)) return c.text("Unsupported Media Type", 415);
+      const type = parseImageType(c.req.header("Content-Type"));
+      if (type === null) return c.text("Unsupported Media Type", 415);
       if (Number(c.req.header("Content-Length") ?? "0") > MAX_IMAGE_BYTES)
         return c.text("Payload Too Large", 413);
       const data = await c.req.arrayBuffer();
@@ -364,8 +364,8 @@ const api = new Hono<ApiEnv>()
       if (imageId !== null && (await room.hasImageFor(memberId, imageId))) {
         const object = await c.env.IMAGES.get(imageKey(roomId, imageId));
         // stored with the type it was uploaded as (one of IMAGE_TYPES); one that says none is WebP
-        const type = object?.httpMetadata?.contentType ?? "image/webp";
-        if (object !== null && isImageType(type))
+        const type = parseImageType(object?.httpMetadata?.contentType ?? "image/webp");
+        if (object !== null && type !== null)
           image = { type, base64: toBase64(await object.arrayBuffer()) };
       }
 

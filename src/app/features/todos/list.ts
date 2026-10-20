@@ -10,7 +10,7 @@ export type Todo =
   | { kind: "task"; memo: Memo; due: Temporal.PlainDate | null; done: boolean }
   | { kind: "booking"; memo: Memo; due: Temporal.PlainDate | null; done: false };
 
-const isMemo = (n: Note): n is Memo => n.kind === "memo";
+const isMemo = (n: Note) => n.kind === "memo";
 
 /** Open before done, then the soonest day first and those with none after, then as written */
 function byDue(a: Todo, b: Todo) {

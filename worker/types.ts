@@ -9,9 +9,9 @@ export {
   type HexColor,
   type Result,
 } from "../src/contract";
-export { ImageIdSchema, isImageId, type ImageId } from "../src/contract/image";
-export { isMemberId, MemberIdSchema, type MemberId } from "../src/contract/member";
-export { isNoteId, NoteIdSchema, type NoteId } from "../src/contract/note";
+export { ImageIdSchema, parseImageId, type ImageId } from "../src/contract/image";
+export { MemberIdSchema, parseMemberId, type MemberId } from "../src/contract/member";
+export { NoteIdSchema, parseNoteId, type NoteId } from "../src/contract/note";
 export {
   isShortMapsLink,
   LatLngSchema,

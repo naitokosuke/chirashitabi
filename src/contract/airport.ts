@@ -107,9 +107,11 @@ const AirportCodeOnListSchema = v.pipe(
   v.check((code) => CODES.has(code)),
 );
 
-/** A code on the list, exactly as the app writes it */
-export const isAirportCode = (value: unknown): value is AirportCode =>
-  v.safeParse(AirportCodeOnListSchema, value).success;
+/** A code on the list, exactly as the app writes it, or null */
+export const parseAirportCode = (value: unknown): AirportCode | null => {
+  const result = v.safeParse(AirportCodeOnListSchema, value);
+  return result.success ? result.output : null;
+};
 
 /**
  * The airport a flight kept before codes were required names (a code in any case, a name, or a

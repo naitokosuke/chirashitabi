@@ -1,7 +1,7 @@
 // What crosses the socket and the API, and its checks, as the Worker takes them from the contract
 export {
   IMAGE_TYPES,
-  isImageType,
+  parseImageType,
   IsoDateSchema,
   IsoInstantSchema,
   LangSchema,

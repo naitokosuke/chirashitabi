@@ -110,8 +110,11 @@ function flightEvent(trip: TripSnapshot, leg: Leg, words: CalendarWords): Event 
   return { uid: `flight-${leg}`, lines: [`DTSTART:${time(f.departs)}`, ...lands, summary] };
 }
 
-const isShown = (n: Note): n is Scheduled =>
-  n.kind === "memo" && n.schedule !== null && n.schedule.status !== "idea";
+/** A memo the calendar shows, for a flatMap: one on a day that is more than a maybe */
+const shown = (n: Note): Scheduled[] =>
+  n.kind === "memo" && n.schedule !== null && n.schedule.status !== "idea"
+    ? [{ ...n, schedule: n.schedule }]
+    : [];
 
 /** The trip's calendar, as the file's text; `now` stamps each event, `room` makes their ids unique */
 export function calendarOf(
@@ -131,7 +134,7 @@ export function calendarOf(
         ...(s.mapsUrl === null ? [] : [`URL:${s.mapsUrl}`]),
       ],
     })),
-    ...notes.filter(isShown).map((n) => noteEvent(n, words)),
+    ...notes.flatMap(shown).map((n) => noteEvent(n, words)),
   ];
   const lines = [
     "BEGIN:VCALENDAR",

@@ -19,8 +19,10 @@ const NEXT_STATUS: Record<NoteStatus, NoteStatus> = { idea: "fixed", fixed: "don
 /** Maybe -> Confirmed -> Done -> Maybe */
 export const cycleStatus = (s: Schedule): Schedule => ({ ...s, status: NEXT_STATUS[s.status] });
 
-const isMemo = (n: Note): n is Memo => n.kind === "memo";
-const isScheduled = (n: Note): n is Scheduled => isMemo(n) && n.schedule !== null;
+const isMemo = (n: Note) => n.kind === "memo";
+/** A memo on a day as one, for a flatMap: built with its schedule, so its type is checked, not claimed */
+const scheduled = (n: Note): Scheduled[] =>
+  n.kind === "memo" && n.schedule !== null ? [{ ...n, schedule: n.schedule }] : [];
 const onDay = (n: Memo, date: Temporal.PlainDate) => n.schedule?.date.equals(date) ?? false;
 const isFixed = (n: Memo) => n.schedule?.status === "fixed";
 // Only the clock orders a day; untimed items ("Anytime") go last. Ties keep the list's own order,
@@ -43,7 +45,7 @@ export const unassigned = (notes: Note[]) =>
 /** A day's memos in time order, optionally only those with `status` */
 export const forDay = (notes: Note[], date: Temporal.PlainDate, status?: NoteStatus) =>
   notes
-    .filter(isScheduled)
+    .flatMap(scheduled)
     .filter(
       (n) => n.schedule.date.equals(date) && (status === undefined || n.schedule.status === status),
     )
