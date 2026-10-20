@@ -377,7 +377,6 @@ export function checkSuggestions(input: unknown, taken: ReadonlySet<string>): st
   return out;
 }
 
-const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 /** Words as Claude wrote them, trimmed and cut to `max` */
 const text = (max: number) =>
   v.pipe(
@@ -396,7 +395,7 @@ const ProposalSchema = v.object({
         v.object({
           id: v.string(),
           // a time that is not HH:MM is no time
-          time: v.fallback(v.nullable(v.pipe(v.string(), v.regex(TIME))), null),
+          time: v.fallback(v.nullable(v.pipe(v.string(), v.isoTime())), null),
           // and minutes that are not a whole number within a day are none
           minutes: v.fallback(
             v.nullable(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(24 * 60))),

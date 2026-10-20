@@ -51,6 +51,9 @@ const YOUTUBE = /^(?:www\.|m\.)?youtube\.com$|^youtu\.be$/;
 /** A YouTube page's video, named as its oEmbed wants the page */
 const isYouTube = (u: URL) => YOUTUBE.test(u.hostname);
 
+/** A video's id as YouTube writes one: its URL-safe letters, 6 to 20 of them */
+const VideoIdSchema = v.pipe(v.string(), v.nanoid(), v.minLength(6), v.maxLength(20));
+
 /**
  * A video's one address, whatever form it was shared in (youtu.be/<id>, /watch?v=<id>,
  * /shorts/<id>, /live/<id>); the address as given when it names no video
@@ -60,9 +63,7 @@ export function youtubeWatch(u: URL): string {
     u.hostname === "youtu.be"
       ? u.pathname.slice(1).split("/")[0]
       : (u.searchParams.get("v") ?? /^\/(?:shorts|live|embed)\/([^/]+)/.exec(u.pathname)?.[1]);
-  return id !== undefined && /^[A-Za-z0-9_-]{6,20}$/.test(id)
-    ? `https://www.youtube.com/watch?v=${id}`
-    : u.href;
+  return v.is(VideoIdSchema, id) ? `https://www.youtube.com/watch?v=${id}` : u.href;
 }
 
 /** The site a page is on, as it reads: its host without `www.` */

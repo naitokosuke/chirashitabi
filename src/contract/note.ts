@@ -1,6 +1,6 @@
 import * as v from "valibot";
 
-export const NoteIdSchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{1,64}$/), v.brand("NoteId"));
+export const NoteIdSchema = v.pipe(v.string(), v.nanoid(), v.maxLength(64), v.brand("NoteId"));
 
 export type NoteId = v.InferOutput<typeof NoteIdSchema>;
 

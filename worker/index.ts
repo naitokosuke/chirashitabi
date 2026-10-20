@@ -784,7 +784,7 @@ export default new Hono<{ Bindings: Env }>()
 const bookletUrl = (env: Env, slug: string) => `https://${env.BOOKLET_HOST}/r/${slug}/shiori`;
 
 /** A slug as newSlug() makes one; anything else is no booklet, and R2 is not asked */
-const SLUG = /^[A-Za-z0-9_-]{22}$/;
+const SlugSchema = v.pipe(v.string(), v.nanoid(), v.length(22));
 
 /** What every answer on the public host says: not for search engines, not for sniffing */
 const PUBLIC_HEADERS = {
@@ -811,7 +811,7 @@ async function booklet(env: Env, req: Request): Promise<Response> {
       headers: { ...PUBLIC_HEADERS, "Content-Type": "text/plain; charset=utf-8" },
     });
   const slug = /^\/r\/([^/]+)\/shiori$/.exec(pathname)?.[1];
-  if (slug === undefined || !SLUG.test(slug)) return notFound();
+  if (slug === undefined || !v.is(SlugSchema, slug)) return notFound();
   const object = await env.IMAGES.get(bookletKey(slug));
   if (object === null) return notFound();
   return new Response(req.method === "HEAD" ? null : object.body, {

@@ -1,11 +1,8 @@
 import * as v from "valibot";
 
-const KNOWN = new Set(Intl.supportedValuesOf("currency"));
-
 /** An ISO 4217 code this runtime can format: "TWD", "JPY", … */
 export const CurrencyCodeSchema = v.pipe(
-  v.string(),
-  v.check((code) => KNOWN.has(code)),
+  v.picklist(Intl.supportedValuesOf("currency")),
   v.brand("CurrencyCode"),
 );
 

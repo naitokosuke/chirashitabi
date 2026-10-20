@@ -7,7 +7,7 @@ export const EmailSchema = v.pipe(
   v.string(),
   v.maxLength(254),
   v.trim(),
-  v.regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
+  v.rfcEmail(),
   v.toLowerCase(),
   v.brand("Email"),
 );
@@ -32,8 +32,10 @@ if (import.meta.vitest !== undefined) {
       expect(parseEmail(`${local}@example.com`)).not.toBeNull();
       expect(parseEmail(`${" ".repeat(10)}${local}@example.com`)).toBeNull();
     });
+    test("what RFC 5322 lets a local part hold", () =>
+      expect(parseEmail("o'brien+trip@example.com")).toBe("o'brien+trip@example.com"));
     test("not an address", () => {
-      expect(parseEmail("pat@example")).toBeNull();
+      expect(parseEmail("pat@")).toBeNull();
       expect(parseEmail("pat @example.com")).toBeNull();
       expect(parseEmail(undefined)).toBeNull();
     });

@@ -6,6 +6,8 @@
  *
  * Every type here is what its schema puts out, so a type cannot say more than its check.
  */
+import { Temporal } from "temporal-polyfill-lite";
+
 import * as v from "valibot";
 
 import { HexColorSchema } from "../shared/color";
@@ -51,31 +53,41 @@ const finite = (max = COORD) => v.pipe(v.number(), v.finite(), v.minValue(-max),
 const count = (max: number) => v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(max));
 const scale = () => v.pipe(v.number(), v.finite(), v.minValue(MIN_SCALE), v.maxValue(MAX_SCALE));
 
-/** A day the calendar has, as YYYY-MM-DD */
-const isDay = (s: string) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
-  const d = new Date(`${s}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(s);
-};
-/** A time of day as HH:MM or HH:MM:SS */
-const isTimeOfDay = (s: string) => {
-  const m = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(s);
-  return m !== null && Number(m[1]) < 24 && Number(m[2]) < 60 && Number(m[3] ?? 0) < 60;
-};
+// Valibot's iso* actions say a value is written as one; Temporal says the calendar has it (no
+// February 31st), reading it as the app will when it revives it
+
+/** Whether Temporal reads the value, `from` being one of its types' */
+const reads = (from: (s: string) => unknown) =>
+  v.check((s: string) => {
+    try {
+      from(s);
+      return true;
+    } catch {
+      return false;
+    }
+  });
 
 /** A day as it travels: YYYY-MM-DD, a day the calendar has */
-export const IsoDateSchema = v.pipe(v.string(), v.check(isDay), v.brand("IsoDate"));
+export const IsoDateSchema = v.pipe(
+  v.string(),
+  v.isoDate(),
+  reads(Temporal.PlainDate.from),
+  v.brand("IsoDate"),
+);
 export type IsoDate = v.InferOutput<typeof IsoDateSchema>;
 
 /** A time of day as it travels: HH:MM or HH:MM:SS */
-export const IsoTimeSchema = v.pipe(v.string(), v.check(isTimeOfDay), v.brand("IsoTime"));
+export const IsoTimeSchema = v.pipe(
+  v.union([v.pipe(v.string(), v.isoTime()), v.pipe(v.string(), v.isoTimeSecond())]),
+  reads(Temporal.PlainTime.from),
+  v.brand("IsoTime"),
+);
 export type IsoTime = v.InferOutput<typeof IsoTimeSchema>;
 
 /** A local date and time as it travels: YYYY-MM-DDTHH:MM, seconds optional (as Temporal writes one) */
 export const IsoDateTimeSchema = v.pipe(
-  v.string(),
-  v.regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/),
-  v.check((s) => isDay(s.slice(0, 10)) && isTimeOfDay(s.slice(11))),
+  v.union([v.pipe(v.string(), v.isoDateTime()), v.pipe(v.string(), v.isoDateTimeSecond())]),
+  reads(Temporal.PlainDateTime.from),
   v.brand("IsoDateTime"),
 );
 export type IsoDateTime = v.InferOutput<typeof IsoDateTimeSchema>;
@@ -85,12 +97,13 @@ export const IsoInstantSchema = v.pipe(
   v.string(),
   v.isoTimestamp(),
   v.endsWith("Z"),
+  reads(Temporal.Instant.from),
   v.brand("IsoInstant"),
 );
 export type IsoInstant = v.InferOutput<typeof IsoInstantSchema>;
 
 /** The client's id for one of its mutations, which the room's answer names */
-export const CidSchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{1,64}$/), v.brand("Cid"));
+export const CidSchema = v.pipe(v.string(), v.nanoid(), v.maxLength(64), v.brand("Cid"));
 export type Cid = v.InferOutput<typeof CidSchema>;
 
 const ColorSchema = v.picklist(COLORS);
@@ -492,4 +505,33 @@ export function parseMutation(
   )
     return null;
   return m.type === "note:add" ? { type: "note:add", note: { ...m.note, ...stamp } } : m;
+}
+
+if (import.meta.vitest !== undefined) {
+  const { describe, expect, test } = import.meta.vitest;
+
+  describe("dates and times", () => {
+    test("a day the calendar has", () => {
+      expect(v.is(IsoDateSchema, "2028-02-29")).toBe(true);
+      expect(v.is(IsoDateSchema, "2026-02-29")).toBe(false);
+      expect(v.is(IsoDateSchema, "2026-04-31")).toBe(false);
+      expect(v.is(IsoDateSchema, "20261020")).toBe(false);
+    });
+    test("a time of day, seconds or not", () => {
+      expect(v.is(IsoTimeSchema, "09:30")).toBe(true);
+      expect(v.is(IsoTimeSchema, "23:59:59")).toBe(true);
+      expect(v.is(IsoTimeSchema, "24:00")).toBe(false);
+      expect(v.is(IsoTimeSchema, "09:30:00.5")).toBe(false);
+    });
+    test("a date and time on a day the calendar has", () => {
+      expect(v.is(IsoDateTimeSchema, "2026-10-20T09:30")).toBe(true);
+      expect(v.is(IsoDateTimeSchema, "2026-10-20T09:30:15")).toBe(true);
+      expect(v.is(IsoDateTimeSchema, "2026-02-31T09:30")).toBe(false);
+    });
+    test("an instant in UTC, on a day the calendar has", () => {
+      expect(v.is(IsoInstantSchema, "2026-10-20T09:30:00.123Z")).toBe(true);
+      expect(v.is(IsoInstantSchema, "2026-10-20T09:30:00+09:00")).toBe(false);
+      expect(v.is(IsoInstantSchema, "2026-02-31T09:30:00Z")).toBe(false);
+    });
+  });
 }
