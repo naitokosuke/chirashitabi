@@ -2,7 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import { currencyCode } from "../../shared/money";
+import { parseCurrencyCode } from "../../shared/money";
 
 import { airportsOf } from "../place/airports";
 import type { HttpUrl } from "../place/google-maps";
@@ -36,7 +36,7 @@ const out = {
 const trip: TripSnapshot = {
   name: "Taiwan trip",
   days: [0, 1, 2, 3].map((i) => ({ date: first.add({ days: i }), intro: "" })),
-  currency: currencyCode("TWD")!,
+  currency: parseCurrencyCode("TWD")!,
   center: { lat: 25, lng: 121 },
   flights: { out, back: null },
   stays: [

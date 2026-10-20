@@ -1,5 +1,7 @@
 import * as v from "valibot";
 
+import { parserOf } from "./parse";
+
 // The schema trims and lowercases, so its output is not what was given: a parse, never a
 // `value is` guard
 
@@ -16,10 +18,7 @@ export const EmailSchema = v.pipe(
 export type Email = v.InferOutput<typeof EmailSchema>;
 
 /** The address, or null when it is not shaped like one; whether it reaches anyone is not checked */
-export const parseEmail = (value: unknown): Email | null => {
-  const result = v.safeParse(EmailSchema, value);
-  return result.success ? result.output : null;
-};
+export const parseEmail = parserOf(EmailSchema);
 
 if (import.meta.vitest !== undefined) {
   const { describe, expect, test } = import.meta.vitest;

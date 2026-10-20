@@ -19,4 +19,4 @@ export {
   type HttpUrl,
   type LatLng,
 } from "../src/contract/place";
-export { roomId, RoomIdSchema, type RoomId } from "../src/contract/room";
+export { parseRoomId, RoomIdSchema, type RoomId } from "../src/contract/room";

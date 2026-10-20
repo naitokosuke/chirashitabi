@@ -54,7 +54,7 @@ import type { MemberId } from "../members/types";
 import { useMembers } from "../members/useMembers";
 import {
   googleMapsLink,
-  httpUrl,
+  parseHttpUrl,
   isShortMapsLink,
   parseMapsUrl,
   placeFromUrl,
@@ -67,6 +67,7 @@ import { useSync } from "../sync/useSync";
 import { FITS_AT, fits, likeness, rankTags, type TagOption } from "../tags/rank";
 import { useTags } from "../tags/useTags";
 import { durationChoices, durationMessage } from "../trip/format";
+import type { OverBudget } from "../worker/types";
 import { useWorker } from "../worker/useWorker";
 
 import { imageSrc, shrinkImage } from "./image";
@@ -134,7 +135,11 @@ function bookingOf(): Booking | null {
       state: "needed",
       by: bookingBy.value === "" ? null : Temporal.PlainDate.from(bookingBy.value),
     };
-  return { state: "booked", code: bookingCode.value.trim(), url: httpUrl(bookingUrl.value.trim()) };
+  return {
+    state: "booked",
+    code: bookingCode.value.trim(),
+    url: parseHttpUrl(bookingUrl.value.trim()),
+  };
 }
 function clearBooking() {
   bookingState.value = "none";
@@ -169,7 +174,7 @@ function onMapsUrl() {
   // that one, unless something else was pasted meanwhile
   expanding.value = true;
   api
-    .expandLink(short, i18n.locale === "en" ? "en" : "ja")
+    .expandLink(short, i18n.locale)
     .then((answer) => {
       // past the budget the short link stays, as when it could not be read
       if (!answer.ok) return;
@@ -193,7 +198,7 @@ type LinkState =
   | { kind: "idle" }
   | { kind: "fetching" }
   | { kind: "found"; site: string }
-  | { kind: "none" | "failed" | "place" | "day" | "trip" };
+  | { kind: "none" | "failed" | "place" | OverBudget["ceiling"] };
 const linkState = shallowRef<LinkState>({ kind: "idle" });
 const LINK_STATE = {
   fetching: "form.linkFetching",
@@ -211,7 +216,7 @@ let previewedFrom = "";
  */
 function onLink() {
   const raw = link.value.trim();
-  const url = httpUrl(raw);
+  const url = parseHttpUrl(raw);
   if (url === null || url === previewedFrom) return;
   if (
     isShortMapsLink(url) ||
@@ -288,7 +293,7 @@ function removePhoto() {
 }
 
 // ---- tags Clef finds fitting: asked by itself once the words settle, or with a tap at first ----
-type TagState = "idle" | "asking" | "none" | "failed" | "day" | "trip";
+type TagState = "idle" | "asking" | "none" | "failed" | OverBudget["ceiling"];
 const tagState = ref<TagState>("idle");
 const TAG_STATE = {
   asking: "form.tagsAsking",
@@ -466,7 +471,7 @@ onBeforeUnmount(() => clearTimeout(resort));
 /** The places found to choose from, or what the ask is doing or why it found none */
 type Places =
   | { kind: "idle"; found: FoundPlace[] }
-  | { kind: "asking" | "none" | "failed" | "day" | "trip" };
+  | { kind: "asking" | "none" | "failed" | OverBudget["ceiling"] };
 const places = shallowRef<Places>({ kind: "idle", found: [] });
 const PLACE_STATE = {
   asking: "form.placesAsking",
@@ -487,7 +492,7 @@ async function findPlaces() {
       title,
       body,
       tags: [...form.value.tags, ...inline],
-      lang: i18n.locale === "en" ? "en" : "ja",
+      lang: i18n.locale,
     });
     if (!answer.ok) places.value = { kind: answer.reason.ceiling };
     else if (answer.value.length === 0) places.value = { kind: "none" };
@@ -525,7 +530,7 @@ function nameThePin() {
   if (api === null) return;
   naming.value = true;
   api
-    .whereIs(at, i18n.locale === "en" ? "en" : "ja")
+    .whereIs(at, i18n.locale)
     .then((place) => {
       if (place === null) return;
       if (mapsUrl.value === auto) {
@@ -632,7 +637,7 @@ function submit() {
     image: form.value.image,
     minutes: form.value.minutes,
     hours: hours.value.trim() === "" ? null : hours.value.trim(),
-    link: httpUrl(link.value.trim()),
+    link: parseHttpUrl(link.value.trim()),
     booking: bookingOf(),
     // a day and someone only while it is a to-do (or, for someone, still to book)
     due: isTodo.value && due.value !== "" ? Temporal.PlainDate.from(due.value) : null,

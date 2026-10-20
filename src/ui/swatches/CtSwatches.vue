@@ -1,4 +1,4 @@
-<script setup lang="ts" vapor>
+<script setup lang="ts" generic="C extends string" vapor>
 import { useTemplateRef } from "vue";
 
 import CtIndicator, { useIndicator } from "../indicator/CtIndicator.vue";
@@ -7,8 +7,8 @@ import CtIndicator, { useIndicator } from "../indicator/CtIndicator.vue";
  * Colors to pick one of: a row of them, the chosen one ringed in ink (CtIndicator, hollow, a step
  * out). Picking another, the ring stretches across to it and contracts around it.
  */
-const props = defineProps<{ colors: readonly string[]; modelValue: string; label: string }>();
-const emit = defineEmits<{ "update:modelValue": [color: string] }>();
+const props = defineProps<{ colors: readonly C[]; modelValue: C; label: string }>();
+const emit = defineEmits<{ "update:modelValue": [color: C] }>();
 
 const root = useTemplateRef<HTMLElement>("root");
 const { chosen, ready } = useIndicator(root, () => [props.modelValue, props.colors.length]);

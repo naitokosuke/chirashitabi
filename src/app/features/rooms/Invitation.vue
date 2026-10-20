@@ -38,7 +38,9 @@ const cut = useOffline();
 const today = Temporal.Now.plainDateISO();
 
 const taken = new Set(props.room.members.map((m) => m.color.toLowerCase()));
-const color = ref<string>(MEMBER_COLORS.find((c) => !taken.has(c)) ?? MEMBER_COLORS[0]);
+const color = ref<(typeof MEMBER_COLORS)[number]>(
+  MEMBER_COLORS.find((c) => !taken.has(c)) ?? MEMBER_COLORS[0],
+);
 const profile = computed(() => profileOf(color.value));
 
 /** The owner leads the trip's people (worker/room.ts): the invitation is from their color */

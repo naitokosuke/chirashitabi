@@ -4,7 +4,7 @@ import type { Note, Scheduled } from "../notes/types";
 import type { RoomId } from "../rooms/types";
 
 import { checkOut, flightDays } from "./itinerary";
-import type { Leg, TripSnapshot } from "./types";
+import { LEGS, type Leg, type TripSnapshot } from "./types";
 
 /**
  * The trip as an iCalendar file (RFC 5545), for a phone's or a computer's own calendar: each
@@ -125,7 +125,7 @@ export function calendarOf(
   words: CalendarWords,
 ): string {
   const events: Event[] = [
-    ...(["out", "back"] as const).flatMap((leg) => flightEvent(trip, leg, words) ?? []),
+    ...LEGS.flatMap((leg) => flightEvent(trip, leg, words) ?? []),
     ...trip.stays.map((s, i) => ({
       uid: `stay-${i}`,
       lines: [

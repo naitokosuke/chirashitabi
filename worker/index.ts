@@ -26,7 +26,7 @@ import {
   MemberIdSchema,
   NoteIdSchema,
   parseMapsUrl,
-  roomId as toRoomId,
+  parseRoomId,
   type RoomId,
   RoomIdSchema,
 } from "./types";
@@ -95,7 +95,7 @@ const identify = createMiddleware<ApiEnv>(async (c, next) => {
  */
 const member = (action: string, deleted = false) =>
   createMiddleware<InRoom>(async (c, next) => {
-    const roomId = toRoomId(c.req.param("roomId"));
+    const roomId = parseRoomId(c.req.param("roomId"));
     if (roomId === null) return c.text("Not Found", 404);
     const memberId = await c.env.ROOMS.getByName("index").resolve(c.var.email, roomId, deleted);
     if (memberId === null) return c.text("Forbidden", 403);

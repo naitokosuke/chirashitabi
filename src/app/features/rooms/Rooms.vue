@@ -93,24 +93,24 @@ async function takeOff(r: RoomSummary) {
  * The deleted shelf, one thing at a time: a trip being brought back or gone for good, or which
  * of the two did not go through last
  */
+type ShelfWork = "restoring" | "purging";
 type Shelf =
   | { kind: "idle" }
-  | { kind: "restoring" | "purging"; id: RoomId }
-  | { kind: "failed"; what: "restore" | "purge" };
+  | { kind: ShelfWork; id: RoomId }
+  | { kind: "failed"; what: ShelfWork };
 const shelf = shallowRef<Shelf>({ kind: "idle" });
 const busyWithDeleted = computed(
   () => shelf.value.kind === "restoring" || shelf.value.kind === "purging",
 );
-const shelfFailed = (what: "restore" | "purge") =>
-  shelf.value.kind === "failed" && shelf.value.what === what;
-async function onShelf(kind: "restoring" | "purging", id: RoomId, run: () => Promise<unknown>) {
+const shelfFailed = (what: ShelfWork) => shelf.value.kind === "failed" && shelf.value.what === what;
+async function onShelf(kind: ShelfWork, id: RoomId, run: () => Promise<unknown>) {
   if (busyWithDeleted.value) return;
   shelf.value = { kind, id };
   try {
     await run();
     shelf.value = { kind: "idle" };
   } catch {
-    shelf.value = { kind: "failed", what: kind === "restoring" ? "restore" : "purge" };
+    shelf.value = { kind: "failed", what: kind };
   }
 }
 /** A deleted trip back on the shelf */
@@ -274,10 +274,10 @@ function retry() {
           <!-- trips their owner deleted, kept a while in case it was a slip; either person brings one back -->
           <section v-if="mine !== undefined && mine.deleted.length > 0">
             <CtHeading>{{ i18n.t("rooms.deleted") }}</CtHeading>
-            <CtMessage v-if="shelfFailed('restore')" boxed class="notice" role="alert">{{
+            <CtMessage v-if="shelfFailed('restoring')" boxed class="notice" role="alert">{{
               i18n.t("rooms.restoreFailed")
             }}</CtMessage>
-            <CtMessage v-if="shelfFailed('purge')" boxed class="notice" role="alert">{{
+            <CtMessage v-if="shelfFailed('purging')" boxed class="notice" role="alert">{{
               i18n.t("rooms.purgeFailed")
             }}</CtMessage>
             <CtPanel as="ul" pad="none">

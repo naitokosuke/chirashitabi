@@ -1,6 +1,7 @@
 import * as v from "valibot";
 
 import { listOf } from "../shared/list";
+import { parserOf } from "../shared/parse";
 
 import rows from "./airports-data.json";
 
@@ -108,10 +109,7 @@ const AirportCodeOnListSchema = v.pipe(
 );
 
 /** A code on the list, exactly as the app writes it, or null */
-export const parseAirportCode = (value: unknown): AirportCode | null => {
-  const result = v.safeParse(AirportCodeOnListSchema, value);
-  return result.success ? result.output : null;
-};
+export const parseAirportCode = parserOf(AirportCodeOnListSchema);
 
 /**
  * The airport a flight kept before codes were required names (a code in any case, a name, or a

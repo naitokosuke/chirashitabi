@@ -1,4 +1,4 @@
-<script setup lang="ts" vapor>
+<script setup lang="ts" generic="T extends string | number" vapor>
 import { useTemplateRef } from "vue";
 
 /**
@@ -11,7 +11,7 @@ import { useTemplateRef } from "vue";
  * clock glyph to crowd them. On paper (.on-paper) its edge and fill are the paper's.
  */
 const { size = "md" } = defineProps<{ size?: "md" | "sm" }>();
-const model = defineModel<string | number>({ required: true });
+const model = defineModel<T>({ required: true });
 
 const el = useTemplateRef<HTMLInputElement>("el");
 defineExpose({ focus: () => el.value?.focus() });

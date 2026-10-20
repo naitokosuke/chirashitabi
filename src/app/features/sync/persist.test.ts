@@ -2,8 +2,8 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import { hexColor } from "../../shared/color";
-import { currencyCode } from "../../shared/money";
+import { parseHexColor } from "../../shared/color";
+import { parseCurrencyCode } from "../../shared/money";
 
 import type { MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
@@ -71,7 +71,7 @@ const room: RoomState = {
   trip: {
     name: "Taiwan trip",
     days: [{ date: Temporal.PlainDate.from("2026-11-03"), intro: "Xiaolongbao" }],
-    currency: currencyCode("TWD")!,
+    currency: parseCurrencyCode("TWD")!,
     center: { lat: 25.05, lng: 121.54 },
     flights: {
       out: {
@@ -99,7 +99,7 @@ const room: RoomState = {
       kind: "person",
       role: "owner",
       name: "Yuki",
-      color: hexColor("#3c6ee0")!,
+      color: parseHexColor("#3c6ee0")!,
     },
   ],
 };

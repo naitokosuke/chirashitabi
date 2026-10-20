@@ -85,7 +85,7 @@ import { siteOf } from "../../../features/notes/links";
 import { type FormTarget, type NoteInput, type TextBox } from "../../../features/notes/types";
 import { useNotes, type Shape } from "../../../features/notes/useNotes";
 import {
-  httpUrl,
+  parseHttpUrl,
   isShortMapsLink,
   placeFromUrl,
   type HttpUrl,
@@ -605,7 +605,7 @@ async function askForIdeas() {
   asking.value = { kind: "closed" };
   try {
     const answer = await suggestAt({
-      at: { x: at.x, y: at.y },
+      at,
       ask: askWords.value,
       about: a.kind === "note" ? a.about.id : null,
     });
@@ -675,7 +675,7 @@ function onPaste(e: ClipboardEvent) {
     void stick(file);
     return;
   }
-  const url = httpUrl(e.clipboardData?.getData("text/plain").trim());
+  const url = parseHttpUrl(e.clipboardData?.getData("text/plain").trim());
   if (url === null) return;
   e.preventDefault();
   void linkCard(url);

@@ -2,7 +2,7 @@ import type { LatLng } from "../place/types";
 
 import {
   COLORS,
-  tagOf,
+  parseTag,
   type Memo,
   type Note,
   type NoteInput,
@@ -95,7 +95,7 @@ export const noteText = (input: Pick<NoteInput, "title" | "body">) =>
   [input.title, input.body].filter(Boolean).join("\n");
 
 /** "#Food " -> "Food"; null for what is no tag (blank, or longer than the room keeps) */
-export const normalizeTag = (raw: string): Tag | null => tagOf(raw.replace(/^#/, "").trim());
+export const normalizeTag = (raw: string): Tag | null => parseTag(raw.replace(/^#/, "").trim());
 
 /**
  * The first line is the title, the rest the body. `#tags` anywhere become
@@ -105,10 +105,10 @@ export const normalizeTag = (raw: string): Tag | null => tagOf(raw.replace(/^#/,
 export function parseNoteText(text: string): Pick<NoteInput, "title" | "body" | "tags"> {
   const [first = "", ...rest] = text.trim().split("\n");
   // a word too long for the room is left in the words, not made a tag it would refuse
-  const tags = [...text.matchAll(/#([^\s#]+)/g)].flatMap(([, word]) => tagOf(word) ?? []);
+  const tags = [...text.matchAll(/#([^\s#]+)/g)].flatMap(([, word]) => parseTag(word) ?? []);
   const strip = (line: string) =>
     line
-      .replace(/#([^\s#]+)/g, (whole, word: string) => (tagOf(word) === null ? whole : ""))
+      .replace(/#([^\s#]+)/g, (whole, word: string) => (parseTag(word) === null ? whole : ""))
       .replace(/[ \t]{2,}/g, " ")
       .trim();
   const stripped = strip(first);

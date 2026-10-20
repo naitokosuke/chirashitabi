@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import type { Result } from "../../shared/result";
 
 import { findAirport, type Airport } from "../place/airports";
-import { httpUrl, parseMapsUrl } from "../place/google-maps";
+import { parseHttpUrl, parseMapsUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
 
@@ -97,7 +97,7 @@ export function stayOf(f: StayForm): Result<Stay, "name" | "nights" | "check-in"
   const link = f.mapsUrl.trim();
   if (link === "") return { ok: true, value: { ...stay, mapsUrl: null, pin: null } };
   // only a link the room takes: one it would refuse is not one yet
-  const url = httpUrl(link);
+  const url = parseHttpUrl(link);
   if (url === null) return { ok: false, reason: "link" };
   return { ok: true, value: { ...stay, mapsUrl: url, pin: parseMapsUrl(url) ?? f.pin } };
 }

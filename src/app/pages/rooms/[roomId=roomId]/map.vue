@@ -42,9 +42,11 @@ import { formatMoney } from "../../../shared/money";
 
 import { useI18n } from "../../../i18n/useI18n";
 
+import type { Pt } from "../../../features/canvas/transform";
 import { paperOf } from "../../../features/members/paper";
 import { useMembers } from "../../../features/members/useMembers";
-import type { FormTarget, Memo, Note } from "../../../features/notes/types";
+import type { NoteId } from "../../../features/notes/id";
+import type { FormTarget, Note } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
 import { findAirport, type Airport } from "../../../features/place/airports";
 import { placeLink } from "../../../features/place/google-maps";
@@ -88,9 +90,9 @@ const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 const el = useTemplateRef<HTMLElement>("el");
 /** How long a press is held to write a memo there; where it is held, while it is */
 const HOLD_MS = 500;
-const holding = ref<{ x: number; y: number } | null>(null);
+const holding = ref<Pt | null>(null);
 /** The pin whose card is open, by id: the note object is replaced whenever it changes */
-const selectedId = ref<string | null>(null);
+const selectedId = ref<NoteId | null>(null);
 const selected = computed(
   (): Pinned | null => pinnedOf(notes.value ?? []).find((n) => n.id === selectedId.value) ?? null,
 );
@@ -109,7 +111,7 @@ const selectedLink = computed(() => (selected.value === null ? null : placeLink(
 const STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
 let map: MLMap | null = null;
-const markers = new Map<string, Marker>();
+const markers = new Map<NoteId, Marker>();
 
 onMounted(() => {
   if (el.value === null) return;
@@ -158,9 +160,9 @@ onMounted(() => {
   // a long press of a finger writes a new memo pinned where it was held, and a ring fills at the
   // point while it is held, so holding visibly does something; with a mouse it is a right click
   let t: number | undefined;
-  let start: { x: number; y: number } | null = null;
+  let start: Pt | null = null;
   let held = false;
-  function hold(point: { x: number; y: number }, at: LatLng) {
+  function hold(point: Pt, at: LatLng) {
     cancelHold();
     start = point;
     holding.value = point;
@@ -171,7 +173,7 @@ onMounted(() => {
       write(at);
     }, HOLD_MS);
   }
-  function moved(point: { x: number; y: number }) {
+  function moved(point: Pt) {
     if (start !== null && Math.hypot(point.x - start.x, point.y - start.y) > 8) cancelHold();
   }
   function cancelHold() {
@@ -220,7 +222,7 @@ function pinEl(n: Pinned) {
 
 function syncMarkers() {
   if (map === null) return;
-  const seen = new Set<string>();
+  const seen = new Set<NoteId>();
   for (const n of pinnedOf(notes.value ?? [])) {
     seen.add(n.id);
     let m = markers.get(n.id);

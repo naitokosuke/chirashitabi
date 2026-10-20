@@ -1,14 +1,13 @@
 import * as v from "valibot";
 
+import { parserOf } from "../shared/parse";
+
 export const NoteIdSchema = v.pipe(v.string(), v.nanoid(), v.maxLength(64), v.brand("NoteId"));
 
 export type NoteId = v.InferOutput<typeof NoteIdSchema>;
 
 /** A note's id, as the device that made the note minted it (uid in useNotes.ts), or null */
-export const parseNoteId = (value: unknown): NoteId | null => {
-  const result = v.safeParse(NoteIdSchema, value);
-  return result.success ? result.output : null;
-};
+export const parseNoteId = parserOf(NoteIdSchema);
 
 if (import.meta.vitest !== undefined) {
   const { describe, expect, test } = import.meta.vitest;

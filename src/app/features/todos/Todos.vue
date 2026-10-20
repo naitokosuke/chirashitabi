@@ -4,7 +4,6 @@ import { Temporal } from "temporal-polyfill-lite";
 import { computed, ref, useId } from "vue";
 
 import {
-  CtAvatar,
   CtByline,
   CtBadge,
   CtButton,

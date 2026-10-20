@@ -2,7 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import { currencyCode } from "../../shared/money";
+import { parseCurrencyCode } from "../../shared/money";
 
 import type { NoteId } from "../notes/id";
 import type { Memo, Note } from "../notes/types";
@@ -38,7 +38,7 @@ describe("applyToTrip", () => {
   const trip: TripSnapshot = {
     name: "Taiwan trip",
     days: [{ date: d1, intro: "" }],
-    currency: currencyCode("TWD")!,
+    currency: parseCurrencyCode("TWD")!,
     center: { lat: 25, lng: 121 },
     flights: { out: null, back: null },
     stays: [],

@@ -48,7 +48,9 @@ const state = ref<"idle" | "holding" | "done">("idle");
 const size = ref({ w: 0, h: 0 });
 let frame = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
-let held: { pointer: number | null; rect: DOMRect | null } | null = null;
+/** What is holding it: a key, or a pointer, with where the button was when it went down */
+type Hold = { by: "key" } | { by: "pointer"; id: number; rect: DOMRect };
+let held: Hold | null = null;
 let observer: ResizeObserver | null = null;
 
 const stop = () => {
@@ -105,9 +107,9 @@ function drain() {
   frame = requestAnimationFrame(step);
 }
 
-function begin(pointer: number | null, rect: DOMRect | null) {
+function begin(hold: Hold) {
   if (disabled || state.value !== "idle" || held !== null) return;
-  held = { pointer, rect };
+  held = hold;
   state.value = "holding";
   watchAway(true);
   fill();
@@ -128,10 +130,10 @@ function down(e: PointerEvent) {
   } catch {
     // a pointer the browser does not hold (a synthetic one): the hold still runs, uncaptured
   }
-  begin(e.pointerId, button.getBoundingClientRect());
+  begin({ by: "pointer", id: e.pointerId, rect: button.getBoundingClientRect() });
 }
 function move(e: PointerEvent) {
-  if (held === null || held.rect === null || held.pointer !== e.pointerId) return;
+  if (held?.by !== "pointer" || held.id !== e.pointerId) return;
   const r = held.rect;
   const off =
     e.clientX < r.left - PAD ||
@@ -141,7 +143,7 @@ function move(e: PointerEvent) {
   if (off) letGo();
 }
 function up(e: PointerEvent) {
-  if (held?.pointer === e.pointerId) letGo();
+  if (held?.by === "pointer" && held.id === e.pointerId) letGo();
 }
 function keyDown(e: KeyboardEvent) {
   if (e.key === "Escape") {
@@ -150,10 +152,10 @@ function keyDown(e: KeyboardEvent) {
   }
   if (e.key !== " " && e.key !== "Enter") return;
   e.preventDefault();
-  if (!e.repeat) begin(null, null);
+  if (!e.repeat) begin({ by: "key" });
 }
 function keyUp(e: KeyboardEvent) {
-  if ((e.key === " " || e.key === "Enter") && held?.pointer === null) letGo();
+  if ((e.key === " " || e.key === "Enter") && held?.by === "key") letGo();
 }
 /** A click comes with every press; it is the hold that acts, so a click does nothing */
 const click = (e: MouseEvent) => e.preventDefault();

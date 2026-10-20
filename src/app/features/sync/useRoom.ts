@@ -11,7 +11,7 @@ import { useI18n } from "../../i18n/useI18n";
 import type { ImageId } from "../notes/id";
 import { imageSrc } from "../notes/image";
 import type { Note } from "../notes/types";
-import { roomId, type RoomId } from "../rooms/types";
+import { parseRoomId, type RoomId } from "../rooms/types";
 import { ROOMS_KEY } from "../rooms/useRooms";
 import { useToast } from "../toast/useToast";
 
@@ -196,7 +196,7 @@ export const useRoom = defineStore("room", () => {
   /** Remembered on this device so the next visit opens the same room */
   function remembered(): RoomId | null {
     try {
-      return roomId(localStorage.getItem(STORAGE_KEY));
+      return parseRoomId(localStorage.getItem(STORAGE_KEY));
     } catch {
       return null;
     }

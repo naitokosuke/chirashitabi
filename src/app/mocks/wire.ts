@@ -9,6 +9,7 @@ export {
   ProfileSchema,
   WireMemberSchema,
   WireNoteSchema,
+  WireRoomSummarySchema,
   WireTripSchema,
   type IsoInstant,
   type ServerMessage,

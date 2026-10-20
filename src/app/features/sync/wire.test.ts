@@ -2,7 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import { hexColor } from "../../shared/color";
+import { parseHexColor } from "../../shared/color";
 
 import type { NoteId } from "../notes/id";
 import type { NewMemo, Tag } from "../notes/types";
@@ -85,7 +85,7 @@ const MUTATIONS: Mutation[] = [
   { type: "note:move", id, x: 1, y: 2, rot: 3, scale: 1.5 },
   { type: "note:delete", id },
   { type: "day:intro", date: Temporal.PlainDate.from("2026-11-04"), intro: "Jiufen" },
-  { type: "member:profile", name: "Yuki", color: hexColor("#3c6ee0")! },
+  { type: "member:profile", name: "Yuki", color: parseHexColor("#3c6ee0")! },
   { type: "trip:rename", name: "Taiwan" },
   { type: "trip:dates", first: Temporal.PlainDate.from("2026-11-03"), days: 4 },
   { type: "trip:flight", leg: "out", flight },

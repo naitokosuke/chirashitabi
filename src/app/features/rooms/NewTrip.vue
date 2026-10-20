@@ -20,7 +20,7 @@ import {
   lengthOf,
 } from "../../../ui/index";
 
-import { hexColor } from "../../shared/color";
+import { parseHexColor } from "../../shared/color";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -48,9 +48,9 @@ const start = today.add({ days: 30 });
 const dates = ref<CtDateRange>({ start, end: start.add({ days: 3 }) });
 /** How many days the trip runs, 0 while its last day is still to be picked */
 const count = computed(() => lengthOf(dates.value) ?? 0);
-const currency = ref<string>(CURRENCIES[0]);
+const currency = ref<(typeof CURRENCIES)[number]>(CURRENCIES[0]);
 const currencies = CURRENCIES.map((c) => ({ value: c, label: c }));
-const color = ref<string>(MEMBER_COLORS[0]);
+const color = ref<(typeof MEMBER_COLORS)[number]>(MEMBER_COLORS[0]);
 
 /** The form as a room the Worker will take, or null while it is not one yet */
 const filled = computed(() =>
@@ -70,8 +70,8 @@ const filled = computed(() =>
 const preview = computed(() => {
   // the person, nameless, in their color; and the agent, in every trip from the start (worker/room.ts)
   const members: RoomSummary["members"] = [
-    { kind: "person" as const, name: "", color: hexColor(color.value) },
-    { kind: "agent" as const, name: "Claude", color: hexColor("#d97757") },
+    { kind: "person" as const, name: "", color: parseHexColor(color.value) },
+    { kind: "agent" as const, name: "Claude", color: parseHexColor("#d97757") },
   ].flatMap((m) => (m.color === null ? [] : [{ ...m, color: m.color }]));
   const typed = name.value.trim();
   return {
