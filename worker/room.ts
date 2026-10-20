@@ -2,8 +2,8 @@ import { DurableObject } from "cloudflare:workers";
 import * as v from "valibot";
 
 import { airportCodeOf, isAirportCode } from "./airports";
-import { renderBooklet, type Lang } from "./booklet";
-import type { PlaceContext, SuggestContext, TagContext } from "./claude";
+import { renderBooklet } from "./booklet";
+import type { DraftContext, PlaceContext, SuggestContext, TagContext } from "./claude";
 import {
   type HexColor,
   type HttpUrl,
@@ -27,6 +27,8 @@ import {
   type IsoDateTime,
   type IsoInstant,
   type IsoTime,
+  type ImageType,
+  type Lang,
   type NoteColor,
   type NoteStatus,
   type RejectReason,
@@ -66,6 +68,9 @@ const SeatIdSchema = v.pipe(v.string(), v.uuid(), v.brand("SeatId"));
 export type SeatId = v.InferOutput<typeof SeatIdSchema>;
 
 type Profile = v.InferOutput<typeof ProfileSchema>;
+
+/** A message to a member's socket, as it goes; the type checks it against what the app reads */
+const encode = (message: ServerMessage): string => JSON.stringify(message);
 
 /** Messages a member may send in a window; dragging a card sends one every 80ms */
 const RATE = { window: 10_000, max: 200 };
@@ -289,7 +294,7 @@ export class Room extends DurableObject<Env> {
   async addImage(
     by: MemberId,
     roomId: RoomId,
-    type: string,
+    type: ImageType,
     bytes: number,
   ): Promise<ImageId | null> {
     this.assertMember(by);
@@ -631,16 +636,16 @@ export class Room extends DurableObject<Env> {
 
   /** Who is in the room now, to every socket */
   private tellMembers(): void {
-    const out = JSON.stringify({
+    const out = encode({
       type: "members",
       members: this.members(),
-    } satisfies ServerMessage);
+    });
     // a socket just closed on someone removed is still listed, and takes nothing more
     for (const ws of this.ctx.getWebSockets()) if (ws.readyState === WebSocket.OPEN) ws.send(out);
   }
 
   private closeSockets(sockets: WebSocket[], reason: GoneReason): void {
-    const out = JSON.stringify({ type: "gone", reason } satisfies ServerMessage);
+    const out = encode({ type: "gone", reason });
     for (const ws of sockets) {
       ws.send(out);
       ws.close(4001, reason);
@@ -673,17 +678,14 @@ export class Room extends DurableObject<Env> {
   // ---- the agent (RPC from the Worker, inside a member's request) ----
 
   /** What the agent needs to draft `date`, asked by member `by`; null when the trip has no such day */
-  dayForDraft(
-    by: MemberId,
-    date: IsoDate,
-  ): { trip: string; currency: CurrencyCode; notes: WireMemo[] } | null {
+  dayForDraft(by: MemberId, date: IsoDate): DraftContext | null {
     this.assertMember(by);
     const trip = this.trip();
     if (!trip.days.some((d) => d.date === date)) return null;
     const notes = this.notes().filter(
       (n): n is WireMemo => n.kind === "memo" && n.schedule?.date === date,
     );
-    return { trip: trip.name, currency: trip.currency, notes };
+    return { trip: trip.name, currency: trip.currency, date, notes };
   }
 
   // ---- places: where a memo is ----
@@ -789,12 +791,12 @@ export class Room extends DurableObject<Env> {
       const result = this.apply({ type: "note:add", note }, Room.AGENT_ID, now);
       if (!result.ok) return;
       added++;
-      const out = JSON.stringify({
+      const out = encode({
         type: "mutation",
         mutation: result.value,
         by: Room.AGENT_ID,
         updatedAt: now,
-      } satisfies ServerMessage);
+      });
       for (const ws of this.ctx.getWebSockets()) ws.send(out);
     });
     return added;
@@ -843,7 +845,7 @@ export class Room extends DurableObject<Env> {
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
     this.ctx.acceptWebSocket(server, [memberId]);
-    server.send(JSON.stringify(this.snapshot(memberId)));
+    server.send(encode(this.snapshot(memberId)));
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -853,15 +855,14 @@ export class Room extends DurableObject<Env> {
     // the client's id for this mutation, once it is known: an answer names it
     let cid: Cid | null = null;
     // what could not be read names no cid; what was read and refused names it when it had one
-    const unread = (reason: UnreadReason) =>
-      ws.send(JSON.stringify({ type: "rejected", reason } satisfies ServerMessage));
+    const unread = (reason: UnreadReason) => ws.send(encode({ type: "rejected", reason }));
     const reject = (reason: RejectReason) =>
       ws.send(
-        JSON.stringify({
+        encode({
           type: "rejected",
           reason,
           ...(cid === null ? {} : { cid }),
-        } satisfies ServerMessage),
+        }),
       );
 
     if (typeof message !== "string") return unread("text only");
@@ -887,15 +888,14 @@ export class Room extends DurableObject<Env> {
       : this.apply(mutation, by, updatedAt);
     if (!result.ok) return reject(result.reason);
 
-    if (cid !== null)
-      ws.send(JSON.stringify({ type: "ack", cid, updatedAt } satisfies ServerMessage));
+    if (cid !== null) ws.send(encode({ type: "ack", cid, updatedAt }));
 
-    const out = JSON.stringify({
+    const out = encode({
       type: "mutation",
       mutation: result.value,
       by,
       updatedAt,
-    } satisfies ServerMessage);
+    });
     for (const other of this.ctx.getWebSockets()) if (other !== ws) other.send(out);
   }
 

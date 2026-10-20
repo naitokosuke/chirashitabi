@@ -84,11 +84,16 @@ const describe = (n: WireMemo) => ({
   booked: n.booking?.state === "booked",
 });
 
+/** What the agent reads to order a day: the trip, its money, the day and the memos on it */
+export interface DraftContext {
+  trip: string;
+  currency: CurrencyCode;
+  date: IsoDate;
+  notes: WireMemo[];
+}
+
 /** Asks Claude to order a day; the answer is checked against the notes it was given */
-export async function draftDay(
-  env: Env,
-  day: { trip: string; currency: CurrencyCode; date: IsoDate; notes: WireMemo[] },
-): Promise<ClaudeResult<DraftProposal>> {
+export async function draftDay(env: Env, day: DraftContext): Promise<ClaudeResult<DraftProposal>> {
   const prompt = [
     `Trip: ${day.trip}. Amounts are in ${day.currency}.`,
     `Day: ${day.date}.`,

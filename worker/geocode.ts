@@ -8,6 +8,7 @@
 import * as v from "valibot";
 
 import { listOf, type LatLng } from "./types";
+import type { Lang } from "./wire";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 export const USER_AGENT = "chirashitabi/1.0 (+https://chirashitabi.app)";
@@ -31,7 +32,7 @@ export interface Place {
 const HOURS = 255;
 
 /** The places a query finds, best first; null when the geocoder could not be asked */
-export async function geocode(env: Env, query: string, lang: "ja" | "en"): Promise<Place[] | null> {
+export async function geocode(env: Env, query: string, lang: Lang): Promise<Place[] | null> {
   const params = new URLSearchParams({
     q: query,
     format: "jsonv2",
@@ -111,7 +112,7 @@ export function placesFrom(raw: unknown): Place[] {
 export async function reverseGeocode(
   env: Env,
   at: LatLng,
-  lang: "ja" | "en",
+  lang: Lang,
 ): Promise<{ place: Place | null } | null> {
   const params = new URLSearchParams({
     lat: String(at.lat),
