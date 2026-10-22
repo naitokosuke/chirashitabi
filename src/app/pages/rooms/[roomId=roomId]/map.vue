@@ -182,6 +182,8 @@ onMounted(() => {
     holding.value = null;
   }
   map.on("touchstart", (e) => {
+    // a new touch: a long press before it that brought no click has nothing left to swallow
+    held = false;
     if (e.originalEvent.touches.length !== 1) return cancelHold();
     hold(e.point, { lat: e.lngLat.lat, lng: e.lngLat.lng });
   });

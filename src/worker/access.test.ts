@@ -36,8 +36,13 @@ const b64url = (data: Uint8Array | string) => {
 const NOW = 1_800_000_000_000;
 const seconds = (ms: number) => Math.floor(ms / 1000);
 
-async function sign(claims: Record<string, unknown>, kid = KID, key = privateKey) {
-  const h = b64url(JSON.stringify({ alg: "RS256", kid, typ: "JWT" }));
+async function sign(
+  claims: Record<string, unknown>,
+  kid = KID,
+  key = privateKey,
+  header: Record<string, unknown> = { alg: "RS256", kid, typ: "JWT" },
+) {
+  const h = b64url(JSON.stringify(header));
   const p = b64url(JSON.stringify(claims));
   const sig = await crypto.subtle.sign(
     { name: "RSASSA-PKCS1-v1_5" },
@@ -119,16 +124,50 @@ describe("identify", () => {
     );
   });
 
-  test("caches the keys and refetches on an unknown kid", async () => {
-    const c = certs([jwk]);
-    const v = new AccessVerifier({ teamDomain: TEAM, aud: AUD }, c.fetchImpl, () => NOW);
+  test("caches the keys, and refetches on an unknown kid at most once a minute", async () => {
+    // the team rotates its key: the certs serve the new one beside the old after the first fetch
+    const rotated = await generate();
+    const served = [jwk];
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls++;
+      return Response.json({
+        keys: served.map((k, i) => ({ ...k, kid: i === 0 ? KID : "kid-rotated" })),
+      });
+    }) as unknown as typeof fetch;
+    let now = NOW;
+    const v = new AccessVerifier({ teamDomain: TEAM, aud: AUD }, fetchImpl, () => now);
     await v.verify(await sign(good()));
     await v.verify(await sign(good()));
-    expect(c.calls()).toBe(1);
-    await expect(v.verify(await sign(good(), "kid-rotated"))).rejects.toBeInstanceOf(
+    expect(calls).toBe(1);
+
+    served.push((await crypto.subtle.exportKey("jwk", rotated.publicKey)) as JsonWebKey);
+    const signedByNew = () => sign(good(), "kid-rotated", rotated.privateKey);
+    // within a minute of the last fetch, an unknown kid does not refetch
+    await expect(v.verify(await signedByNew())).rejects.toBeInstanceOf(Unauthenticated);
+    expect(calls).toBe(1);
+    // a minute on, it does, and the new key verifies
+    now = NOW + 60 * 1000;
+    expect(await v.verify(await signedByNew())).toBe("me@example.com");
+    expect(calls).toBe(2);
+  });
+
+  test.each([
+    ["an alg other than RS256", { alg: "HS256", kid: KID, typ: "JWT" }],
+    ["no alg", { kid: KID, typ: "JWT" }],
+    ["no kid", { alg: "RS256", typ: "JWT" }],
+  ])("rejects a token with %s in its header", async (_, header) => {
+    const v = new AccessVerifier({ teamDomain: TEAM, aud: AUD }, certs([jwk]).fetchImpl, () => NOW);
+    await expect(v.verify(await sign(good(), KID, privateKey, header))).rejects.toBeInstanceOf(
       Unauthenticated,
     );
-    expect(c.calls()).toBe(1); // the unknown kid came within a minute of the last fetch
+  });
+
+  test("a part that is no base64url is unauthenticated, not an error of the Worker's", async () => {
+    const v = new AccessVerifier({ teamDomain: TEAM, aud: AUD }, certs([jwk]).fetchImpl, () => NOW);
+    const [h, p] = (await sign(good())).split(".");
+    for (const token of [`${h}.${p}.***`, `${h}.${p}.a`, `***.${p}.abc`])
+      await expect(v.verify(token)).rejects.toBeInstanceOf(Unauthenticated);
   });
 
   test("fails closed when the keys cannot be fetched", async () => {

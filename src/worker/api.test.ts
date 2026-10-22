@@ -93,7 +93,8 @@ beforeAll(async () => {
       const { status, body: out } = answer(body);
       res.statusCode = status;
       res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify(out));
+      // bytes as they are: an answer that is no JSON
+      res.end(out instanceof Uint8Array ? out : JSON.stringify(out));
     });
   });
   await new Promise<void>((resolve) => claude.listen(0, "127.0.0.1", resolve));
@@ -2370,7 +2371,8 @@ describe("places by a typed name", () => {
     }
     expect(asked.length).toBe(calls);
     expect(looked[seen]).toMatchObject({ q: "Hotel Proverbs Taipei", lang: "en" });
-  });
+    // each lookup waits its turn at the geocoder, a second apart
+  }, 15_000);
 
   test("a blank or overlong name is refused; a geocoder that fails is a 502; a stranger is not let in", async () => {
     const email = "find2@example.com";
@@ -2494,4 +2496,110 @@ describe("a short Google Maps link", () => {
     expect((await expandLink(roomId, email, { url: 42 })).status).toBe(400);
     expect((await expandLink(roomId, STRANGER, { url: long })).status).toBe(403);
   });
+});
+
+describe("a preview that is never fetched", () => {
+  test("is no preview, and costs nothing of the budget", async () => {
+    const email = "unfetched@example.com";
+    const { roomId } = await createRoom(email);
+    const seen = fetched.length;
+    for (const url of ["javascript:alert(1)", "https://10.0.0.1/x", "https://chirashitabi.app/x"])
+      expect(await (await post(`/api/rooms/${roomId}/preview`, email, { url })).json()).toEqual({
+        preview: null,
+      });
+    expect(fetched.length).toBe(seen);
+    const index = await server.getWorker().getDurableObjectStorage("RoomsIndex", { name: "index" });
+    expect(await index.exec("SELECT COUNT(*) AS n FROM spends WHERE email = ?", email)).toEqual([
+      { n: 0 },
+    ]);
+  });
+});
+
+describe("what Claude is sent, and what it answers", () => {
+  const prompt = () => (asked.at(-1) as { messages: { content: string }[] }).messages[0]!.content;
+
+  test("a day of long memos sends the latest that fit, not every word", async () => {
+    const email = "longday@example.com";
+    const { roomId } = await createRoom(email);
+    const a = await connect(roomId, email);
+    const schedule = { date: TRIP.days[0], time: null, status: "idea" };
+    for (let i = 0; i < 12; i++) {
+      a.send({
+        type: "note:add",
+        note: { ...memo(`m${i}`, `memo number ${i}`), body: "w".repeat(4000), schedule },
+        cid: `c${i}`,
+      });
+      expect((await a.next()).type).toBe("ack");
+    }
+    a.ws.close(1000, "done");
+    answer = () => ({
+      status: 200,
+      body: {
+        content: [
+          {
+            type: "tool_use",
+            id: "t1",
+            name: "propose_day",
+            input: { reason: "r", intro: "i", items: [] },
+          },
+        ],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      },
+    });
+    expect((await post(`/api/rooms/${roomId}/draft`, email, { date: TRIP.days[0] })).status).toBe(
+      200,
+    );
+    expect(prompt().length).toBeLessThan(32_000);
+    expect(prompt()).toContain("memo number 11");
+    expect(prompt()).not.toContain("memo number 0");
+  });
+
+  test("a memo's tags go to Claude as tags: at most twenty, none longer than one", async () => {
+    const email = "longtags@example.com";
+    const { roomId } = await createRoom(email);
+    answer = () => ({
+      status: 200,
+      body: {
+        content: [{ type: "tool_use", id: "t1", name: "name_place", input: { queries: [] } }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      },
+    });
+    const tags = ["t".repeat(41), ...Array.from({ length: 25 }, (_, i) => `tag${i}`)];
+    expect(
+      (await post(`/api/rooms/${roomId}/places`, email, { title: "x", tags, lang: "en" })).status,
+    ).toBe(200);
+    const memoSent = JSON.parse(prompt().split("\n")[2]!) as { tags: string[] };
+    expect(memoSent.tags).toEqual(Array.from({ length: 19 }, (_, i) => `tag${i}`));
+  });
+
+  test("a 2xx that is no JSON is a failure, and it was spent", async () => {
+    const email = "nojson@example.com";
+    const { roomId } = await createRoom(email);
+    answer = () => ({ status: 200, body: new TextEncoder().encode("{not json") });
+    expect((await post(`/api/rooms/${roomId}/suggest`, email, { at: { x: 0, y: 0 } })).status).toBe(
+      502,
+    );
+    const index = await server.getWorker().getDurableObjectStorage("RoomsIndex", { name: "index" });
+    expect(await index.exec("SELECT refunded FROM spends WHERE email = ?", email)).toEqual([
+      { refunded: 0 },
+    ]);
+  });
+});
+
+describe("the geocoder's pace", () => {
+  test("one request a second for the whole app; one that would wait too long is not sent", async () => {
+    const email = "pace@example.com";
+    const { roomId } = await createRoom(email);
+    find = () => ({ status: 200, body: [] });
+    const lookUp = () =>
+      post(`/api/rooms/${roomId}/find`, email, { query: "Taipei 101", lang: "en" });
+    const started = Date.now();
+    const [one, two] = await Promise.all([lookUp(), lookUp()]);
+    expect([one.status, two.status]).toEqual([200, 200]);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(1000);
+    // seven at once: the turns past five seconds ahead are refused, not queued
+    const statuses = (await Promise.all(Array.from({ length: 7 }, lookUp))).map((r) => r.status);
+    expect(statuses).toContain(200);
+    expect(statuses).toContain(502);
+  }, 15_000);
 });

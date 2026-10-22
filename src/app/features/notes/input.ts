@@ -4,6 +4,7 @@ import {
   COLORS,
   parseTag,
   type Memo,
+  type MemoPatch,
   type Note,
   type NoteInput,
   type Suggestion,
@@ -26,6 +27,30 @@ export const inputFromNote = (note: Memo): NoteInput => ({
   due: note.due,
   assignee: note.assignee,
 });
+
+/**
+ * What an edit changed from what the form opened on: only those fields, so what someone else
+ * changed meanwhile in the others stays. Both are the form's own, built the same way, so a field
+ * is the same when it writes out the same.
+ */
+export function changes(from: NoteInput, to: NoteInput): MemoPatch {
+  const moved = (a: unknown, b: unknown) => JSON.stringify(a) !== JSON.stringify(b);
+  return {
+    ...(moved(from.title, to.title) && { title: to.title }),
+    ...(moved(from.body, to.body) && { body: to.body }),
+    ...(moved(from.tags, to.tags) && { tags: to.tags }),
+    ...(moved(from.color, to.color) && { color: to.color }),
+    ...(moved(from.mapsUrl, to.mapsUrl) && { mapsUrl: to.mapsUrl }),
+    ...(moved(from.pin, to.pin) && { pin: to.pin }),
+    ...(moved(from.image, to.image) && { image: to.image }),
+    ...(moved(from.minutes, to.minutes) && { minutes: to.minutes }),
+    ...(moved(from.hours, to.hours) && { hours: to.hours }),
+    ...(moved(from.link, to.link) && { link: to.link }),
+    ...(moved(from.booking, to.booking) && { booking: to.booking }),
+    ...(moved(from.due, to.due) && { due: to.due }),
+    ...(moved(from.assignee, to.assignee) && { assignee: to.assignee }),
+  };
+}
 
 /** A new memo: carries the tags being filtered on, and a pin when written from the map */
 export const blankInput = (tags: Iterable<Tag>, pin: LatLng | null): NoteInput => ({
