@@ -61,15 +61,22 @@ const HOLD_MS = 600;
     :class="[`kind-${note.kind}`, `visibility-${visibility}`, { print, dragging, pop, selected }]"
     :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}`"
     :data-id="note.id"
-    :tabindex="note.kind !== 'suggestion' && visibility !== 'dimmed' ? 0 : undefined"
-    :role="note.kind !== 'suggestion' ? 'button' : 'group'"
-    :aria-label="note.kind === 'sticker'
-      ? i18n.t('canvas.sticker')
-      : note.kind !== 'suggestion'
-        ? note.title
-        : undefined"
+    :role="note.kind === 'suggestion' ? 'group' : undefined"
     :aria-labelledby="note.kind === 'suggestion' ? `${id}-strip ${id}-title` : undefined"
   >
+    <!-- what the keyboard and a screen reader take hold of: the card's face, named by its title (a
+         sticker by what it is), first, so a link on the card comes after it. It lies over the card,
+         so its focus ring is the card's, and lets every pointer through to the card beneath (the
+         canvas drives those, and puts the focus here); a link is beside it, never inside a button -->
+    <button
+      v-if="note.kind !== 'suggestion'"
+      class="face"
+      data-face
+      type="button"
+      :tabindex="visibility === 'dimmed' ? -1 : 0"
+      :aria-label="note.kind === 'sticker' ? i18n.t('canvas.sticker') : undefined"
+      :aria-labelledby="note.kind === 'sticker' ? undefined : `${id}-title`"
+    ></button>
     <!-- a slip from the agent, cut square: what it is in the strip, the proposal, what to do with it;
          its two answers are told whose they are by the slip they sit on (the group's name) -->
     <CtPaper
@@ -117,7 +124,7 @@ const HOLD_MS = 600;
       </template>
     </CtPaper>
     <!-- words on the desk itself: no paper -->
-    <p v-else-if="note.kind === 'text'" class="lettering">{{ note.title }}</p>
+    <p v-else-if="note.kind === 'text'" :id="`${id}-title`" class="lettering">{{ note.title }}</p>
     <!-- a cut-out picture on the desk itself: edged in white, no paper -->
     <img
       v-else-if="note.kind === 'sticker'"
@@ -151,7 +158,9 @@ const HOLD_MS = 600;
           @click.stop
         ><Icon :size="11" :src="externalIcon" /><span class="site">{{ siteOf(note.link) }}</span></a
         >
-        <p class="title" :class="print ? 'lines-2' : 'lines-3'">{{ note.title }}</p>
+        <p :id="`${id}-title`" class="title" :class="print ? 'lines-2' : 'lines-3'">{{
+          note.title
+        }}</p>
         <!-- the words, a few lines of them (a page's own line stays off its print, for the
              booklet); a link in them is its site, as every link on the desk is -->
         <p v-if="note.body !== '' && !(print && note.link !== null)" class="words"><template
@@ -506,6 +515,15 @@ const HOLD_MS = 600;
   height: auto;
   object-fit: contain;
   filter: var(--sticker-edge) drop-shadow(0 2px 3px rgb(0 0 0 / .2));
+}
+
+/* the card's face: the card's size, over its paper, seen only as the keyboard's ring around it */
+.face {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-float);
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 /* every frame keeps the card's translate, so it pops where it lands and never at the origin */

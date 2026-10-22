@@ -235,6 +235,8 @@ function onDown(e: PointerEvent) {
     );
     return;
   }
+  // the keyboard follows the pointer onto the card: its face (NoteCard), which lets the pointer through
+  faceOf(note)?.focus({ preventScroll: true });
   const w = toWorld(e.clientX, e.clientY);
   setGesture({
     kind: "press",
@@ -360,6 +362,8 @@ function onKey(e: KeyboardEvent) {
     else select(null);
     return;
   }
+  // a link on a card takes its own keys: Enter follows it
+  if (e.target instanceof Element && e.target.closest("a") !== null) return;
   const note = noteAt(e.target);
   if (note === undefined) return;
   if (e.key === "Delete" || e.key === "Backspace") {
@@ -424,12 +428,14 @@ const menuEl = useTemplateRef<{
   holdsFocus(): boolean;
 }>("menuEl");
 const cardEl = (note: Note) => vp.value?.querySelector<HTMLElement>(`[data-id="${note.id}"]`);
+/** What takes the keyboard on a card: its face (NoteCard); a suggestion has none, its answers do */
+const faceOf = (note: Note) => cardEl(note)?.querySelector<HTMLElement>("[data-face]");
 /** Close the menu; focus returns to its card when the keyboard was in the menu */
 function closeMenu() {
   const note = menu.value?.note;
   const hadFocus = menuEl.value?.holdsFocus() ?? false;
   menu.value = null;
-  if (note !== undefined && hadFocus) cardEl(note)?.focus();
+  if (note !== undefined && hadFocus) faceOf(note)?.focus();
 }
 /** The menu's card when it is a memo, the only kind that goes on a day */
 const menuMemo = computed(() => (menuNote.value?.kind === "memo" ? menuNote.value : null));
@@ -543,7 +549,7 @@ function remove(note: Note) {
     undo: () => {
       pendingDelete.value.delete(note.id);
       // the card comes back where the keyboard left it
-      if (hadFocus) void nextTick(() => cardEl(note)?.focus());
+      if (hadFocus) void nextTick(() => faceOf(note)?.focus());
     },
     settle: () => {
       if (pendingDelete.value.delete(note.id)) store.remove(note.id);
@@ -767,6 +773,14 @@ onBeforeUnmount(() => document.removeEventListener("paste", onPaste));
 // ignored and a trackpad pinch zooms the whole page instead of the desk
 onMounted(() => vp.value?.addEventListener("wheel", onWheel, { passive: false }));
 onBeforeUnmount(() => vp.value?.removeEventListener("wheel", onWheel));
+
+// A press on a card puts the keyboard on its face (onDown); the mouse's own default after it
+// would hand the focus back to the page, since a card itself takes none, so it is stopped
+function keepFocus(e: MouseEvent) {
+  if (noteAt(e.target) !== undefined) e.preventDefault();
+}
+onMounted(() => vp.value?.addEventListener("mousedown", keepFocus));
+onBeforeUnmount(() => vp.value?.removeEventListener("mousedown", keepFocus));
 
 // The first look (firstLook), the one a note is placed in before the canvas is opened
 onMounted(() =>
