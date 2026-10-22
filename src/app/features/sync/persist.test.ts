@@ -5,7 +5,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { parseHexColor } from "../../shared/color";
 import { parseCurrencyCode } from "../../shared/money";
 
-import type { MemberId } from "../members/types";
+import type { Email, MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
 import type { Memo, Tag } from "../notes/types";
 import type { AirportCode } from "../place/airports";
@@ -13,7 +13,7 @@ import type { HttpUrl } from "../place/google-maps";
 import type { RoomId } from "../rooms/types";
 
 import type { RoomState } from "./ledger";
-import { keep, kept } from "./persist";
+import { claim, keep, kept, prune } from "./persist";
 import type { Cid } from "./wire";
 
 const R1 = "r1" as RoomId;
@@ -157,14 +157,56 @@ describe("keep and kept", () => {
     expect(kept(storage, R1)).toBeNull();
   });
 
-  test("this version's, but not what keep() wrote: nothing", () => {
+  test("a note or a change that does not read is left out; the rest is kept", () => {
+    const storage = memoryStorage();
+    const pending = [
+      { cid: "c1" as Cid, m: { type: "note:delete" as const, id: memo.id }, at, by: YUKI },
+    ];
+    keep(storage, R1, { me: YUKI, confirmed: room, pending, savedAt: at });
+    const saved = JSON.parse(storage.getItem("chirashitabi:room:r1")!) as {
+      confirmed: { notes: unknown[] };
+      pending: unknown[];
+    };
+    saved.confirmed.notes.push({ id: "n2" });
+    saved.pending.unshift({ cid: "c0", m: { type: "no such change" }, at: at.toString() });
+    storage.setItem("chirashitabi:room:r1", JSON.stringify(saved));
+    const back = kept(storage, R1);
+    expect(back?.confirmed.notes).toEqual([memo]);
+    expect(back?.pending).toEqual(pending);
+  });
+
+  test("a newer version's save is neither read nor written over", () => {
+    const storage = memoryStorage();
+    const newer = JSON.stringify({ v: 3, anything: "else" });
+    storage.setItem("chirashitabi:room:r1", newer);
+    expect(kept(storage, R1)).toBeNull();
+    keep(storage, R1, { me: YUKI, confirmed: room, pending: [], savedAt: at });
+    expect(storage.getItem("chirashitabi:room:r1")).toBe(newer);
+  });
+
+  test("a full storage lets the other rooms go to keep this one", () => {
+    const storage = memoryStorage();
+    keep(storage, "r2" as RoomId, { me: YUKI, confirmed: room, pending: [], savedAt: at });
+    const setItem = storage.setItem.bind(storage);
+    // room for one save only
+    storage.setItem = (k, value) => {
+      if (storage.length > 0 && storage.getItem(k) === null) throw new Error("QuotaExceededError");
+      setItem(k, value);
+    };
+    keep(storage, R1, { me: YUKI, confirmed: room, pending: [], savedAt: at });
+    expect(kept(storage, R1)?.confirmed).toEqual(room);
+    expect(kept(storage, "r2" as RoomId)).toBeNull();
+  });
+
+  test("still full: the room's older save goes too, so it brings back nothing answered since", () => {
     const storage = memoryStorage();
     keep(storage, R1, { me: YUKI, confirmed: room, pending: [], savedAt: at });
-    const saved = JSON.parse(storage.getItem("chirashitabi:room:r1")!) as Record<string, unknown>;
-    storage.setItem(
-      "chirashitabi:room:r1",
-      JSON.stringify({ ...saved, confirmed: { notes: [{ id: "n1" }], trip: null, members: [] } }),
-    );
+    storage.setItem = () => {
+      throw new Error("QuotaExceededError");
+    };
+    expect(() =>
+      keep(storage, R1, { me: YUKI, confirmed: room, pending: [], savedAt: at }),
+    ).not.toThrow();
     expect(kept(storage, R1)).toBeNull();
   });
 
@@ -176,5 +218,44 @@ describe("keep and kept", () => {
     expect(() =>
       keep(full, R1, { me: YUKI, confirmed: room, pending: [], savedAt: at }),
     ).not.toThrow();
+  });
+});
+
+describe("claim and prune", () => {
+  const PAT = "pat@example.com" as Email;
+  const SAM = "sam@example.com" as Email;
+  const R2 = "r2" as RoomId;
+  const both = () => {
+    const storage = memoryStorage();
+    for (const r of [R1, R2])
+      keep(storage, r, { me: YUKI, confirmed: room, pending: [], savedAt: at });
+    return storage;
+  };
+
+  test("rooms kept before anyone was named are the first person's; theirs stay theirs", () => {
+    const storage = both();
+    expect(claim(storage, PAT)).toBe(false);
+    expect(claim(storage, PAT)).toBe(false);
+    expect(kept(storage, R1)).not.toBeNull();
+    expect(kept(storage, R2)).not.toBeNull();
+  });
+
+  test("another person signed in: every kept room goes", () => {
+    const storage = both();
+    claim(storage, PAT);
+    expect(claim(storage, SAM)).toBe(true);
+    expect(kept(storage, R1)).toBeNull();
+    expect(kept(storage, R2)).toBeNull();
+    // what is kept from now on is theirs
+    expect(claim(storage, SAM)).toBe(false);
+  });
+
+  test("only the rooms the person is in stay", () => {
+    const storage = both();
+    storage.setItem("chirashitabi:theme", "dark");
+    prune(storage, [R2]);
+    expect(kept(storage, R1)).toBeNull();
+    expect(kept(storage, R2)).not.toBeNull();
+    expect(storage.getItem("chirashitabi:theme")).toBe("dark");
   });
 });

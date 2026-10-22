@@ -29,16 +29,21 @@ export const usePublication = defineQuery(() => {
 
   return {
     publication,
-    /** Puts it up in `lang`, at a new link; the answer is the page, or the budget's refusal */
+    /**
+     * Puts it up in `lang`, at a new link; the answer is the page, or the budget's refusal. Each
+     * answer is the room's it was asked in (`onMutate`), whichever room is open when it comes.
+     */
     publish: useMutation({
+      onMutate: () => ({ room: sync.room }),
       mutation: (lang: Locale) => api().publish(lang),
-      onSuccess: (answer) => {
-        if (answer.ok) queryCache.setQueryData(roomKeys.publication(sync.room), answer.value);
+      onSuccess: (answer, _, { room }) => {
+        if (answer.ok) queryCache.setQueryData(roomKeys.publication(room), answer.value);
       },
     }),
     withdraw: useMutation({
+      onMutate: () => ({ room: sync.room }),
       mutation: () => api().withdraw(),
-      onSuccess: () => queryCache.setQueryData(roomKeys.publication(sync.room), null),
+      onSuccess: (_, __, { room }) => queryCache.setQueryData(roomKeys.publication(room), null),
     }),
   };
 });

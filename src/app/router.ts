@@ -23,10 +23,18 @@ router.beforeEach((to) => {
 });
 
 /**
+ * How long the app waits to hear whose this device's kept rooms are before drawing any: a
+ * slow answer still puts things right when it comes (useRoom's check)
+ */
+const PATIENCE = 1500;
+
+/**
  * Opening the app at its root goes where the person was: the room this device was in last.
- * Done before the app is drawn, so the list never flashes on the way.
+ * Done before the app is drawn, so the list never flashes on the way, and once the Worker has
+ * said who is signed in, so a browser another person used opens none of theirs.
  */
 export async function openWhereLeft(r: EXPERIMENTAL_Router, room: ReturnType<typeof useRoom>) {
+  await Promise.race([room.check(), new Promise((resolve) => setTimeout(resolve, PATIENCE))]);
   await r.isReady();
   if (r.currentRoute.value.path !== "/") return;
   const last = room.remembered();

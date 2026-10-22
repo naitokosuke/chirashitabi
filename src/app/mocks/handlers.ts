@@ -150,6 +150,11 @@ const roomSocket = socket.addEventListener("connection", ({ client, params }) =>
 
   client.addEventListener("message", (e) => {
     if (typeof e.data !== "string") return;
+    // the app's heartbeat, answered as the Worker's room answers it
+    if (e.data === "ping") {
+      client.send("pong");
+      return;
+    }
     const sent: unknown = JSON.parse(e.data);
     const cid = parseCid(sent);
     const at = Temporal.Now.instant();
@@ -440,6 +445,8 @@ const mine = [
   http.post("/api/me", () => {
     const entries = [...rooms];
     return HttpResponse.json({
+      // the one person the mocks sign in, as dev-access.mjs names the one on a laptop
+      email: "dev@localhost",
       rooms: entries.flatMap(([id, r]) => (r.deletedAt === null ? [summary(id, r)] : [])),
       invitations: [],
       deleted: entries.flatMap(([id, r]) =>

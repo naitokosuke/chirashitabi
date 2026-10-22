@@ -129,6 +129,8 @@ export class Room extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
+    // the app's heartbeat (features/sync/socket.ts), answered without waking the room
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
     ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS members (
         id TEXT PRIMARY KEY,

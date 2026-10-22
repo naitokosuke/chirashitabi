@@ -11,13 +11,14 @@ import { useI18n } from "../../i18n/useI18n";
 import type { ImageId } from "../notes/id";
 import { imageSrc } from "../notes/image";
 import type { Note } from "../notes/types";
-import { parseRoomId, type RoomId } from "../rooms/types";
+import { askMine } from "../rooms/api";
+import { parseRoomId, type Mine, type RoomId } from "../rooms/types";
 import { ROOMS_KEY } from "../rooms/useRooms";
 import { useToast } from "../toast/useToast";
 
 import { roomKeys } from "./keys";
 import { createLedger, EMPTY_ROOM, type RoomState } from "./ledger";
-import { forget, keep, kept } from "./persist";
+import { claim, forget, keep, kept, prune } from "./persist";
 import { linked, opened, OUT, synced } from "./session";
 import { createRoomSocket } from "./socket";
 import type { Mutation } from "./types";
@@ -25,6 +26,8 @@ import { useSync } from "./useSync";
 import { newCid, reviveMutation, reviveNote, reviveTrip, type GoneReason } from "./wire";
 
 const STORAGE_KEY = "chirashitabi:room";
+/** How long a picture that did not come is left before it is asked for again */
+const WARM_AGAIN_MS = 60_000;
 
 /**
  * A room, between the socket (socket.ts) and the cache the stores read (keys.ts). Where this
@@ -58,16 +61,20 @@ export const useRoom = defineStore("room", () => {
   /**
    * The room's pictures, fetched once each while the room is reachable: the service worker
    * keeps every picture that comes through it (sw.js), so one fetched now is there on the
-   * plane, whether or not a card showing it was ever on screen
+   * plane, whether or not a card showing it was ever on screen. Each is asked for once; one
+   * that did not come is asked again only after a while, not on every change the room relays.
    */
-  const warmed = new Set<ImageId>();
+  const warmed = new Map<ImageId, number>(); // when it may be asked for again: never, once it came
   function warm(room: RoomId, notes: Note[]) {
     if (!navigator.onLine) return;
+    const now = Date.now();
     for (const n of notes) {
       const image = n.kind === "memo" || n.kind === "sticker" ? n.image : null;
-      if (image === null || warmed.has(image)) continue;
-      warmed.add(image);
-      fetch(imageSrc(room, image), { priority: "low" }).catch(() => warmed.delete(image));
+      if (image === null || (warmed.get(image) ?? 0) > now) continue;
+      warmed.set(image, Infinity);
+      fetch(imageSrc(room, image), { priority: "low" }).catch(() =>
+        warmed.set(image, Date.now() + WARM_AGAIN_MS),
+      );
     }
   }
 
@@ -93,6 +100,8 @@ export const useRoom = defineStore("room", () => {
   window.addEventListener("pagehide", keepNow);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") keepNow();
+    // back on the page after the socket gave up: it tries again, as the person would
+    else if (sync.session.kind !== "out" && sync.session.link === "failed") socket.reconnect();
   });
 
   /**
@@ -110,6 +119,8 @@ export const useRoom = defineStore("room", () => {
   }
 
   const socket = createRoomSocket({
+    // ours the room has not answered go again on every connection: it may never have got them
+    pending: () => ledger.pending,
     onSnapshot(msg) {
       show(
         ledger.snapshot({
@@ -120,8 +131,6 @@ export const useRoom = defineStore("room", () => {
       );
       sync.session = synced(sync.session, msg.me, Temporal.Now.instant());
       remember();
-      // ours the room has not answered go again: it may never have got them
-      for (const p of ledger.pending) socket.send(p.m, p.cid);
     },
     onMutation(msg) {
       const m = reviveMutation(msg.mutation);
@@ -146,16 +155,11 @@ export const useRoom = defineStore("room", () => {
     },
     onGone(reason) {
       const s = sync.session;
-      if (s.kind === "out") return;
-      // nothing of the room stays on this device: it would open a room that refuses it
-      leave();
-      forget(localStorage, s.room);
-      // only the list: whom a room this device is out of invited is not its to ask
-      queryCache.invalidateQueries({ key: ROOMS_KEY }).catch(() => {
-        // the list's own error state reports it
-      });
-      toast.show(i18n.t(`room.gone.${reason}`));
-      gone.value = { room: s.room, reason };
+      if (s.kind !== "out") putOut(s.room, reason);
+    },
+    onUnanswered() {
+      // refused, maybe: the room says nothing to a device whose person is no longer in it
+      void check();
     },
     onStatus(next) {
       // "idle" is the socket left behind; the session leaves the room itself (leave)
@@ -165,6 +169,57 @@ export const useRoom = defineStore("room", () => {
 
   /** The last room this device was put out of, and why, for what shows the room to act on */
   const gone = shallowRef<{ room: RoomId; reason: GoneReason } | null>(null);
+
+  /** Out of the room for `reason`; nothing of it stays on this device: it would open a room that refuses it */
+  function putOut(room: RoomId, reason: GoneReason) {
+    leave();
+    forget(localStorage, room);
+    // only the list: whom a room this device is out of invited is not its to ask
+    queryCache.invalidateQueries({ key: ROOMS_KEY }).catch(() => {
+      // the list's own error state reports it
+    });
+    toast.show(i18n.t(`room.gone.${reason}`));
+    gone.value = { room, reason };
+  }
+
+  /**
+   * Asks the Worker who is signed in and which rooms are theirs (`/api/me`). What this device
+   * kept of someone else (another person on this browser), or of a room its person is no
+   * longer in, goes, and the room open goes with it. The room says nothing to a device it
+   * refuses, and this is how the device finds out. Unanswered (offline, or Access asking to
+   * sign in again), everything stays.
+   */
+  async function check() {
+    let mine: Mine;
+    try {
+      mine = await askMine();
+    } catch {
+      return;
+    }
+    // a Worker from before it said who is asking: nothing to tell
+    if (mine.email === null) return;
+    const someoneElse = claim(localStorage, mine.email);
+    const rooms = mine.rooms.map((r) => r.id);
+    prune(localStorage, rooms);
+    const last = remembered();
+    if (someoneElse || (last !== null && !rooms.includes(last))) {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // still remembered: the room refuses this device when it is opened
+      }
+    }
+    const s = sync.session;
+    if (s.kind === "out") return;
+    if (!rooms.includes(s.room)) {
+      putOut(s.room, mine.deleted.some((d) => d.id === s.room) ? "deleted" : "removed");
+    } else if (someoneElse) {
+      // the person's own room, as the room shows it to them, and not as the one before kept it
+      leave();
+      forget(localStorage, s.room);
+      connect(s.room);
+    }
+  }
 
   function refresh(room: RoomId) {
     const quiet = () => {
@@ -184,7 +239,8 @@ export const useRoom = defineStore("room", () => {
     if (s.kind !== "in") return;
     const cid = newCid();
     show(ledger.commit(m, cid, Temporal.Now.instant(), s.me));
-    socket.send(m, cid);
+    // after what is pending before it, at the pace the room takes
+    socket.flush();
   }
 
   // The network is back: try the room now instead of waiting out the back-off (a live socket ignores this)
@@ -233,6 +289,7 @@ export const useRoom = defineStore("room", () => {
 
   return {
     remembered,
+    check,
     connect,
     leave,
     reconnect: socket.reconnect,
