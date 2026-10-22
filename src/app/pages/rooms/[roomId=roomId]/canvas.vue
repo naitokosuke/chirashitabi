@@ -241,6 +241,8 @@ function onDown(e: PointerEvent) {
     );
     return;
   }
+  // the keyboard follows the pointer onto the card, wherever on it the press landed
+  focusCard(note);
   const w = toWorld(e.clientX, e.clientY);
   setGesture({
     kind: "press",
@@ -805,6 +807,14 @@ onBeforeUnmount(() => document.removeEventListener("paste", onPaste));
 // ignored and a trackpad pinch zooms the whole page instead of the desk
 onMounted(() => vp.value?.addEventListener("wheel", onWheel, { passive: false }));
 onBeforeUnmount(() => vp.value?.removeEventListener("wheel", onWheel));
+
+// A press on a card puts the keyboard on it (onDown, focusCard); a memo itself takes no focus
+// (its title does), so the mouse's own default after the press would hand it back to the page
+function keepFocus(e: MouseEvent) {
+  if (noteAt(e.target) !== undefined) e.preventDefault();
+}
+onMounted(() => vp.value?.addEventListener("mousedown", keepFocus));
+onBeforeUnmount(() => vp.value?.removeEventListener("mousedown", keepFocus));
 
 // The first look (firstLook), the one a note is placed in before the canvas is opened
 onMounted(() =>

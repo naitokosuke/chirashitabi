@@ -618,13 +618,13 @@ function adoptDraft() {
                       <CtInput
                         size="sm"
                         type="time"
-                        :aria-label="i18n.t('shiori.time')"
+                        :aria-label="i18n.t('shiori.timeOf', { title: n.title })"
                         :model-value="n.schedule.time ? hhmm(n.schedule.time) : ''"
                         @change="(e) => setTime(n, e)"
                       />
                       <CtSelect
                         size="sm"
-                        :aria-label="i18n.t('shiori.minutes')"
+                        :aria-label="i18n.t('shiori.minutesOf', { title: n.title })"
                         :model-value="String(n.minutes ?? '')"
                         @change="(e) => setMinutes(n, e)"
                       >
