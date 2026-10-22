@@ -7,6 +7,7 @@ import type { CurrencyCode } from "../../shared/money";
 
 import type { RoomId } from "../../../contract/room";
 import type { ProfileSchema } from "../../../contract/wire";
+import type { Email } from "../members/types";
 import type { LatLng } from "../place/types";
 
 // a room's id, as the app takes it from the contract
@@ -34,9 +35,11 @@ export interface DeletedRoom {
 
 /**
  * What the signed-in person has: the trips they are in, the ones they are invited to (each
- * with its owner leading its members) and the deleted ones they can still restore.
+ * with its owner leading its members) and the deleted ones they can still restore. `email` is
+ * who they are, null from a Worker from before it said so.
  */
 export interface Mine {
+  email: Email | null;
   rooms: RoomSummary[];
   invitations: RoomSummary[];
   deleted: DeletedRoom[];

@@ -14,8 +14,9 @@ const devToken = existsSync(".dev-token.local")
   : null;
 
 /**
- * The service worker (src/app/sw.js) as /sw.js, keeping every file this build emitted; a build
- * that emits other files names another cache, and the old one is dropped
+ * The service worker (src/app/sw.js) as /sw.js, keeping every file this build emitted. Its
+ * cache is named after what those files hold (the page, public/ and the worker itself
+ * included), so any change at all is a new service worker with a new cache.
  */
 const serviceWorker: Plugin = {
   name: "chirashitabi:sw",
@@ -29,11 +30,17 @@ const serviceWorker: Plugin = {
         .map((f) => `/${f}`),
       ...readdirSync("public").map((f) => `/${f}`),
     ].sort();
-    const version = createHash("sha256").update(shell.join("\n")).digest("hex").slice(0, 12);
+    const worker = readFileSync("src/app/sw.js", "utf8");
+    const hash = createHash("sha256").update(worker);
+    for (const [name, out] of Object.entries(bundle).sort(([a], [b]) => a.localeCompare(b)))
+      hash.update(name).update(out.type === "chunk" ? out.code : out.source);
+    for (const name of readdirSync("public").sort())
+      hash.update(name).update(readFileSync(`public/${name}`));
+    const version = hash.digest("hex").slice(0, 12);
     this.emitFile({
       type: "asset",
       fileName: "sw.js",
-      source: readFileSync("src/app/sw.js", "utf8")
+      source: worker
         .replace("self.__SHELL__", JSON.stringify(shell))
         .replace("self.__VERSION__", JSON.stringify(version)),
     });

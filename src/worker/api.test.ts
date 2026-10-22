@@ -599,6 +599,8 @@ describe("rooms", () => {
     const res = await post("/api/me", email, {});
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
+      // who is asking, so a device can tell whose what it kept is
+      email,
       rooms: [
         {
           id: roomId,

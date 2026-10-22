@@ -215,7 +215,8 @@ const api = new Hono<ApiEnv>()
         }),
       )
     ).flat();
-    return c.json({ rooms, invitations, deleted });
+    // and who is asking, so a device can tell whose what it kept is
+    return c.json({ email, rooms, invitations, deleted });
   })
 
   // An invitation to a room, answered by the person invited

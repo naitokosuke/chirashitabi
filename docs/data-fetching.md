@@ -225,6 +225,8 @@ The reducers are `applyToNotes`, `applyToDays` and `applyToMembers` in each feat
 Since a note that changes is replaced, nothing may hold a note object across a change: the canvas's menu and the map's open card look their note up by id, and a card under a finger moves with `nudge` (local, every frame) between the throttled `move`s that send it.
 `useRoom` keeps only what messages mean; `socket.ts` connects, retries, queues and reports its status.
 The heartbeat is not in this step: the room does not answer one yet.
+Since added: the client sends `ping` every 20 s and the room answers `pong` without waking (`setWebSocketAutoResponse`); a ping left unanswered by the next one is a drop.
+The back-off starts over only after a connection that stayed up 10 s, so a room that keeps closing the socket right after its snapshot is still backed off.
 
 ### The room in the cache
 
@@ -264,6 +266,7 @@ So nothing waits on a timer: the open question about how long to hold back is an
 On the wire, a client mutation may carry `cid` beside its fields; the room answers its sender `{ type: "ack", cid, updatedAt }` or `{ type: "rejected", reason, cid }`, relays as before, and treats a mutation without a `cid` (a card's position mid-drag) as before.
 A rejection without a `cid` (a message it could not read) still makes the client resync.
 The socket no longer queues: the ledger is what is sent again.
+It sends the ledger's unanswered changes, each once per connection and oldest first, at half the room's rate limit (100 in 10 s); one refused as `too many messages` stays in the ledger and goes again once the window has passed.
 Stores commit through `useSync().commit`; only the room writes the cache.
 The mocks hand their state to `useRoom().offline`, where a commit is confirmed at once (since replaced by MSW, under "Mock build" above).
 
@@ -276,7 +279,9 @@ The plugin needs `@pinia/colada` 1.4.7, which the repository's release-age rule 
 So the room keeps its own: per room in `localStorage`, who this device is, what the room last confirmed and the ledger's unanswered changes, written as the wire's JSON a moment after each change and when the page is hidden, and read back with the wire's revive functions.
 Opening a kept room shows it at once, before the socket answers; the app counts a room with kept data as open even while connecting or unreachable, and the connection chip says it is connecting, or offline with a retry, and as of when.
 What was written offline is signed by this device's member, survives closing the app, and is sent once the room is back.
-The kept format has a version; another version is ignored, not migrated.
+The kept format has a version; a newer version's save is neither read nor overwritten, an older one is read for what still parses, and a note, member or unanswered change that does not parse is left out while the rest is kept.
+A full storage lets the other rooms' saves go and tries again; still full, the room's own save goes too, so an old one cannot bring back changes the room has answered since.
+What is kept belongs to the signed-in person, whom `/api/me` names: before anything kept is opened (for at most 1.5 s), and whenever a connection closes before the room said anything (the room refuses a device whose person is out of it with a plain 403), the app asks it, lets go of everything when another person signed in on this browser, and of every room that person is no longer in, the open one included.
 
 ### The stores and the cache, tidied
 

@@ -24,6 +24,7 @@ const KEN = "4e7a2c90-3b5d-4f16-8e21-a9c4d0b7f302" as MemberId;
 class FakeSocket implements SocketLike {
   readyState = 0;
   sent: Mutation[] = [];
+  pings = 0;
   closed: { code?: number; reason?: string } | null = null;
   private listeners = {
     message: [] as ((e: { data: unknown }) => void)[],
@@ -33,7 +34,8 @@ class FakeSocket implements SocketLike {
     this.listeners[type].push(listener);
   }
   send(data: string) {
-    this.sent.push(JSON.parse(data) as Mutation);
+    if (data === "ping") this.pings++;
+    else this.sent.push(JSON.parse(data) as Mutation);
   }
   close(code?: number, reason?: string) {
     this.closed = { code, reason };
@@ -77,7 +79,11 @@ function setup() {
   const answers: string[] = [];
   const people: unknown[] = [];
   const gone: string[] = [];
+  const pending: { m: Mutation; cid: Cid }[] = [];
+  let unanswered = 0;
   const socket = createRoomSocket({
+    pending: () => pending,
+    onUnanswered: () => unanswered++,
     open: () => {
       const s = new FakeSocket();
       sockets.push(s);
@@ -92,7 +98,19 @@ function setup() {
     onStatus: (s) => statuses.push(s),
   });
   const last = () => sockets.at(-1)!;
-  return { socket, sockets, statuses, snapshots, mutations, answers, people, gone, last };
+  return {
+    socket,
+    sockets,
+    statuses,
+    snapshots,
+    mutations,
+    answers,
+    people,
+    gone,
+    pending,
+    unanswered: () => unanswered,
+    last,
+  };
 }
 
 beforeEach(() => vi.useFakeTimers());
@@ -160,7 +178,7 @@ describe("createRoomSocket", () => {
     expect(socket.status).toBe("failed");
   });
 
-  test("a snapshot resets the back-off", () => {
+  test("a connection that stayed up resets the back-off", () => {
     const { socket, sockets, last } = setup();
     socket.connect(ROOM_1);
     last().drop();
@@ -168,9 +186,103 @@ describe("createRoomSocket", () => {
     last().drop();
     vi.advanceTimersByTime(2000);
     last().serve(snapshot);
+    vi.advanceTimersByTime(10_000);
     last().drop();
     vi.advanceTimersByTime(1000);
     expect(sockets).toHaveLength(4);
+  });
+
+  test("a room that closes each connection right after its snapshot is still backed off", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { socket, sockets, last } = setup();
+    socket.connect(ROOM_1);
+    for (const wait of [1000, 2000, 4000]) {
+      last().serve(snapshot);
+      last().say("from a newer room"); // closes it for a resync
+      last().drop();
+      vi.advanceTimersByTime(wait - 1);
+      const before = sockets.length;
+      vi.advanceTimersByTime(1);
+      expect(sockets).toHaveLength(before + 1);
+    }
+  });
+
+  test("ours go after each snapshot, oldest first, at most 100 in 10 s", () => {
+    const { socket, pending, last } = setup();
+    for (let i = 0; i < 250; i++) pending.push({ m: intro, cid: `c${i}` as Cid });
+    socket.connect(ROOM_1);
+    last().serve(snapshot);
+    expect(last().sent).toHaveLength(100);
+    expect(last().sent[0]).toEqual({ ...intro, cid: "c0" });
+    vi.advanceTimersByTime(9_999);
+    expect(last().sent).toHaveLength(100);
+    vi.advanceTimersByTime(1);
+    expect(last().sent).toHaveLength(200);
+    vi.advanceTimersByTime(10_000);
+    expect(last().sent).toHaveLength(250);
+    expect(last().sent.at(-1)).toEqual({ ...intro, cid: "c249" });
+  });
+
+  test("a flush sends only what has not gone on this connection; a new one sends it all again", () => {
+    const { socket, pending, sockets, last } = setup();
+    pending.push({ m: intro, cid: C1 });
+    socket.connect(ROOM_1);
+    last().serve(snapshot);
+    pending.push({ m: intro, cid: C2 });
+    socket.flush();
+    expect(last().sent).toEqual([
+      { ...intro, cid: C1 },
+      { ...intro, cid: C2 },
+    ]);
+    last().drop();
+    vi.advanceTimersByTime(1000);
+    last().serve(snapshot);
+    expect(sockets[1]!.sent).toEqual([
+      { ...intro, cid: C1 },
+      { ...intro, cid: C2 },
+    ]);
+  });
+
+  test("one refused for coming too fast is not passed on, and goes again once the window has passed", () => {
+    const { socket, pending, answers, last } = setup();
+    pending.push({ m: intro, cid: C1 }, { m: intro, cid: C2 });
+    socket.connect(ROOM_1);
+    last().serve(snapshot);
+    last().serve({ type: "rejected", cid: C1, reason: "too many messages" });
+    expect(answers).toEqual([]);
+    expect(last().sent).toHaveLength(2);
+    vi.advanceTimersByTime(10_000);
+    expect(last().sent.at(-1)).toEqual({ ...intro, cid: C1 });
+    expect(last().closed).toBeNull();
+  });
+
+  test("a ping every 20 s; one left unanswered is a drop, and another try follows", () => {
+    const { socket, sockets, last } = setup();
+    socket.connect(ROOM_1);
+    last().serve(snapshot);
+    vi.advanceTimersByTime(20_000);
+    expect(last().pings).toBe(1);
+    last().say("pong");
+    vi.advanceTimersByTime(20_000);
+    expect(last().pings).toBe(2);
+    expect(socket.status).toBe("connected");
+    // no pong this time, and no close either: the link went without a word
+    vi.advanceTimersByTime(20_000);
+    expect(sockets[0]!.closed).toEqual({ code: 4000, reason: "no pong" });
+    expect(socket.status).toBe("reconnecting");
+    vi.advanceTimersByTime(1000);
+    expect(sockets).toHaveLength(2);
+  });
+
+  test("a connection that closes before the room says anything is reported; one after is not", () => {
+    const { socket, unanswered, last } = setup();
+    socket.connect(ROOM_1);
+    last().drop();
+    expect(unanswered()).toBe(1);
+    vi.advanceTimersByTime(1000);
+    last().serve(snapshot);
+    last().drop();
+    expect(unanswered()).toBe(1);
   });
 
   test("a rejection that names no cid closes the socket so the next snapshot is the truth", () => {
