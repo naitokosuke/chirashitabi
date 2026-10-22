@@ -10,6 +10,7 @@ import { HOLD_TIME, state } from "./harness";
     danger
     done="Deleted"
     label="Delete forever"
+    :disabled="state.disabled"
     :hold-time="HOLD_TIME"
     @hold="() => state.held++"
   >

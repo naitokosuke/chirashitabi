@@ -1,6 +1,6 @@
 import { createVaporApp, nextTick, type VaporComponent } from "vue";
 
-import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 
 import "../styles/index.css";
@@ -25,6 +25,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await userEvent.unhover(item("theme"));
+  vi.restoreAllMocks();
   app?.unmount();
   document.body.replaceChildren();
 });
@@ -81,6 +82,15 @@ describe("magnifying", () => {
     await userEvent.hover(item("home"));
     await expect.poll(() => width("home")).toBeGreaterThan(cell() * 1.4);
     expect(width("map")).toBeLessThan(width("canvas"));
+  });
+
+  test("not at all when motion is to be reduced", async () => {
+    // every query asked then answers as one that matches, as "all" does
+    vi.spyOn(window, "matchMedia").mockReturnValue(window.matchMedia("all"));
+    await userEvent.hover(item("map"));
+    await frames(4);
+    expect(dock().classList.contains("magnify")).toBe(false);
+    expect(width("map")).toBe(cell());
   });
 });
 

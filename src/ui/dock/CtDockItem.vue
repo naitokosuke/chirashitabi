@@ -57,7 +57,7 @@ button {
   -webkit-tap-highlight-color: transparent;
   /* following the pointer closely; letting go, springing back */
   transition:
-    width 0.1s ease-out,
+    width var(--duration-follow) ease-out,
     color var(--duration-swap) ease;
 
   [data-dock]:not(.magnify) & {
@@ -91,7 +91,7 @@ button {
     scale: var(--m, 1);
     transform-origin: 50% 100%;
     transition:
-      scale 0.1s ease-out,
+      scale var(--duration-follow) ease-out,
       background-color var(--duration-swap) ease;
 
     [data-dock]:not(.magnify) & {
@@ -122,8 +122,8 @@ button {
     opacity: 0;
     pointer-events: none;
     transition:
-      opacity 0.15s ease,
-      translate 0.15s ease;
+      opacity var(--duration-follow) ease,
+      translate var(--duration-follow) ease;
   }
 
   @media (--can-hover) {
