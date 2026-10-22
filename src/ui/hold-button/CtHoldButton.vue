@@ -90,12 +90,15 @@ function fill() {
     watchAway(false);
     state.value = "done";
     emit("hold");
-    timer = setTimeout(() => {
-      state.value = "idle";
-      drain();
-    }, RESET);
+    // done, it takes no new hold until it is reset; going away clears this timer
+    timer = setTimeout(reset, RESET);
   };
   frame = requestAnimationFrame(step);
+}
+/** After a while done, it is ready again and drains */
+function reset() {
+  state.value = "idle";
+  drain();
 }
 
 /** Drains back to empty over RELEASE, easing out */

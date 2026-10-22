@@ -22,7 +22,11 @@ const glyphEls = () => [...(root.value?.querySelectorAll<HTMLElement>("[data-g]"
 
 watch(
   () => props.parts.map((p) => `${p.tone ?? ""}\u0000${p.text}`).join("\u0001"),
-  async () => {
+  async (_, __, onCleanup) => {
+    // changed again before this one's characters are laid out: the newer change moves them, from
+    // where they are then, and this one's measurements are dropped
+    let superseded = false;
+    onCleanup(() => (superseded = true));
     const next = align(glyphs.value, flatten(props.parts), mint);
     const el = root.value;
     const css = el === null ? null : getComputedStyle(el);
@@ -64,6 +68,7 @@ watch(
 
     glyphs.value = next;
     await nextTick();
+    if (superseded) return;
 
     for (const g of glyphEls()) {
       const was = before.get(Number(g.dataset.g));

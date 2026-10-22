@@ -166,12 +166,15 @@ onMounted(() => {
     cancelHold();
     start = point;
     holding.value = point;
-    t = window.setTimeout(() => {
-      held = true;
-      holding.value = null;
-      navigator.vibrate?.(10);
-      write(at);
-    }, HOLD_MS);
+    // one hold at a time: a new one (or a move, a lift) cancels the one before
+    t = window.setTimeout(heldLong, HOLD_MS, at);
+  }
+  /** Held long enough at `at`: a memo is written there */
+  function heldLong(at: LatLng) {
+    held = true;
+    holding.value = null;
+    navigator.vibrate?.(10);
+    write(at);
   }
   function moved(point: Pt) {
     if (start !== null && Math.hypot(point.x - start.x, point.y - start.y) > 8) cancelHold();

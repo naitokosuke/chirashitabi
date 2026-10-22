@@ -81,6 +81,28 @@ describe("held", () => {
     expect(state.held).toBe(1);
   });
 
+  test("done, it takes no hold until a while later, then it is ready and acts again", async () => {
+    vi.useFakeTimers({ toFake: [...(FILL_CLOCK?.toFake ?? []), "setTimeout", "clearTimeout"] });
+    const { x, y } = middle();
+    pointer("pointerdown", x, y);
+    await run(HOLD_TIME + 50);
+    pointer("pointerup", x, y);
+    expect(state.held).toBe(1);
+    expect(el().classList.contains("done")).toBe(true);
+    // held again while it says it is done: nothing
+    pointer("pointerdown", x, y);
+    await run(HOLD_TIME / 2);
+    pointer("pointerup", x, y);
+    expect(state.held).toBe(1);
+    // a while later it is ready again, and a hold acts once more
+    await run(2000);
+    expect(el().classList.contains("idle")).toBe(true);
+    pointer("pointerdown", x, y);
+    await run(HOLD_TIME + 50);
+    pointer("pointerup", x, y);
+    expect(state.held).toBe(2);
+  });
+
   test("let go early, it has filled part way, drains back and does nothing", async () => {
     vi.useFakeTimers(FILL_CLOCK);
     const { x, y } = middle();

@@ -536,6 +536,12 @@ function doneWriting(text: string | null) {
 // ---- adding from the form: place at viewport center, pop ----
 /** The card that just landed, and where the ring around it goes */
 const pop = ref<{ id: NoteId; x: number; y: number } | null>(null);
+/** How long a card's pop lasts */
+const POP_MS = 900;
+/** The pop of card `id` is over; one that landed since has its own */
+function popped(id: NoteId) {
+  if (pop.value?.id === id) pop.value = null;
+}
 /** The shell's toast takes back a note just added */
 const undoAdd = (id: NoteId) => ({ undo: () => store.remove(id) });
 
@@ -657,7 +663,7 @@ function placeAtCenter(input: NoteInput, how: PlaceHow) {
   const n = store.add(input, { x: c.x - 82, y: c.y - 40 });
   if (how === "pop") {
     pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
-    window.setTimeout(() => (pop.value = null), 900);
+    window.setTimeout(popped, POP_MS, n.id);
   }
   const message = {
     pop: "canvas.addedDrag",
@@ -789,7 +795,7 @@ async function stick(file: Blob, at?: Pt) {
     const c = toWorld(at?.x ?? r.width / 2, at?.y ?? r.height / 2);
     const n = store.addSticker(image, { x: c.x - 80, y: c.y - 80 });
     pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
-    window.setTimeout(() => (pop.value = null), 900);
+    window.setTimeout(popped, POP_MS, n.id);
     toast.show(i18n.t("canvas.stickerAdded"), undoAdd(n.id));
   } catch {
     toast.show(i18n.t("canvas.stickerFailed"));

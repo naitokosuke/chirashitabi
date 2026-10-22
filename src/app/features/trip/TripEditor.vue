@@ -94,8 +94,8 @@ function rowOf(s: StayForm) {
   return row;
 }
 
-/** The stays whose short link is on its way to the Worker to be read */
-const expanding = reactive(new Set<StayForm>());
+/** The stays whose short link is on its way to the Worker to be read, and which link it is */
+const expanding = reactive(new Map<StayForm, string>());
 /**
  * The link each stay's point was last read from: a paste reads it at once, and leaving the
  * field afterwards (its change) is the same link, not a new one to read again
@@ -106,7 +106,7 @@ for (const s of form.stays) readFrom.set(s, s.mapsUrl.trim());
  * A link changed: its point is read from it alone. A shared short link hides its point, so the
  * Worker reads where it leads, and the link becomes that
  */
-function onStayLink(s: StayForm) {
+async function onStayLink(s: StayForm) {
   const short = s.mapsUrl.trim();
   if (readFrom.get(s) === short) return;
   readFrom.set(s, short);
@@ -114,41 +114,36 @@ function onStayLink(s: StayForm) {
   s.pin = null;
   const api = worker.api;
   if (api === null || !isShortMapsLink(short)) return;
-  expanding.add(s);
-  api
-    .expandLink(short, i18n.locale)
-    .then((answer) => {
-      // past the budget the short link stays, as when it could not be read
-      if (!answer.ok) return;
-      const { url, at } = answer.value;
-      if (s.mapsUrl.trim() !== short) return;
-      s.mapsUrl = url;
-      readFrom.set(s, url);
-      // the link's own point when it has one (stayOf reads it), else where its name was found
-      if (at !== null) s.pin = at;
-    })
-    .catch(() => {
-      // the short link stays; the hint says it has no point
-    })
-    .finally(() => expanding.delete(s));
+  expanding.set(s, short);
+  // the short link stays when it could not be read, and when past the budget; the hint says it
+  // has no point
+  const answer = await api.expandLink(short, i18n.locale).catch(() => null);
+  // a short link sent meanwhile is still on its way: it says when it is done
+  if (expanding.get(s) === short) expanding.delete(s);
+  // a link written meanwhile is the newer one's
+  if (answer?.ok !== true || s.mapsUrl.trim() !== short) return;
+  const { url, at } = answer.value;
+  s.mapsUrl = url;
+  readFrom.set(s, url);
+  // the link's own point when it has one (stayOf reads it), else where its name was found
+  if (at !== null) s.pin = at;
 }
 /** A paste is read at once, once the field holds it, without waiting for the field to be left */
-const onStayPaste = (s: StayForm) => setTimeout(() => onStayLink(s));
+const onStayPaste = (s: StayForm) => setTimeout(() => void onStayLink(s));
 
 /** The stays being looked up by their name, and the places each lookup found */
 const finding = reactive(new Set<StayForm>());
 const found = reactive(new Map<StayForm, FoundPlace[]>());
 /** Places by the stay's name, from OpenStreetMap: free, so a tap is all it takes */
-function findStay(s: StayForm) {
+async function findStay(s: StayForm) {
   const name = s.name.trim();
   const api = worker.api;
   if (api === null || name === "") return;
   finding.add(s);
-  api
-    .findByName(name, i18n.locale)
-    .then((places) => found.set(s, places))
-    .catch(() => found.set(s, []))
-    .finally(() => finding.delete(s));
+  const places = await api.findByName(name, i18n.locale).catch((): FoundPlace[] => []);
+  finding.delete(s);
+  // what was found is for the name asked: one written meanwhile asks again
+  if (s.name.trim() === name) found.set(s, places);
 }
 /** The chosen place is the stay's link and its point, as a pasted link would be */
 function chooseStay(s: StayForm, p: FoundPlace) {
@@ -282,7 +277,7 @@ function save() {
             class="start"
             :busy="finding.has(s)"
             :disabled="s.name.trim() === '' || finding.has(s)"
-            @click="() => findStay(s)"
+            @click="() => void findStay(s)"
           >{{ i18n.t(finding.has(s) ? "stay.finding" : "stay.find") }}</CtButton>
           <CtChoiceList
             v-if="(found.get(s)?.length ?? 0) > 0"
@@ -323,7 +318,7 @@ function save() {
             v-model="s.mapsUrl"
             inputmode="url"
             type="url"
-            @change="() => onStayLink(s)"
+            @change="() => void onStayLink(s)"
             @paste="() => onStayPaste(s)"
           />
         </CtField>
