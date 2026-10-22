@@ -11,7 +11,7 @@ import { MemberIdSchema } from "../members/types";
 import { ImageIdSchema, NoteIdSchema } from "../notes/id";
 import { TagSchema } from "../notes/types";
 import { HttpUrlSchema } from "../place/google-maps";
-import type { FoundPlace } from "../place/types";
+import { LatLngSchema, type FoundPlace } from "../place/types";
 import type { RoomId } from "../rooms/types";
 
 import type { OverBudget, Publication, WorkerApi } from "./types";
@@ -63,7 +63,6 @@ async function answerOf<S extends v.GenericSchema>(
 }
 
 const finite = v.pipe(v.number(), v.finite());
-const LatLngSchema = v.object({ lat: finite, lng: finite });
 
 /** A place as the Worker sends it: its point as `lat` and `lng` beside its name */
 const PlaceSchema = v.pipe(
