@@ -17,7 +17,9 @@ export function useIndicator(list: Readonly<Ref<HTMLElement | null>>, watchSourc
   // appears in place instead of sliding in from the corner.
   const ready = ref(false);
 
+  // measured on the page, in a browser only (on mount, as the choice changes, as the list resizes)
   async function measure() {
+    if (import.meta.env.SSR) return;
     await nextTick();
     const el = list.value?.querySelector<HTMLElement>(SELECTED) ?? null;
     if (el === null) return;
@@ -27,7 +29,12 @@ export function useIndicator(list: Readonly<Ref<HTMLElement | null>>, watchSourc
       width: el.offsetWidth,
       height: el.offsetHeight,
     };
-    if (!ready.value) requestAnimationFrame(() => (ready.value = true));
+    if (!ready.value) requestAnimationFrame(painted);
+  }
+  /** Placed and painted once: from now on it slides */
+  function painted() {
+    if (import.meta.env.SSR) return;
+    ready.value = true;
   }
 
   let observer: ResizeObserver | undefined;

@@ -31,7 +31,9 @@ const { style, ready } = useIndicator(list, () => [modelValue, tabs.length]);
  * A row longer than its box scrolls; the chosen tab is brought into it, so the choice is never
  * off to the side. Only the row scrolls, never the page around it.
  */
+// scrolled on the page, in a browser only (on mount, and as the chosen tab changes)
 async function reveal(smooth: boolean) {
+  if (import.meta.env.SSR) return;
   await nextTick();
   const row = list.value;
   if (row === null) return;

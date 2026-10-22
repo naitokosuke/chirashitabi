@@ -369,7 +369,9 @@ function nextStatus(n: Scheduled) {
 }
 /** A tick in the appendix: shared with the room, so the partner sees the bag is packed */
 /** The confirmed plan, the flights and the stays as an .ics file, saved by the browser */
+// A file handed over and a link copied: what a tap does in a browser, never while rendering on a server
 function downloadCalendar() {
+  if (import.meta.env.SSR) return;
   const t = trip.value;
   if (t === undefined || sync.room === null) return;
   const ics = calendarOf(t, store.notes.value ?? [], sync.room, Temporal.Now.instant(), {
@@ -468,6 +470,7 @@ function uncopied() {
   copied.value = false;
 }
 async function copyLink() {
+  if (import.meta.env.SSR) return;
   if (published.value === null) return;
   try {
     await navigator.clipboard.writeText(published.value.url);

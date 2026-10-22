@@ -58,16 +58,21 @@ type Hold = { by: "key" } | { by: "click" } | { by: "pointer"; id: number; rect:
 let held: Hold | null = null;
 let observer: ResizeObserver | null = null;
 
-const stop = () => {
+// Everything below runs on a press, a frame or a timer, never while rendering on a server; each
+// says so, so it holds should the app ever render there
+function stop() {
+  if (import.meta.env.SSR) return;
   cancelAnimationFrame(frame);
   frame = 0;
-};
+}
 
 /** Anything that takes the person away lets go */
-const hidden = () => {
+function hidden() {
+  if (import.meta.env.SSR) return;
   if (document.hidden) letGo();
-};
+}
 function watchAway(on: boolean) {
+  if (import.meta.env.SSR) return;
   const how = on ? "addEventListener" : "removeEventListener";
   window[how]("blur", letGo);
   document[how]("visibilitychange", hidden);
@@ -75,11 +80,13 @@ function watchAway(on: boolean) {
 
 /** Fills from where it is to full over what is left of `holdTime`; full, it acts */
 function fill() {
+  if (import.meta.env.SSR) return;
   stop();
   const from = p.value;
   const left = holdTime * (1 - from);
   const t0 = performance.now();
   const step = (now: number) => {
+    if (import.meta.env.SSR) return;
     p.value = Math.min(1, from + (now - t0) / left);
     if (p.value < 1) {
       frame = requestAnimationFrame(step);
@@ -103,10 +110,12 @@ function reset() {
 
 /** Drains back to empty over RELEASE, easing out */
 function drain() {
+  if (import.meta.env.SSR) return;
   stop();
   const from = p.value;
   const t0 = performance.now();
   const step = (now: number) => {
+    if (import.meta.env.SSR) return;
     const t = Math.min(1, (now - t0) / RELEASE);
     p.value = from * Math.pow(1 - t, 3);
     if (t < 1) frame = requestAnimationFrame(step);
