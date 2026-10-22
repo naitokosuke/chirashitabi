@@ -15,10 +15,10 @@ vp run musea   # the component gallery (Vize Musea) at /__musea__
 vp build
 vp run analyze                      # VITE_MOCK=false build, then what it is made of (Vite DevTools) at localhost:9999
 vp run check:worker                 # wrangler types + tsc on src/worker/, writing .worker-types/ (before `vp run check`)
-vp run deploy                       # VITE_MOCK=false build, then wrangler deploy
+vp run deploy                       # VITE_MOCK=false build, then wrangler deploy (refused if dist/ has the mocks' worker)
 ```
 
-CI (`.github/workflows/ci.yml`) runs the checks on every pull request and push, and deploys `main` once they pass, as `vp run deploy` does (a build without the mocks, then `wrangler deploy`, tried up to three times when Cloudflare's API fails), using the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; "Run workflow" in the Actions tab does the same by hand.
+CI (`.github/workflows/ci.yml`) runs the checks on every pull request and push against the build without the mocks, and deploys `main` once they pass: that same build, by `wrangler deploy`, tried up to three times when Cloudflare's API fails, using the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; "Run workflow" in the Actions tab does the same by hand.
 
 `vp dev` on its own talks to no Worker: `src/app/mocks/` answers `/api` and the room's socket in the page with MSW, from a seeded Taiwan trip, and the app runs the same code it runs against the Worker. Nothing the mocks hold survives a reload.
 
@@ -101,9 +101,11 @@ src/app/            The app
     worker/  WorkerApi: by the room's agent, drafting a day (POST /api/rooms/<id>/draft) and leaving ideas
              on the canvas (POST /api/rooms/<id>/suggest); usePublication (the booklet as a public page:
              whether it is up and where; the owner puts it up or takes it down)
+    toast/   useToast (the shell's one toast: a line, an undo, what happens when it leaves without one);
+             Toast (it, read out as it lands)
 
-  shared/  Types every feature can use: Brand; CurrencyCode and formatMoney; HexColor (the types from
-           src/contract)
+  shared/  Types every feature can use: Brand; CurrencyCode and formatMoney; HexColor; listOf; Result
+           (the types from src/contract)
 
   i18n/    UI messages in MessageFormat 2 (messages/en.ts is the source, ja.ts follows it);
            format (messageformat, cut at markup); useI18n (the locale: picked here or the
@@ -138,6 +140,9 @@ src/shared/         Values with no trip in them, which the contract re-exports
   parse.ts       parserOf: a schema as a parser for a value from elsewhere, its output or null
   result.ts      Result: a value, or why there is none
   uuid.ts        A UUID as crypto.randomUUID() writes it
+
+src/util/           reset.ts: what the standard library types as `any` (Body.json, JSON.parse, Array.isArray),
+                    typed as `unknown`, for the app and the Worker alike
 
 src/ui/             The design system: props, slots and events only, no app imports
   styles/        Tokens (colors, type, z-index, motion), base, transitions (ct-morph / ct-fade / ct-slide),
@@ -221,7 +226,7 @@ Changes the room has not answered stay in the ledger and are sent again after th
 
 Temporal values become ISO strings under `JSON.stringify` (`"2026-11-03"`, `"12:30:00"`).
 The receiving side gets plain strings, so revive them with `Temporal.PlainDate.from` and friends before calling `apply`.
-Currencies and member colors arrive as plain strings too; `currencyCode` and `hexColor` in `shared/` check them.
+Currencies and member colors arrive as plain strings too; `parseCurrencyCode` and `parseHexColor` in `shared/` check them.
 
 ## Map
 
