@@ -61,6 +61,9 @@ function choose(a: Airport) {
  * it is shut), Enter takes the one walked to, Esc shuts the list
  */
 function onKey(e: KeyboardEvent) {
+  // keys an IME is using are its own, the Enter that confirms a word too (Safari sends that one
+  // after compositionend, no longer composing, but with keyCode 229)
+  if (e.isComposing || e.keyCode === 229) return;
   const n = offered.value.length;
   if (e.key === "ArrowDown" || e.key === "ArrowUp") {
     if (n === 0) return;

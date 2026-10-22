@@ -31,9 +31,10 @@ export type LatLng = v.InferOutput<typeof LatLngSchema>;
 
 /** Pull lat/lng out of a (long) Google Maps URL. Short maps.app.goo.gl links need the Worker to expand them first. */
 export function parseMapsUrl(url: string): LatLng | null {
+  // the place's own point (`!3d…!4d…`) before `@…`, which is only where the map was looking
   const pats = [
-    /@(-?\d+\.\d+),(-?\d+\.\d+)/,
     /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
+    /@(-?\d+\.\d+),(-?\d+\.\d+)/,
     // where a shared short link leads: /maps/search/25.0416,+121.5489
     /\/search\/(-?\d+\.\d+),(?:\+|%20)?(-?\d+\.\d+)/,
     /[?&](?:q|query|ll|center)=(-?\d+\.\d+),(-?\d+\.\d+)/,

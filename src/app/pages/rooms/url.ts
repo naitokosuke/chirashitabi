@@ -1,7 +1,9 @@
+import * as v from "valibot";
 import type { RouteParams } from "vue-router";
 
 import { parseNoteId } from "../../features/notes/id";
 import { type FormTarget } from "../../features/notes/types";
+import { LatLngSchema } from "../../features/place/types";
 
 /** A room's tabs, each a page under `pages/rooms/[roomId=roomId]/` */
 export type View = "home" | "canvas" | "memo" | "map" | "shiori";
@@ -21,15 +23,16 @@ export type SheetQuery = Partial<Omit<RouteParams<"/rooms/[roomId=roomId]">, "ro
 
 /**
  * The sheet a room's URL has open over its tab, in the query, so going back closes it. A key
- * given with no value (`?lat`) comes as null, whatever the types say, hence `typeof`.
+ * given with no value (`?lat`) comes as null, whatever the types say; the place is read as a
+ * point on the map, so that and a number off the map are none.
  */
 export function sheetOf(query: SheetQuery): FormTarget | null {
   const { sheet, note, lat, lng } = query;
   const id = sheet === "edit" ? parseNoteId(note) : null;
   if (id !== null) return { kind: "edit", id };
   if (sheet !== "write") return null;
-  const pinned = typeof lat === "number" && typeof lng === "number";
-  return { kind: "new", pin: pinned ? { lat, lng } : null };
+  const pin = v.safeParse(LatLngSchema, { lat, lng });
+  return { kind: "new", pin: pin.success ? pin.output : null };
 }
 
 /** The query that opens a sheet on `form` */

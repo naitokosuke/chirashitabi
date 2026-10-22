@@ -61,8 +61,10 @@ const HOLD_MS = 600;
     :class="[`kind-${note.kind}`, `visibility-${visibility}`, { print, dragging, pop, selected }]"
     :style="`--x: ${note.x}px; --y: ${note.y}px; --rot: ${note.rot}deg; --scale: ${note.scale}`"
     :data-id="note.id"
-    :tabindex="note.kind !== 'suggestion' && visibility !== 'dimmed' ? 0 : undefined"
-    :role="note.kind !== 'suggestion' ? 'button' : 'group'"
+    :tabindex="
+      (note.kind === 'text' || note.kind === 'sticker') && visibility !== 'dimmed' ? 0 : undefined
+    "
+    :role="note.kind === 'text' || note.kind === 'sticker' ? 'button' : 'group'"
     :aria-label="note.kind === 'sticker'
       ? i18n.t('canvas.sticker')
       : note.kind !== 'suggestion'
@@ -151,7 +153,16 @@ const HOLD_MS = 600;
           @click.stop
         ><Icon :size="11" :src="externalIcon" /><span class="site">{{ siteOf(note.link) }}</span></a
         >
-        <p class="title" :class="print ? 'lines-2' : 'lines-3'">{{ note.title }}</p>
+        <!-- a memo holds links, so it is no button itself: its title is, which takes the
+             card's keys (Enter opens it); dimmed, it is out of reach, as it is of a finger -->
+        <p
+          class="title"
+          :class="print ? 'lines-2' : 'lines-3'"
+          role="button"
+          :tabindex="visibility !== 'dimmed' ? 0 : undefined"
+        >{{
+          note.title
+        }}</p>
         <!-- the words, a few lines of them (a page's own line stays off its print, for the
              booklet); a link in them is its site, as every link on the desk is -->
         <p v-if="note.body !== '' && !(print && note.link !== null)" class="words"><template
@@ -271,6 +282,16 @@ const HOLD_MS = 600;
 
   &.selected {
     z-index: var(--z-float);
+  }
+
+  /* a memo's button is its title; the keyboard's ring still goes round the whole card */
+  &:has(.title:focus-visible) {
+    outline: var(--ring-width) solid var(--ink);
+    outline-offset: var(--ring-offset);
+
+    .title {
+      outline: none;
+    }
   }
 
   /* a print is the wider cut */

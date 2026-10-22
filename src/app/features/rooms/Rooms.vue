@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, ref, shallowRef } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 
 import {
   CtButton,
@@ -54,12 +54,16 @@ const i18n = useI18n();
 const cut = useOffline();
 const room = useRoom();
 const sync = useSync();
-const today = Temporal.Now.plainDateISO();
+/** Today, read again when the page comes back into view: a phone woken the next day moves on */
+const today = shallowRef(Temporal.Now.plainDateISO());
+const readToday = () => (today.value = Temporal.Now.plainDateISO());
+onMounted(() => document.addEventListener("visibilitychange", readToday));
+onBeforeUnmount(() => document.removeEventListener("visibilitychange", readToday));
 
 const trips = useRooms();
 const { data: mine, status: listStatus, refetch: refetchList } = trips.list;
 /** Coming up and been, each in the order a person looks for them (when.ts) */
-const shelves = computed(() => shelve(mine.value?.rooms ?? [], today));
+const shelves = computed(() => shelve(mine.value?.rooms ?? [], today.value));
 const none = computed(
   () =>
     listStatus.value === "success" &&
@@ -124,7 +128,7 @@ const untilLabel = (until: Temporal.PlainDate) =>
 const tagOf = (r: RoomSummary) => ({
   name: r.name,
   dates: datesLabel(r.first, r.days, i18n.locale, i18n.t),
-  when: whenLabel(whenOf(r, today), i18n.t),
+  when: whenLabel(whenOf(r, today.value), i18n.t),
   members: r.members,
   memos: i18n.t("rooms.memos", { count: r.memos }),
 });
@@ -200,7 +204,7 @@ function retry() {
             <CtHeading>{{ i18n.t("rooms.invitations") }}</CtHeading>
             <ul class="tags">
               <li v-for="r in mine?.invitations" :key="r.id">
-                <Invitation :room="r" @joined="(id) => emit('open', id)" />
+                <Invitation :room="r" :today @joined="(id) => emit('open', id)" />
               </li>
             </ul>
           </section>
