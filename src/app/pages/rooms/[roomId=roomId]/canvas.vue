@@ -18,7 +18,7 @@ interface Pivot {
 type Gesture =
   | { kind: "idle" }
   /** Down on a card, not moved yet: becomes a drag, a tap (pick; twice, edit) or a long press (menu) */
-  | { kind: "press"; grab: Grab; sx: number; sy: number; timer: number }
+  | { kind: "press"; grab: Grab; sx: number; sy: number; timer: ReturnType<typeof setTimeout> }
   | { kind: "drag"; grab: Grab; lastSend: number }
   /** A picked card's corner handle: its size follows the finger's distance from the middle */
   | { kind: "resize"; at: Pivot; d0: number; scale0: number; lastSend: number }
@@ -194,7 +194,10 @@ const wrap = (deg: number) => {
   return d === -180 ? 180 : d;
 };
 
+// The desk's handlers, frames and timers below run in a browser only, never while rendering on a
+// server; each says so where it reaches for the page, so that holds should it ever render there
 function onDown(e: PointerEvent) {
+  if (import.meta.env.SSR) return;
   const target = e.target;
   // a button, or words being written on the desk, is not the desk
   if (!(target instanceof Element) || target.closest("button, textarea") !== null) return;
@@ -250,13 +253,16 @@ function onDown(e: PointerEvent) {
     sx: e.clientX,
     sy: e.clientY,
     // only fires while still pressing: moving or lifting clears it
-    timer: window.setTimeout(() => {
-      setGesture(IDLE);
-      select(note);
-      navigator.vibrate?.(10);
-      openMenu(note);
-    }, 420),
+    timer: setTimeout(pressedLong, 420, note),
   });
+}
+/** Held without moving: the card is picked and its menu opens */
+function pressedLong(note: Note) {
+  if (import.meta.env.SSR) return;
+  setGesture(IDLE);
+  select(note);
+  navigator.vibrate?.(10);
+  openMenu(note);
 }
 
 function onMove(e: PointerEvent) {
@@ -407,6 +413,7 @@ function onWheel(e: WheelEvent) {
 const CLEAR = 28;
 /** Below the card, so the card stays visible while its color is picked; above it near the bottom edge */
 function openMenu(note: Note, { focus = true } = {}) {
+  if (import.meta.env.SSR) return;
   const r = vp.value?.getBoundingClientRect();
   if (r === undefined) return;
   const card = cardEl(note)?.getBoundingClientRect();
@@ -418,6 +425,7 @@ function openMenu(note: Note, { focus = true } = {}) {
   };
   // once it is drawn: measure it, keep it on screen (above the card near the bottom), and move focus in
   void nextTick(() => {
+    if (import.meta.env.SSR) return;
     const m = menuEl.value;
     if (m === null || menu.value === null) return;
     const { width: w, height: h } = m.size();
@@ -560,6 +568,7 @@ const shownNotes = computed(() => {
   );
 });
 function remove(note: Note) {
+  if (import.meta.env.SSR) return;
   const card = cardEl(note);
   const hadFocus =
     card?.contains(document.activeElement) === true || menuEl.value?.holdsFocus() === true;
@@ -577,8 +586,12 @@ function remove(note: Note) {
     },
   });
   // keyboard users land on the undo, not on the page
-  if (hadFocus)
-    void nextTick(() => document.querySelector<HTMLElement>('[role="status"] button')?.focus());
+  if (hadFocus) void nextTick(focusUndo);
+}
+/** The toast's undo takes the keyboard */
+function focusUndo() {
+  if (import.meta.env.SSR) return;
+  document.querySelector<HTMLElement>('[role="status"] button')?.focus();
 }
 const { mutateAsync: suggestAt, isLoading: thinking } = useWorkerCalls().suggest;
 /**
@@ -652,18 +665,20 @@ async function askForIdeas() {
 function write() {
   void openSheet({ kind: "new", pin: null });
 }
+/** The window's size; on a server, where there is none, nothing */
+function windowSize() {
+  if (import.meta.env.SSR) return { width: 0, height: 0 };
+  return { width: window.innerWidth, height: window.innerHeight };
+}
 function placeAtCenter(input: NoteInput, how: PlaceHow) {
   // the desk as it is shown; kept behind another tab it measures nothing, and it comes back
   // filling the window, so the note goes to the middle of the view it comes back to
-  const r =
-    vp.value?.isConnected === true
-      ? vp.value.getBoundingClientRect()
-      : { width: window.innerWidth, height: window.innerHeight };
+  const r = vp.value?.isConnected === true ? vp.value.getBoundingClientRect() : windowSize();
   const c = toWorld(r.width / 2, r.height / 2);
   const n = store.add(input, { x: c.x - 82, y: c.y - 40 });
   if (how === "pop") {
     pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
-    window.setTimeout(popped, POP_MS, n.id);
+    setTimeout(popped, POP_MS, n.id);
   }
   const message = {
     pop: "canvas.addedDrag",
@@ -795,7 +810,7 @@ async function stick(file: Blob, at?: Pt) {
     const c = toWorld(at?.x ?? r.width / 2, at?.y ?? r.height / 2);
     const n = store.addSticker(image, { x: c.x - 80, y: c.y - 80 });
     pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
-    window.setTimeout(popped, POP_MS, n.id);
+    setTimeout(popped, POP_MS, n.id);
     toast.show(i18n.t("canvas.stickerAdded"), undoAdd(n.id));
   } catch {
     toast.show(i18n.t("canvas.stickerFailed"));

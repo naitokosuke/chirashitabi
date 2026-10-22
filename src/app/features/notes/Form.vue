@@ -427,6 +427,11 @@ const rowEl = useTemplateRef<HTMLElement>("rowEl");
  * reduced motion the change simply happens.
  */
 function flip(row: HTMLElement | null, update: () => void) {
+  // rendering on a server there is nothing to move: the change simply happens
+  if (import.meta.env.SSR) {
+    update();
+    return;
+  }
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (row === null || reduce || typeof Element.prototype.animate !== "function") {
     update();

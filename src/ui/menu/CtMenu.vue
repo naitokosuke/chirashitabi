@@ -21,6 +21,7 @@ const buttons = () => [
 
 /** Left and right walk the buttons, as in any toolbar; Esc closes it (one handler: two on one element collide) */
 function onKey(e: KeyboardEvent) {
+  if (import.meta.env.SSR) return;
   if (e.key === "Escape") {
     e.stopPropagation();
     emit("close");
@@ -28,7 +29,8 @@ function onKey(e: KeyboardEvent) {
   }
   if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
   const all = buttons();
-  const i = all.findIndex((b) => b === document.activeElement);
+  const focused = document.activeElement;
+  const i = all.findIndex((b) => b === focused);
   const next = all[(i + (e.key === "ArrowRight" ? 1 : all.length - 1)) % all.length];
   e.preventDefault();
   next?.focus();
@@ -37,7 +39,11 @@ function onKey(e: KeyboardEvent) {
 defineExpose({
   size: () => ({ width: root.value?.offsetWidth ?? 0, height: root.value?.offsetHeight ?? 0 }),
   focusFirst: () => buttons()[0]?.focus(),
-  holdsFocus: () => root.value?.contains(document.activeElement) ?? false,
+  holdsFocus: () => {
+    // no focus to hold while rendering on a server
+    if (import.meta.env.SSR) return false;
+    return root.value?.contains(document.activeElement) ?? false;
+  },
 });
 </script>
 

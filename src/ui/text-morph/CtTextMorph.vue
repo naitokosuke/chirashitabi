@@ -28,6 +28,11 @@ watch(
     let superseded = false;
     onCleanup(() => (superseded = true));
     const next = align(glyphs.value, flatten(props.parts), mint);
+    // rendering on a server nothing moves: the characters are simply the new ones
+    if (import.meta.env.SSR) {
+      glyphs.value = next;
+      return;
+    }
     const el = root.value;
     const css = el === null ? null : getComputedStyle(el);
     const duration = css === null ? 0 : parseFloat(css.getPropertyValue("--duration-swap")) * 1000;

@@ -20,6 +20,11 @@ export function usePageTurn(page: Readonly<Ref<HTMLElement | null>>) {
   let running: Animation | null = null;
 
   return async function turn(update: () => void) {
+    // rendering on a server there is no page to turn: the change simply happens
+    if (import.meta.env.SSR) {
+      update();
+      return;
+    }
     const el = page.value;
     const duration =
       el === null ? 0 : parseFloat(getComputedStyle(el).getPropertyValue("--duration-swap")) * 1000;

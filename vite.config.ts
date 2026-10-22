@@ -181,6 +181,9 @@ export default defineConfig({
     options: { typeAware: true, typeCheck: true },
     vue: {
       preset: "opinionated",
+      // across files too: what a component's callers pass it, and async work writing state that
+      // may have moved on by the time it lands (croquis/cf/async-boundary is an error)
+      crossFile: true,
       rules: {
         // I don't like this rule🫠
         "vue/multi-word-component-names": "off",

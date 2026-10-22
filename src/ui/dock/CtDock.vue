@@ -29,6 +29,8 @@ const items = () =>
 const middle = (r: DOMRect) => r.left + r.width / 2;
 /** The icons as they are now, and where each rests */
 function measure(n: HTMLElement) {
+  // rendering on a server nothing is laid out to measure
+  if (import.meta.env.SSR) return { els: [], rest: [] };
   const cell = parseFloat(getComputedStyle(n).getPropertyValue("--cell"));
   const els = items();
   const now: Measured[] = els.map((el) => {
@@ -41,7 +43,9 @@ function measure(n: HTMLElement) {
 let pointer: number | null = null;
 let frame = 0;
 
+// The pointer, frames and resizes below are a browser's only, never a server render's
 function magnify() {
+  if (import.meta.env.SSR) return;
   frame = 0;
   const n = nav.value;
   if (n === null) return;
@@ -51,9 +55,10 @@ function magnify() {
     else el.style.setProperty("--m", magnification(pointer - (rest[i] ?? 0)).toFixed(3));
   });
 }
-const schedule = () => {
+function schedule() {
+  if (import.meta.env.SSR) return;
   if (frame === 0) frame = requestAnimationFrame(magnify);
-};
+}
 
 /**
  * Where the dot is, from the dock's middle: under where the open item rests, or nowhere when
@@ -65,6 +70,7 @@ const dotReady = ref(false);
 /** Under a mouse, the icons magnify (and settle back when it leaves) */
 const magnifying = ref(false);
 function placeDot() {
+  if (import.meta.env.SSR) return;
   const n = nav.value;
   if (n === null) return;
   const { els, rest } = measure(n);
@@ -95,6 +101,7 @@ onBeforeUnmount(() => {
 });
 
 function onEnter(e: PointerEvent) {
+  if (import.meta.env.SSR) return;
   if (e.pointerType !== "mouse") return;
   // growing and pushing aside under the pointer is motion: none when it is to be reduced
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;

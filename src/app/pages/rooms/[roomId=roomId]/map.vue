@@ -206,7 +206,9 @@ onBeforeUnmount(() => {
   map = null;
 });
 
+/** A memo's marker, an element on the page: only ever made for the map, which is a browser's */
 function pinEl(n: Pinned) {
+  if (import.meta.env.SSR) throw new Error("a map marker is made in a browser only");
   const d = document.createElement("button");
   d.type = "button";
   d.className = "pin";
@@ -225,7 +227,9 @@ function pinEl(n: Pinned) {
   return d;
 }
 
+// The markers are elements on the page, made in a browser only (the map is made on mount)
 function syncMarkers() {
+  if (import.meta.env.SSR) return;
   if (map === null) return;
   const seen = new Set<NoteId>();
   for (const n of pinnedOf(notes.value ?? [])) {
@@ -304,6 +308,7 @@ watch([day, () => (notes.value ?? []).map(scheduleKey), () => trip.value?.stays]
 /** Where the nights are spent, a square of ink each, under the notes' pins */
 const stayMarkers: Marker[] = [];
 function syncStays() {
+  if (import.meta.env.SSR) return;
   if (map === null) return;
   for (const m of stayMarkers.splice(0)) m.remove();
   for (const s of trip.value?.stays ?? []) {
@@ -340,6 +345,7 @@ function airportOn(d: Temporal.PlainDate, leg: Leg) {
 /** Each airport a flight names, once, a plane-shaped badge of ink */
 const airportMarkers: Marker[] = [];
 function syncAirports() {
+  if (import.meta.env.SSR) return;
   if (map === null) return;
   for (const m of airportMarkers.splice(0)) m.remove();
   const named = new Map<string, Airport>();
