@@ -9,8 +9,8 @@ import { AccessVerifier, Unauthenticated } from "./access";
 import { ASK_LENGTH, draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
 import { CLEF_MODEL, FITS_AT, judgeTags, MAX_TAGS, type MemoToTag } from "./clef";
 import { expand, placeName } from "./expand";
-import { geocode, reverseGeocode, SPACING_MS, type Place } from "./geocode";
-import { preview } from "./preview";
+import { geocode, reverseGeocode, type Place } from "./geocode";
+import { preview, previewable } from "./preview";
 import { bookletKey, Room } from "./room";
 import { RoomsIndex, type Refusal } from "./rooms-index";
 import {
@@ -36,6 +36,7 @@ import {
   LangSchema,
   MAX_IMAGE_BYTES,
   NewTripSchema,
+  parseTag,
   PointSchema,
   ProfileSchema,
 } from "./wire";
@@ -449,14 +450,13 @@ const api = new Hono<ApiEnv>()
     async (c) => {
       const { email, log, roomId, memberId, room } = c.var;
       const { url } = c.req.valid("json");
+      const ours = [c.env.APP_HOST, c.env.BOOKLET_HOST];
+      // an address that is never fetched is no preview, and costs nothing
+      if (previewable(url, ours) === null) return c.json({ preview: null });
       const index = c.env.ROOMS.getByName("index");
       const reserved = await index.reserve(email, roomId);
       if (!reserved.ok) return overBudget(c, reserved.reason);
-      const found = await preview(
-        url,
-        [c.env.APP_HOST, c.env.BOOKLET_HOST],
-        c.env.PREVIEW_BASE_URL,
-      );
+      const found = await preview(url, ours, c.env.PREVIEW_BASE_URL);
       // the site it was on, never the address: enough to tell which kinds of pages say nothing
       log.set({
         preview: { ok: found !== null, site: found?.site ?? null, picture: found?.image !== null },
@@ -521,9 +521,15 @@ const api = new Hono<ApiEnv>()
         v.object({
           title: v.fallback(v.pipe(v.string(), v.trim(), cut(200)), ""),
           body: v.fallback(v.pipe(v.string(), v.trim(), cut(4000)), ""),
+          // as many as a memo has, each one a tag (wire.ts): what goes into Claude's prompt is bounded
           tags: v.pipe(
             v.optional(v.array(v.string()), []),
-            v.transform((tags) => tags.slice(0, 20)),
+            v.transform((tags) =>
+              tags.slice(0, 20).flatMap((t) => {
+                const tag = parseTag(t);
+                return tag === null ? [] : [tag];
+              }),
+            ),
           ),
           lang,
         }),
@@ -549,10 +555,9 @@ const api = new Hono<ApiEnv>()
       }
       await room.recordAgentCall(memberId, "places", named.usage);
 
-      // the best query first; the other only when the first finds nothing, a second later
+      // the best query first; the other only when the first finds nothing (geocode.ts spaces them)
       let places: Place[] = [];
-      for (const [i, query] of named.value.entries()) {
-        if (i > 0) await new Promise((r) => setTimeout(r, SPACING_MS));
+      for (const query of named.value) {
         const found = await geocode(c.env, query, lang);
         if (found === null) {
           log.set({

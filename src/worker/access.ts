@@ -142,9 +142,16 @@ export class AccessVerifier {
   }
 }
 
+/** A part of a token as its bytes; a part that is no base64url is no token */
 const bytes = (b64url: string): Uint8Array => {
   const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
-  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  let decoded: string;
+  try {
+    decoded = atob(b64);
+  } catch {
+    throw new Unauthenticated("malformed token");
+  }
+  return Uint8Array.from(decoded, (c) => c.charCodeAt(0));
 };
 
 /** A part of a token as the JSON object it is, its fields still to be checked */

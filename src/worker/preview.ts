@@ -134,10 +134,13 @@ export function readHead(html: string): {
 /** One step of reading a body: done, or a chunk of bytes */
 const StepSchema = v.object({ done: v.boolean(), value: v.optional(v.instance(Uint8Array)) });
 
-/** Reads a response's body up to `max` bytes and no further */
-async function readUpTo(res: Response, max: number): Promise<Uint8Array | null> {
+/**
+ * Reads a response's body up to `max` bytes and no further: a longer one is none (a picture,
+ * whole or nothing), or, `cut`, its first `max` bytes (a page, whose head comes first)
+ */
+async function readUpTo(res: Response, max: number, cut = false): Promise<Uint8Array | null> {
   const length = Number(res.headers.get("Content-Length") ?? "0");
-  if (length > max) return null;
+  if (length > max && !cut) return null;
   const reader = res.body?.getReader();
   if (reader === undefined) return new Uint8Array();
   const chunks: Uint8Array[] = [];
@@ -152,15 +155,20 @@ async function readUpTo(res: Response, max: number): Promise<Uint8Array | null> 
     if (done || value === undefined) break;
     chunks.push(value);
     got += value.byteLength;
-    if (got > max) {
+    if (got > max && !cut) {
       await reader.cancel();
       return null;
     }
+    if (got >= max && cut) {
+      await reader.cancel();
+      break;
+    }
   }
-  const out = new Uint8Array(got);
+  const out = new Uint8Array(Math.min(got, max));
   let at = 0;
   for (const c of chunks) {
-    out.set(c, at);
+    // the last chunk of a cut body only as far as `max`
+    out.set(c.subarray(0, out.byteLength - at), at);
     at += c.byteLength;
   }
   return out;
@@ -200,7 +208,11 @@ async function get(
     }
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get("Location");
-      at = location === null ? null : previewable(new URL(location, at).href, ours);
+      // a Location that is no address is no page
+      at =
+        location === null || !URL.canParse(location, at.href)
+          ? null
+          : previewable(new URL(location, at).href, ours);
       continue;
     }
     return res.ok ? res : null;
@@ -284,7 +296,7 @@ export async function preview(url: string, ours: string[], base?: string): Promi
   if (res === null) return null;
   const type = mediaType(res);
   if (type !== "text/html" && type !== "application/xhtml+xml") return null;
-  const bytes = await readUpTo(res, PAGE_BYTES);
+  const bytes = await readUpTo(res, PAGE_BYTES, true);
   if (bytes === null) return null;
   const head = readHead(new TextDecoder().decode(bytes));
   // where the page ended: the stub keeps the address asked for, the web may have moved it
@@ -294,6 +306,10 @@ export async function preview(url: string, ours: string[], base?: string): Promi
     site: siteOf(ended),
     title: head.title,
     description: head.description,
-    image: head.image === null ? null : await picture(new URL(head.image, ended).href, ours, base),
+    // a picture whose address is no address is none
+    image:
+      head.image === null || !URL.canParse(head.image, ended.href)
+        ? null
+        : await picture(new URL(head.image, ended).href, ours, base),
   };
 }

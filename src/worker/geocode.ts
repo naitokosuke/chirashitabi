@@ -1,8 +1,8 @@
 /**
  * Places by name, from OpenStreetMap's geocoder (Nominatim): free, no key, real coordinates.
- * Its usage policy asks for an identifying User-Agent and at most one request a second, which
- * a room of two people asking one memo at a time keeps well under; the caller still spaces
- * its second query (index.ts).
+ * Its usage policy asks for an identifying User-Agent and at most one request a second for the
+ * whole app: each request waits for its turn, which the one RoomsIndex hands out, and is cut
+ * off after a timeout.
  */
 
 import * as v from "valibot";
@@ -16,6 +16,19 @@ export const USER_AGENT = "chirashitabi/1.0 (+https://chirashitabi.app)";
 export const MAX_PLACES = 3;
 /** Nominatim's own pace: one request a second */
 export const SPACING_MS = 1100;
+/** How long a request may take before it is given up */
+const TIMEOUT_MS = 8000;
+
+/**
+ * Waits for the app's turn at the geocoder (RoomsIndex.geocoderTurn); false when the turns
+ * already taken run too far ahead, and it is not asked
+ */
+async function turn(env: Env): Promise<boolean> {
+  const wait = await env.ROOMS.getByName("index").geocoderTurn();
+  if (wait === null) return false;
+  await new Promise((r) => setTimeout(r, wait));
+  return true;
+}
 
 export interface Place {
   /** What it is called, in the asker's language where OpenStreetMap has it */
@@ -41,10 +54,12 @@ export async function geocode(env: Env, query: string, lang: Lang): Promise<Plac
     extratags: "1",
     "accept-language": lang,
   });
+  if (!(await turn(env))) return null;
   let res: Response;
   try {
     res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/search?${params.toString()}`, {
       headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {
     return null;
@@ -124,10 +139,12 @@ export async function reverseGeocode(
     extratags: "1",
     "accept-language": lang,
   });
+  if (!(await turn(env))) return null;
   let res: Response;
   try {
     res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/reverse?${params.toString()}`, {
       headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {
     return null;
