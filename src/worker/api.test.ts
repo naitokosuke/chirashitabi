@@ -495,6 +495,25 @@ describe("the public booklet", () => {
     expect(await after.json()).toEqual({ publication: null });
   });
 
+  test("publishing twice at once, or withdrawing meanwhile, leaves up only the file on record", async () => {
+    const { roomId, memberId: owner } = await createRoom("racer@example.com");
+    const env = await server.getWorker().getEnv();
+    // the room's own calls, each on a stub of its own so they run side by side: no budget
+    const room = () => env.ROOM.getByName(roomId);
+    const publish = async () => {
+      const published = (await room().publish(owner, "ja")) as { value: { slug: string } };
+      return published.value.slug;
+    };
+    // taps in a row, then a publish and a withdrawal crossing
+    const tapped = await Promise.all([publish(), publish(), publish()]);
+    const [crossed] = await Promise.all([publish(), room().withdraw(owner)]);
+    const on = await room().publication(owner);
+    for (const slug of [...tapped, crossed])
+      expect((await env.IMAGES.head(`booklets/${slug}/shiori.html`)) !== null).toBe(
+        slug === on?.slug,
+      );
+  });
+
   test("deleting the trip takes its booklet down", async () => {
     // an owner of their own: each publish counts against the day's budget
     const DELETER = "deleter@example.com";
@@ -849,6 +868,27 @@ describe("deleting a room", () => {
     ).toEqual([]);
     const index = await worker.getDurableObjectStorage("RoomsIndex", { name: "index" });
     expect(await index.exec("SELECT * FROM memberships WHERE room_id = ?", roomId)).toEqual([]);
+  });
+
+  test("deleting right after a removal passes over the socket still closing; asked again, it finishes", async () => {
+    const owner = "delrm-owner@example.com";
+    const guest = "delrm-guest@example.com";
+    const { roomId, memberId: yuki } = await createRoom(owner);
+    const { memberId: ken } = (await (await admit(roomId, owner, guest)).json()) as {
+      memberId: string;
+    };
+    const b = await connect(roomId, guest);
+    const stub = (await server.getWorker().getEnv()).ROOM.getByName(roomId);
+    // one after the other, before the removed phone has answered the close
+    await Promise.all([stub.remove(yuki, ken), stub.delete(yuki, roomId)]);
+    expect(await b.next()).toEqual({ type: "gone", reason: "removed" });
+    const at = await stub.deletedAt();
+    expect(at).not.toBeNull();
+
+    // the index was never told (the Worker's call would have been the one to): the owner asks
+    // again, and the deletion keeps its time
+    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(200);
+    expect(await me(owner)).toMatchObject({ rooms: [], deleted: [{ id: roomId, deletedAt: at }] });
   });
 
   test("a deleted room takes its invitations with it", async () => {
@@ -1342,6 +1382,9 @@ describe("the socket", () => {
       a.send({ type: "trip:dates", ...bad });
       expect(await a.next()).toMatchObject({ type: "rejected", reason: "not a mutation" });
     }
+    // a trip running past 9999-12-31 has days no date can be written for, and nothing moves
+    a.send({ type: "trip:dates", first: "9999-12-01", days: 60, cid: "far" });
+    expect(await a.next()).toEqual({ type: "rejected", reason: "no such day", cid: "far" });
 
     const b = await connect(roomId, owner);
     expect(b.snapshot).toMatchObject({
@@ -1557,6 +1600,8 @@ describe("the socket", () => {
     expect(await refused({ type: "note:add", note: memo("big", "x".repeat(40_000)) })).toBe(
       "too large",
     );
+    // the limit is in bytes: 20,000 characters of three bytes each are 60 KB
+    expect(await refused("あ".repeat(20_000))).toBe("too large");
     b.idle();
     for (const s of [a, b]) s.ws.close(1000, "done");
   });
@@ -1600,6 +1645,68 @@ describe("the socket", () => {
       { id: "n1", x: 10, y: 20 },
     ]);
     c.ws.close(1000, "done");
+  });
+
+  test("a deleted note keeps its id: adding it again is answered as a duplicate", async () => {
+    const email = "readd@example.com";
+    const { roomId } = await createRoom(email);
+    const a = await connect(roomId, email);
+    a.send({ type: "note:add", note: memo("n1"), cid: "c1" });
+    expect((await a.next()).type).toBe("ack");
+    a.send({ type: "note:delete", id: "n1", cid: "c2" });
+    expect((await a.next()).type).toBe("ack");
+    a.send({ type: "note:add", note: memo("n1"), cid: "c3" });
+    expect(await a.next()).toEqual({ type: "rejected", reason: "duplicate id", cid: "c3" });
+    a.ws.close(1000, "done");
+  });
+
+  test("a change sent again after its ack was lost is acked as before, and not written over what came since", async () => {
+    const owner = "replay@example.com";
+    const partner = "replay-partner@example.com";
+    const { roomId } = await createRoom(owner);
+    await admit(roomId, owner, partner);
+    const a = await connect(roomId, owner);
+    const b = await connect(roomId, partner);
+    a.send({ type: "note:add", note: memo("n1"), cid: "add" });
+    const added = await a.next();
+    await b.next();
+    a.send({ type: "note:update", id: "n1", patch: { title: "Mine" }, cid: "mine" });
+    const updated = await a.next();
+    await b.next();
+    b.send({ type: "note:update", id: "n1", patch: { title: "Theirs" }, cid: "theirs" });
+    await b.next();
+    await a.next();
+
+    // the phone comes back and sends again what it never heard answered
+    a.ws.close(1000, "lost");
+    const again = await connect(roomId, owner);
+    again.send({ type: "note:add", note: memo("n1"), cid: "add" });
+    expect(await again.next()).toEqual(added);
+    again.send({ type: "note:update", id: "n1", patch: { title: "Mine" }, cid: "mine" });
+    expect(await again.next()).toEqual(updated);
+    // the partner hears nothing of either: the next thing they hear is a new change
+    again.send({ type: "note:recolor", id: "n1", color: "#ffffff", cid: "new" });
+    expect(await b.next()).toMatchObject({ type: "mutation", mutation: { type: "note:recolor" } });
+    // a cid is the sender's own: the partner's same one is a change of its own
+    b.send({ type: "note:add", note: memo("n2"), cid: "add" });
+    expect(await b.next()).toMatchObject({ type: "ack", cid: "add" });
+
+    const c = await connect(roomId, partner);
+    expect(c.snapshot).toMatchObject({ notes: [{ id: "n1", title: "Theirs" }, { id: "n2" }] });
+    for (const s of [again, b, c]) s.ws.close(1000, "done");
+  });
+
+  test("a long drag does not crowd out the change that ends it", async () => {
+    const email = "long-drag@example.com";
+    const { roomId } = await createRoom(email);
+    const a = await connect(roomId, email);
+    a.send({ type: "note:add", note: memo("n1"), cid: "c1" });
+    expect((await a.next()).type).toBe("ack");
+    // as many moves under the finger as a window takes, then letting go
+    for (let i = 0; i < 200; i++) a.send({ type: "note:move", id: "n1", x: i, y: i });
+    a.send({ type: "note:move", id: "n1", x: 5, y: 5, cid: "let-go" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "let-go" });
+    a.ws.close(1000, "done");
   });
 });
 
@@ -1773,6 +1880,22 @@ describe("the agent's suggestions", () => {
       ),
     ).toEqual([{ n: 3 }]);
     expect(await room.exec("SELECT what FROM agent_calls")).toEqual([{ what: "suggest" }]);
+    a.ws.close(1000, "done");
+  });
+
+  test("ideas asked for at the desk's edge land on it", async () => {
+    const email = "edge-ideas@example.com";
+    const { roomId } = await createRoom(email);
+    const a = await connect(roomId, email);
+    answer = () => suggesting(["Jiufen", "Yehliu", "Beitou hot springs"]);
+    const res = await suggest(roomId, email, { at: { x: -1_000_000, y: 1_000_000 } });
+    expect(await res.json()).toEqual({ added: 3 });
+    for (let i = 0; i < 3; i++) {
+      const m = await a.next();
+      if (m.type !== "mutation" || m.mutation.type !== "note:add") throw new Error("not an add");
+      expect(Math.abs(m.mutation.note.x)).toBeLessThanOrEqual(1_000_000);
+      expect(Math.abs(m.mutation.note.y)).toBeLessThanOrEqual(1_000_000);
+    }
     a.ws.close(1000, "done");
   });
 
@@ -1986,6 +2109,24 @@ describe("pictures", () => {
     expect((await fetchImage(roomId, recent, email)).status).toBe(200);
     expect((await fetchImage(roomId, dropped, email)).status).toBe(404);
     expect(await env.IMAGES.head(`rooms/${roomId}/images/${dropped}`)).toBeNull();
+  });
+
+  test("a deleted card's picture gives its place back too", async () => {
+    const email = "deleted-card-photo@example.com";
+    const { roomId } = await createRoom(email);
+    const { id } = (await (await upload(roomId, email)).json()) as { id: string };
+    const a = await connect(roomId, email);
+    a.send({ type: "note:add", note: { ...memo("n1"), image: id }, cid: "c1" });
+    expect((await a.next()).type).toBe("ack");
+    a.send({ type: "note:delete", id: "n1", cid: "c2" });
+    expect((await a.next()).type).toBe("ack");
+    a.ws.close(1000, "done");
+
+    const storage = await server.getWorker().getDurableObjectStorage("Room", { name: roomId });
+    const old = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    await storage.exec(`UPDATE pictures SET created_at = '${old}' WHERE id = '${id}'`);
+    expect((await upload(roomId, email)).status).toBe(200);
+    expect((await fetchImage(roomId, id, email)).status).toBe(404);
   });
 });
 

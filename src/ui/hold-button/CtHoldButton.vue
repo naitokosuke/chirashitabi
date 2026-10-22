@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { onBeforeUnmount, onMounted, ref, useId, useTemplateRef } from "vue";
+import { onBeforeUnmount, onMounted, ref, useId, useTemplateRef, watch } from "vue";
 
 /**
  * A button held down to act, for what cannot be taken back, after React Bits' Hold Button:
@@ -7,7 +7,9 @@ import { onBeforeUnmount, onMounted, ref, useId, useTemplateRef } from "vue";
  * and whatever it says turns to the fill's color as the fill passes over it; let go before it
  * is full, the fill drains back and nothing happens; full, it acts (`hold`), rings once and
  * shows `done` for a moment. A pointer holds it (and gives up by drifting off it), and so do
- * Space and Enter; Escape, the window losing focus or the page being hidden lets go.
+ * Space and Enter; Escape, the window losing focus, the page being hidden or the button
+ * turning `disabled` lets go. A screen reader, which can only click, starts the fill with one
+ * click and stops it with the next (see `click`).
  * `danger` fills it in the danger color, for something that goes for good. With an `icon`,
  * the icon is what is shown and `label` / `done` are what a screen reader is told.
  *
@@ -48,8 +50,11 @@ const state = ref<"idle" | "holding" | "done">("idle");
 const size = ref({ w: 0, h: 0 });
 let frame = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
-/** What is holding it: a key, or a pointer, with where the button was when it went down */
-type Hold = { by: "key" } | { by: "pointer"; id: number; rect: DOMRect };
+/**
+ * What is holding it: a key, a screen reader's click, or a pointer, with where the button was
+ * when it went down
+ */
+type Hold = { by: "key" } | { by: "click" } | { by: "pointer"; id: number; rect: DOMRect };
 let held: Hold | null = null;
 let observer: ResizeObserver | null = null;
 
@@ -121,6 +126,13 @@ function letGo() {
   state.value = "idle";
   drain();
 }
+/** Turned off mid-hold (its owner went offline, say), it lets go rather than act */
+watch(
+  () => disabled,
+  (off) => {
+    if (off) letGo();
+  },
+);
 
 function down(e: PointerEvent) {
   const button = e.currentTarget;
@@ -155,10 +167,23 @@ function keyDown(e: KeyboardEvent) {
   if (!e.repeat) begin({ by: "key" });
 }
 function keyUp(e: KeyboardEvent) {
-  if ((e.key === " " || e.key === "Enter") && held?.by === "key") letGo();
+  if (e.key !== " " && e.key !== "Enter") return;
+  // the key's own click (Firefox's comes on Space's keyup) is held back, as on keydown
+  e.preventDefault();
+  if (held?.by === "key") letGo();
 }
-/** A click comes with every press; it is the hold that acts, so a click does nothing */
-const click = (e: MouseEvent) => e.preventDefault();
+/**
+ * A click comes with every press, and it is the hold that acts, so a pointer's click (one it
+ * counts: `detail` 1 or more) does nothing, and the keys' clicks are held back above. A click
+ * no pointer counted (`detail` 0) is a screen reader's double tap or Enter, which cannot be
+ * held: it starts the fill as a hold would, and the next such click, Escape or leaving lets go.
+ */
+function click(e: MouseEvent) {
+  e.preventDefault();
+  if (e.detail !== 0) return;
+  if (held?.by === "click") letGo();
+  else begin({ by: "click" });
+}
 /** A long press is this button's, not the system's menu */
 const menu = (e: MouseEvent) => e.preventDefault();
 
@@ -227,6 +252,8 @@ onBeforeUnmount(() => {
     <span :id="`${id}-hint`" class="unseen">
       <slot name="hint"></slot>
     </span>
+    <!-- and, once it has acted, that it has (its name changing is not announced) -->
+    <span class="unseen" role="status">{{ state === "done" ? done : "" }}</span>
   </button>
 </template>
 

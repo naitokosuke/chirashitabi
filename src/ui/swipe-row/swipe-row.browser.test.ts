@@ -10,21 +10,28 @@ import SwipeRowHarness from "./SwipeRowHarness.vue";
 
 /**
  * The row in Chromium: a mouse slides it aside to its action and lets go; ← opens it from
- * the keyboard and hands the focus to the action; → shuts it.
+ * the keyboard and hands the focus to the action; → shuts it. Mounted open, it is open.
  */
 let app: ReturnType<typeof createVaporApp> | null = null;
-beforeEach(async () => {
-  state.open = false;
-  state.taken = 0;
+/** The row mounted afresh, open or shut as `state.open` says */
+async function mount() {
+  app?.unmount();
+  document.body.replaceChildren();
   const root = document.createElement("div");
   root.style.width = "320px";
   document.body.append(root);
   app = createVaporApp(SwipeRowHarness as VaporComponent);
   app.mount(root);
   await nextTick();
+}
+beforeEach(async () => {
+  state.open = false;
+  state.taken = 0;
+  await mount();
 });
 afterEach(() => {
   app?.unmount();
+  app = null;
   document.body.replaceChildren();
 });
 
@@ -89,6 +96,16 @@ describe("sliding", () => {
     await nextTick();
     expect(state.open).toBe(false);
     expect(location.hash).toBe("");
+  });
+
+  test("mounted open, it shows its action, and a press elsewhere shuts it", async () => {
+    state.open = true;
+    await mount();
+    await expect.poll(shift).toBeLessThan(-80);
+    expect(action().element().closest("[inert]")).toBeNull();
+    document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    await nextTick();
+    expect(state.open).toBe(false);
   });
 });
 

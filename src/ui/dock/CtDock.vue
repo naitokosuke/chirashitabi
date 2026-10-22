@@ -11,7 +11,7 @@ import { dotOf, magnification, restOf, type Measured } from "./dock";
  *
  * Under a mouse it magnifies like a dock: the icons near the pointer grow, the nearest the
  * most, and push their neighbours aside; they grow upward, out of the glass, so the dock
- * itself keeps its height. Distances are from where each icon rests (dock.ts), worked out
+ * itself keeps its height (not when motion is to be reduced). Distances are from where each icon rests (dock.ts), worked out
  * from where the icons are at that moment, so the row does not chase its own growth. The
  * dot has no part in it: it marks what is open, and sits still while icons grow around it.
  *
@@ -92,12 +92,14 @@ onBeforeUnmount(() => {
 
 function onEnter(e: PointerEvent) {
   if (e.pointerType !== "mouse") return;
+  // growing and pushing aside under the pointer is motion: none when it is to be reduced
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   magnifying.value = true;
   pointer = e.clientX;
   schedule();
 }
 function onMove(e: PointerEvent) {
-  if (e.pointerType !== "mouse") return;
+  if (!magnifying.value) return;
   pointer = e.clientX;
   schedule();
 }

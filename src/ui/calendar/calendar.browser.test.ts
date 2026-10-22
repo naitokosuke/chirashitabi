@@ -1,6 +1,6 @@
 import { createVaporApp, nextTick, type VaporComponent } from "vue";
 
-import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 
 import "../styles/index.css";
@@ -10,7 +10,8 @@ import { START, state } from "./harness";
 
 /**
  * The calendar in Chromium: tapping a first day and then a last one picks the range, the
- * days between banded, and the band follows the pointer while the last is still to come.
+ * days between banded, and the band follows the pointer while the last is still to come. A
+ * range or day set from outside turns the page to it; today is read again on coming back.
  */
 let app: ReturnType<typeof createVaporApp> | null = null;
 beforeEach(async () => {
@@ -24,6 +25,7 @@ beforeEach(async () => {
   await nextTick();
 });
 afterEach(() => {
+  vi.useRealTimers();
   app?.unmount();
   document.body.replaceChildren();
 });
@@ -67,6 +69,22 @@ describe("with range", () => {
     expect(state.dates.end?.toString()).toBe("2026-12-02");
   });
 
+  test("the picked days are the grid's selected cells", () => {
+    const selected = [...document.querySelectorAll('td[aria-selected="true"]')].map(
+      (td) => td.querySelector("button")!.dataset.date,
+    );
+    expect(selected).toEqual(["2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06"]);
+    expect(cell("2026-11-10").getAttribute("aria-selected")).toBe("false");
+  });
+
+  test("a range set from outside turns the page to it, and the keys start from it", async () => {
+    state.dates = { start: START.add({ months: 2 }), end: START.add({ months: 2, days: 1 }) };
+    await nextTick();
+    expect(document.querySelector("h3")!.textContent).toBe("January 2027");
+    expect(cell("2027-01-03").classList.contains("start")).toBe(true);
+    expect(document.querySelector('[tabindex="0"]')?.getAttribute("data-date")).toBe("2027-01-03");
+  });
+
   test("the arrow keys walk the days, across into the next month", async () => {
     document.querySelector<HTMLElement>('[data-date="2026-11-03"]')!.focus();
     await userEvent.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}");
@@ -85,5 +103,23 @@ describe("without range", () => {
     expect(cell("2026-11-12").classList.contains("start")).toBe(true);
     expect(cell("2026-11-03").classList.contains("start")).toBe(false);
     expect(banded()).toEqual([]);
+  });
+
+  test("a day set from outside turns the page to it", async () => {
+    state.range = false;
+    await nextTick();
+    state.day = START.add({ months: 1, days: 2 });
+    await nextTick();
+    expect(document.querySelector("h3")!.textContent).toBe("December 2026");
+    expect(cell("2026-12-05").classList.contains("start")).toBe(true);
+  });
+
+  test("today is read again when the page comes back into view", async () => {
+    const marked = () => document.querySelector('[aria-current="date"]')?.getAttribute("data-date");
+    expect(marked()).not.toBe("2026-11-12");
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 10, 12, 12) });
+    document.dispatchEvent(new Event("visibilitychange"));
+    await nextTick();
+    expect(marked()).toBe("2026-11-12");
   });
 });

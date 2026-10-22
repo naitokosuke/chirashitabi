@@ -30,7 +30,8 @@ const BODY = 4000;
 const TAGS = 20;
 const INTRO = 1000;
 const NAME = 60;
-const COORD = 1e6;
+/** How far a point on the desk may be from its middle, either way */
+export const COORD = 1e6;
 const DAYS = 60;
 const FLIGHT_NO = 20;
 /** Stays in a trip: one a night at most, for a trip as long as it may be */

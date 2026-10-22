@@ -19,6 +19,8 @@ import {
   type CurrencyCode,
 } from "./types";
 import {
+  COORD,
+  IsoDateSchema,
   IsoInstantSchema,
   SEATS,
   parseTag,
@@ -73,8 +75,18 @@ type Profile = v.InferOutput<typeof ProfileSchema>;
 /** A message to a member's socket, as it goes; the type checks it against what the app reads */
 const encode = (message: ServerMessage): string => JSON.stringify(message);
 
-/** Messages a member may send in a window; dragging a card sends one every 80ms */
+/**
+ * Messages a member may send in a window, the drags and the rest each this many: dragging a card
+ * sends one every 80ms, and is counted apart so a long drag cannot crowd out a change to keep
+ */
 const RATE = { window: 10_000, max: 200 };
+
+/**
+ * The cids of a member's changes the room remembers, newest kept: a phone that lost an ack
+ * resends the change, and is answered without writing it again. More than a socket ever has in
+ * flight when it drops, offline replays included.
+ */
+const APPLIED_KEPT = 1000;
 
 type NoteRow = {
   id: NoteId;
@@ -126,6 +138,7 @@ export class Room extends DurableObject<Env> {
   static readonly MEMBER_HEADER = "X-Chirashitabi-Member";
 
   #rate = new Map<MemberId, { since: number; n: number }>();
+  #dragRate = new Map<MemberId, { since: number; n: number }>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -236,6 +249,12 @@ export class Room extends DurableObject<Env> {
         by TEXT NOT NULL,
         at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS applied (
+        member TEXT NOT NULL,
+        cid TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (member, cid)
+      );
     `);
     ctx.storage.sql.exec(flightsTable("flights"));
     // flights kept when a time not known yet was written "" (its columns were NOT NULL then) are
@@ -306,7 +325,9 @@ export class Room extends DurableObject<Env> {
     const unused = sql
       .exec<{ id: ImageId }>(
         `DELETE FROM pictures
-         WHERE created_at < ? AND id NOT IN (SELECT image FROM notes WHERE image IS NOT NULL)
+         WHERE created_at < ? AND id NOT IN (
+           SELECT image FROM notes WHERE image IS NOT NULL AND deleted_at IS NULL
+         )
          RETURNING id`,
         new Date(Date.now() - Room.UNUSED_AFTER).toISOString(),
       )
@@ -364,39 +385,39 @@ export class Room extends DurableObject<Env> {
   ): Promise<Result<{ slug: string; at: string }, "not the owner">> {
     this.assertMember(by);
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
-    // the old file goes first: should anything after fail, the old link answers nothing, and the
-    // record still names a slug whose file a retry deletes again (an R2 delete of none is fine)
-    const before = this.published();
-    if (before !== null) await this.env.IMAGES.delete(bookletKey(before.slug));
-    const slug = newSlug();
-    const at = new Date().toISOString();
-    await this.env.IMAGES.put(
-      bookletKey(slug),
-      renderBooklet(this.trip(), this.notes(), lang, at),
-      {
-        httpMetadata: { contentType: "text/html; charset=utf-8" },
-      },
-    );
-    // deleted while the file was on its way: it goes again, and nothing is put up
-    if (this.deletion() !== null) {
-      await this.env.IMAGES.delete(bookletKey(slug));
-      throw new Error("room deleted");
-    }
-    this.ctx.storage.sql.exec(
-      `INSERT INTO publication (id, slug, by, at) VALUES (1, ?, ?, ?)
-       ON CONFLICT (id) DO UPDATE SET slug = excluded.slug, by = excluded.by, at = excluded.at`,
-      slug,
-      by,
-      at,
-    );
-    return { ok: true, value: { slug, at } };
+    // nothing else runs until the record names the file put up: two publishes at once (a double
+    // tap), or a withdrawal or a deletion between, would leave up a file no record names
+    return this.ctx.blockConcurrencyWhile(async () => {
+      // the old file goes first: should anything after fail, the old link answers nothing, and the
+      // record still names a slug whose file a retry deletes again (an R2 delete of none is fine)
+      const before = this.published();
+      if (before !== null) await this.env.IMAGES.delete(bookletKey(before.slug));
+      const slug = newSlug();
+      const at = new Date().toISOString();
+      await this.env.IMAGES.put(
+        bookletKey(slug),
+        renderBooklet(this.trip(), this.notes(), lang, at),
+        {
+          httpMetadata: { contentType: "text/html; charset=utf-8" },
+        },
+      );
+      this.ctx.storage.sql.exec(
+        `INSERT INTO publication (id, slug, by, at) VALUES (1, ?, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET slug = excluded.slug, by = excluded.by, at = excluded.at`,
+        slug,
+        by,
+        at,
+      );
+      return { ok: true, value: { slug, at } };
+    });
   }
 
   /** The owner `by` takes the booklet down: its link answers nothing from now on */
   async withdraw(by: MemberId): Promise<Done<"not the owner">> {
     this.assertMember(by);
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
-    await this.unpublish();
+    // one at a time with a publish, as there
+    await this.ctx.blockConcurrencyWhile(() => this.unpublish());
     return { ok: true };
   }
 
@@ -508,8 +529,8 @@ export class Room extends DurableObject<Env> {
 
   /**
    * A deleted room as a person in it sees it, to restore it; null for anyone else, or when it
-   * is not deleted. Only the owner deletes, but either person can take it back, so one member
-   * cannot destroy the room beyond recovery (docs/auth-and-security.md).
+   * is not deleted. Only the owner deletes, but either person can take it back for its thirty
+   * days, unless the owner has it gone at once (docs/auth-and-security.md).
    */
   deletedFor(by: MemberId): { name: string; deletedAt: string } | null {
     const deletion = this.deletion();
@@ -536,6 +557,8 @@ export class Room extends DurableObject<Env> {
       .toArray();
     if (gone.length === 0) return { ok: false, reason: "not in" };
     this.#rate.delete(member);
+    this.#dragRate.delete(member);
+    sql.exec("DELETE FROM applied WHERE member = ?", member);
     this.closeSockets(this.ctx.getWebSockets(member), by === member ? "left" : "removed");
     this.tellMembers();
     return { ok: true };
@@ -544,19 +567,25 @@ export class Room extends DurableObject<Env> {
   /**
    * The owner `by` deletes the room: nobody can open it from now on, and in DELETE_AFTER it is
    * gone for good unless the owner restores it. `roomId` is kept for that day, when its pictures
-   * go too. Refused when `by` is not the owner.
+   * go too. Refused when `by` is not the owner. Asked again after a try that failed part way
+   * (the index not told), it keeps the first deletion's time and does the rest again.
    */
   async delete(by: MemberId, roomId: RoomId): Promise<Done<"not the owner">> {
-    this.assertMember(by);
+    this.assertPerson(by);
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
-    // a deleted trip's booklet is not left up for its thirty days; restoring does not bring it back
-    await this.unpublish();
-    const at = new Date();
     const sql = this.ctx.storage.sql;
-    sql.exec("INSERT INTO deletion (id, room_id, at) VALUES (1, ?, ?)", roomId, at.toISOString());
+    // deleted before anything is awaited: from here on nothing is written, opened or published
+    sql.exec(
+      "INSERT OR IGNORE INTO deletion (id, room_id, at) VALUES (1, ?, ?)",
+      roomId,
+      new Date().toISOString(),
+    );
     sql.exec("DELETE FROM invitations");
     this.closeSockets(this.ctx.getWebSockets(), "deleted");
-    void this.ctx.storage.setAlarm(at.getTime() + Room.DELETE_AFTER);
+    const { at } = sql.exec<{ at: string }>("SELECT at FROM deletion").one();
+    await this.ctx.storage.setAlarm(Date.parse(at) + Room.DELETE_AFTER);
+    // a deleted trip's booklet is not left up for its thirty days; restoring does not bring it back
+    await this.unpublish();
     return { ok: true };
   }
 
@@ -610,17 +639,22 @@ export class Room extends DurableObject<Env> {
     return { ok: true };
   }
 
-  /** The room goes for good: its pictures, its place in the index, its storage */
-  private async erase(deletion: { room_id: RoomId; at: string }): Promise<void> {
-    const keys = this.ctx.storage.sql
-      .exec<{ id: ImageId }>("SELECT id FROM pictures")
-      .toArray()
-      .map((p) => `rooms/${deletion.room_id}/images/${p.id}`);
-    // R2 deletes up to 1000 keys a call; a room holds at most MAX_IMAGES
-    if (keys.length > 0) await this.env.IMAGES.delete(keys);
-    await this.unpublish();
-    await this.env.ROOMS.getByName("index").drop(deletion.room_id);
-    await this.ctx.storage.deleteAll();
+  /**
+   * The room goes for good: its pictures, its place in the index, its storage. Nothing else runs
+   * until it is gone: a restore in between would be answered yes for a room about to go.
+   */
+  private erase(deletion: { room_id: RoomId; at: string }): Promise<void> {
+    return this.ctx.blockConcurrencyWhile(async () => {
+      const keys = this.ctx.storage.sql
+        .exec<{ id: ImageId }>("SELECT id FROM pictures")
+        .toArray()
+        .map((p) => `rooms/${deletion.room_id}/images/${p.id}`);
+      // R2 deletes up to 1000 keys a call; a room holds at most MAX_IMAGES
+      if (keys.length > 0) await this.env.IMAGES.delete(keys);
+      await this.unpublish();
+      await this.env.ROOMS.getByName("index").drop(deletion.room_id);
+      await this.ctx.storage.deleteAll();
+    });
   }
 
   private deletion(): { room_id: RoomId; at: string } | null {
@@ -650,6 +684,8 @@ export class Room extends DurableObject<Env> {
   private closeSockets(sockets: WebSocket[], reason: GoneReason): void {
     const out = encode({ type: "gone", reason });
     for (const ws of sockets) {
+      // one closed already (someone removed, still listed while it closes) would throw on send
+      if (ws.readyState !== WebSocket.OPEN) continue;
       ws.send(out);
       ws.close(4001, reason);
     }
@@ -783,9 +819,10 @@ export class Room extends DurableObject<Env> {
         kind: "suggestion",
         title,
         color: "#ffffff",
-        // a short column under where the asker was looking, slightly askew like any card
-        x: at.x - 82 + (i % 2 === 0 ? -12 : 12),
-        y: at.y - 40 + i * 120,
+        // a short column under where the asker was looking, slightly askew like any card, and
+        // on the desk however near its edge they looked
+        x: Math.min(Math.max(at.x - 82 + (i % 2 === 0 ? -12 : 12), -COORD), COORD),
+        y: Math.min(Math.max(at.y - 40 + i * 120, -COORD), COORD),
         rot: Math.random() * 4 - 2,
         scale: 1,
         by: Room.AGENT_ID,
@@ -800,7 +837,7 @@ export class Room extends DurableObject<Env> {
         by: Room.AGENT_ID,
         updatedAt: now,
       });
-      for (const ws of this.ctx.getWebSockets()) ws.send(out);
+      for (const ws of this.ctx.getWebSockets()) if (ws.readyState === WebSocket.OPEN) ws.send(out);
     });
     return added;
   }
@@ -857,6 +894,8 @@ export class Room extends DurableObject<Env> {
     const tag = this.ctx.getTags(ws)[0];
     const by = tag === undefined ? null : this.person(tag);
     if (by === null) return ws.close(1008, "no member");
+    // sent while the room was being deleted: nothing more is written
+    if (this.deletion() !== null) return this.closeSockets([ws], "deleted");
     // the client's id for this mutation, once it is known: an answer names it
     let cid: Cid | null = null;
     // what could not be read names no cid; what was read and refused names it when it had one
@@ -871,7 +910,9 @@ export class Room extends DurableObject<Env> {
       );
 
     if (typeof message !== "string") return unread("text only");
-    if (message.length > MAX_MESSAGE_BYTES) return unread("too large");
+    // its size in bytes, as the limit is; a string's length counts UTF-16 units
+    if (new TextEncoder().encode(message).byteLength > MAX_MESSAGE_BYTES)
+      return unread("too large");
 
     let parsed: unknown;
     try {
@@ -880,20 +921,52 @@ export class Room extends DurableObject<Env> {
       return unread("not JSON");
     }
     cid = parseCid(parsed);
-    if (!this.withinRate(by)) return reject("too many messages");
     const updatedAt = stamp();
     const mutation = parseMutation(parsed, { by, updatedAt }, parseAirportCode);
+    // a card on its way under a finger is relayed, not kept; letting go sends the move with a cid
+    const dragging = cid === null && mutation?.type === "note:move";
+    if (!this.withinRate(dragging ? this.#dragRate : this.#rate, by))
+      return reject("too many messages");
     if (mutation === null) return reject("not a mutation");
 
-    // a card on its way under a finger is relayed, not kept; letting go sends the move with a cid
-    const dragging = cid === null && mutation.type === "note:move";
+    const sql = this.ctx.storage.sql;
+    // sent again by a phone that never heard the answer: answered as before, and not written over
+    // what came since
+    if (cid !== null) {
+      const again = sql
+        .exec<{ updated_at: IsoInstant }>(
+          "SELECT updated_at FROM applied WHERE member = ? AND cid = ?",
+          by,
+          cid,
+        )
+        .toArray()[0];
+      if (again !== undefined)
+        return ws.send(encode({ type: "ack", cid, updatedAt: again.updated_at }));
+    }
+
     if (dragging && this.note(mutation.id) === undefined) return reject("no such note");
     const result: Applied = dragging
       ? { ok: true, value: mutation }
       : this.apply(mutation, by, updatedAt);
     if (!result.ok) return reject(result.reason);
 
-    if (cid !== null) ws.send(encode({ type: "ack", cid, updatedAt }));
+    if (cid !== null) {
+      ws.send(encode({ type: "ack", cid, updatedAt }));
+      sql.exec(
+        "INSERT INTO applied (member, cid, updated_at) VALUES (?, ?, ?)",
+        by,
+        cid,
+        updatedAt,
+      );
+      sql.exec(
+        `DELETE FROM applied WHERE member = ? AND rowid <= (
+           SELECT rowid FROM applied WHERE member = ? ORDER BY rowid DESC LIMIT 1 OFFSET ?
+         )`,
+        by,
+        by,
+        APPLIED_KEPT,
+      );
+    }
 
     const out = encode({
       type: "mutation",
@@ -901,11 +974,15 @@ export class Room extends DurableObject<Env> {
       by,
       updatedAt,
     });
-    for (const other of this.ctx.getWebSockets()) if (other !== ws) other.send(out);
+    // a socket closing (someone removed) is still listed, and would throw on send
+    for (const other of this.ctx.getWebSockets())
+      if (other !== ws && other.readyState === WebSocket.OPEN) other.send(out);
   }
 
   override webSocketClose(ws: WebSocket, code: number, reason: string): void {
-    ws.close(code, reason);
+    // 1005, 1006 and 1015 say what the other end could not (no code, a dropped line, TLS): none
+    // may be sent, and close() throws on them
+    if (![1005, 1006, 1015].includes(code)) ws.close(code, reason);
   }
 
   // ---- state ----
@@ -1012,7 +1089,9 @@ export class Room extends DurableObject<Env> {
     const sql = this.ctx.storage.sql;
     switch (m.type) {
       case "note:add": {
-        if (this.note(m.note.id) !== undefined) return { ok: false, reason: "duplicate id" };
+        // a deleted note keeps its id
+        if (sql.exec("SELECT 1 FROM notes WHERE id = ?", m.note.id).toArray().length > 0)
+          return { ok: false, reason: "duplicate id" };
         const note = { ...m.note, by, updatedAt: now };
         const memo: WireMemo =
           note.kind === "memo"
@@ -1185,6 +1264,9 @@ export class Room extends DurableObject<Env> {
         const dates = Array.from({ length: m.days }, (_, i) =>
           new Date(Date.parse(`${m.first}T00:00Z`) + i * 86_400_000).toISOString().slice(0, 10),
         );
+        // a trip running past 9999-12-31 has days no date is written for ("+010000-01")
+        if (!dates.every((date) => v.is(IsoDateSchema, date)))
+          return { ok: false, reason: "no such day" };
         sql.exec("DELETE FROM days");
         dates.forEach((date, i) =>
           sql.exec(
@@ -1251,11 +1333,14 @@ export class Room extends DurableObject<Env> {
     }
   }
 
-  private withinRate(member: MemberId): boolean {
+  private withinRate(
+    counts: Map<MemberId, { since: number; n: number }>,
+    member: MemberId,
+  ): boolean {
     const now = Date.now();
-    const r = this.#rate.get(member);
+    const r = counts.get(member);
     if (r === undefined || now - r.since > RATE.window) {
-      this.#rate.set(member, { since: now, n: 1 });
+      counts.set(member, { since: now, n: 1 });
       return true;
     }
     r.n++;
