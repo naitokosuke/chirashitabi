@@ -131,10 +131,14 @@ export const assignTo = (n: Memo, date: Temporal.PlainDate | null): MemoPatch =>
 
 /**
  * Adopting a draft confirms every item it gave a time, and gives how long it takes to each that
- * did not say (one the travellers set stays theirs)
+ * did not say (one the travellers set stays theirs). Each item is read from `day`, the memos on
+ * the draft's day as they are now: one changed since the ask keeps that change, and one taken off
+ * the day (or gone) meanwhile is left alone.
  */
-export const draftUpdates = (draft: DayDraft) =>
-  draft.items.flatMap(({ note, time, minutes }) => {
+export const draftUpdates = (draft: DayDraft, day: Scheduled[]) =>
+  draft.items.flatMap(({ note: asked, time, minutes }) => {
+    const note = day.find((n) => n.id === asked.id);
+    if (note === undefined) return [];
     const patch: MemoPatch = {
       ...(time === null ? {} : { schedule: { ...note.schedule, time, status: "fixed" } }),
       ...(note.minutes === null && minutes !== null ? { minutes } : {}),

@@ -1,6 +1,8 @@
+import { Temporal } from "temporal-polyfill-lite";
+
 import { describe, expect, test } from "vite-plus/test";
 
-import { parseNoteText } from "./input";
+import { blankInput, changes, parseNoteText } from "./input";
 
 describe("parseNoteText", () => {
   test("a #tag in the title becomes a tag and leaves the title", () => {
@@ -38,5 +40,31 @@ describe("parseNoteText", () => {
       body: "11時に並ぶ",
       tags: ["ごはん"],
     });
+  });
+});
+
+describe("changes", () => {
+  const opened = {
+    ...blankInput([], { lat: 25, lng: 121 }),
+    title: "Lunch",
+    booking: { state: "needed" as const, by: Temporal.PlainDate.from("2026-11-01") },
+  };
+
+  test("only the fields changed go: the rest stay what the room has", () => {
+    expect(changes(opened, { ...opened, title: "Dinner", minutes: 60 })).toEqual({
+      title: "Dinner",
+      minutes: 60,
+    });
+  });
+
+  test("fields built anew but the same are no change", () => {
+    const same = {
+      ...opened,
+      tags: [...opened.tags],
+      pin: { lat: 25, lng: 121 },
+      booking: { state: "needed" as const, by: Temporal.PlainDate.from("2026-11-01") },
+    };
+    expect(changes(opened, same)).toEqual({});
+    expect(changes(opened, { ...same, booking: null })).toEqual({ booking: null });
   });
 });

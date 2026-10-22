@@ -1,7 +1,16 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, ref, useId, useTemplateRef } from "vue";
+import {
+  computed,
+  onActivated,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  useId,
+  useTemplateRef,
+} from "vue";
 
 import {
   CtAmount,
@@ -104,10 +113,17 @@ type Tab = Temporal.PlainDate | "appendix" | null;
  */
 const picked = ref<Tab>(null);
 const tab = ref<Tab>(null);
-const today = Temporal.Now.plainDateISO();
+/** Today, read again when the page comes back: from another tab, or a phone woken the next day */
+const today = shallowRef(Temporal.Now.plainDateISO());
+const readToday = () => (today.value = Temporal.Now.plainDateISO());
+onActivated(readToday);
+onMounted(() => document.addEventListener("visibilitychange", readToday));
+onBeforeUnmount(() => document.removeEventListener("visibilitychange", readToday));
 const openingDay = computed(
   () =>
-    trip.value?.days.find((d) => d.date.equals(today))?.date ?? trip.value?.days[0]?.date ?? null,
+    trip.value?.days.find((d) => d.date.equals(today.value))?.date ??
+    trip.value?.days[0]?.date ??
+    null,
 );
 const dayOfTab = (t: Tab) => (t === "appendix" ? null : (t ?? openingDay.value));
 /** The day on the page, or null on the appendix tab (or while the trip has no days) */
@@ -238,7 +254,7 @@ function shutWarning(n: Scheduled): string {
 const bookingLate = (n: Scheduled) =>
   n.booking?.state === "needed" &&
   n.booking.by !== null &&
-  Temporal.PlainDate.compare(n.booking.by, today) < 0;
+  Temporal.PlainDate.compare(n.booking.by, today.value) < 0;
 /** Whether it is booked, as it reads: "Booked · ABC123", "Book by 10/20"; "" for no booking */
 function bookingLine(n: Scheduled) {
   const b = n.booking;
@@ -459,7 +475,9 @@ async function copyLink() {
 
 function adoptDraft() {
   if (draft.value === null) return;
-  for (const { id, patch } of draftUpdates(draft.value)) store.update(id, patch);
+  // the day's memos as they are now, not as they were when the draft was asked for
+  const now = forDay(draft.value.date);
+  for (const { id, patch } of draftUpdates(draft.value, now)) store.update(id, patch);
   // keep an intro someone already wrote
   const written = dayOf(draft.value.date)?.intro ?? "";
   setIntro(draft.value.date, written === "" ? draft.value.intro : written);

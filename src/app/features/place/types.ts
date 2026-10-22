@@ -1,7 +1,7 @@
 import type { LatLng } from "../../../contract/place";
 
-// a point on the map, as the app takes it from the contract
-export type { LatLng } from "../../../contract/place";
+// a point on the map, and what makes one, as the app takes them from the contract
+export { LatLngSchema, type LatLng } from "../../../contract/place";
 
 /** [lng, lat], the order GeoJSON and MapLibre want */
 export type LngLat = [lng: number, lat: number];
