@@ -1,6 +1,17 @@
-import { describe, expect, test } from "vite-plus/test";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 
-import { decodeEntities, previewable, readHead, siteOf, youtubeWatch } from "./preview";
+import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
+
+import {
+  decodeEntities,
+  PAGE_BYTES,
+  preview,
+  previewable,
+  readHead,
+  siteOf,
+  youtubeWatch,
+} from "./preview";
 
 const OURS = ["chirashitabi.app", "shiori.chirashitabi.app"];
 
@@ -84,4 +95,68 @@ test("decodeEntities and siteOf", () => {
   );
   expect(siteOf(new URL("https://www.youtube.com/watch?v=x"))).toBe("youtube.com");
   expect(siteOf(new URL("https://tabelog.com/x"))).toBe("tabelog.com");
+});
+
+describe("preview", () => {
+  // the pages, by the host the Worker meant (preview.ts sends it in a header) and the path
+  let server: Server;
+  let base: string;
+  const asked: { host: string | undefined; path: string }[] = [];
+  const LONG = `<html><head><meta property="og:title" content="A long read"></head><body>${"x".repeat(PAGE_BYTES)}</body></html>`;
+  beforeAll(async () => {
+    server = createServer((req, res) => {
+      const host = req.headers["x-preview-host"];
+      const path = req.url ?? "/";
+      asked.push({ host: Array.isArray(host) ? host[0] : host, path });
+      const away = (location: string) => {
+        res.statusCode = 302;
+        res.setHeader("Location", location);
+        res.end();
+      };
+      if (path === "/to-ip") return away("https://10.0.0.1/admin");
+      if (path === "/to-localhost") return away("http://localhost:8787/");
+      if (path === "/to-ours") return away("https://chirashitabi.app/rooms/x");
+      if (path === "/to-nowhere") return away("http://[");
+      res.setHeader("Content-Type", "text/html");
+      // over PAGE_BYTES, its length said, or sent in chunks with no length
+      if (path === "/long") return res.end(LONG);
+      if (path === "/long-chunked") {
+        for (let at = 0; at < LONG.length; at += 64 * 1024)
+          res.write(LONG.slice(at, at + 64 * 1024));
+        return res.end();
+      }
+      if (path === "/bad-image")
+        return res.end(
+          `<meta property="og:title" content="t"><meta property="og:image" content="http://[">`,
+        );
+      res.statusCode = 404;
+      res.end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+  afterAll(() => server.close());
+
+  test("a redirect to an address by number, a local name or one of ours is not followed", async () => {
+    for (const path of ["/to-ip", "/to-localhost", "/to-ours"])
+      expect(await preview(`https://blog.example.com${path}`, OURS, base)).toBeNull();
+    expect(asked.map((a) => a.host)).not.toContain("10.0.0.1");
+    expect(asked.map((a) => a.host)).not.toContain("localhost");
+    expect(asked.map((a) => a.host)).not.toContain("chirashitabi.app");
+  });
+
+  test("a Location or a picture that is no address is no page and no picture, not an error", async () => {
+    expect(await preview("https://blog.example.com/to-nowhere", OURS, base)).toBeNull();
+    expect(await preview("https://blog.example.com/bad-image", OURS, base)).toMatchObject({
+      title: "t",
+      image: null,
+    });
+  });
+
+  test("a page over PAGE_BYTES is read to there, and previewed from its head", async () => {
+    for (const path of ["/long", "/long-chunked"])
+      expect(await preview(`https://blog.example.com${path}`, OURS, base)).toMatchObject({
+        title: "A long read",
+      });
+  });
 });

@@ -1,10 +1,14 @@
 import { DurableObject } from "cloudflare:workers";
 
+import { SPACING_MS } from "./geocode";
 import type { Done, SeatId } from "./room";
 import type { Email, MemberId, Result, RoomId } from "./types";
 
 /** Why a paid call was not reserved */
 export type Refusal = "day" | "trip";
+
+/** How far ahead the geocoder's turns may be taken: past it, a lookup fails rather than waits */
+const GEOCODER_QUEUE_MS = 5000;
 
 /**
  * One per account: which rooms each e-mail belongs to, and as which member, which rooms it is
@@ -76,6 +80,26 @@ export class RoomsIndex extends DurableObject<Env> {
   /** The provider answered with an error: the reservation was not spent */
   refund(id: number): void {
     this.ctx.storage.sql.exec("UPDATE spends SET refunded = 1 WHERE id = ?", id);
+  }
+
+  // ---- OpenStreetMap's geocoder: one request a second for the whole app (geocode.ts) ----
+
+  /**
+   * When the next request may go, in ms since the epoch. Kept in memory: there is one index,
+   * and one evicted had no request for far longer than a turn
+   */
+  #geocoderAt = 0;
+
+  /**
+   * A turn at the geocoder: how many ms to wait before asking, the turns spaced SPACING_MS
+   * apart; null when the turns already taken run past GEOCODER_QUEUE_MS, and it is not asked
+   */
+  geocoderTurn(): number | null {
+    const now = Date.now();
+    const at = Math.max(now, this.#geocoderAt);
+    if (at - now > GEOCODER_QUEUE_MS) return null;
+    this.#geocoderAt = at + SPACING_MS;
+    return at - now;
   }
 
   // ---- memberships ----

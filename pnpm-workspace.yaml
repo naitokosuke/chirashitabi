@@ -1,5 +1,4 @@
 minimumReleaseAgeExclude:
-  - vite@8.3.2
   - "@vizejs/native-darwin-arm64@0.501.0"
   - "@vizejs/native-darwin-x64@0.501.0"
   - "@vizejs/native-linux-arm64-gnu@0.501.0"

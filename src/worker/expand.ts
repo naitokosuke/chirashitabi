@@ -12,6 +12,8 @@ const GOOGLE = /^(?:www\.|maps\.)?google\.(?:[a-z]{2,3}|(?:com?|co)\.[a-z]{2})$/
 /** A desktop browser's: the short-link host answers one with the redirect, not an app page */
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36";
+/** How long the short-link host may take to answer before it is given up */
+const TIMEOUT_MS = 8000;
 
 /**
  * Where a redirect's `Location` goes, when it is Google Maps: as it is, or the link a Google
@@ -57,7 +59,11 @@ export async function expand(url: string, base?: string): Promise<string | null>
   const target = base === undefined ? u.href : `${base}${u.pathname}${u.search}`;
   let res: Response;
   try {
-    res = await fetch(target, { redirect: "manual", headers: { "User-Agent": USER_AGENT } });
+    res = await fetch(target, {
+      redirect: "manual",
+      headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
   } catch {
     return null;
   }

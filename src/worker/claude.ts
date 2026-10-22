@@ -13,6 +13,25 @@ export const MODEL = "claude-sonnet-5-5";
 const API = "https://api.anthropic.com";
 const MAX_TOKENS = 2000;
 
+/**
+ * How much of a room one call reads, in characters of JSON: a room has no cap on its notes,
+ * and each call is paid by its input too, so the notes sent stop here (some 10k tokens)
+ */
+const CONTEXT_CHARS = 30_000;
+
+/** The latest of `items` (a room lists its notes oldest first) that fit in CONTEXT_CHARS */
+function latest<T>(items: T[]): T[] {
+  let left = CONTEXT_CHARS;
+  let from = items.length;
+  for (; from > 0; from--) {
+    // each one's JSON and the comma after it
+    const size = JSON.stringify(items[from - 1]).length + 1;
+    if (size > left) break;
+    left -= size;
+  }
+  return items.slice(from);
+}
+
 /** What the agent proposes for a day: an order with times, why, and the booklet's intro */
 export interface DraftProposal {
   reason: string;
@@ -98,7 +117,7 @@ export async function draftDay(env: Env, day: DraftContext): Promise<ClaudeResul
     `Trip: ${day.trip}. Amounts are in ${day.currency}.`,
     `Day: ${day.date}.`,
     "Notes on this day (JSON):",
-    JSON.stringify(day.notes.map(describe)),
+    JSON.stringify(latest(day.notes.map(describe))),
     "",
     "Order these notes into a realistic plan for the day: travel between places, opening hours,",
     "meals at meal times. Keep a time the travellers already set unless it cannot work.",
@@ -182,7 +201,14 @@ async function ask<T>(
     return { ok: false, refund: true, reason: `Claude answered ${res.status}${why}` };
   }
 
-  const answer = v.parse(AnswerSchema, await res.json());
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch (e) {
+    // a 2xx that is no JSON: it ran, so it counts, like an answer without the call
+    return { ok: false, refund: false, reason: `Claude's answer was not JSON: ${String(e)}` };
+  }
+  const answer = v.parse(AnswerSchema, body);
   const usage = { input: answer.usage.input_tokens, output: answer.usage.output_tokens };
   const call = answer.content
     .map((c) => v.safeParse(ToolUseSchema, c))
@@ -332,7 +358,7 @@ export async function suggestNotes(
   const prompt = [
     `Trip: ${room.trip}, ${room.days[0] ?? "?"} to ${room.days.at(-1) ?? "?"}.`,
     "The notes so far (JSON):",
-    JSON.stringify(room.notes),
+    JSON.stringify(latest(room.notes)),
     "",
     ...(room.about === null
       ? []

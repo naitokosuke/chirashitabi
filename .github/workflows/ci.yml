@@ -12,10 +12,11 @@ jobs:
     # pinned, so a new Ubuntu arrives as a commit rather than under the latest label
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v7
+      # every action is pinned to a commit, as the deploy job runs them beside the Cloudflare token
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Vite+, Node.js and pnpm come from the project, as they do locally: vite-plus in
       # the catalog, devEngines.runtime and devEngines.packageManager. It runs `vp install` too
-      - uses: voidzero-dev/setup-vp@v1.21.1
+      - uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
         with:
           cache: true
       # check:worker first: it generates worker-configuration.d.ts, which src/worker/tsconfig.json
@@ -23,11 +24,27 @@ jobs:
       # .worker-types/, the Worker's declarations the app's hc client is typed by
       - run: vp run check:worker
       - run: vp run check
-      # build before test: the Worker's integration tests start it with its assets directory
-      - run: vp build
+      # the build that is deployed, without the mocks, and the one the tests run against; build
+      # before test: the Worker's integration tests start it with its assets directory
+      - run: VITE_MOCK=false vp build
+      # a build with the mocks emits their service worker beside it; such a build is never shipped
+      - run: |
+          if [ -e dist/mockServiceWorker.js ]; then
+            echo "::error::dist/ carries the mocks (mockServiceWorker.js)"
+            exit 1
+          fi
       # the browser tests (*.browser.test.ts) run in the Chromium Playwright pins
       - run: vp exec playwright install --with-deps chromium
       - run: vp test
+      # the checked build, for the deploy job to ship as it is; dist/.vite holds the licenses
+      - if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
 
   # main, once every check has passed, goes to chirashitabi.app; nothing else is deployed
   deploy:
@@ -39,14 +56,22 @@ jobs:
       group: deploy
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v7
-      - uses: voidzero-dev/setup-vp@v1.21.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
         with:
           cache: true
-      # the same as by hand (`vp run deploy`): a build without the mocks, then wrangler deploy.
+      # the build the build job checked and tested, not a new one
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist
+      - run: |
+          if [ -e dist/mockServiceWorker.js ]; then
+            echo "::error::dist/ carries the mocks (mockServiceWorker.js)"
+            exit 1
+          fi
       # Cloudflare's API now and then answers a deploy with a 504 or a malformed page; deploying
       # uploads the same build again, so wrangler deploy is tried up to three times, a while apart
-      - run: VITE_MOCK=false vp build
       - run: |
           for attempt in 1 2 3; do
             if vp exec wrangler deploy; then exit 0; fi
