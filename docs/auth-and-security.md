@@ -183,7 +183,7 @@ The budget is what bounds a lost phone or a bug, so it is specified rather than 
 Cloudflare billing notifications and a Google Cloud budget alert are the second line; the index is the first.
 
 Built for `draftDay` (`POST /api/rooms/<id>/draft`), the agent's suggestions (`POST /api/rooms/<id>/suggest`), tag suggestions (`POST /api/rooms/<id>/tags`) and finding a memo's place (`POST /api/rooms/<id>/places`), which share it.
-Finding a place is one Claude call, which names the place as search strings; the coordinates then come from OpenStreetMap's geocoder (Nominatim), which is free and takes no key, so it is not budgeted. What reaches it is Claude's search string (a place's name, city and country), never the memo itself, with an identifying User-Agent, at most two queries a second apart, as its usage policy asks.
+Finding a place is one Claude call, which names the place as search strings; the coordinates then come from OpenStreetMap's geocoder (Nominatim), which is free and takes no key, so it is not budgeted. What reaches it is Claude's search string (a place's name, city and country), never the memo itself, with an identifying User-Agent and a timeout, at most one request a second for the whole app, as its usage policy asks: `RoomsIndex.geocoderTurn` hands out the turns, and a lookup that would wait more than five seconds fails instead.
 A point pinned on the map is named the same way (`POST /api/rooms/<id>/where`): one reverse lookup at the geocoder, no Claude call, so it is not budgeted either; only the point's coordinates reach it.
 A tag suggestion is one Clef call; the first one in a trip also makes the Claude call that proposes the trip's candidate tags, which the room then keeps, so each counts on its own.
 Reading the kept candidates (`POST /api/rooms/<id>/candidates`) calls nothing outside the room, so it is not budgeted.
@@ -222,12 +222,12 @@ A browser cannot read another site's HTML, so the Worker fetches a URL the membe
 
 - Only an http(s) address with a named host is fetched: no other scheme, no address by number, no bare name (`localhost`, `intranet`), nothing under `.local`, and never the app's or the booklet's host.
   A redirect is followed at most three times, each hop held to the same rule, and the page is never fetched by a browser's cookies: the Worker has none.
-- The page is read as HTML only, up to 512 KB, with a timeout; its picture only when it is one the room keeps (WebP, JPEG, PNG) and no larger than one it keeps (1 MB), read up to that and no further.
+- The page is read as HTML only, its first 512 KB (a longer page is cut there, its head being at the start), with a timeout; its picture only when it is one the room keeps (WebP, JPEG, PNG) and no larger than one it keeps (1 MB), read up to that and no further.
   The picture then becomes one of the room's pictures, counted against the room's hundred like an upload, and served to members only; nothing on the public booklet links back to the page.
 - What the page said is checked like any other answer: a title cut to 200 characters, a line to 1000, entities decoded, so the note's words are text and never markup.
 - The Worker never fetches Instagram: a post's page shows nothing without a login, and its oEmbed needs a Meta token and gives no title or picture.
   A note linking to one keeps the link and takes a screenshot as its picture.
-- Each preview counts against the member's budget like any other outbound call; the log keeps the page's site, never its address.
+- Each preview counts against the member's budget like any other outbound call, once the address has passed the fence (one it refuses is no preview, and free); the log keeps the page's site, never its address.
 
 This is `POST /api/rooms/<id>/preview`; `src/worker/preview.test.ts` holds the fence's rules, `src/worker/api.test.ts` the route against a stub of the pages.
 
