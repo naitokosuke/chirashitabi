@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, nextTick, ref, useTemplateRef } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from "vue";
 
 import { pick, weeksOf, type DateRange } from "./calendar";
 
@@ -27,12 +27,16 @@ const emit = defineEmits<{
   "update:range": [range: DateRange];
 }>();
 
-const today = Temporal.Now.plainDateISO();
+/** Today, read again whenever the page comes back into view: by then it may be another day */
+const today = ref(Temporal.Now.plainDateISO());
+const readToday = () => (today.value = Temporal.Now.plainDateISO());
+onMounted(() => document.addEventListener("visibilitychange", readToday));
+onBeforeUnmount(() => document.removeEventListener("visibilitychange", readToday));
 
 /** What is picked, as a range either way: one day is a range of it alone (today, before one is) */
 const picked = computed<DateRange>(() => {
   if (props.range !== undefined) return props.range;
-  const day = props.day ?? today;
+  const day = props.day ?? today.value;
   return { start: day, end: day };
 });
 const maxDays = computed(() => props.maxDays ?? Infinity);
@@ -59,6 +63,15 @@ const weekdays = computed(() =>
 const hovered = ref<Temporal.PlainDate | null>(null);
 /** The day the arrow keys walk from: the one day in the month Tab lands on */
 const focused = ref(picked.value.start);
+// the first day picked changing, here or from outside (the owner setting it), the page turns to it
+watch(
+  () => picked.value.start.toString(),
+  () => {
+    const { start } = picked.value;
+    month.value = start.toPlainYearMonth();
+    focused.value = start;
+  },
+);
 
 const cmp = Temporal.PlainDate.compare;
 /** The band's last day: the range's, else the day under the pointer while it would make one */
@@ -135,13 +148,15 @@ async function walk(e: KeyboardEvent, day: Temporal.PlainDate) {
             v-for="day in week"
             :key="day.toString()"
             :class="shown(day) ? stateOf(day) : undefined"
+            :aria-selected="
+              shown(day) ? stateOf(day).start || stateOf(day).end || stateOf(day).within : undefined
+            "
           >
             <button
               v-if="shown(day)"
               type="button"
               :data-date="day.toString()"
               :tabindex="day.equals(focused) ? 0 : -1"
-              :aria-pressed="stateOf(day).start || stateOf(day).end || stateOf(day).within"
               :aria-current="day.equals(today) ? 'date' : undefined"
               :aria-label="
                 day.toLocaleString(locale, {
