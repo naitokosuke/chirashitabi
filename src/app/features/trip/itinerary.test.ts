@@ -104,6 +104,7 @@ describe("draftUpdates", () => {
         { note: open, time: at("10:00"), minutes: 60 },
         { note: set, time: at("12:00"), minutes: 90 },
       ]),
+      [open, set],
     );
     expect(updates).toEqual([
       {
@@ -116,10 +117,29 @@ describe("draftUpdates", () => {
 
   test("an item with no time keeps its schedule but still learns how long it takes", () => {
     const loose = planned("loose", null, null);
-    expect(draftUpdates(draftOf([{ note: loose, time: null, minutes: 30 }]))).toEqual([
+    expect(draftUpdates(draftOf([{ note: loose, time: null, minutes: 30 }]), [loose])).toEqual([
       { id: loose.id, patch: { minutes: 30 } },
     ]);
-    expect(draftUpdates(draftOf([{ note: loose, time: null, minutes: null }]))).toEqual([]);
+    expect(draftUpdates(draftOf([{ note: loose, time: null, minutes: null }]), [loose])).toEqual(
+      [],
+    );
+  });
+
+  test("each item is read as it is now: a change since the ask stays, one off the day is left", () => {
+    const asked = planned("lunch", null, null);
+    const moved = planned("moved", null, null);
+    // since the ask: lunch was given its minutes, and moved went to another day
+    const now = { ...asked, minutes: 45 };
+    const updates = draftUpdates(
+      draftOf([
+        { note: asked, time: at("12:00"), minutes: 90 },
+        { note: moved, time: at("15:00"), minutes: 30 },
+      ]),
+      [now],
+    );
+    expect(updates).toEqual([
+      { id: asked.id, patch: { schedule: { date: day, time: at("12:00"), status: "fixed" } } },
+    ]);
   });
 });
 

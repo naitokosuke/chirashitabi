@@ -4,7 +4,9 @@ import { safeUrl } from "../../../ui/index";
 
 import {
   directionsLink,
+  isMapsLink,
   isShortMapsLink,
+  parseHttpUrl,
   parseMapsUrl,
   placeFromUrl,
   placeSearchLink,
@@ -40,10 +42,18 @@ describe("parseMapsUrl and isShortMapsLink", () => {
     });
   });
 
+  test("a place's link names the place's point, not where the map was looking", () => {
+    expect(
+      parseMapsUrl(
+        "https://www.google.com/maps/place/x/@25.0330,121.5600,17z/data=!3m1!4b1!4m6!3m5!3d25.034!4d121.5645",
+      ),
+    ).toEqual({ lat: 25.034, lng: 121.5645 });
+  });
+
   test("numbers off the map are no point, and the next pattern is tried", () => {
     expect(parseMapsUrl("https://www.google.com/maps/@999.1,999.2,15z")).toBeNull();
     expect(
-      parseMapsUrl("https://www.google.com/maps/place/x/@999.1,999.2,15z/data=!3d25.05!4d121.51"),
+      parseMapsUrl("https://www.google.com/maps/place/x/@25.05,121.51,15z/data=!3d999.1!4d999.2"),
     ).toEqual({ lat: 25.05, lng: 121.51 });
   });
 
@@ -53,6 +63,25 @@ describe("parseMapsUrl and isShortMapsLink", () => {
     expect(isShortMapsLink("https://goo.gl/other")).toBe(false);
     expect(isShortMapsLink("https://www.google.com/maps/@25,121,15z")).toBe(false);
     expect(isShortMapsLink("javascript:alert(1)")).toBe(false);
+  });
+});
+
+describe("isMapsLink", () => {
+  const link = (s: string) => {
+    const url = parseHttpUrl(s);
+    if (url === null) throw new Error(s);
+    return url;
+  };
+
+  test("a Google link is the place's, with a point or not, short or long", () => {
+    expect(isMapsLink(link("https://maps.app.goo.gl/AbC123"))).toBe(true);
+    expect(isMapsLink(link("https://www.google.com/maps/place/Taipei+101"))).toBe(true);
+    expect(isMapsLink(link("https://www.google.co.jp/maps?q=25.03,121.56"))).toBe(true);
+  });
+
+  test("any other page is a page", () => {
+    expect(isMapsLink(link("https://example.com/maps/@25.0x"))).toBe(false);
+    expect(isMapsLink(link("https://notgoogle.com/maps"))).toBe(false);
   });
 });
 

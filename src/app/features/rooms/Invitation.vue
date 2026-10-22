@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { Temporal } from "temporal-polyfill-lite";
+import type { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
@@ -29,13 +29,16 @@ import { whenOf } from "./when";
  * name: people are told apart by color alone, for now); the color offered first is one the
  * trip's people do not wear yet.
  */
-const props = defineProps<{ room: RoomSummary }>();
+const props = defineProps<{
+  room: RoomSummary;
+  /** The list's, which it reads again when the page comes back into view */
+  today: Temporal.PlainDate;
+}>();
 const emit = defineEmits<{ joined: [room: RoomId] }>();
 
 const i18n = useI18n();
 /** Cut off: what needs the Worker is not offered */
 const cut = useOffline();
-const today = Temporal.Now.plainDateISO();
 
 const taken = new Set(props.room.members.map((m) => m.color.toLowerCase()));
 const color = ref<(typeof MEMBER_COLORS)[number]>(
@@ -48,7 +51,7 @@ const from = computed(() => props.room.members.find((m) => m.kind === "person")?
 const tag = computed(() => ({
   name: props.room.name,
   dates: datesLabel(props.room.first, props.room.days, i18n.locale, i18n.t),
-  when: whenLabel(whenOf(props.room, today), i18n.t),
+  when: whenLabel(whenOf(props.room, props.today), i18n.t),
   members: props.room.members,
 }));
 

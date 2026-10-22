@@ -1,6 +1,12 @@
 import * as v from "valibot";
 
-import { parseHttpUrl, HttpUrlSchema, parseMapsUrl, type HttpUrl } from "../../../contract/place";
+import {
+  parseHttpUrl,
+  HttpUrlSchema,
+  isShortMapsLink,
+  parseMapsUrl,
+  type HttpUrl,
+} from "../../../contract/place";
 
 import type { Pinned } from "./pin";
 import type { LatLng } from "./types";
@@ -13,6 +19,15 @@ export {
   parseMapsUrl,
   type HttpUrl,
 } from "../../../contract/place";
+
+/**
+ * A link Google hands out, short or long, with a point in it or not: the place's, not a page
+ * to read
+ */
+export const isMapsLink = (url: HttpUrl) =>
+  isShortMapsLink(url) ||
+  parseMapsUrl(url) !== null ||
+  /(^|\.)google\.[a-z.]+$/.test(new URL(url).hostname);
 
 export const googleMapsLink = ({ lat, lng }: LatLng): HttpUrl =>
   v.parse(HttpUrlSchema, `https://www.google.com/maps?q=${lat},${lng}`);

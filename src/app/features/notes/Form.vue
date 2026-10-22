@@ -54,9 +54,9 @@ import type { MemberId } from "../members/types";
 import { useMembers } from "../members/useMembers";
 import {
   googleMapsLink,
+  isMapsLink,
   parseHttpUrl,
   isShortMapsLink,
-  parseMapsUrl,
   placeFromUrl,
   placeSearchLink,
 } from "../place/google-maps";
@@ -71,7 +71,7 @@ import type { OverBudget } from "../worker/types";
 import { useWorker } from "../worker/useWorker";
 
 import { imageSrc, shrinkImage } from "./image";
-import { blankInput, inputFromNote, normalizeTag, noteText, parseNoteText } from "./input";
+import { blankInput, changes, inputFromNote, normalizeTag, noteText, parseNoteText } from "./input";
 import { type Booking, type NoteInput, type Tag, TODO_TAG } from "./types";
 import { useNotes } from "./useNotes";
 
@@ -218,11 +218,7 @@ function onLink() {
   const raw = link.value.trim();
   const url = parseHttpUrl(raw);
   if (url === null || url === previewedFrom) return;
-  if (
-    isShortMapsLink(url) ||
-    parseMapsUrl(url) !== null ||
-    /(^|\.)google\.[a-z.]+$/.test(new URL(url).hostname)
-  ) {
+  if (isMapsLink(url)) {
     linkState.value = { kind: "place" };
     return;
   }
@@ -243,7 +239,9 @@ function onLink() {
         linkState.value = { kind: "none" };
         return;
       }
+      // the page's own link is the one read too: leaving the field after is no new link
       link.value = found.url;
+      previewedFrom = found.url;
       if (text.value.trim() === "")
         text.value = [found.title, found.description].filter((s) => s !== null).join("\n");
       if (form.value.image === null && found.image !== null) form.value.image = found.image;
@@ -623,11 +621,10 @@ function long(minutes: number) {
   return i18n.t(d.id, d.params);
 }
 
-function submit() {
-  commitTag();
+/** The memo as the fields say it */
+function fieldsInput(): NoteInput {
   const { title, body, tags: inline } = parseNoteText(text.value);
-  onMapsUrl();
-  const input: NoteInput = {
+  return {
     title,
     body,
     tags: [...new Set([...form.value.tags, ...inline])],
@@ -643,34 +640,40 @@ function submit() {
     due: isTodo.value && due.value !== "" ? Temporal.PlainDate.from(due.value) : null,
     assignee: hasAssignee.value ? assigneeOf() : null,
   };
+}
+/** What the fields said when the form opened: an edit sends only what was changed from it */
+const opened = fieldsInput();
+
+function submit() {
+  commitTag();
+  onMapsUrl();
+  const input = fieldsInput();
   if (target.value.kind === "edit") {
-    store.update(target.value.id, input);
+    // the fields the person left as they were stay the room's: the partner may have changed them meanwhile
+    const patch = changes(opened, input);
+    if (Object.keys(patch).length > 0) store.update(target.value.id, patch);
     emit("close");
     return;
   }
-  if (docked.value) {
-    emit("save", input, true);
-    // a fresh sheet for the next one
-    form.value = startingInput();
-    mapsUrl.value = "";
-    hours.value = "";
-    link.value = "";
-    linkState.value = { kind: "idle" };
-    previewedFrom = "";
-    clearBooking();
-    due.value = "";
-    assignee.value = "";
-    text.value = "";
-    forgetTags();
-    focusText();
-    return;
-  }
-  emit("save", input, keepOpen.value);
-  if (keepOpen.value) {
-    text.value = "";
-    forgetTags();
-    focusText();
-  }
+  // the memo tab is never closed; a sheet stays open only to add another
+  const again = docked.value || keepOpen.value;
+  emit("save", input, again);
+  if (!again) return;
+  // a fresh sheet for the next one; from a point on the map, at that point again
+  form.value = startingInput();
+  mapsUrl.value = "";
+  hours.value = "";
+  link.value = "";
+  linkState.value = { kind: "idle" };
+  previewedFrom = "";
+  clearBooking();
+  due.value = "";
+  assignee.value = "";
+  text.value = "";
+  namedByOsm.value = false;
+  forgetTags();
+  nameThePin();
+  focusText();
 }
 </script>
 

@@ -24,6 +24,15 @@ describe("sheetOf and queryOf", () => {
     expect(sheetOf({ sheet: "write", lat: 25 })).toEqual({ kind: "new", pin: null });
   });
 
+  test("a place off the map is no place", () => {
+    expect(sheetOf({ sheet: "write", lat: 91, lng: 121 })).toEqual({ kind: "new", pin: null });
+    expect(sheetOf({ sheet: "write", lat: 25, lng: -181 })).toEqual({ kind: "new", pin: null });
+    expect(sheetOf({ sheet: "write", lat: -90, lng: 180 })).toEqual({
+      kind: "new",
+      pin: { lat: -90, lng: 180 },
+    });
+  });
+
   test("a key with no value, which the router hands over as null, is none", () => {
     const none = null as never;
     expect(sheetOf({ sheet: "write", lat: none, lng: 121 })).toEqual({ kind: "new", pin: null });
