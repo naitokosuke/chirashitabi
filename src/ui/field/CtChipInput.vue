@@ -13,19 +13,21 @@ defineSlots<{ default(): unknown }>();
 function commit() {
   emit("commit");
 }
+/**
+ * Enter says `commit`, but not the Enter that confirms what an IME is converting (a Japanese
+ * word half written): Safari sends that one with `isComposing` false and keyCode 229
+ */
+function key(e: KeyboardEvent) {
+  if (e.key !== "Enter" || e.isComposing || e.keyCode === 229) return;
+  e.preventDefault();
+  commit();
+}
 </script>
 
 <template>
   <div class="box">
     <slot></slot>
-    <input
-      :id
-      v-model="model"
-      enterkeyhint="done"
-      :placeholder
-      @keydown.enter.prevent="commit"
-      @blur="commit"
-    />
+    <input :id v-model="model" enterkeyhint="done" :placeholder @keydown="key" @blur="commit" />
   </div>
 </template>
 

@@ -37,7 +37,9 @@ import type { Temporal } from "temporal-polyfill-lite";
 import {
   computed,
   nextTick,
+  onActivated,
   onBeforeUnmount,
+  onDeactivated,
   onMounted,
   ref,
   shallowRef,
@@ -85,8 +87,9 @@ import { siteOf } from "../../../features/notes/links";
 import { type FormTarget, type NoteInput, type TextBox } from "../../../features/notes/types";
 import { useNotes, type Shape } from "../../../features/notes/useNotes";
 import {
-  parseHttpUrl,
+  isMapsLink,
   isShortMapsLink,
+  parseHttpUrl,
   placeFromUrl,
   type HttpUrl,
 } from "../../../features/place/google-maps";
@@ -198,11 +201,14 @@ function onDown(e: PointerEvent) {
   menu.value = null;
   vp.value?.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  // a second finger turns whatever was going on into a pinch; a third is ignored
+  // a second finger turns whatever was going on into a pinch (a card under the first one is let
+  // go where it is, so the partner, who saw it on its way, ends up where it does); a third is ignored
   if (pointers.size >= 2) {
     const [a, b] = [...pointers.values()];
-    if (pointers.size === 2 && a !== undefined && b !== undefined)
+    if (pointers.size === 2 && a !== undefined && b !== undefined) {
+      land();
       setGesture({ kind: "pinch", start: startPinch(view.value, a, b) });
+    }
     return;
   }
   const note = noteAt(target);
@@ -235,8 +241,8 @@ function onDown(e: PointerEvent) {
     );
     return;
   }
-  // the keyboard follows the pointer onto the card: its face (NoteCard), which lets the pointer through
-  faceOf(note)?.focus({ preventScroll: true });
+  // the keyboard follows the pointer onto the card, wherever on it the press landed
+  focusCard(note);
   const w = toWorld(e.clientX, e.clientY);
   setGesture({
     kind: "press",
@@ -330,12 +336,16 @@ function onUp(e: PointerEvent) {
   if (g.kind === "press" && tapped) tapCard(g.grab.note);
   // a tap on the bare desk lets go of the picked card; a second one there writes on the desk
   if (g.kind === "pan" && !g.moved && tapped) tapDesk(e);
-  // let go: the one write of where it landed, how it is turned and how large
+  land();
+  setGesture(IDLE);
+}
+/** Let go of the card under a finger: the one write of where it landed, how it is turned and how large */
+function land() {
+  const g = gesture.value;
   const h = held.value;
   if ((g.kind === "drag" || g.kind === "resize" || g.kind === "rotate") && h !== null)
     store.move(h.id, h.x, h.y, h.kind === "shape" ? h.shape : undefined);
   held.value = null;
-  setGesture(IDLE);
 }
 /** One tap picks the card and shows its toolbar; a second one soon after opens it */
 function tapCard(note: Note) {
@@ -362,7 +372,7 @@ function onKey(e: KeyboardEvent) {
     else select(null);
     return;
   }
-  // a link on a card takes its own keys: Enter follows it
+  // a link on a memo opens its page with Enter, not the memo
   if (e.target instanceof Element && e.target.closest("a") !== null) return;
   const note = noteAt(e.target);
   if (note === undefined) return;
@@ -428,14 +438,19 @@ const menuEl = useTemplateRef<{
   holdsFocus(): boolean;
 }>("menuEl");
 const cardEl = (note: Note) => vp.value?.querySelector<HTMLElement>(`[data-id="${note.id}"]`);
-/** What takes the keyboard on a card: its face (NoteCard); a suggestion has none, its answers do */
-const faceOf = (note: Note) => cardEl(note)?.querySelector<HTMLElement>("[data-face]");
+/** Where the keyboard goes on a card: the card, or a memo's title (a memo holds links, so it is no button itself) */
+const focusCard = (note: Note) =>
+  vp.value
+    ?.querySelector<HTMLElement>(
+      `[data-id="${note.id}"][tabindex], [data-id="${note.id}"] .title[tabindex]`,
+    )
+    ?.focus();
 /** Close the menu; focus returns to its card when the keyboard was in the menu */
 function closeMenu() {
   const note = menu.value?.note;
   const hadFocus = menuEl.value?.holdsFocus() ?? false;
   menu.value = null;
-  if (note !== undefined && hadFocus) faceOf(note)?.focus();
+  if (note !== undefined && hadFocus) focusCard(note);
 }
 /** The menu's card when it is a memo, the only kind that goes on a day */
 const menuMemo = computed(() => (menuNote.value?.kind === "memo" ? menuNote.value : null));
@@ -549,7 +564,7 @@ function remove(note: Note) {
     undo: () => {
       pendingDelete.value.delete(note.id);
       // the card comes back where the keyboard left it
-      if (hadFocus) void nextTick(() => faceOf(note)?.focus());
+      if (hadFocus) void nextTick(() => focusCard(note));
     },
     settle: () => {
       if (pendingDelete.value.delete(note.id)) store.remove(note.id);
@@ -632,8 +647,12 @@ function write() {
   void openSheet({ kind: "new", pin: null });
 }
 function placeAtCenter(input: NoteInput, how: PlaceHow) {
-  // the desk is always there while it places; were it not, its corner
-  const r = vp.value?.getBoundingClientRect() ?? { width: 0, height: 0 };
+  // the desk as it is shown; kept behind another tab it measures nothing, and it comes back
+  // filling the window, so the note goes to the middle of the view it comes back to
+  const r =
+    vp.value?.isConnected === true
+      ? vp.value.getBoundingClientRect()
+      : { width: window.innerWidth, height: window.innerHeight };
   const c = toWorld(r.width / 2, r.height / 2);
   const n = store.add(input, { x: c.x - 82, y: c.y - 40 });
   if (how === "pop") {
@@ -687,17 +706,31 @@ function onPaste(e: ClipboardEvent) {
   void linkCard(url);
 }
 /**
- * A link on the desk: a Google Maps one is a note at that place; any other is a card named
- * after its site at once, which the page's title, line and picture then fill in, when the page
- * says and the Worker can be asked, as long as nobody has written on the card meanwhile
+ * A link on the desk: a Google Maps one is a note at that place, as in the form (a short one's
+ * point read by the Worker); any other is a card named after its site at once, which the page's
+ * title, line and picture then fill in, when the page says and the Worker can be asked, as long
+ * as nobody has written on the card meanwhile
  */
 async function linkCard(url: HttpUrl) {
-  const place = placeFromUrl(url, null);
-  if (place.pin !== null || isShortMapsLink(url)) {
-    placeAtCenter(
+  const api = worker.api;
+  if (isMapsLink(url)) {
+    const place = placeFromUrl(url, null);
+    const n = placeAtCenter(
       { ...blankInput(tags.selected, place.pin), title: i18n.t("canvas.pastedPlace"), ...place },
       "pop",
     );
+    if (api === null || cut.offline || !isShortMapsLink(url)) return;
+    try {
+      const answer = await api.expandLink(url, i18n.locale);
+      // past the budget the short link stays, as when it could not be read
+      if (!answer.ok) return;
+      const now = store.notes.value?.find((x) => x.id === n.id);
+      // given another link, or gone, meanwhile: where this one leads is not wanted
+      if (now?.kind !== "memo" || now.mapsUrl !== url) return;
+      store.update(n.id, placeFromUrl(answer.value.url, answer.value.at ?? now.pin));
+    } catch {
+      // the short link stays; the note has no point yet
+    }
     return;
   }
   const site = siteOf(url);
@@ -706,7 +739,6 @@ async function linkCard(url: HttpUrl) {
     { ...blankInput(tags.selected, null), title: site, link: url, color: "#ffffff" },
     "pop",
   );
-  const api = worker.api;
   if (api === null || cut.offline) return;
   try {
     const answer = await api.preview(url);
@@ -765,7 +797,9 @@ async function stick(file: Blob, at?: Pt) {
     sticking.value = false;
   }
 }
-onMounted(() => document.addEventListener("paste", onPaste));
+// A paste is the desk's only while it is shown: kept behind another tab, it hears none
+onActivated(() => document.addEventListener("paste", onPaste));
+onDeactivated(() => document.removeEventListener("paste", onPaste));
 onBeforeUnmount(() => document.removeEventListener("paste", onPaste));
 
 // The wheel is listened to on the desk itself, not with @wheel: Vapor delegates a template's
@@ -774,8 +808,8 @@ onBeforeUnmount(() => document.removeEventListener("paste", onPaste));
 onMounted(() => vp.value?.addEventListener("wheel", onWheel, { passive: false }));
 onBeforeUnmount(() => vp.value?.removeEventListener("wheel", onWheel));
 
-// A press on a card puts the keyboard on its face (onDown); the mouse's own default after it
-// would hand the focus back to the page, since a card itself takes none, so it is stopped
+// A press on a card puts the keyboard on it (onDown, focusCard); a memo itself takes no focus
+// (its title does), so the mouse's own default after the press would hand it back to the page
 function keepFocus(e: MouseEvent) {
   if (noteAt(e.target) !== undefined) e.preventDefault();
 }

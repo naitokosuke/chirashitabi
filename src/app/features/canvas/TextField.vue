@@ -22,8 +22,9 @@ function finish(text: string | null) {
   emit("done", text);
 }
 function onKey(e: KeyboardEvent) {
-  // an IME's Enter picks a word; only a plain one is done
-  if (e.isComposing) return;
+  // an IME's Enter picks a word; only a plain one is done (Safari sends the Enter that confirms
+  // it after compositionend, no longer composing, but with keyCode 229)
+  if (e.isComposing || e.keyCode === 229) return;
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     finish(value.value);

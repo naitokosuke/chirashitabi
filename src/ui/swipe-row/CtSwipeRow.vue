@@ -109,21 +109,23 @@ function outside(e: PointerEvent) {
     emit("toggle", false);
 }
 
-watch(
-  () => props.open,
-  async (open) => {
-    // opened some other way than a slide (a key, the owner): the actions' width is measured here
-    if (open && set.value !== null) width.value = set.value.offsetWidth;
-    if (open) document.addEventListener("pointerdown", outside, true);
-    else document.removeEventListener("pointerdown", outside, true);
-    if (open && byKey) {
-      byKey = false;
-      await nextTick();
-      set.value?.querySelector<HTMLElement>("a, button, [tabindex]")?.focus();
-    }
-  },
-);
-onMounted(() => root.value?.addEventListener("click", click, true));
+/** The row following `open`: on every change, and once mounted, so a row that starts open is */
+async function follow(open: boolean) {
+  // opened some other way than a slide (a key, the owner): the actions' width is measured here
+  if (open && set.value !== null) width.value = set.value.offsetWidth;
+  if (open) document.addEventListener("pointerdown", outside, true);
+  else document.removeEventListener("pointerdown", outside, true);
+  if (open && byKey) {
+    byKey = false;
+    await nextTick();
+    set.value?.querySelector<HTMLElement>("a, button, [tabindex]")?.focus();
+  }
+}
+watch(() => props.open, follow);
+onMounted(() => {
+  root.value?.addEventListener("click", click, true);
+  void follow(props.open);
+});
 onBeforeUnmount(() => {
   root.value?.removeEventListener("click", click, true);
   document.removeEventListener("pointerdown", outside, true);

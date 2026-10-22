@@ -4,8 +4,8 @@ import { useTemplateRef } from "vue";
 /**
  * A menu of what can be done to the thing it opened from (a card on the desk), floating over
  * the view at `x`, `y` from the corner of its positioned parent; where that is, the owner works
- * out, measuring it with `size()`. It is a toolbar: ← and → walk its buttons, Esc asks to
- * close it (`close`). A press inside it stays in it, so what it floats over (a desk that pans)
+ * out, measuring it with `size()`. It is a toolbar: ← and → walk its buttons (past the
+ * disabled ones, which cannot take the focus), Esc asks to close it (`close`). A press inside it stays in it, so what it floats over (a desk that pans)
  * never takes it. It holds `CtMenuItem`s, and `CtMenuGroup`s of things picked in it.
  *
  * `focusFirst()` puts the keyboard on its first button; `holdsFocus()` says whether it is in it.
@@ -15,7 +15,9 @@ const emit = defineEmits<{ close: [] }>();
 defineSlots<{ default(): unknown }>();
 
 const root = useTemplateRef<HTMLElement>("root");
-const buttons = () => [...(root.value?.querySelectorAll<HTMLElement>("button") ?? [])];
+const buttons = () => [
+  ...(root.value?.querySelectorAll<HTMLElement>("button:not(:disabled)") ?? []),
+];
 
 /** Left and right walk the buttons, as in any toolbar; Esc closes it (one handler: two on one element collide) */
 function onKey(e: KeyboardEvent) {
