@@ -4,8 +4,9 @@
  * The build (vite.config.ts) writes it out as /sw.js with SHELL set to every file it emitted.
  * Registered only against the Worker (main.ts); with the mocks, MSW's worker holds the scope.
  *
- * A new build's worker waits until no tab runs the old one: a tab on the old build still loads
- * its chunks (the map's) from the old cache, which goes only once the new worker takes over.
+ * A new build's worker takes over at once, so an app left open (an installed one) is not held on
+ * an old build. The build before it keeps its cache: a tab still running it loads its chunks
+ * (the map's) from there, since a lookup searches every cache. Older ones go.
  */
 
 /** The page and every file the build emitted, filled in by the build */
@@ -25,17 +26,18 @@ const PATIENCE = 3000;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((k) => k.startsWith("shell-") && k !== CACHE).map((k) => caches.delete(k)),
-        ),
-      )
+      .then((keys) => {
+        // the caches list in the order they were made: the last before this one is the previous build's
+        const older = keys.filter((k) => k.startsWith("shell-") && k !== CACHE).slice(0, -1);
+        return Promise.all(older.map((k) => caches.delete(k)));
+      })
       .then(() => self.clients.claim()),
   );
 });
