@@ -1,8 +1,6 @@
 # Auth and security
 
-How a room is protected once the Cloudflare side exists.
-Nothing here is implemented yet; the README's sync hook and `WorkerApi` are the seams it attaches to.
-Where the doc says "the Worker does", read "will do".
+How a room is protected on the Cloudflare side: the Worker (`src/worker/index.ts`), the rooms index (`src/worker/rooms-index.ts`) and each room (`src/worker/room.ts`).
 
 ## What there is to protect
 
@@ -32,7 +30,8 @@ A change to the mechanisms is fine as long as every line here still holds; a rev
 - The public hostname serves only published booklet files; viewing one costs nothing and triggers no outbound call.
 - The client cannot assert who it is: `by` is stamped by the room, an agent is written as only by the Worker, and a room acts only for member ids the Worker resolved from the index.
 - A page on another origin cannot make a member's browser call the API or open the socket.
-- One member cannot destroy the room's data beyond recovery.
+- Only the owner can end a room, and a deletion can be taken back by either person for 30 days unless the owner has the room gone at once.
+  Within a room that is not deleted, either member can change or remove what is in it: a deleted note does not come back, and new dates drop the days' lines past the new last day, so a member can lose the other's work; nothing keeps a copy to restore it from.
 
 ## One hostname
 
@@ -86,8 +85,9 @@ It returns a verified e-mail or throws; it never returns a member id, and it nev
 
 - It reads the JWT from `Cf-Access-Jwt-Assertion` only.
   Access sets the header on proxied requests including the WebSocket upgrade; the cookie is not read, which keeps the cookie out of our own code paths.
-- It verifies the signature against the team's `/cdn-cgi/access/certs`, cached, with the `kid` picked from the header; keys rotate every six weeks and the old one stays valid for seven days.
-  A cache older than seven days is not used, and a failed certs fetch rejects the request.
+- It verifies the signature against the team's `/cdn-cgi/access/certs`, cached in the Worker's memory, with the `kid` picked from the header; keys rotate every six weeks and the old one stays valid for seven days.
+  A `kid` the cache does not have fetches the keys again, at most once a minute.
+  When a fetch fails, the cached keys are still used while they are younger than seven days; with none that young, the request is rejected.
 - It checks `aud` against the application's AUD tag, `iss` against the team domain, `exp` and `nbf` with 60 seconds of skew.
   Without the `aud` check a token from any other Access application on the team, or a service token, would pass.
 
@@ -276,11 +276,14 @@ This design has no such endpoint, and keeps it that way by rule.
 
 The client cannot be trusted to have run its own checks, so the room validates every mutation with the same ones (`currencyCode`, `hexColor`, and whatever follows).
 
-- A message larger than 32 KB is rejected; the platform accepts up to 32 MiB per WebSocket message, so this is ours to enforce.
-- Each member has a token bucket for messages, separate from the paid-call budget.
+- A message larger than 32 KB (its UTF-8 bytes) is rejected; the platform accepts up to 32 MiB per WebSocket message, so this is ours to enforce.
+- Each member may send 200 messages in a fixed 10-second window, counted in the room's memory and separate from the paid-call budget; the moves of a card being dragged (a `note:move` with no `cid`) have a window of their own, so a long drag cannot crowd out the changes that are kept.
 - `updatedAt` and ordering are assigned by the room, not sent by the client.
-- `note:delete` is a soft delete with 30 days of history, so one member cannot wipe the room beyond recovery.
-- The room's state is snapshotted to R2 nightly by an alarm; alarms do nothing but this snapshot and the delayed deletion above.
+- The room remembers the last 1,000 `cid`s it applied for each member; a change sent again with one of them (its ack was lost on the way) is acked with its first `updatedAt` and not applied again.
+- What the room writes holds to the same schemas the client's messages do: a suggestion card near the desk's edge is kept on it, and new dates that would run past 9999-12-31 are refused (`no such day`).
+- `note:delete` sets the note's `deleted_at`; it leaves the snapshot, nothing restores it, and its id cannot be used again (`duplicate id`). Its picture is freed like any other a card no longer shows.
+- Alarms do nothing but the delayed deletion above.
+  There is no snapshot of a room's data; what a room keeps is in the room object alone.
 
 ## Sessions and secrets
 
@@ -288,6 +291,6 @@ Access sessions can last from 15 minutes to a month.
 The trip is in Taiwan, which reaches Cloudflare (there is a Taipei PoP), Google, OpenFreeMap and Anthropic without restriction, but a login during the trip is still a nuisance, so the session is set to a month before departure.
 A month is also how long a lost phone stays logged in; a member and their sessions can be revoked at once in Zero Trust, and the budget bounds what the phone can spend until then.
 
-Snapshots expire after 30 days; outside the room object and the index, the only other data is the published booklet files in R2, which go with their slug.
+Outside the room objects and the index, the only other data is in R2: the rooms' pictures, which go with their room, and the published booklet files, which go with their slug.
 
 `.dev.vars*` is in `.gitignore`; `wrangler.jsonc` holds no secret.
