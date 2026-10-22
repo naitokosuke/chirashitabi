@@ -107,7 +107,7 @@ Entries created only by `setQueryData` once crashed the retry plugin and the dev
 A community plugin for Laravel Echo subscribes per cache entry, relaxes `staleTime` while connected and invalidates once on reconnect, which is the shape this design takes ([pinia-colada-plugin-laravel-echo](https://github.com/kirchDev/pinia-colada-plugin-laravel-echo)).
 
 Version 1.4.7 accepts `pinia ^4` and `vue ^3.5.41`.
-The maintainer says it works with Vapor because it has nothing to do with templates ([#510](https://github.com/posva/pinia-colada/discussions/510)); we have not run it under Vapor yet, and the first step checks that.
+The maintainer says it works with Vapor because it has nothing to do with templates ([#510](https://github.com/posva/pinia-colada/discussions/510)), and it does here: the first step below ran it under Vapor with no change to it.
 
 ## Design
 
@@ -120,7 +120,7 @@ The socket, the reducers and the cache are separated so that each can be tested 
 - `features/notes/apply.ts`, `features/trip/apply.ts` and `features/members/apply.ts` are pure reducers: `(state, mutation) => state`, always returning new objects.
   They are today's `receive` functions, made immutable, and they are the only place that knows what a mutation means.
   The worker can reuse them later.
-- `features/room/queries.ts` defines one query per slice of the room and wires socket messages into the cache.
+- `features/sync/keys.ts` names one cache entry per slice of the room, and `features/sync/useRoom.ts` wires socket messages into those entries.
 - `useNotes`, `useTrip` and `useMembers` stay as the components' API, but read from the cache and write through it.
 
 ### Keys

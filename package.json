@@ -5,7 +5,7 @@
   "scripts": {
     "analyze": "ANALYZE=true VITE_MOCK=false vp build",
     "check:worker": "wrangler types && tsc -p src/worker",
-    "deploy": "VITE_MOCK=false vp build && wrangler deploy",
+    "deploy": "VITE_MOCK=false vp build && test ! -e dist/mockServiceWorker.js && wrangler deploy",
     "musea": "MUSEA=true vp dev --open /__musea__"
   },
   "dependencies": {
