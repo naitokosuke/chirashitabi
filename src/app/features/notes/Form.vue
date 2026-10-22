@@ -164,7 +164,7 @@ const hoursUnread = computed(() => hours.value.trim() !== "" && readHours(hours.
 const expanding = ref(false);
 /** The short link last sent to be read: a paste reads it at once, and leaving the field after is the same one */
 let expandedFrom = "";
-function onMapsUrl() {
+async function onMapsUrl() {
   Object.assign(form.value, placeFromUrl(mapsUrl.value, form.value.pin));
   const short = mapsUrl.value.trim();
   const api = worker.api;
@@ -173,20 +173,21 @@ function onMapsUrl() {
   // a shared short link hides its point: the Worker reads where it leads, and the link becomes
   // that one, unless something else was pasted meanwhile
   expanding.value = true;
-  api
-    .expandLink(short, i18n.locale)
-    .then((answer) => {
-      // past the budget the short link stays, as when it could not be read
-      if (!answer.ok) return;
-      const { url, at } = answer.value;
-      if (mapsUrl.value.trim() !== short || url === short) return;
-      mapsUrl.value = url;
-      Object.assign(form.value, placeFromUrl(url, at ?? form.value.pin));
-    })
-    .catch(() => {
-      // the short link stays; the form says it has no point yet
-    })
-    .finally(() => (expanding.value = false));
+  try {
+    const answer = await api.expandLink(short, i18n.locale);
+    // past the budget the short link stays, as when it could not be read; a link pasted
+    // meanwhile is the newer one's
+    if (!answer.ok || mapsUrl.value.trim() !== short) return;
+    const { url, at } = answer.value;
+    if (url === short) return;
+    mapsUrl.value = url;
+    Object.assign(form.value, placeFromUrl(url, at ?? form.value.pin));
+  } catch {
+    // the short link stays; the form says it has no point yet
+  } finally {
+    // a short link sent meanwhile is still on its way: it says when it is done
+    if (expandedFrom === short) expanding.value = false;
+  }
 }
 /** A paste is read at once, once the field holds it, without waiting for the field to be left */
 const onMapsPaste = () => setTimeout(onMapsUrl);
@@ -214,7 +215,7 @@ let previewedFrom = "";
  * The page behind the link, once: its title and line fill words not written yet, its picture
  * a card with none. A Google Maps link is the place's, not a page to read
  */
-function onLink() {
+async function onLink() {
   const raw = link.value.trim();
   const url = parseHttpUrl(raw);
   if (url === null || url === previewedFrom) return;
@@ -226,30 +227,29 @@ function onLink() {
   if (api === null || cut.offline) return;
   previewedFrom = url;
   linkState.value = { kind: "fetching" };
-  api
-    .preview(url)
-    .then((answer) => {
-      if (link.value.trim() !== raw) return;
-      if (!answer.ok) {
-        linkState.value = { kind: answer.reason.ceiling };
-        return;
-      }
-      const found = answer.value;
-      if (found === null) {
-        linkState.value = { kind: "none" };
-        return;
-      }
-      // the page's own link is the one read too: leaving the field after is no new link
-      link.value = found.url;
-      previewedFrom = found.url;
-      if (text.value.trim() === "")
-        text.value = [found.title, found.description].filter((s) => s !== null).join("\n");
-      if (form.value.image === null && found.image !== null) form.value.image = found.image;
-      linkState.value = { kind: "found", site: found.site };
-    })
-    .catch(() => {
-      linkState.value = { kind: "failed" };
-    });
+  const answer = await api.preview(url).catch(() => null);
+  // what came back, a failure too, is about this link only: one written meanwhile is the newer one's
+  if (link.value.trim() !== raw) return;
+  if (answer === null) {
+    linkState.value = { kind: "failed" };
+    return;
+  }
+  if (!answer.ok) {
+    linkState.value = { kind: answer.reason.ceiling };
+    return;
+  }
+  const found = answer.value;
+  if (found === null) {
+    linkState.value = { kind: "none" };
+    return;
+  }
+  // the page's own link is the one read too: leaving the field after is no new link
+  link.value = found.url;
+  previewedFrom = found.url;
+  if (text.value.trim() === "")
+    text.value = [found.title, found.description].filter((s) => s !== null).join("\n");
+  if (form.value.image === null && found.image !== null) form.value.image = found.image;
+  linkState.value = { kind: "found", site: found.site };
 }
 const onLinkPaste = () => setTimeout(onLink);
 const hasPin = () => form.value.pin !== null;
@@ -381,13 +381,14 @@ function forgetTags() {
 const candidates = ref<Tag[]>([]);
 watch(
   () => worker.api,
-  (api) => {
-    api
-      ?.tagCandidates()
-      .then((c) => (candidates.value = c))
-      .catch(() => {
-        // the tags in use still rank; Clef's answers bring the candidates too
-      });
+  async (api, _, onCleanup) => {
+    if (api === null) return;
+    // another room's Worker (or none) meanwhile: what this one answers is no longer the trip's
+    let stale = false;
+    onCleanup(() => (stale = true));
+    const c = await api.tagCandidates().catch(() => null);
+    // without them the tags in use still rank; Clef's answers bring the candidates too
+    if (!stale && c !== null) candidates.value = c;
   },
   { immediate: true },
 );
@@ -505,7 +506,7 @@ async function findPlaces() {
  */
 function choosePlace(p: FoundPlace) {
   mapsUrl.value = placeSearchLink(p.name, p.at);
-  onMapsUrl();
+  void onMapsUrl();
   if (p.hours !== null) hours.value = p.hours;
   places.value = { kind: "idle", found: [] };
 }
@@ -518,33 +519,28 @@ function choosePlace(p: FoundPlace) {
 const naming = ref(false);
 /** The title and link came from OpenStreetMap: its credit is shown, as its licence asks */
 const namedByOsm = ref(false);
-function nameThePin() {
+async function nameThePin() {
   const at = form.value.pin;
   if (editing.value || at === null) return;
   mapsUrl.value = googleMapsLink(at);
-  onMapsUrl();
+  void onMapsUrl();
   const auto = mapsUrl.value;
   const api = worker.api;
   if (api === null) return;
   naming.value = true;
-  api
-    .whereIs(at, i18n.locale)
-    .then((place) => {
-      if (place === null) return;
-      if (mapsUrl.value === auto) {
-        mapsUrl.value = placeSearchLink(place.name, at);
-        onMapsUrl();
-      }
-      if (text.value.trim() === "") text.value = place.name;
-      if (place.hours !== null && hours.value.trim() === "") hours.value = place.hours;
-      namedByOsm.value = true;
-    })
-    .catch(() => {
-      // the link to the point is there already; a name is a nicety
-    })
-    .finally(() => (naming.value = false));
+  // the link to the point is there already; a name is a nicety
+  const place = await api.whereIs(at, i18n.locale).catch(() => null);
+  naming.value = false;
+  if (place === null) return;
+  if (mapsUrl.value === auto) {
+    mapsUrl.value = placeSearchLink(place.name, at);
+    void onMapsUrl();
+  }
+  if (text.value.trim() === "") text.value = place.name;
+  if (place.hours !== null && hours.value.trim() === "") hours.value = place.hours;
+  namedByOsm.value = true;
 }
-nameThePin();
+void nameThePin();
 
 const textEl = useTemplateRef<{ focus(): void }>("textEl");
 const focusText = () => void nextTick(() => textEl.value?.focus());
@@ -646,7 +642,7 @@ const opened = fieldsInput();
 
 function submit() {
   commitTag();
-  onMapsUrl();
+  void onMapsUrl();
   const input = fieldsInput();
   if (target.value.kind === "edit") {
     // the fields the person left as they were stay the room's: the partner may have changed them meanwhile
@@ -672,7 +668,7 @@ function submit() {
   text.value = "";
   namedByOsm.value = false;
   forgetTags();
-  nameThePin();
+  void nameThePin();
   focusText();
 }
 </script>

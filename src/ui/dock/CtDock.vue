@@ -71,7 +71,11 @@ function placeDot() {
   const current = els.findIndex((el) => el.getAttribute("aria-current") === "page");
   const r = n.getBoundingClientRect();
   dot.value = dotOf(rest, current, { x: middle(r), width: r.width });
-  if (!dotReady.value) requestAnimationFrame(() => (dotReady.value = true));
+  if (!dotReady.value) requestAnimationFrame(dotPlaced);
+}
+/** Placed and painted once: from now on it slides (set again, it is set to the same) */
+function dotPlaced() {
+  dotReady.value = true;
 }
 // what moves the dot: another item opening, a group folding, the dock's width changing
 let watchers: { disconnect(): void }[] = [];

@@ -462,12 +462,18 @@ function publishNow() {
 }
 /** The link copied, said for a moment on the button */
 const copied = ref(false);
+/** Copied again while it is said, the moment starts over: the earlier copy's end is not its end */
+let copiedFor: ReturnType<typeof setTimeout> | undefined;
+function uncopied() {
+  copied.value = false;
+}
 async function copyLink() {
   if (published.value === null) return;
   try {
     await navigator.clipboard.writeText(published.value.url);
     copied.value = true;
-    setTimeout(() => (copied.value = false), 1500);
+    clearTimeout(copiedFor);
+    copiedFor = setTimeout(uncopied, 1500);
   } catch {
     // the link is on the page to select by hand
   }
