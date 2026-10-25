@@ -48,6 +48,7 @@ import {
   watch,
 } from "vue";
 
+import { useMutation } from "@pinia/colada";
 import { useRoute, useRouter } from "vue-router";
 
 import {
@@ -93,6 +94,7 @@ import {
   placeFromUrl,
   type HttpUrl,
 } from "../../../features/place/google-maps";
+import { useInRoom } from "../../../features/sync/InRoom.vue";
 import { useOffline } from "../../../features/sync/useOffline";
 import FilterBar from "../../../features/tags/FilterBar.vue";
 import { useTags } from "../../../features/tags/useTags";
@@ -100,8 +102,7 @@ import { useToast } from "../../../features/toast/useToast";
 import { shortDate } from "../../../features/trip/format";
 import { assignTo } from "../../../features/trip/itinerary";
 import { useTrip } from "../../../features/trip/useTrip";
-import { useWorker } from "../../../features/worker/useWorker";
-import { useWorkerCalls } from "../../../features/worker/useWorkerCalls";
+import type { WorkerApi } from "../../../features/worker/types";
 import Icon from "../../../icons/Icon.vue";
 import plusIcon from "../../../icons/plus.svg";
 import stickerIcon from "../../../icons/sticker.svg";
@@ -118,7 +119,7 @@ const openSheet = (form: FormTarget) =>
 const store = useNotes();
 const { notes } = store;
 const toast = useToast();
-const worker = useWorker();
+const here = useInRoom();
 const tags = useTags();
 const { trip } = useTrip();
 const i18n = useI18n();
@@ -593,7 +594,13 @@ function focusUndo() {
   if (import.meta.env.SSR) return;
   document.querySelector<HTMLElement>('[role="status"] button')?.focus();
 }
-const { mutateAsync: suggestAt, isLoading: thinking } = useWorkerCalls().suggest;
+/**
+ * Asking the room's agent for ideas, as a mutation for its pending state. A paid call
+ * (docs/auth-and-security.md), so never retried by the library: trying again is a tap.
+ */
+const { mutateAsync: suggestAt, isLoading: thinking } = useMutation({
+  mutation: (request: Parameters<WorkerApi["suggest"]>[0]) => here.api.suggest(request),
+});
 /**
  * The ask for ideas while it is open under its button: the note it starts from (picked from a
  * card's toolbar), or none for the whole trip. The words being written are kept apart, so a
@@ -733,16 +740,15 @@ function onPaste(e: ClipboardEvent) {
  * as nobody has written on the card meanwhile
  */
 async function linkCard(url: HttpUrl) {
-  const api = worker.api;
   if (isMapsLink(url)) {
     const place = placeFromUrl(url, null);
     const n = placeAtCenter(
       { ...blankInput(tags.selected, place.pin), title: i18n.t("canvas.pastedPlace"), ...place },
       "pop",
     );
-    if (api === null || cut.offline || !isShortMapsLink(url)) return;
+    if (cut.offline || !isShortMapsLink(url)) return;
     try {
-      const answer = await api.expandLink(url, i18n.locale);
+      const answer = await here.api.expandLink(url, i18n.locale);
       // past the budget the short link stays, as when it could not be read
       if (!answer.ok) return;
       const now = store.notes.value?.find((x) => x.id === n.id);
@@ -760,9 +766,9 @@ async function linkCard(url: HttpUrl) {
     { ...blankInput(tags.selected, null), title: site, link: url, color: "#ffffff" },
     "pop",
   );
-  if (api === null || cut.offline) return;
+  if (cut.offline) return;
   try {
-    const answer = await api.preview(url);
+    const answer = await here.api.preview(url);
     if (!answer.ok || answer.value === null) return;
     const found = answer.value;
     const now = store.notes.value?.find((x) => x.id === n.id);
@@ -795,11 +801,10 @@ function onDrop(e: DragEvent) {
  * the desk's middle by default). It lands with the pop, and the toast can take it back.
  */
 async function stick(file: Blob, at?: Pt) {
-  const api = worker.api;
-  if (api === null || sticking.value) return;
+  if (sticking.value) return;
   sticking.value = true;
   try {
-    const kept = await api.uploadImage(await shrinkImage(file, STICKER_SIDE));
+    const kept = await here.api.uploadImage(await shrinkImage(file, STICKER_SIDE));
     if (!kept.ok) {
       toast.show(i18n.t("form.photoFull"));
       return;
@@ -868,7 +873,6 @@ watch(
       <div class="top">
         <FilterBar />
         <CtButton
-          v-if="worker.api !== null"
           float
           variant="ask"
           :disabled="thinking || cut.offline"
@@ -965,7 +969,6 @@ watch(
         pasted or dropped on the desk
       -->
       <CtFab
-        v-if="worker.api !== null"
         class="sticker"
         :label="i18n.t(sticking ? 'canvas.stickerSending' : 'canvas.sticker')"
         :disabled="sticking"
@@ -1013,7 +1016,7 @@ watch(
         </CtMenuGroup>
         <!-- the agent's ideas built on this note; a sticker has no words to build on -->
         <CtMenuItem
-          v-if="worker.api !== null && menu.note.kind !== 'sticker'"
+          v-if="menu.note.kind !== 'sticker'"
           :disabled="thinking || cut.offline"
           @click="askFromMenu"
         >{{ i18n.t("canvas.ideasFromHere") }}</CtMenuItem>

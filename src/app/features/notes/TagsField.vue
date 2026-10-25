@@ -7,11 +7,11 @@ import { useI18n } from "../../i18n/useI18n";
 
 import closeIcon from "../../icons/close.svg";
 import Icon from "../../icons/Icon.vue";
+import { useInRoom } from "../sync/InRoom.vue";
 import { useOffline } from "../sync/useOffline";
 import { FITS_AT, fits, likeness, rankTags, type TagOption } from "../tags/rank";
 import { useTags } from "../tags/useTags";
 import type { OverBudget } from "../worker/types";
-import { useWorker } from "../worker/useWorker";
 
 import type { ImageId } from "./id";
 import { normalizeTag, parseNoteText } from "./input";
@@ -28,7 +28,7 @@ const props = defineProps<{ text: string; image: ImageId | null; tags: Tag[]; dr
 const emit = defineEmits<{ "update:tags": [tags: Tag[]]; "update:draft": [draft: string] }>();
 /** The room's tags, those in use on its notes */
 const inRoom = useTags();
-const worker = useWorker();
+const here = useInRoom();
 const i18n = useI18n();
 /** Cut off: what needs the Worker is not offered */
 const cut = useOffline();
@@ -79,8 +79,7 @@ const SETTLE_MS = 1500;
 /** Words less alike than this to those last asked about are a new memo to Clef (tags/rank.ts) */
 const ASKED_ALIKE = 0.6;
 async function askForTags(byTap: boolean) {
-  const api = worker.api;
-  if (api === null || clef.state.kind === "asking") return;
+  if (clef.state.kind === "asking") return;
   const { title, body, tags: inline } = parseNoteText(props.text);
   const asked = {
     words: `${title}\n${body}`,
@@ -91,7 +90,7 @@ async function askForTags(byTap: boolean) {
   const stopped = { ...asked, asks: MAX_ASKS };
   const turn = clef.ask({ kind: "asking", asked });
   try {
-    const got = await api.suggestTags({
+    const got = await here.api.suggestTags({
       title,
       body,
       image: props.image,
@@ -135,13 +134,12 @@ watch([() => props.text, () => props.image], () => {
 onBeforeUnmount(() => clearTimeout(settle));
 
 // ---- the tags to add: those in use and the trip's, in the order they fit the words as typed ----
-/** The trip's candidate tags the agent proposed; read once the Worker is there, free */
+/** The trip's candidate tags the agent proposed; read for each room the form is in, free */
 const candidates = ref<Tag[]>([]);
 watch(
-  () => worker.api,
+  () => here.api,
   async (api, _, onCleanup) => {
-    if (api === null) return;
-    // another room's Worker (or none) meanwhile: what this one answers is no longer the trip's
+    // another room's Worker meanwhile: what this one answers is no longer the trip's
     let stale = false;
     onCleanup(() => (stale = true));
     const c = await api.tagCandidates().catch(() => null);
@@ -257,7 +255,7 @@ onBeforeUnmount(() => clearTimeout(resort));
       >#{{ o.name }}</CtChip>
     </div>
     <!-- Clef looks at the words and the photo; what it finds fitting moves up the row -->
-    <div v-if="worker.api !== null && (askByTap || clef.state.kind !== 'idle')" class="suggested">
+    <div v-if="askByTap || clef.state.kind !== 'idle'" class="suggested">
       <CtButton
         v-if="askByTap"
         variant="ask"

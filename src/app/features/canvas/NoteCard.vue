@@ -15,7 +15,7 @@ import type { ImageId } from "../notes/id";
 import { imageSrc } from "../notes/image";
 import { segments, siteOf } from "../notes/links";
 import type { Note } from "../notes/types";
-import { useSync } from "../sync/useSync";
+import { useInRoom } from "../sync/InRoom.vue";
 import type { Visibility } from "../tags/types";
 import { hhmm, shortDate } from "../trip/format";
 
@@ -36,7 +36,7 @@ defineEmits<{ adopt: []; remove: [] }>();
 const { members } = useMembers();
 /** Whose paper it is written on: theirs, or white once they have left the room */
 const paper = computed(() => paperOf(members.value?.find((m) => m.id === props.note.by)?.color));
-const sync = useSync();
+const here = useInRoom();
 const i18n = useI18n();
 const id = useId();
 /** A memo with a picture is a print: the picture mounted, its words under it */
@@ -48,8 +48,8 @@ const day = computed(() => {
   const date = shortDate(s.date, i18n.locale);
   return s.time === null ? date : `${date} ${hhmm(s.time)}`;
 });
-/** Where a picture of the room is shown from, once the room is known */
-const picture = (id: ImageId) => (sync.room === null ? undefined : imageSrc(sync.room, id));
+/** Where a picture of the room is shown from */
+const picture = (id: ImageId) => imageSrc(here.room, id);
 /** How long a slip's answer is held: long enough not to be brushed, short enough to be a flick */
 const HOLD_MS = 600;
 </script>

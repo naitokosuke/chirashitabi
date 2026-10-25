@@ -254,9 +254,7 @@ one {{Claude left {$count} idea here}}
   "form.photoFull": "This trip holds as many photos as it can.",
   "form.mapsPlaceholder": "Paste a Google Maps link",
   "form.pinned": "This drops a pin on the map",
-  "form.unpinned": "Paste a Google Maps link to drop a pin on the map",
   "form.unpinnedFind": "Paste a link or use “Find the place” to drop a pin on the map",
-  "form.urlNoPin": "No coordinates in that link. Paste the long link from “Share”",
   "form.urlNoPinFind":
     "No coordinates in that link. Paste the long link from “Share”, or use “Find the place”",
   "form.findPlace": "Find the place",
@@ -296,12 +294,6 @@ one {{Claude left {$count} idea here}}
 
   "map.all": "All",
   "map.route": "Route {$date}",
-  "map.noPin": `
-.input {$count :integer}
-.match $count
-one {{{$count} note has no place}}
-*   {{{$count} notes have no place}}
-`,
   "map.noPinFind": `
 .input {$count :integer}
 .match $count

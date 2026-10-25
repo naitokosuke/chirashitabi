@@ -29,6 +29,6 @@ export const roomKeys = {
    * only (useMembers), refreshed when the members change
    */
   invited: slice<Email[]>("invited"),
-  /** Not a slice of the socket's either: the public booklet, fetched over HTTP (usePublication) */
+  /** Not a slice of the socket's either: the public booklet, fetched over HTTP (the booklet's appendix) */
   publication: slice<Publication | null>("publication"),
 };

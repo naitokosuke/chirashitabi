@@ -8,8 +8,7 @@ import { defineQuery } from "@pinia/colada";
 import { useNotes } from "../notes/useNotes";
 import { draftUpdates } from "../trip/itinerary";
 import { useTrip } from "../trip/useTrip";
-import type { DayDraft, OverBudget } from "../worker/types";
-import { useWorkerCalls } from "../worker/useWorkerCalls";
+import type { DayDraft, OverBudget, WorkerApi } from "../worker/types";
 
 /**
  * A member's draft of a day: none, asked for, come, or why it did not; every kind but none is
@@ -28,16 +27,16 @@ type DraftState =
  * (defineQuery).
  */
 const useDayDraft = defineQuery(() => {
-  const calls = useWorkerCalls();
   const store = useNotes();
   const { forDay, dayOf, setIntro } = useTrip();
   const state = shallowRef<DraftState>({ kind: "idle" });
 
-  async function ask(date: Temporal.PlainDate) {
+  /** A draft of `date`, asked of the Worker of the room the booklet is in (`api`) */
+  async function ask(api: WorkerApi, date: Temporal.PlainDate) {
     if (state.value.kind === "asking") return;
     state.value = { kind: "asking", date };
     try {
-      const answer = await calls.draftDay.mutateAsync({ date, notes: forDay(date) });
+      const answer = await api.draftDay(date, forDay(date));
       state.value = answer.ok
         ? { kind: "drafted", date, draft: answer.value }
         : { kind: "failed", date, why: answer.reason.ceiling };
@@ -84,10 +83,10 @@ import { useI18n } from "../../i18n/useI18n";
 
 import { useMembers } from "../members/useMembers";
 import type { Scheduled } from "../notes/types";
+import { useInRoom } from "../sync/InRoom.vue";
 import { useOffline } from "../sync/useOffline";
 import { durationChoices, durationMessage, fromHhmm, hhmm } from "../trip/format";
 import { assignTo, cycleStatus } from "../trip/itinerary";
-import { useWorker } from "../worker/useWorker";
 
 import Day from "./Day.vue";
 
@@ -100,7 +99,7 @@ const props = defineProps<{ day: Temporal.PlainDate; today: Temporal.PlainDate }
 const store = useNotes();
 const { trip, forDay, dayOf, setIntro } = useTrip();
 const { members } = useMembers();
-const worker = useWorker();
+const inRoom = useInRoom();
 const i18n = useI18n();
 /** Cut off: what needs the Worker is not offered */
 const cut = useOffline();
@@ -214,7 +213,7 @@ function markBooked(n: Scheduled) {
     </template>
     <template #after>
       <!-- a member's draft of the day -->
-      <template v-if="worker.api !== null && notes.length > 0">
+      <template v-if="notes.length > 0">
         <CtPaper v-if="here.kind === 'drafted'" class="draft" data-turn variant="proposal" wide>
           <template #strip
           >{{ i18n.t("shiori.draft") }} · {{ drafter?.name ?? i18n.t("member.someone") }}</template>
@@ -239,7 +238,7 @@ function markBooked(n: Scheduled) {
             variant="ask"
             :disabled="draft.kind === 'asking' || cut.offline"
             :busy="here.kind === 'asking'"
-            @click="() => ask(day)"
+            @click="() => ask(inRoom.api, day)"
           >{{ i18n.t(here.kind === "asking" ? "shiori.drafting" : "shiori.askDraft") }}</CtButton>
           <CtHint v-if="cut.offline" data-turn>{{ i18n.t("offline.unavailable") }}</CtHint>
           <CtMessage v-if="here.kind === 'failed'" aria-live="polite" class="failed" danger>{{

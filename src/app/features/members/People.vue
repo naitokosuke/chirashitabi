@@ -19,8 +19,8 @@ import {
 import { useI18n } from "../../i18n/useI18n";
 
 import { KEPT_DAYS } from "../rooms/api";
+import { useInRoom } from "../sync/InRoom.vue";
 import { useOffline } from "../sync/useOffline";
-import { useSync } from "../sync/useSync";
 
 import { parseEmail, SEATS, type Email, type MemberId } from "./types";
 import { useMembers } from "./useMembers";
@@ -38,7 +38,7 @@ const i18n = useI18n();
 /** Cut off: what needs the Worker is not offered */
 const cut = useOffline();
 const id = useId();
-const sync = useSync();
+const here = useInRoom();
 const membership = useMembers();
 const { members, me, invited } = membership;
 
@@ -106,7 +106,7 @@ async function deleteTrip() {
   if (await run(membership.deleteRoom.mutateAsync)) emit("out");
 }
 
-const isMe = (m: MemberId) => sync.me === m;
+const isMe = (m: MemberId) => here.me === m;
 
 // one square per dark module, inside the quiet zone of four the QR spec asks for; drawn once
 // mounted, in the page whose address it is

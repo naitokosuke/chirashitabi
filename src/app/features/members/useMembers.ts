@@ -28,10 +28,12 @@ export const useMembers = defineQuery(() => {
     return sync.room;
   };
   const { data: members } = useQueryState(() => roomKeys.members(sync.room));
-  /** This device's person, once the room has said who is in it */
-  const me = computed(() =>
-    members.value?.filter((m) => m.kind === "person").find((m) => m.id === sync.me),
-  );
+  /** This device's person, once in a room and the room has said who is in it */
+  const me = computed(() => {
+    const s = sync.session;
+    if (s.kind !== "in") return undefined;
+    return members.value?.filter((m) => m.kind === "person").find((m) => m.id === s.me);
+  });
 
   const invited = useQuery({
     key: () => roomKeys.invited(sync.room),
