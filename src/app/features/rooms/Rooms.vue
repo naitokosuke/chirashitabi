@@ -24,7 +24,7 @@ import type { Result } from "../../../contract";
 import Icon from "../../icons/Icon.vue";
 import plusIcon from "../../icons/plus.svg";
 import type { MembersRefusal } from "../members/api";
-import { REFUSALS } from "../members/People.vue";
+import { REFUSALS } from "../members/refusals";
 import { useOffline } from "../sync/useOffline";
 import { useRoom } from "../sync/useRoom";
 import { useSync } from "../sync/useSync";

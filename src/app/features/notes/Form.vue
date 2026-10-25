@@ -77,7 +77,6 @@ import {
   normalizeTag,
   noteText,
   parseNoteText,
-  type BookingDraft,
 } from "./input";
 import TagsField from "./TagsField.vue";
 import { type NoteInput, TODO_TAG } from "./types";
@@ -122,51 +121,98 @@ const startingInput = (): NoteInput => {
       : inputFromNote(editingNote.value);
   return blankInput(docked.value ? [] : tags.selected, t.pin);
 };
-/** What the inputs start from; from here on they are the form's */
-const start = startingInput();
-const form = ref<NoteInput>(start);
-const mapsUrl = ref(start.mapsUrl ?? "");
-/** When the place is open, as written (OpenStreetMap's way); blank for not said */
-const hours = ref(start.hours ?? "");
-// ---- whether it has to be booked: none, still to book (by a day), or booked (its number and page) ----
-/** The booking being written; another choice from the list starts blank (chosenBooking) */
-const booking = ref<BookingDraft>(bookingDraft(start.booking));
-// ---- a to-do: the day it is to be done by, and who is to do it (or to book it) ----
-const { members } = useMembers();
-const people = computed(() => (members.value ?? []).filter((m) => m.kind === "person"));
-const isTodo = computed(() => form.value.tags.includes(TODO_TAG));
-/** Someone is to do it: a to-do, or a plan still to book */
-const hasAssignee = computed(() => isTodo.value || booking.value.state === "needed");
-const due = ref(form.value.due?.toString() ?? "");
-const assignee = ref<string>(form.value.assignee ?? "");
-/** Whom the field names, while they are in the room */
-const assigneeOf = (): MemberId | null =>
-  people.value.find((m) => m.id === assignee.value)?.id ?? null;
-/** Written, but past what the booklet can read: it is kept as it is and checks nothing */
-const hoursUnread = computed(() => hours.value.trim() !== "" && readHours(hours.value) === null);
+
 /**
  * The short link last sent to be read, on its way to the Worker or read: a paste reads it at
  * once, and leaving the field after is the same one
  */
 type Expand = { kind: "idle" } | { kind: "expanding" | "expanded"; short: string };
-const expand = useAsk<Expand>({ kind: "idle" });
+/**
+ * What reading the page is doing, or what it found: the site, or why nothing; with the link
+ * read (the page's own once found), as leaving the field after a paste is the same one
+ */
+type Preview =
+  | { kind: "idle" }
+  | { kind: "place" }
+  | { kind: "fetching" | "none" | "failed" | OverBudget["ceiling"]; url: HttpUrl }
+  | { kind: "found"; site: string; url: HttpUrl };
+/** What sending the picture is doing, or why it is not on the card */
+type Photo = { kind: "idle" | "sending" | "failed" | "full" };
+/** The places found to choose from, or what the ask is doing or why it found none */
+type Places =
+  | { kind: "idle"; found: FoundPlace[] }
+  | { kind: "asking" | "none" | "failed" | OverBudget["ceiling"] };
+/** Naming the point pinned on the map: on its way, or done (OpenStreetMap's credit is due) */
+type Naming = { kind: "idle" | "naming" | "named" };
+
+/**
+ * One memo being written: what its fields say, and what is being asked for it. Adding another
+ * replaces it whole, so nothing of the last memo is left on the next, and an answer still on
+ * its way lands on the memo it was asked for.
+ */
+function newMemo() {
+  const start = startingInput();
+  return {
+    /** What the inputs start from; from here on they are the form's */
+    form: start,
+    mapsUrl: start.mapsUrl ?? "",
+    /** When the place is open, as written (OpenStreetMap's way); blank for not said */
+    hours: start.hours ?? "",
+    /**
+     * Whether it has to be booked: none, still to book (by a day), or booked (its number and
+     * page). Another choice from the list starts blank (chosenBooking)
+     */
+    booking: bookingDraft(start.booking),
+    /** A to-do: the day it is to be done by */
+    due: start.due?.toString() ?? "",
+    /** Who is to do it (or to book it) */
+    assignee: start.assignee ?? "",
+    /** Where the idea came from: a page, read by the Worker for its title, line and picture */
+    link: start.link ?? "",
+    text: noteText(start),
+    /** The tag being typed: it is the memo's once it is added, or once the memo is saved */
+    tagInput: "",
+    expand: useAsk<Expand>({ kind: "idle" }),
+    preview: useAsk<Preview>({ kind: "idle" }),
+    photo: useAsk<Photo>({ kind: "idle" }),
+    places: useAsk<Places>({ kind: "idle", found: [] }),
+    naming: useAsk<Naming>({ kind: "idle" }),
+  };
+}
+const memo = ref(newMemo());
+
+// ---- a to-do: the day it is to be done by, and who is to do it (or to book it) ----
+const { members } = useMembers();
+const people = computed(() => (members.value ?? []).filter((m) => m.kind === "person"));
+const isTodo = computed(() => memo.value.form.tags.includes(TODO_TAG));
+/** Someone is to do it: a to-do, or a plan still to book */
+const hasAssignee = computed(() => isTodo.value || memo.value.booking.state === "needed");
+/** Whom the field names, while they are in the room */
+const assigneeOf = (): MemberId | null =>
+  people.value.find((m) => m.id === memo.value.assignee)?.id ?? null;
+/** Written, but past what the booklet can read: it is kept as it is and checks nothing */
+const hoursUnread = computed(() => {
+  const { hours } = memo.value;
+  return hours.trim() !== "" && readHours(hours) === null;
+});
 async function onMapsUrl() {
-  Object.assign(form.value, placeFromUrl(mapsUrl.value, form.value.pin));
-  const short = mapsUrl.value.trim();
+  const d = memo.value;
+  Object.assign(d.form, placeFromUrl(d.mapsUrl, d.form.pin));
+  const short = d.mapsUrl.trim();
   if (cut.offline || !isShortMapsLink(short)) return;
-  if (expand.state.kind !== "idle" && expand.state.short === short) return;
+  if (d.expand.state.kind !== "idle" && d.expand.state.short === short) return;
   // a shared short link hides its point: the Worker reads where it leads, and the link becomes
   // that one, unless something else was pasted meanwhile
-  const turn = expand.ask({ kind: "expanding", short });
+  const turn = d.expand.ask({ kind: "expanding", short });
   try {
     const answer = await here.api.expandLink(short, i18n.locale);
     // past the budget the short link stays, as when it could not be read; a link pasted
     // meanwhile is the newer one's
-    if (!turn.current() || !answer.ok || mapsUrl.value.trim() !== short) return;
+    if (!turn.current() || !answer.ok || d.mapsUrl.trim() !== short) return;
     const { url, at } = answer.value;
     if (url === short) return;
-    mapsUrl.value = url;
-    Object.assign(form.value, placeFromUrl(url, at ?? form.value.pin));
+    d.mapsUrl = url;
+    Object.assign(d.form, placeFromUrl(url, at ?? d.form.pin));
   } catch {
     // the short link stays; the form says it has no point yet
   } finally {
@@ -178,17 +224,6 @@ async function onMapsUrl() {
 const onMapsPaste = () => setTimeout(onMapsUrl);
 
 // ---- where the idea came from: a page, read by the Worker for its title, line and picture ----
-const link = ref(form.value.link ?? "");
-/**
- * What reading the page is doing, or what it found: the site, or why nothing; with the link
- * read (the page's own once found), as leaving the field after a paste is the same one
- */
-type Preview =
-  | { kind: "idle" }
-  | { kind: "place" }
-  | { kind: "fetching" | "none" | "failed" | OverBudget["ceiling"]; url: HttpUrl }
-  | { kind: "found"; site: string; url: HttpUrl };
-const preview = useAsk<Preview>({ kind: "idle" });
 const LINK_STATE = {
   fetching: "form.linkFetching",
   none: "form.linkNone",
@@ -202,20 +237,21 @@ const LINK_STATE = {
  * a card with none. A Google Maps link is the place's, not a page to read
  */
 async function onLink() {
-  const raw = link.value.trim();
+  const d = memo.value;
+  const raw = d.link.trim();
   const url = parseHttpUrl(raw);
   if (url === null) return;
-  const read = preview.state;
+  const read = d.preview.state;
   if (read.kind !== "idle" && read.kind !== "place" && read.url === url) return;
   if (isMapsLink(url)) {
-    preview.set({ kind: "place" });
+    d.preview.set({ kind: "place" });
     return;
   }
   if (cut.offline) return;
-  const turn = preview.ask({ kind: "fetching", url });
+  const turn = d.preview.ask({ kind: "fetching", url });
   const answer = await here.api.preview(url).catch(() => null);
   // what came back, a failure too, is about this link only: one written meanwhile is the newer one's
-  if (!turn.current() || link.value.trim() !== raw) return;
+  if (!turn.current() || d.link.trim() !== raw) return;
   if (answer === null) {
     turn.settle({ kind: "failed", url });
     return;
@@ -230,57 +266,48 @@ async function onLink() {
     return;
   }
   // the page's own link is the one read too: leaving the field after is no new link
-  link.value = found.url;
-  if (text.value.trim() === "")
-    text.value = [found.title, found.description].filter((s) => s !== null).join("\n");
-  if (form.value.image === null && found.image !== null) form.value.image = found.image;
+  d.link = found.url;
+  if (d.text.trim() === "")
+    d.text = [found.title, found.description].filter((s) => s !== null).join("\n");
+  if (d.form.image === null && found.image !== null) d.form.image = found.image;
   turn.settle({ kind: "found", site: found.site, url: found.url });
 }
 const onLinkPaste = () => setTimeout(onLink);
-const hasPin = () => form.value.pin !== null;
-const text = ref(noteText(form.value));
-/** The tag being typed: it is the memo's once it is added, or once the memo is saved */
-const tagInput = ref("");
+const hasPin = () => memo.value.form.pin !== null;
 const keepOpen = ref(false);
 
 // ---- a picture on the card: shrunk on the device, kept by the room, then named by its id ----
-/** What sending the picture is doing, or why it is not on the card */
-type Photo = { kind: "idle" | "sending" | "failed" | "full" };
-const photo = useAsk<Photo>({ kind: "idle" });
 const PHOTO_STATE = {
   sending: "form.photoSending",
   failed: "form.photoFailed",
   full: "form.photoFull",
 } as const satisfies Record<Exclude<Photo["kind"], "idle">, string>;
-const photoSrc = computed(() =>
-  form.value.image === null ? null : imageSrc(here.room, form.value.image),
-);
+const photoSrc = computed(() => {
+  const { image } = memo.value.form;
+  return image === null ? null : imageSrc(here.room, image);
+});
 async function onPhoto(e: Event) {
   const input = e.target;
   if (!(input instanceof HTMLInputElement)) return;
   const file = input.files?.[0];
   input.value = ""; // the same photo can be picked again after a failure
   if (file === undefined) return;
-  const turn = photo.ask({ kind: "sending" });
+  const d = memo.value;
+  const turn = d.photo.ask({ kind: "sending" });
   try {
     const kept = await here.api.uploadImage(await shrinkImage(file));
     if (!turn.current()) return;
-    if (kept.ok) form.value.image = kept.value;
+    if (kept.ok) d.form.image = kept.value;
     turn.settle({ kind: kept.ok ? "idle" : "full" });
   } catch {
     turn.settle({ kind: "failed" });
   }
 }
 function removePhoto() {
-  form.value.image = null;
+  memo.value.form.image = null;
 }
 
 // ---- where the memo is: the agent names the place, OpenStreetMap finds it; one is chosen ----
-/** The places found to choose from, or what the ask is doing or why it found none */
-type Places =
-  | { kind: "idle"; found: FoundPlace[] }
-  | { kind: "asking" | "none" | "failed" | OverBudget["ceiling"] };
-const places = useAsk<Places>({ kind: "idle", found: [] });
 const PLACE_STATE = {
   asking: "form.placesAsking",
   none: "form.placesNone",
@@ -289,16 +316,20 @@ const PLACE_STATE = {
   trip: "form.tagsTripLimit",
 } as const satisfies Record<Exclude<Places["kind"], "idle">, string>;
 /** What there is to choose from: only once an ask found some */
-const found = computed(() => (places.state.kind === "idle" ? places.state.found : []));
+const found = computed(() => {
+  const { state } = memo.value.places;
+  return state.kind === "idle" ? state.found : [];
+});
 async function findPlaces() {
-  if (places.state.kind === "asking") return;
-  const { title, body, tags: inline } = parseNoteText(text.value);
-  const turn = places.ask({ kind: "asking" });
+  const d = memo.value;
+  if (d.places.state.kind === "asking") return;
+  const { title, body, tags: inline } = parseNoteText(d.text);
+  const turn = d.places.ask({ kind: "asking" });
   try {
     const answer = await here.api.findPlaces({
       title,
       body,
-      tags: [...form.value.tags, ...inline],
+      tags: [...d.form.tags, ...inline],
       lang: i18n.locale,
     });
     if (!answer.ok) turn.settle({ kind: answer.reason.ceiling });
@@ -313,10 +344,11 @@ async function findPlaces() {
  * opening hours, when OpenStreetMap knows them, become the memo's, for the booklet to check
  */
 function choosePlace(p: FoundPlace) {
-  mapsUrl.value = placeSearchLink(p.name, p.at);
+  const d = memo.value;
+  d.mapsUrl = placeSearchLink(p.name, p.at);
   void onMapsUrl();
-  if (p.hours !== null) hours.value = p.hours;
-  places.set({ kind: "idle", found: [] });
+  if (p.hours !== null) d.hours = p.hours;
+  d.places.set({ kind: "idle", found: [] });
 }
 
 /**
@@ -325,15 +357,14 @@ function choosePlace(p: FoundPlace) {
  * person has typed or pasted meanwhile is overwritten. Once it named the place, its credit is
  * shown, as its licence asks.
  */
-type Naming = { kind: "idle" | "naming" | "named" };
-const naming = useAsk<Naming>({ kind: "idle" });
 async function nameThePin() {
-  const at = form.value.pin;
+  const d = memo.value;
+  const at = d.form.pin;
   if (editing.value || at === null) return;
-  mapsUrl.value = googleMapsLink(at);
+  d.mapsUrl = googleMapsLink(at);
   void onMapsUrl();
-  const auto = mapsUrl.value;
-  const turn = naming.ask({ kind: "naming" });
+  const auto = d.mapsUrl;
+  const turn = d.naming.ask({ kind: "naming" });
   // the link to the point is there already; a name is a nicety
   const place = await here.api.whereIs(at, i18n.locale).catch(() => null);
   if (!turn.current()) return;
@@ -341,21 +372,22 @@ async function nameThePin() {
     turn.settle({ kind: "idle" });
     return;
   }
-  if (mapsUrl.value === auto) {
-    mapsUrl.value = placeSearchLink(place.name, at);
+  if (d.mapsUrl === auto) {
+    d.mapsUrl = placeSearchLink(place.name, at);
     void onMapsUrl();
   }
-  if (text.value.trim() === "") text.value = place.name;
-  if (place.hours !== null && hours.value.trim() === "") hours.value = place.hours;
+  if (d.text.trim() === "") d.text = place.name;
+  if (place.hours !== null && d.hours.trim() === "") d.hours = place.hours;
   turn.settle({ kind: "named" });
 }
 void nameThePin();
 /** What the place field says under it: what is being asked about it, else whether it is pinned */
 const placeHint = computed(() => {
-  if (naming.state.kind === "naming") return "form.placeNaming";
-  if (expand.state.kind === "expanding") return "form.placeExpanding";
+  const d = memo.value;
+  if (d.naming.state.kind === "naming") return "form.placeNaming";
+  if (d.expand.state.kind === "expanding") return "form.placeExpanding";
   if (hasPin()) return "form.pinned";
-  if (mapsUrl.value.trim() !== "") return "form.urlNoPinFind";
+  if (d.mapsUrl.trim() !== "") return "form.urlNoPinFind";
   return "form.unpinnedFind";
 });
 
@@ -413,7 +445,7 @@ const hintKey = computed(() =>
 
 /** How long it takes there; the booklet says when it ends from it */
 function setMinutes(value: string) {
-  form.value.minutes = value === "" ? null : Number(value);
+  memo.value.form.minutes = value === "" ? null : Number(value);
 }
 /** "1 h 30 min" */
 function long(minutes: number) {
@@ -423,22 +455,23 @@ function long(minutes: number) {
 
 /** The memo as the fields say it */
 function fieldsInput(): NoteInput {
-  const { title, body, tags: inline } = parseNoteText(text.value);
-  const typed = normalizeTag(tagInput.value);
+  const { form, text, tagInput, hours, link, booking, due } = memo.value;
+  const { title, body, tags: inline } = parseNoteText(text);
+  const typed = normalizeTag(tagInput);
   return {
     title,
     body,
-    tags: [...new Set([...form.value.tags, ...(typed === null ? [] : [typed]), ...inline])],
-    color: form.value.color,
-    mapsUrl: form.value.mapsUrl,
-    pin: form.value.pin,
-    image: form.value.image,
-    minutes: form.value.minutes,
-    hours: hours.value.trim() === "" ? null : hours.value.trim(),
-    link: parseHttpUrl(link.value.trim()),
-    booking: bookingOf(booking.value),
+    tags: [...new Set([...form.tags, ...(typed === null ? [] : [typed]), ...inline])],
+    color: form.color,
+    mapsUrl: form.mapsUrl,
+    pin: form.pin,
+    image: form.image,
+    minutes: form.minutes,
+    hours: hours.trim() === "" ? null : hours.trim(),
+    link: parseHttpUrl(link.trim()),
+    booking: bookingOf(booking),
     // a day and someone only while it is a to-do (or, for someone, still to book)
-    due: isTodo.value && due.value !== "" ? Temporal.PlainDate.from(due.value) : null,
+    due: isTodo.value && due !== "" ? Temporal.PlainDate.from(due) : null,
     assignee: hasAssignee.value ? assigneeOf() : null,
   };
 }
@@ -459,20 +492,9 @@ function submit() {
   const again = docked.value || keepOpen.value;
   emit("save", input, again);
   if (!again) return;
-  // a fresh sheet for the next one; from a point on the map, at that point again
-  form.value = startingInput();
-  expand.set({ kind: "idle" });
-  mapsUrl.value = "";
-  hours.value = "";
-  link.value = "";
-  preview.set({ kind: "idle" });
-  booking.value = { state: "none" };
-  due.value = "";
-  assignee.value = "";
-  tagInput.value = "";
-  // the words taken back: the tags field forgets what Clef made of them
-  text.value = "";
-  naming.set({ kind: "idle" });
+  // a fresh memo for the next one; from a point on the map, at that point again. The words
+  // taken back with it, the tags field forgets what Clef made of them
+  memo.value = newMemo();
   void nameThePin();
   focusText();
 }
@@ -498,28 +520,33 @@ function submit() {
             <CtTextarea
               :id="`${id}-text`"
               ref="textEl"
-              v-model="text"
+              v-model="memo.text"
               rows="4"
               size="lg"
               :placeholder="i18n.t('form.notePlaceholder')"
             />
           </CtField>
-          <TagsField v-model:draft="tagInput" v-model:tags="form.tags" :image="form.image" :text />
+          <TagsField
+            v-model:draft="memo.tagInput"
+            v-model:tags="memo.form.tags"
+            :image="memo.form.image"
+            :text="memo.text"
+          />
           <CtField :for="`${id}-link`" :label="i18n.t('form.link')">
             <CtInput
               :id="`${id}-link`"
-              v-model="link"
+              v-model="memo.link"
               inputmode="url"
               type="url"
               :placeholder="i18n.t('form.linkPlaceholder')"
               @change="onLink"
               @paste="onLinkPaste"
             />
-            <CtHint v-if="preview.state.kind === 'found'" aria-live="polite">{{
-              i18n.t("form.linkFound", { site: preview.state.site })
+            <CtHint v-if="memo.preview.state.kind === 'found'" aria-live="polite">{{
+              i18n.t("form.linkFound", { site: memo.preview.state.site })
             }}</CtHint>
-            <CtHint v-else-if="preview.state.kind !== 'idle'" aria-live="polite">{{
-              i18n.t(LINK_STATE[preview.state.kind])
+            <CtHint v-else-if="memo.preview.state.kind !== 'idle'" aria-live="polite">{{
+              i18n.t(LINK_STATE[memo.preview.state.kind])
             }}</CtHint>
             <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
           </CtField>
@@ -532,11 +559,11 @@ function submit() {
             <CtFileInput
               :id="`${id}-photo`"
               accept="image/*"
-              :disabled="photo.state.kind === 'sending' || cut.offline"
+              :disabled="memo.photo.state.kind === 'sending' || cut.offline"
               @change="onPhoto"
             />
-            <CtHint v-if="photo.state.kind !== 'idle'" aria-live="polite">{{
-              i18n.t(PHOTO_STATE[photo.state.kind])
+            <CtHint v-if="memo.photo.state.kind !== 'idle'" aria-live="polite">{{
+              i18n.t(PHOTO_STATE[memo.photo.state.kind])
             }}</CtHint>
             <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
           </CtField>
@@ -545,7 +572,7 @@ function submit() {
           <CtField :for="`${id}-maps`" :label="i18n.t('form.place')">
             <CtInput
               :id="`${id}-maps`"
-              v-model="mapsUrl"
+              v-model="memo.mapsUrl"
               inputmode="url"
               type="url"
               :placeholder="i18n.t('form.mapsPlaceholder')"
@@ -557,8 +584,8 @@ function submit() {
             <div class="places">
               <CtButton
                 variant="ask"
-                :disabled="places.state.kind === 'asking' || !text.trim() || cut.offline"
-                :busy="places.state.kind === 'asking'"
+                :disabled="memo.places.state.kind === 'asking' || !memo.text.trim() || cut.offline"
+                :busy="memo.places.state.kind === 'asking'"
                 @click="findPlaces"
               >{{ i18n.t("form.findPlace") }}</CtButton>
               <CtChoiceList
@@ -574,11 +601,11 @@ function submit() {
                 "
                 @choose="(it) => choosePlace(it.place)"
               />
-              <CtHint v-if="found.length > 0 || naming.state.kind === 'named'">{{
+              <CtHint v-if="found.length > 0 || memo.naming.state.kind === 'named'">{{
                 i18n.t("form.placesCredit")
               }}</CtHint>
-              <CtHint v-if="places.state.kind !== 'idle'" aria-live="polite">{{
-                i18n.t(PLACE_STATE[places.state.kind])
+              <CtHint v-if="memo.places.state.kind !== 'idle'" aria-live="polite">{{
+                i18n.t(PLACE_STATE[memo.places.state.kind])
               }}</CtHint>
               <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
             </div>
@@ -586,7 +613,7 @@ function submit() {
           <CtField :for="`${id}-hours`" :label="i18n.t('form.hours')">
             <CtInput
               :id="`${id}-hours`"
-              v-model="hours"
+              v-model="memo.hours"
               autocapitalize="off"
               spellcheck="false"
               :placeholder="i18n.t('form.hoursPlaceholder')"
@@ -598,8 +625,8 @@ function submit() {
           <CtField :for="`${id}-booking`" :label="i18n.t('form.booking')">
             <CtSelect
               :id="`${id}-booking`"
-              :model-value="booking.state"
-              @update:model-value="(state) => (booking = chosenBooking(state))"
+              :model-value="memo.booking.state"
+              @update:model-value="(state) => (memo.booking = chosenBooking(state))"
             >
               <option value="none">{{ i18n.t("form.bookingNone") }}</option>
               <option value="needed">{{ i18n.t("form.bookingNeeded") }}</option>
@@ -607,26 +634,26 @@ function submit() {
             </CtSelect>
           </CtField>
           <CtField v-if="isTodo" :for="`${id}-due`" :label="i18n.t('form.due')">
-            <CtInput :id="`${id}-due`" v-model="due" type="date" />
+            <CtInput :id="`${id}-due`" v-model="memo.due" type="date" />
           </CtField>
           <CtField v-if="hasAssignee" :for="`${id}-assignee`" :label="i18n.t('form.assignee')">
-            <CtSelect :id="`${id}-assignee`" v-model="assignee">
+            <CtSelect :id="`${id}-assignee`" v-model="memo.assignee">
               <option value="">{{ i18n.t("form.assigneeAnyone") }}</option>
               <option v-for="m in people" :key="m.id" :value="m.id">{{ m.name }}</option>
             </CtSelect>
           </CtField>
           <CtField
-            v-if="booking.state === 'needed'"
+            v-if="memo.booking.state === 'needed'"
             :for="`${id}-booking-by`"
             :label="i18n.t('form.bookingBy')"
           >
-            <CtInput :id="`${id}-booking-by`" v-model="booking.by" type="date" />
+            <CtInput :id="`${id}-booking-by`" v-model="memo.booking.by" type="date" />
           </CtField>
-          <template v-else-if="booking.state === 'booked'">
+          <template v-else-if="memo.booking.state === 'booked'">
             <CtField :for="`${id}-booking-code`" :label="i18n.t('form.bookingCode')">
               <CtInput
                 :id="`${id}-booking-code`"
-                v-model="booking.code"
+                v-model="memo.booking.code"
                 autocapitalize="characters"
                 maxlength="100"
                 spellcheck="false"
@@ -635,7 +662,7 @@ function submit() {
             <CtField :for="`${id}-booking-url`" :label="i18n.t('form.bookingUrl')">
               <CtInput
                 :id="`${id}-booking-url`"
-                v-model="booking.url"
+                v-model="memo.booking.url"
                 inputmode="url"
                 type="url"
                 :placeholder="i18n.t('form.bookingUrlPlaceholder')"
@@ -645,11 +672,11 @@ function submit() {
           <CtField :for="`${id}-minutes`" :label="i18n.t('shiori.minutes')">
             <CtSelect
               :id="`${id}-minutes`"
-              :model-value="String(form.minutes ?? '')"
+              :model-value="String(memo.form.minutes ?? '')"
               @update:model-value="setMinutes"
             >
               <option value="">{{ i18n.t("form.minutesUnset") }}</option>
-              <option v-for="m in durationChoices(form.minutes)" :key="m" :value="String(m)">{{
+              <option v-for="m in durationChoices(memo.form.minutes)" :key="m" :value="String(m)">{{
                 long(m)
               }}</option>
             </CtSelect>
@@ -672,7 +699,7 @@ function submit() {
           size="lg"
           type="submit"
           variant="primary"
-          :disabled="!text.trim() || photo.state.kind === 'sending'"
+          :disabled="!memo.text.trim() || memo.photo.state.kind === 'sending'"
         >{{
           i18n.t(saveLabel)
         }}</CtButton>

@@ -1,20 +1,3 @@
-<script lang="ts">
-import type { MessageId } from "../../i18n/types";
-
-import type { MembersRefusal } from "./api";
-
-/** What the person is told when the room refuses a change of who is in, for each refusal */
-export const REFUSALS: Record<MembersRefusal, MessageId> = {
-  "no seat": "people.noSeat",
-  "already in": "people.alreadyIn",
-  "already invited": "people.alreadyInvited",
-  "not the owner": "people.notOwner",
-  "not theirs": "people.notOwner",
-  "the owner": "people.isOwner",
-  "not in": "people.notIn",
-};
-</script>
-
 <script setup lang="ts" vapor>
 import { computed, onMounted, ref, shallowRef, useId } from "vue";
 
@@ -36,10 +19,12 @@ import {
 import { useI18n } from "../../i18n/useI18n";
 
 import type { Result } from "../../../contract";
-import { KEPT_DAYS } from "../rooms/api";
+import { KEPT_DAYS } from "../../../contract/room";
 import { useInRoom } from "../sync/InRoom.vue";
 import { useOffline } from "../sync/useOffline";
 
+import type { MembersRefusal } from "./api";
+import { REFUSALS } from "./refusals";
 import { parseEmail, SEATS, type Email, type MemberId } from "./types";
 import { useMembers } from "./useMembers";
 
@@ -112,7 +97,8 @@ async function sendInvite() {
 
 /**
  * One change of who is in, and whether it went through; a refusal or a failure is said, the
- * list is refreshed either way (useMembers). A refused change is not asked again.
+ * list is refreshed either way (useMembers). A refused change is not asked again. Its second
+ * tap is not taken again while the room answers, so a double tap sends it once.
  */
 async function run(change: () => Promise<Result<void, MembersRefusal>>) {
   failed.value = null;
@@ -178,7 +164,12 @@ onMounted(() => {
           <!-- the owner may take the other person out; twice, the second time naming them -->
           <template v-if="me.role === 'owner' && m.role !== 'owner'" #end>
             <template v-if="asked({ kind: 'remove', member: m.id })">
-              <CtButton danger variant="primary" @click="() => remove(m.id)">
+              <CtButton
+                danger
+                variant="primary"
+                :disabled="membership.remove.isLoading.value"
+                @click="() => remove(m.id)"
+              >
                 {{ i18n.t("people.removeConfirm") }}
               </CtButton>
               <CtButton @click="cancel">{{ i18n.t("people.cancel") }}</CtButton>
@@ -259,7 +250,12 @@ onMounted(() => {
       <div class="out">
         <template v-if="me.role === 'owner'">
           <template v-if="asked({ kind: 'delete' })">
-            <CtButton danger variant="primary" @click="deleteTrip">
+            <CtButton
+              danger
+              variant="primary"
+              :disabled="membership.deleteRoom.isLoading.value"
+              @click="deleteTrip"
+            >
               {{ i18n.t("people.deleteConfirm", { count: KEPT_DAYS }) }}
             </CtButton>
             <CtButton @click="cancel">{{ i18n.t("people.cancel") }}</CtButton>
@@ -270,7 +266,12 @@ onMounted(() => {
         </template>
         <template v-else>
           <template v-if="asked({ kind: 'leave' })">
-            <CtButton danger variant="primary" @click="leave">{{
+            <CtButton
+              danger
+              variant="primary"
+              :disabled="membership.leave.isLoading.value"
+              @click="leave"
+            >{{
               i18n.t("people.leaveConfirm")
             }}</CtButton>
             <CtButton @click="cancel">{{ i18n.t("people.cancel") }}</CtButton>
