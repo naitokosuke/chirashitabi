@@ -520,6 +520,20 @@ describe("the public booklet", () => {
       );
   });
 
+  test("a publish counts against the owner's budget; a member who is not the owner spends nothing", async () => {
+    const SPENDER = "spender@example.com";
+    const roomId = await roomWithPlan(SPENDER);
+    const index = await server.getWorker().getDurableObjectStorage("RoomsIndex", { name: "index" });
+    const spent = (email: string) =>
+      index.exec("SELECT refunded FROM spends WHERE email = ? ORDER BY id", email);
+    const guestBefore = await spent(GUEST);
+    const refused = await post(`/api/rooms/${roomId}/publish`, GUEST, { lang: "ja" });
+    expect(await refusal(refused)).toEqual([403, { error: "not the owner" }]);
+    expect(await spent(GUEST)).toEqual(guestBefore);
+    expect((await post(`/api/rooms/${roomId}/publish`, SPENDER, { lang: "ja" })).status).toBe(200);
+    expect(await spent(SPENDER)).toEqual([{ refunded: 0 }]);
+  });
+
   test("deleting the trip takes its booklet down", async () => {
     // an owner of their own: each publish counts against the day's budget
     const DELETER = "deleter@example.com";
@@ -2317,6 +2331,21 @@ describe("tags suggested for a memo", () => {
     expect((await ask(roomId, email, { title: "x", image: "not-an-id" })).status).toBe(400);
     expect(judged.length).toBe(before);
   });
+
+  test("a Claude error proposing the candidates costs nothing; with no tags at all Clef is not asked", async () => {
+    const email = "candidatesdown@example.com";
+    const { roomId } = await createRoom(email);
+    answer = () => ({ status: 529, body: { type: "error" } });
+    const before = judged.length;
+    const res = await ask(roomId, email, { title: "x", body: "", image: null, chosen: [] });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ tags: [] });
+    expect(judged.length).toBe(before);
+    const index = await server.getWorker().getDurableObjectStorage("RoomsIndex", { name: "index" });
+    expect(await index.exec("SELECT refunded FROM spends WHERE email = ?", email)).toEqual([
+      { refunded: 1 },
+    ]);
+  });
 });
 
 describe("finding a memo's place", () => {
@@ -2417,6 +2446,19 @@ describe("finding a memo's place", () => {
     answer = () => naming(["寧夏夜市, 臺北市, 臺灣"]);
     find = () => ({ status: 503, body: {} });
     expect((await ask(roomId, email, { title: "寧夏夜市", body: "" })).status).toBe(502);
+  });
+
+  test("a provider error costs nothing, and the geocoder is not asked", async () => {
+    const email = "finder6@example.com";
+    const { roomId } = await createRoom(email);
+    answer = () => ({ status: 529, body: { type: "error" } });
+    const seen = looked.length;
+    expect((await ask(roomId, email, { title: "寧夏夜市", body: "" })).status).toBe(502);
+    expect(looked.length).toBe(seen);
+    const index = await server.getWorker().getDurableObjectStorage("RoomsIndex", { name: "index" });
+    expect(await index.exec("SELECT refunded FROM spends WHERE email = ?", email)).toEqual([
+      { refunded: 1 },
+    ]);
   });
 
   test("only members may ask", async () => {
