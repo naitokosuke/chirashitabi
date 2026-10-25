@@ -78,7 +78,7 @@ export const blankInput = (tags: Iterable<Tag>, pin: LatLng | null): NoteInput =
  * A booking as the form holds it while it is written: none, or what its choice asks for, as
  * typed. Only the fields of the choice made are there, so a number with no booking cannot be.
  */
-export type BookingDraft =
+type BookingDraft =
   | { state: "none" }
   | { state: "needed"; by: string }
   | { state: "booked"; code: string; url: string };

@@ -9,7 +9,7 @@ import type { LatLng } from "../place/types";
 import type { Flight, Flights, Leg, Stay, TripSnapshot } from "./types";
 
 /** A flight as its inputs hold it; `on` is whether the trip has this flight at all */
-export interface FlightForm {
+interface FlightForm {
   on: boolean;
   number: string;
   from: string;

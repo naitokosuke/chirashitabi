@@ -28,34 +28,21 @@ import type { Temporal } from "temporal-polyfill-lite";
 import {
   computed,
   nextTick,
-  onActivated,
   onBeforeUnmount,
-  onDeactivated,
   onMounted,
   ref,
   shallowRef,
-  useId,
   useTemplateRef,
   watch,
 } from "vue";
 
-import { useMutation } from "@pinia/colada";
 import { useRoute, useRouter } from "vue-router";
 
-import {
-  CtButton,
-  CtChip,
-  CtFab,
-  CtHint,
-  CtInput,
-  CtMenu,
-  CtMenuGroup,
-  CtMenuItem,
-  CtPanel,
-} from "../../../../ui/index";
+import { CtChip, CtFab, CtHint, CtMenu, CtMenuGroup, CtMenuItem } from "../../../../ui/index";
 
 import { useI18n } from "../../../i18n/useI18n";
 
+import AskIdeas from "../../../features/canvas/AskIdeas.vue";
 import {
   angleOf,
   heldOf,
@@ -74,6 +61,7 @@ import {
   startPinch,
   type Pt,
 } from "../../../features/canvas/transform";
+import { useIntake, type Intake } from "../../../features/canvas/useIntake";
 import {
   FIRST_LOOK_MIN_SCALE,
   firstLook,
@@ -81,27 +69,15 @@ import {
   type PlaceHow,
 } from "../../../features/canvas/usePlace";
 import { useViewport } from "../../../features/canvas/useViewport";
-import { shrinkImage, STICKER_SIDE } from "../../../features/notes/image";
-import { blankInput } from "../../../features/notes/input";
-import { siteOf } from "../../../features/notes/links";
 import { type FormTarget, type NoteInput, type TextBox } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
-import {
-  isMapsLink,
-  isShortMapsLink,
-  parseHttpUrl,
-  placeFromUrl,
-  type HttpUrl,
-} from "../../../features/place/google-maps";
 import { useInRoom } from "../../../features/sync/InRoom.vue";
 import { useOffline } from "../../../features/sync/useOffline";
-import { useSync } from "../../../features/sync/useSync";
 import FilterBar from "../../../features/tags/FilterBar.vue";
 import { useTags } from "../../../features/tags/useTags";
 import { useToast } from "../../../features/toast/useToast";
 import { shortDate } from "../../../features/trip/format";
 import { assignTo } from "../../../features/trip/itinerary";
-import type { WorkerApi } from "../../../features/worker/types";
 import Icon from "../../../icons/Icon.vue";
 import plusIcon from "../../../icons/plus.svg";
 import stickerIcon from "../../../icons/sticker.svg";
@@ -119,8 +95,6 @@ const store = useNotes();
 const { notes } = store;
 const toast = useToast();
 const here = useInRoom();
-/** Where changes go now: an answer is written only while the room it was asked in is open */
-const sync = useSync();
 const tags = useTags();
 const i18n = useI18n();
 /** Cut off: what needs the Worker is not offered */
@@ -573,91 +547,6 @@ function focusUndo() {
   if (import.meta.env.SSR) return;
   document.querySelector<HTMLElement>('[role="status"] button')?.focus();
 }
-/**
- * Asking the room's agent for ideas, as a mutation for its pending state. A paid call
- * (docs/auth-and-security.md), so never retried by the library: trying again is a tap.
- */
-const { mutateAsync: suggestAt, isLoading: thinking } = useMutation({
-  mutation: (request: Parameters<WorkerApi["suggest"]>[0]) => here.api.suggest(request),
-});
-/**
- * The ask for ideas while it is open under its button: the note it starts from (picked from a
- * card's toolbar), or none for the whole trip. The words being written are kept apart, so a
- * failed ask keeps them for the next try.
- */
-const asking = shallowRef<{ kind: "closed" } | { kind: "trip" } | { kind: "note"; about: NoteId }>({
-  kind: "closed",
-});
-/** The note the ask starts from as it is now; none for the whole trip, or once it went */
-const askAbout = computed(() => {
-  const a = asking.value;
-  return a.kind !== "note" ? null : (notes.value?.find((n) => n.id === a.about) ?? null);
-});
-// a note deleted by the partner, or in another room, takes the ask from it with it; the words stay
-watch(
-  () => asking.value.kind === "note" && askAbout.value === null,
-  (gone) => {
-    if (gone) asking.value = { kind: "closed" };
-  },
-);
-const askWords = ref("");
-const askInput = useTemplateRef<{ focus(): void }>("askInput");
-const askId = useId();
-function openAsk(about: Note | null) {
-  asking.value = about === null ? { kind: "trip" } : { kind: "note", about: about.id };
-  void nextTick(() => askInput.value?.focus());
-}
-function toggleAsk() {
-  if (asking.value.kind === "closed") openAsk(null);
-  else asking.value = { kind: "closed" };
-}
-function askFromMenu() {
-  const n = menuNote.value;
-  closeMenu();
-  if (n !== null) openAsk(n);
-}
-function onAskKey(e: KeyboardEvent) {
-  if (e.key !== "Escape") return;
-  e.stopPropagation();
-  asking.value = { kind: "closed" };
-}
-function onAskSubmit(e: Event) {
-  e.preventDefault();
-  void askForIdeas();
-}
-/**
- * The room's agent leaves a few ideas where the person is looking, or in a column beside the
- * note they asked from. They arrive as the room's changes, like the partner's cards; the toast
- * says how many, or why none came.
- */
-async function askForIdeas() {
-  const a = asking.value;
-  // where the note is now, and only while it is there
-  const about = askAbout.value;
-  if (thinking.value || a.kind === "closed" || (a.kind === "note" && about === null)) return;
-  // the desk is always there while it asks; were it not, its corner
-  const r = vp.value?.getBoundingClientRect() ?? { width: 0, height: 0 };
-  // the column's middle: a card's width (164px) and a gap past the note's right edge
-  const at =
-    about === null
-      ? toWorld(r.width / 2, r.height / 2)
-      : { x: about.x + 164 * about.scale + 24 + 94, y: about.y + 40 };
-  asking.value = { kind: "closed" };
-  try {
-    const answer = await suggestAt({ at, ask: askWords.value, about: about?.id ?? null });
-    if (!answer.ok) {
-      const limit =
-        answer.reason.ceiling === "trip" ? "canvas.ideasTripLimit" : "canvas.ideasLimit";
-      toast.show(i18n.t(limit));
-      return;
-    }
-    const n = answer.value;
-    askWords.value = "";
-    toast.show(n === 0 ? i18n.t("canvas.noIdeas") : i18n.t("canvas.ideasAdded", { count: n }));
-  } catch {
-    toast.show(i18n.t("canvas.ideasFailed"));
-  }
-}
 function write() {
   void openSheet({ kind: "new", pin: null });
 }
@@ -686,139 +575,41 @@ function placeAtCenter(input: NoteInput, how: PlaceHow) {
 }
 useCanvasPlace(placeAtCenter);
 
-// ---- stickers: a picture picked from the photos, pasted or dropped, stuck where it is put ----
+/** A point on the screen, on the desk; none is the desk's middle (were the desk not there, its corner) */
+function onDesk(at: Pt | null) {
+  const r = vp.value?.getBoundingClientRect() ?? { width: 0, height: 0 };
+  return toWorld(at?.x ?? r.width / 2, at?.y ?? r.height / 2);
+}
+/** Where the person is looking on the desk: the agent's ideas for the whole trip go there */
+const deskMiddle = () => onDesk(null);
+
+// ---- asking for ideas: from its button, or from a card's menu ----
+const askEl = useTemplateRef<{ open(about: Note | null): void; busy(): boolean }>("askEl");
+function askFromMenu() {
+  const n = menuNote.value;
+  closeMenu();
+  if (n !== null) askEl.value?.open(n);
+}
+
+// ---- brought to the desk: a link pasted, a picture picked from the photos, pasted or dropped ----
+/**
+ * A link's card lands in the middle of the desk, a sticker where it is put; each lands with the
+ * pop, and the toast can take it back
+ */
+function intake(what: Intake): NoteId {
+  if (what.kind === "memo") return placeAtCenter(what.input, "pop").id;
+  const c = onDesk(what.at);
+  const n = store.addSticker(what.image, { x: c.x - 80, y: c.y - 80 });
+  pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
+  setTimeout(popped, POP_MS, n.id);
+  toast.show(i18n.t("canvas.stickerAdded"), undoAdd(n.id));
+  return n.id;
+}
+const { sticking, onStickerPicked, onDragOver, onDrop } = useIntake(here, intake);
 const stickerInput = useTemplateRef<HTMLInputElement>("stickerInput");
-/** A sticker on its way to the room: one at a time */
-const sticking = ref(false);
 function pickSticker() {
   stickerInput.value?.click();
 }
-function onStickerPicked(e: Event) {
-  const input = e.target;
-  if (!(input instanceof HTMLInputElement)) return;
-  const file = input.files?.[0];
-  input.value = ""; // the same picture can be picked again after a failure
-  if (file !== undefined) void stick(file);
-}
-/** The first picture among what was pasted or dropped */
-const pictureIn = (files: FileList | undefined) =>
-  [...(files ?? [])].find((f) => f.type.startsWith("image/"));
-/**
- * A picture pasted on a computer becomes a sticker in the middle of the desk, and a link a card
- * there; pasted into words being written (a form, a text box), they are theirs
- */
-function onPaste(e: ClipboardEvent) {
-  const target = e.target;
-  if (target instanceof Element && target.closest("input, textarea, [contenteditable]") !== null)
-    return;
-  const file = pictureIn(e.clipboardData?.files);
-  if (file !== undefined) {
-    e.preventDefault();
-    void stick(file);
-    return;
-  }
-  const url = parseHttpUrl(e.clipboardData?.getData("text/plain").trim());
-  if (url === null) return;
-  e.preventDefault();
-  void linkCard(url);
-}
-/**
- * A link on the desk: a Google Maps one is a note at that place, as in the form (a short one's
- * point read by the Worker); any other is a card named after its site at once, which the page's
- * title, line and picture then fill in, when the page says and the Worker can be asked, as long
- * as nobody has written on the card meanwhile
- */
-async function linkCard(url: HttpUrl) {
-  if (isMapsLink(url)) {
-    const place = placeFromUrl(url, null);
-    const n = placeAtCenter(
-      { ...blankInput(tags.selected, place.pin), title: i18n.t("canvas.pastedPlace"), ...place },
-      "pop",
-    );
-    if (cut.offline || !isShortMapsLink(url)) return;
-    try {
-      const answer = await here.api.expandLink(url, i18n.locale);
-      // past the budget the short link stays, as when it could not be read
-      if (!answer.ok) return;
-      const now = store.notes.value?.find((x) => x.id === n.id);
-      // given another link, or gone (another room open) meanwhile: where it leads is not wanted
-      if (now?.kind !== "memo" || now.mapsUrl !== url) return;
-      store.update(n.id, placeFromUrl(answer.value.url, answer.value.at ?? now.pin));
-    } catch {
-      // the short link stays; the note has no point yet
-    }
-    return;
-  }
-  const site = siteOf(url);
-  // a print, on white stock
-  const n = placeAtCenter(
-    { ...blankInput(tags.selected, null), title: site, link: url, color: "#ffffff" },
-    "pop",
-  );
-  if (cut.offline) return;
-  try {
-    const answer = await here.api.preview(url);
-    if (!answer.ok || answer.value === null) return;
-    const found = answer.value;
-    const now = store.notes.value?.find((x) => x.id === n.id);
-    // written on, or gone (another room open), meanwhile: the page's words are not wanted
-    if (now?.kind !== "memo" || now.title !== site || now.body !== "") return;
-    store.update(n.id, {
-      link: found.url,
-      title: found.title ?? site,
-      body: found.description ?? "",
-      ...(now.image === null && found.image !== null ? { image: found.image } : {}),
-    });
-  } catch {
-    // the card is on the desk with its link; the page's words were a nicety
-  }
-}
-/** Only a dragged file is taken; a picture dropped on the desk is stuck where it lands */
-function onDragOver(e: DragEvent) {
-  if (!(e.dataTransfer?.types.includes("Files") ?? false)) return;
-  e.preventDefault();
-  if (e.dataTransfer !== null) e.dataTransfer.dropEffect = "copy";
-}
-function onDrop(e: DragEvent) {
-  const file = pictureIn(e.dataTransfer?.files);
-  if (file === undefined) return;
-  e.preventDefault();
-  void stick(file, { x: e.clientX, y: e.clientY });
-}
-/**
- * Keep the picture in the room, then stick it with its middle at `at` (a point on the screen;
- * the desk's middle by default). It lands with the pop, and the toast can take it back. The
- * picture is the room's it was picked in: left meanwhile, nothing is stuck anywhere.
- */
-async function stick(file: Blob, at?: Pt) {
-  if (sticking.value) return;
-  sticking.value = true;
-  const { room, api } = here;
-  try {
-    const kept = await api.uploadImage(await shrinkImage(file, STICKER_SIDE));
-    if (sync.room !== room) return;
-    if (!kept.ok) {
-      toast.show(i18n.t("form.photoFull"));
-      return;
-    }
-    const image = kept.value;
-    // the desk is always there while it sticks; were it not, its corner
-    const r = vp.value?.getBoundingClientRect() ?? { width: 0, height: 0 };
-    const c = toWorld(at?.x ?? r.width / 2, at?.y ?? r.height / 2);
-    const n = store.addSticker(image, { x: c.x - 80, y: c.y - 80 });
-    pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
-    setTimeout(popped, POP_MS, n.id);
-    toast.show(i18n.t("canvas.stickerAdded"), undoAdd(n.id));
-  } catch {
-    toast.show(i18n.t("canvas.stickerFailed"));
-  } finally {
-    sticking.value = false;
-  }
-}
-// A paste is the desk's only while it is shown: kept behind another tab, it hears none
-onActivated(() => document.addEventListener("paste", onPaste));
-onDeactivated(() => document.removeEventListener("paste", onPaste));
-onBeforeUnmount(() => document.removeEventListener("paste", onPaste));
 
 // The wheel is listened to on the desk itself, not with @wheel: Vapor delegates a template's
 // handlers to the document, where Chrome makes a wheel listener passive, so preventDefault is
@@ -864,47 +655,8 @@ watch(
 
       <div class="top">
         <FilterBar />
-        <CtButton
-          float
-          variant="ask"
-          :disabled="thinking || cut.offline"
-          :busy="thinking"
-          :aria-expanded="asking.kind !== 'closed'"
-          :aria-controls="askId"
-          @click="toggleAsk"
-        >{{ i18n.t(thinking ? "canvas.thinking" : "canvas.askIdeas") }}</CtButton>
+        <AskIdeas ref="askEl" :middle="deskMiddle" />
       </div>
-
-      <!--
-        what to ask the agent for: a line of words, blank for anything, from a note or not; it
-        unfolds down from its button and folds back up into it
-      -->
-      <Transition name="ask">
-        <CtPanel
-          v-if="asking.kind !== 'closed'"
-          :id="askId"
-          as="form"
-          class="ask"
-          float
-          :aria-label="i18n.t('canvas.askIdeas')"
-          @submit="onAskSubmit"
-        >
-          <p v-if="askAbout !== null">{{ i18n.t("canvas.askFrom", { title: askAbout.title }) }}</p>
-          <CtInput
-            ref="askInput"
-            v-model="askWords"
-            enterkeyhint="send"
-            maxlength="100"
-            :aria-label="i18n.t('canvas.askWords')"
-            :placeholder="i18n.t('canvas.askWords')"
-            @keydown="onAskKey"
-          />
-          <div>
-            <CtButton @click="toggleAsk">{{ i18n.t("common.close") }}</CtButton>
-            <CtButton type="submit" variant="primary">{{ i18n.t("canvas.ask") }}</CtButton>
-          </div>
-        </CtPanel>
-      </Transition>
 
       <!--
         the desk's window: it pans under a finger and hears what its cards' keys and drops do,
@@ -1004,7 +756,7 @@ watch(
         <!-- the agent's ideas built on this note; a sticker has no words to build on -->
         <CtMenuItem
           v-if="menuNote.kind !== 'sticker'"
-          :disabled="thinking || cut.offline"
+          :disabled="(askEl?.busy() ?? false) || cut.offline"
           @click="askFromMenu"
         >{{ i18n.t("canvas.ideasFromHere") }}</CtMenuItem>
         <CtMenuItem @click="duplicateFromMenu">{{ i18n.t("canvas.duplicate") }}</CtMenuItem>
@@ -1050,78 +802,6 @@ section {
 
       > * {
         pointer-events: auto;
-      }
-
-      /* the ask (floating, as the tools are) keeps its width beside the tags */
-      > button {
-        flex-shrink: 0;
-      }
-    }
-
-    /* The ask for ideas, open under its button: a panel with a line of words and the ask */
-    > .ask {
-      position: absolute;
-      inset-inline-end: 12px;
-      inset-block-start: var(--top-clear);
-      z-index: var(--z-menu);
-      width: min(360px, calc(100% - 24px));
-      display: grid;
-      gap: 10px;
-      /* it grows out of its button, at the row's end above it */
-      transform-origin: 100% 0;
-
-      /* opening: the panel unfolds, then what is in it settles a beat later */
-      &.ask-enter-active {
-        transition:
-          opacity var(--duration-swap) ease,
-          transform var(--duration-morph) var(--ease-morph);
-
-        > * {
-          transition:
-            opacity var(--duration-swap) ease 60ms,
-            transform var(--duration-morph) var(--ease-morph) 60ms;
-
-          @media (--reduced-motion) {
-            transition: none;
-          }
-        }
-      }
-      &.ask-enter-from {
-        opacity: 0;
-        transform: translateY(-10px) scale(0.92);
-
-        > * {
-          opacity: 0;
-          transform: translateY(-4px);
-        }
-      }
-
-      /* closing: quicker, folding back up into the button */
-      &.ask-leave-active {
-        transition:
-          opacity calc(var(--duration-swap) * 0.6) ease-in,
-          transform calc(var(--duration-swap) * 0.6) ease-in;
-      }
-      &.ask-leave-to {
-        opacity: 0;
-        transform: translateY(-6px) scale(0.96);
-      }
-
-      /* the note it starts from, on one line */
-      > p {
-        margin: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        color: var(--muted);
-        font-size: var(--font-sm);
-        font-weight: 700;
-      }
-
-      > div {
-        display: flex;
-        justify-content: flex-end;
-        gap: 6px;
       }
     }
 

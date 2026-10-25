@@ -7,7 +7,7 @@ import { defineQuery } from "@pinia/colada";
 
 import { useNotes } from "../notes/useNotes";
 import type { RoomId } from "../rooms/types";
-import type { Here } from "../sync/InRoom.vue";
+import type { Here } from "../sync/here";
 import { draftUpdates } from "../trip/itinerary";
 import { useTrip } from "../trip/useTrip";
 import type { DayDraft, OverBudget } from "../worker/types";

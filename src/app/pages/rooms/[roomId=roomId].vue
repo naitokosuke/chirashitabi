@@ -7,10 +7,11 @@ import { RouterView, useRoute, useRouter } from "vue-router";
 
 import { useI18n } from "../../i18n/useI18n";
 
-import { usePlace } from "../../features/canvas/usePlace";
+import { providePlace, type PlaceHow } from "../../features/canvas/usePlace";
 import Form, { type FormMode } from "../../features/notes/Form.vue";
 import type { NoteInput } from "../../features/notes/types";
 import Rooms from "../../features/rooms/Rooms.vue";
+import type { RoomId } from "../../features/rooms/types";
 import Connection from "../../features/sync/Connection.vue";
 import InRoom from "../../features/sync/InRoom.vue";
 import { roomKeys } from "../../features/sync/keys";
@@ -36,7 +37,7 @@ const route = useRoute("/rooms/[roomId=roomId]");
 const router = useRouter();
 const room = useRoom();
 const sync = useSync();
-const place = usePlace();
+const place = providePlace();
 const i18n = useI18n();
 const { creating, hrefOf, newHref, open, create, close, created } = useTrips();
 
@@ -100,16 +101,30 @@ function closeSheet() {
   if (state.success && state.output.back === router.resolve(tabOnly).fullPath) router.back();
   else void router.replace(tabOnly);
 }
+/**
+ * A memo saved with the sheet closing, placed once the sheet has left (sheetLeft), in the room
+ * it was written in
+ */
+let saved: { room: RoomId; input: NoteInput; how: PlaceHow } | null = null;
 function onSave(input: NoteInput, keepOpen: boolean) {
   if (keepOpen) {
     place(input, "quiet");
     return;
   }
+  const room = here.value?.room;
+  if (room === undefined) return;
   // written over the canvas it pops there; from another tab it lands quietly and the toast says where
-  const how = tab.value === "canvas" ? "pop" : "away";
+  saved = { room, input, how: tab.value === "canvas" ? "pop" : "away" };
   closeSheet();
-  // let the sheet leave first, then place
-  setTimeout(() => place(input, how), 220);
+}
+/**
+ * The sheet is gone (or its leaving cut short): a memo saved as it closed is placed now, unless
+ * another room has been opened meanwhile (its sheet then went with the room, unanswered)
+ */
+function sheetLeft() {
+  const s = saved;
+  saved = null;
+  if (s !== null && s.room === here.value?.room) place(s.input, s.how);
 }
 </script>
 
@@ -131,7 +146,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
         </Transition>
       </RouterView>
     </main>
-    <Transition name="ct-slide">
+    <Transition name="ct-slide" @after-leave="sheetLeft" @leave-cancelled="sheetLeft">
       <Form v-if="sheet !== null" :mode="sheet" @close="closeSheet" @save="onSave" />
     </Transition>
     <Connection />

@@ -6,7 +6,7 @@ import { lngLat, pinned } from "./pin";
 import type { LatLng, LngLat } from "./types";
 
 /** The stops of a day's route, in order: everything with a place except the maybes */
-export const routeStops = (notes: Scheduled[]): LngLat[] =>
+const routeStops = (notes: Scheduled[]): LngLat[] =>
   notes
     .filter((n) => n.schedule.status !== "idea")
     .flatMap(pinned)

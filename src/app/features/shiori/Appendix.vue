@@ -6,7 +6,7 @@ import { defineQuery, useQueryCache } from "@pinia/colada";
 import type { Locale } from "../../i18n/locale";
 
 import type { RoomId } from "../rooms/types";
-import type { Here } from "../sync/InRoom.vue";
+import type { Here } from "../sync/here";
 import { roomKeys } from "../sync/keys";
 import type { OverBudget } from "../worker/types";
 
@@ -154,7 +154,7 @@ const isOwner = computed(() => me.value?.role === "owner");
 const FAILED = {
   failed: "shiori.publishFailed",
   day: "shiori.publishLimit",
-  trip: "shiori.draftTripLimit",
+  trip: "shiori.publishTripLimit",
 } as const satisfies Record<Extract<Publishing, { kind: "failed" }>["why"], string>;
 const when = (at: Temporal.Instant) =>
   at.toLocaleString(i18n.locale, {

@@ -9,7 +9,7 @@ export interface Pt {
   y: number;
 }
 
-export const clampScale = (s: number) => Math.min(3, Math.max(0.3, s));
+const clampScale = (s: number) => Math.min(3, Math.max(0.3, s));
 
 export const toWorld = (view: View, sx: number, sy: number): Pt => ({
   x: (sx - view.tx) / view.s,
@@ -24,7 +24,7 @@ export function zoomAt(view: View, sx: number, sy: number, factor: number): View
 }
 
 export const distance = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
-export const midpoint = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+const midpoint = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
 /** Where two fingers first landed, and the view at that moment */
 export interface PinchStart extends View {

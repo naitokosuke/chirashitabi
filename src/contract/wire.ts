@@ -250,7 +250,6 @@ const WireStaySchema = v.pipe(
 export type WireStay = v.InferOutput<typeof WireStaySchema>;
 
 const WireDaySchema = v.object({ date: IsoDateSchema, intro: v.string() });
-export type WireDay = v.InferOutput<typeof WireDaySchema>;
 
 export const WireTripSchema = v.object({
   name: v.string(),

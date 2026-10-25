@@ -1,6 +1,5 @@
 import type { NoteId } from "../notes/id";
-import type { Note } from "../notes/types";
-import type { Shape } from "../notes/useNotes";
+import type { Note, Shape } from "../notes/types";
 
 import { distance, type PinchStart, type Pt } from "./transform";
 

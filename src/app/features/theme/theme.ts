@@ -1,4 +1,4 @@
-export const THEMES = ["light", "dark"] as const;
+const THEMES = ["light", "dark"] as const;
 export type Theme = (typeof THEMES)[number];
 
 /** A stored theme, or null when none was picked (the device's then) or it is not one of ours */
