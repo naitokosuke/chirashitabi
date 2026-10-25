@@ -6,7 +6,10 @@ import { defineStore } from "pinia";
 export interface ToastAction {
   /** Called by 取り消す */
   undo?: () => void;
-  /** Called when the toast goes any other way (timeout, a newer toast); a pending delete becomes real here */
+  /**
+   * Called when the toast goes any other way (timeout, a newer toast, the room it was shown in
+   * left: useRoom); a pending delete becomes real here
+   */
   settle?: () => void;
 }
 

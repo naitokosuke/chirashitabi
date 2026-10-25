@@ -401,7 +401,7 @@ function fitAll() {
         <!-- the desk's filter follows the pins here, and can be cleared here -->
         <div v-if="tags.selected.size > 0" class="filter">
           <CtScrollRow inset>
-            <CtChip dashed float @click="() => tags.selected.clear()">{{
+            <CtChip dashed float @click="tags.clearTags">{{
               i18n.t("filter.clear")
             }}</CtChip>
             <CtChip

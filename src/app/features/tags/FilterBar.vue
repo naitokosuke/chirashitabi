@@ -8,9 +8,6 @@ import { useTags } from "./useTags";
 const tags = useTags();
 const i18n = useI18n();
 
-function clearTags() {
-  tags.selected.clear();
-}
 /** Off: the other notes are dimmed; on: only the picked tags' notes are left on the desk */
 function toggleOnly() {
   tags.mode = tags.mode === "only" ? "dim" : "only";
@@ -38,7 +35,7 @@ function toggleOnly() {
       <CtChip toggle :selected="tags.mode === 'only'" @click="toggleOnly">{{
         i18n.t("filter.only")
       }}</CtChip>
-      <CtChip dashed @click="clearTags">{{ i18n.t("filter.clear") }}</CtChip>
+      <CtChip dashed @click="tags.clearTags">{{ i18n.t("filter.clear") }}</CtChip>
     </div>
   </div>
 </template>

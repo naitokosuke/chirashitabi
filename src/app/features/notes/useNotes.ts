@@ -1,6 +1,9 @@
+import { computed, shallowRef } from "vue";
+
 import { defineQuery, useQueryState } from "@pinia/colada";
 import * as v from "valibot";
 
+import type { RoomId } from "../rooms/types";
 import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
@@ -21,11 +24,22 @@ export interface Shape {
  * changes one can make to them. A change is committed to the room, which shows it at once
  * and keeps it until the room answers (ledger.ts, docs/data-fetching.md). Hold a note by its
  * id, not by the object: the object is replaced whenever the note changes. The notes are
- * undefined until the room's first snapshot. Defined once for the app (defineQuery).
+ * undefined until the room's first snapshot. A card deleted with a moment to take it back
+ * (`removeLater`) is left out of them on every tab until that moment is over. Defined once for
+ * the app (defineQuery).
  */
 export const useNotes = defineQuery(() => {
   const sync = useSync();
-  const { data: notes } = useQueryState(() => roomKeys.notes(sync.room));
+  const { data: cached } = useQueryState(() => roomKeys.notes(sync.room));
+  /**
+   * Cards deleted here that the room has not heard of yet, each room's own: one deleted in a
+   * room is hidden in that room only, and only that room is ever told
+   */
+  const leaving = shallowRef<ReadonlyMap<RoomId, ReadonlySet<NoteId>>>(new Map());
+  const notes = computed(() => {
+    const gone = sync.room === null ? undefined : leaving.value.get(sync.room);
+    return gone === undefined ? cached.value : cached.value?.filter((n) => !gone.has(n.id));
+  });
   const byId = (id: NoteId) => notes.value?.find((n) => n.id === id);
 
   /** A new memo near `at`; whose it is and when is stamped as it is applied */
@@ -99,6 +113,31 @@ export const useNotes = defineQuery(() => {
   function remove(id: NoteId) {
     sync.commit({ type: "note:delete", id });
   }
+  /** Card `id` of `room` hidden (`on`) or shown again; whether that changed anything */
+  function hide(room: RoomId, id: NoteId, on: boolean) {
+    const was = leaving.value.get(room) ?? new Set<NoteId>();
+    if (was.has(id) === on) return false;
+    const next = new Set(was);
+    if (on) next.add(id);
+    else next.delete(id);
+    leaving.value = new Map(leaving.value).set(room, next);
+    return true;
+  }
+  /**
+   * Card `id`, deleted in `room` (InRoom) with a moment to take it back: gone from every tab
+   * at once, and from the room once `settle` is called; `undo` brings it back. Settling sends
+   * the delete to `room` only, and only while it is open: the room settles what it holds open
+   * before it is left (useRoom), so a delete is not lost, nor told to another room.
+   */
+  function removeLater(room: RoomId, id: NoteId) {
+    hide(room, id, true);
+    return {
+      undo: () => void hide(room, id, false),
+      settle: () => {
+        if (hide(room, id, false) && sync.room === room) remove(id);
+      },
+    };
+  }
   function duplicate(id: NoteId) {
     const n = byId(id);
     if (n === undefined) return;
@@ -123,6 +162,7 @@ export const useNotes = defineQuery(() => {
     move,
     sendMove,
     remove,
+    removeLater,
     duplicate,
     adopt,
   };
