@@ -1,34 +1,25 @@
 <script lang="ts">
-import type { PinchStart } from "../../../features/canvas/transform";
+import type { NoteId } from "../../../features/notes/id";
 import type { Note } from "../../../features/notes/types";
 
-/** A card held by a finger; (ox, oy) is where on the card it was grabbed */
-interface Grab {
-  note: Note;
-  ox: number;
-  oy: number;
-}
-/** A card's middle on screen, which it turns and grows around */
-interface Pivot {
-  note: Note;
-  cx: number;
-  cy: number;
-}
-/** What the fingers (or the mouse) are doing right now: one thing at a time */
-type Gesture =
-  | { kind: "idle" }
-  /** Down on a card, not moved yet: becomes a drag, a tap (pick; twice, edit) or a long press (menu) */
-  | { kind: "press"; grab: Grab; sx: number; sy: number; timer: ReturnType<typeof setTimeout> }
-  | { kind: "drag"; grab: Grab; lastSend: number }
-  /** A picked card's corner handle: its size follows the finger's distance from the middle */
-  | { kind: "resize"; at: Pivot; d0: number; scale0: number; lastSend: number }
-  /** A picked card's top handle: it turns with the finger around the middle */
-  | { kind: "rotate"; at: Pivot; a0: number; rot0: number; lastSend: number }
-  /** Down on the desk: becomes a pan, or a tap that lets go of the picked card */
-  | { kind: "pan"; x: number; y: number; tx: number; ty: number; moved: boolean }
-  | { kind: "pinch"; start: PinchStart };
-type Drag = Extract<Gesture, { kind: "drag" }>;
-const IDLE: Gesture = { kind: "idle" };
+/**
+ * What is open on the desk, one at a time: a card's menu, or words being written (a new text
+ * box, no id, or one being rewritten, and where they sit). The ask for ideas is apart: it stays
+ * open beside either.
+ */
+type Overlay =
+  | { kind: "none" }
+  | { kind: "menu"; note: Note; x: number; y: number }
+  | {
+      kind: "writing";
+      id: NoteId | null;
+      x: number;
+      y: number;
+      rot: number;
+      scale: number;
+      text: string;
+    };
+const NONE: Overlay = { kind: "none" };
 </script>
 
 <script setup lang="ts" vapor>
@@ -65,6 +56,15 @@ import {
 
 import { useI18n } from "../../../i18n/useI18n";
 
+import {
+  angleOf,
+  heldOf,
+  IDLE,
+  resized,
+  turned,
+  type Gesture,
+  type Pivot,
+} from "../../../features/canvas/gesture";
 import NoteCard from "../../../features/canvas/NoteCard.vue";
 import TextField from "../../../features/canvas/TextField.vue";
 import {
@@ -81,12 +81,11 @@ import {
   type PlaceHow,
 } from "../../../features/canvas/usePlace";
 import { useViewport } from "../../../features/canvas/useViewport";
-import type { NoteId } from "../../../features/notes/id";
 import { shrinkImage, STICKER_SIDE } from "../../../features/notes/image";
 import { blankInput } from "../../../features/notes/input";
 import { siteOf } from "../../../features/notes/links";
 import { type FormTarget, type NoteInput, type TextBox } from "../../../features/notes/types";
-import { useNotes, type Shape } from "../../../features/notes/useNotes";
+import { useNotes } from "../../../features/notes/useNotes";
 import {
   isMapsLink,
   isShortMapsLink,
@@ -136,8 +135,8 @@ const worldStyle = computed(
 // ---- pointer state ----
 // Where each finger is: plain, never reactive (changes every frame)
 const pointers = new Map<number, Pt>();
-// Shallow: the gesture is replaced when it changes kind; its fields are
-// mutated in place every frame without triggering anything.
+// Shallow: the gesture is replaced when it changes kind, and every frame a card under a finger
+// moves (it is drawn from there); a pan's fields are mutated in place without triggering anything.
 const gesture = shallowRef<Gesture>(IDLE);
 /** Change gestures; leaving a press cancels its long-press timer */
 function setGesture(next: Gesture) {
@@ -149,12 +148,20 @@ const draggingId = computed(() =>
   gesture.value.kind === "drag" ? gesture.value.grab.note.id : null,
 );
 const panning = computed(() => gesture.value.kind === "pan");
-const menu = ref<{ note: Note; x: number; y: number } | null>(null);
+// Shallow: replaced whenever what is open changes, or where the menu sits
+const overlay = shallowRef<Overlay>(NONE);
 /** The menu's card as it is now (its color changes while the menu is open) */
 const menuNote = computed(() => {
-  const m = menu.value;
-  return m === null ? null : (notes.value?.find((n) => n.id === m.note.id) ?? m.note);
+  const m = overlay.value;
+  return m.kind !== "menu" ? null : (notes.value?.find((n) => n.id === m.note.id) ?? m.note);
 });
+/**
+ * The menu goes, focus staying where it is (a press on the desk, a card deleted); words being
+ * written are left to end on their own, as their field loses the caret
+ */
+function dropMenu() {
+  if (overlay.value.kind === "menu") overlay.value = NONE;
+}
 
 function noteAt(el: EventTarget | null): Note | undefined {
   const card = el instanceof Element ? el.closest("[data-id]") : null;
@@ -177,23 +184,11 @@ function select(note: Note | null) {
 let lastTap: { id: NoteId; at: number } | null = null;
 const DOUBLE_TAP_MS = 350;
 
-/** Sizes a card may be drawn at; the room takes 0.5 to 3 (src/worker/wire.ts) */
-const MIN_SCALE = 0.6;
-const MAX_SCALE = 2.5;
-/** Holding Shift while turning snaps to this many degrees */
-const SNAP_DEG = 15;
-
 /** A card's middle on screen: what it turns and grows around (its transform's origin) */
 function pivotOf(note: Note): Pivot | null {
   const r = cardEl(note)?.getBoundingClientRect();
   return r === undefined ? null : { note, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
 }
-const angleOf = (at: Pivot, p: Pt) => (Math.atan2(p.y - at.cy, p.x - at.cx) * 180) / Math.PI;
-/** Degrees in (-180, 180], so a card turned all the way round is stored as it looks */
-const wrap = (deg: number) => {
-  const d = ((((deg + 180) % 360) + 360) % 360) - 180;
-  return d === -180 ? 180 : d;
-};
 
 // The desk's handlers, frames and timers below run in a browser only, never while rendering on a
 // server; each says so where it reaches for the page, so that holds should it ever render there
@@ -202,7 +197,7 @@ function onDown(e: PointerEvent) {
   const target = e.target;
   // a button, or words being written on the desk, is not the desk
   if (!(target instanceof Element) || target.closest("button, textarea") !== null) return;
-  menu.value = null;
+  dropMenu();
   vp.value?.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   // a second finger turns whatever was going on into a pinch (a card under the first one is let
@@ -239,9 +234,10 @@ function onDown(e: PointerEvent) {
             at,
             d0: Math.max(distance(p, { x: at.cx, y: at.cy }), 1),
             scale0: note.scale,
+            shape: null,
             lastSend: 0,
           }
-        : { kind: "rotate", at, a0: angleOf(at, p), rot0: note.rot, lastSend: 0 },
+        : { kind: "rotate", at, a0: angleOf(at, p), rot0: note.rot, shape: null, lastSend: 0 },
     );
     return;
   }
@@ -274,8 +270,7 @@ function onMove(e: PointerEvent) {
   if (g.kind === "press" && distance(p, { x: g.sx, y: g.sy }) > 6) {
     // a card that is dragged is the one picked
     select(g.grab.note);
-    g = { kind: "drag", grab: g.grab, lastSend: 0 };
-    setGesture(g);
+    g = { kind: "drag", grab: g.grab, to: null, lastSend: 0 };
   }
   switch (g.kind) {
     case "pinch": {
@@ -283,18 +278,14 @@ function onMove(e: PointerEvent) {
       if (a !== undefined && b !== undefined) view.value = pinchTo(g.start, a, b);
       return;
     }
-    case "drag":
-      return dragTo(g, p);
-    case "resize": {
-      const d = distance(p, { x: g.at.cx, y: g.at.cy });
-      const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, (g.scale0 * d) / g.d0));
-      return shapeTo(g, { rot: g.at.note.rot, scale });
+    case "drag": {
+      const w = toWorld(p.x, p.y);
+      return hold({ ...g, to: { x: w.x - g.grab.ox, y: w.y - g.grab.oy } });
     }
-    case "rotate": {
-      const turned = g.rot0 + angleOf(g.at, p) - g.a0;
-      const rot = wrap(e.shiftKey ? Math.round(turned / SNAP_DEG) * SNAP_DEG : turned);
-      return shapeTo(g, { rot, scale: g.at.note.scale });
-    }
+    case "resize":
+      return hold({ ...g, shape: resized(g, p) });
+    case "rotate":
+      return hold({ ...g, shape: turned(g, p, e.shiftKey) });
     case "pan":
       if (!g.moved && distance(p, { x: g.x, y: g.y }) <= 6) return;
       g.moved = true;
@@ -303,35 +294,15 @@ function onMove(e: PointerEvent) {
   }
 }
 /**
- * A card under a finger (moved, turned or resized) is drawn from here, not from the cache:
- * intermediate states do not belong in the room's data (docs/data-fetching.md). Letting go
- * writes it once.
+ * The card under a finger follows it here every frame; the partner sees it change at ~12/s,
+ * whenever it is due again
  */
-const held = shallowRef<
-  | ({ id: NoteId; x: number; y: number } & ({ kind: "move" } | { kind: "shape"; shape: Shape }))
-  | null
->(null);
-/**
- * Whether the held card is due to the partner again, who sees it change at ~12/s (here it follows
- * every frame); a yes counts as sent
- */
-function due(g: { lastSend: number }) {
+function hold(g: Extract<Gesture, { kind: "drag" | "resize" | "rotate" }>) {
   const now = performance.now();
-  if (now - g.lastSend <= 80) return false;
-  g.lastSend = now;
-  return true;
-}
-function dragTo(g: Drag, p: Pt) {
-  const { note, ox, oy } = g.grab;
-  const w = toWorld(p.x, p.y);
-  const h = { kind: "move" as const, id: note.id, x: w.x - ox, y: w.y - oy };
-  held.value = h;
-  if (due(g)) store.sendMove(h.id, h.x, h.y);
-}
-function shapeTo(g: Extract<Gesture, { kind: "resize" | "rotate" }>, shape: Shape) {
-  const { note } = g.at;
-  held.value = { kind: "shape", id: note.id, x: note.x, y: note.y, shape };
-  if (due(g)) store.sendMove(note.id, note.x, note.y, shape);
+  const due = now - g.lastSend > 80;
+  setGesture(due ? { ...g, lastSend: now } : g);
+  const h = heldOf(g);
+  if (due && h !== null) store.sendMove(h.id, h.x, h.y, h.kind === "shape" ? h.shape : undefined);
 }
 
 function onUp(e: PointerEvent) {
@@ -348,11 +319,8 @@ function onUp(e: PointerEvent) {
 }
 /** Let go of the card under a finger: the one write of where it landed, how it is turned and how large */
 function land() {
-  const g = gesture.value;
-  const h = held.value;
-  if ((g.kind === "drag" || g.kind === "resize" || g.kind === "rotate") && h !== null)
-    store.move(h.id, h.x, h.y, h.kind === "shape" ? h.shape : undefined);
-  held.value = null;
+  const h = heldOf(gesture.value);
+  if (h !== null) store.move(h.id, h.x, h.y, h.kind === "shape" ? h.shape : undefined);
 }
 /** One tap picks the card and shows its toolbar; a second one soon after opens it */
 function tapCard(note: Note) {
@@ -375,7 +343,7 @@ function onKey(e: KeyboardEvent) {
   // words being written take their own keys (TextField)
   if (e.target instanceof Element && e.target.closest("textarea") !== null) return;
   if (e.key === "Escape") {
-    if (menu.value !== null) closeMenu();
+    if (overlay.value.kind === "menu") closeMenu();
     else select(null);
     return;
   }
@@ -419,7 +387,8 @@ function openMenu(note: Note, { focus = true } = {}) {
   if (r === undefined) return;
   const card = cardEl(note)?.getBoundingClientRect();
   if (card === undefined) return;
-  menu.value = {
+  overlay.value = {
+    kind: "menu",
     note,
     x: Math.max(8, card.left - r.left),
     y: Math.max(card.bottom - r.top + CLEAR, 8),
@@ -428,7 +397,7 @@ function openMenu(note: Note, { focus = true } = {}) {
   void nextTick(() => {
     if (import.meta.env.SSR) return;
     const m = menuEl.value;
-    if (m === null || menu.value === null) return;
+    if (m === null || overlay.value.kind !== "menu") return;
     const { width: w, height: h } = m.size();
     const x = Math.max(8, Math.min(card.left - r.left, r.width - w - 8));
     const below = card.bottom - r.top + CLEAR;
@@ -436,7 +405,7 @@ function openMenu(note: Note, { focus = true } = {}) {
     const dock = document.querySelector("[data-dock]")?.getBoundingClientRect().top ?? r.bottom;
     const floor = Math.min(r.bottom, dock) - r.top - 72;
     const y = below + h > floor ? card.top - r.top - h - CLEAR : below;
-    menu.value = { ...menu.value, x, y: Math.max(y, 8) };
+    overlay.value = { kind: "menu", note: overlay.value.note, x, y: Math.max(y, 8) };
     // the keyboard moves into it; a tap that picked the card leaves focus where it was
     if (focus) m.focusFirst();
   });
@@ -456,10 +425,11 @@ const focusCard = (note: Note) =>
     ?.focus();
 /** Close the menu; focus returns to its card when the keyboard was in the menu */
 function closeMenu() {
-  const note = menu.value?.note;
+  const o = overlay.value;
+  if (o.kind !== "menu") return;
   const hadFocus = menuEl.value?.holdsFocus() ?? false;
-  menu.value = null;
-  if (note !== undefined && hadFocus) focusCard(note);
+  overlay.value = NONE;
+  if (hadFocus) focusCard(o.note);
 }
 /** The menu's card when it is a memo, the only kind that goes on a day */
 const menuMemo = computed(() => (menuNote.value?.kind === "memo" ? menuNote.value : null));
@@ -471,7 +441,8 @@ function setMenuDay(date: Temporal.PlainDate | null) {
 const onMenuDay = (date: Temporal.PlainDate) =>
   menuMemo.value?.schedule?.date.equals(date) ?? false;
 function duplicateFromMenu() {
-  if (menu.value !== null) store.duplicate(menu.value.note.id);
+  const o = overlay.value;
+  if (o.kind === "menu") store.duplicate(o.note.id);
   closeMenu();
 }
 function rewriteFromMenu() {
@@ -479,7 +450,8 @@ function rewriteFromMenu() {
   if (n?.kind === "text") rewrite(n);
 }
 function removeFromMenu() {
-  if (menu.value !== null) remove(menu.value.note);
+  const o = overlay.value;
+  if (o.kind === "menu") remove(o.note);
 }
 
 // ---- fit ----
@@ -494,15 +466,6 @@ function fitted(minScale = 0) {
 }
 
 // ---- writing on the desk: a double click on it, or on a text box, writes there ----
-/** Words being written: a new text box (no id) or one being rewritten, and where they sit */
-const writing = shallowRef<{
-  id: NoteId | null;
-  x: number;
-  y: number;
-  rot: number;
-  scale: number;
-  text: string;
-} | null>(null);
 /** The last tap on the bare desk, to tell a double one */
 let lastDeskTap: ({ at: number } & Pt) | null = null;
 /** How far apart two taps may land and still be one double tap */
@@ -519,17 +482,26 @@ function tapDesk(e: PointerEvent) {
   lastDeskTap = null;
   // the caret lands about where the click did: the box's corner a little up and to the left
   const w = toWorld(p.x, p.y);
-  writing.value = { id: null, x: w.x - 6, y: w.y - 16, rot: 0, scale: 1, text: "" };
+  overlay.value = {
+    kind: "writing",
+    id: null,
+    x: w.x - 6,
+    y: w.y - 16,
+    rot: 0,
+    scale: 1,
+    text: "",
+  };
 }
 /** A text box is rewritten where it is; it is hidden while the field is over it */
 function rewrite(note: TextBox) {
-  menu.value = null;
-  writing.value = { ...note, text: note.title };
+  const { id, x, y, rot, scale } = note;
+  overlay.value = { kind: "writing", id, x, y, rot, scale, text: note.title };
 }
 function doneWriting(text: string | null) {
-  const w = writing.value;
-  writing.value = null;
-  if (w === null || text === null) return;
+  const w = overlay.value;
+  if (w.kind !== "writing") return;
+  overlay.value = NONE;
+  if (text === null) return;
   if (w.id === null) {
     const n = store.addText(text, { x: w.x, y: w.y });
     if (n !== undefined) select(notes.value?.find((m) => m.id === n.id) ?? null);
@@ -557,12 +529,14 @@ const undoAdd = (id: NoteId) => ({ undo: () => store.remove(id) });
 // ---- deleting: the card leaves at once; the room hears about it once the toast is gone ----
 const pendingDelete = ref(new Set<NoteId>());
 const shownNotes = computed(() => {
-  // the card under a finger, read once for all of them
-  const h = held.value;
+  // the card under a finger, and the text box being rewritten, read once for all of them
+  const h = heldOf(gesture.value);
+  const o = overlay.value;
+  const rewritten = o.kind === "writing" ? o.id : null;
   return (
     (notes.value ?? [])
       // a text box being rewritten is shown by its field instead
-      .filter((n) => !pendingDelete.value.has(n.id) && n.id !== writing.value?.id)
+      .filter((n) => !pendingDelete.value.has(n.id) && n.id !== rewritten)
       .map((n) =>
         h?.id !== n.id ? n : { ...n, x: h.x, y: h.y, ...(h.kind === "shape" ? h.shape : {}) },
       )
@@ -573,7 +547,7 @@ function remove(note: Note) {
   const card = cardEl(note);
   const hadFocus =
     card?.contains(document.activeElement) === true || menuEl.value?.holdsFocus() === true;
-  menu.value = null;
+  dropMenu();
   pendingDelete.value.add(note.id);
   const title = note.kind === "sticker" ? i18n.t("canvas.sticker") : note.title;
   toast.show(i18n.t("canvas.deleted", { title }), {
@@ -947,13 +921,13 @@ watch(
             @remove="() => remove(n)"
           />
           <TextField
-            v-if="writing !== null"
-            :key="writing.id ?? 'new'"
-            :rot="writing.rot"
-            :scale="writing.scale"
-            :text="writing.text"
-            :x="writing.x"
-            :y="writing.y"
+            v-if="overlay.kind === 'writing'"
+            :key="overlay.id ?? 'new'"
+            :rot="overlay.rot"
+            :scale="overlay.scale"
+            :text="overlay.text"
+            :x="overlay.x"
+            :y="overlay.y"
             @done="doneWriting"
           />
           <div v-if="pop !== null" class="ring" :style="`--x: ${pop.x}px; --y: ${pop.y}px`"></div>
@@ -988,14 +962,14 @@ watch(
       />
 
       <CtMenu
-        v-if="menu !== null"
+        v-if="overlay.kind === 'menu'"
         ref="menuEl"
-        :label="menu.note.kind === 'sticker' ? i18n.t('canvas.sticker') : menu.note.title"
-        :x="menu.x"
-        :y="menu.y"
+        :label="overlay.note.kind === 'sticker' ? i18n.t('canvas.sticker') : overlay.note.title"
+        :x="overlay.x"
+        :y="overlay.y"
         @close="closeMenu"
       >
-        <CtMenuItem v-if="menu.note.kind === 'text'" @click="rewriteFromMenu">{{
+        <CtMenuItem v-if="overlay.note.kind === 'text'" @click="rewriteFromMenu">{{
           i18n.t("common.edit")
         }}</CtMenuItem>
         <!-- the trip's days: a memo goes on one from the desk, where the ideas are -->
@@ -1016,7 +990,7 @@ watch(
         </CtMenuGroup>
         <!-- the agent's ideas built on this note; a sticker has no words to build on -->
         <CtMenuItem
-          v-if="menu.note.kind !== 'sticker'"
+          v-if="overlay.note.kind !== 'sticker'"
           :disabled="thinking || cut.offline"
           @click="askFromMenu"
         >{{ i18n.t("canvas.ideasFromHere") }}</CtMenuItem>
