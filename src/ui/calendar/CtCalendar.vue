@@ -181,7 +181,7 @@ async function walk(e: KeyboardEvent, day: Temporal.PlainDate) {
 </template>
 
 <style scoped>
-@import "../styles/media.css";
+@import "/src/ui/styles/media.css";
 
 .calendar {
   display: grid;

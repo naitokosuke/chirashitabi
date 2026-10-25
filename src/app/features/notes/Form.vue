@@ -947,7 +947,7 @@ function submit() {
 </template>
 
 <style scoped>
-@import "../../../ui/styles/media.css";
+@import "/src/ui/styles/media.css";
 
 /* a sheet (CtSheet), or docked as the memo tab; on a computer, all of it along 1100px of columns */
 .note-form {

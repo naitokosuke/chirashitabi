@@ -35,7 +35,7 @@ const { chosen, ready } = useIndicator(root, () => [props.modelValue, props.opti
 </template>
 
 <style scoped>
-@import "../styles/media.css";
+@import "/src/ui/styles/media.css";
 
 .pick {
   position: relative;

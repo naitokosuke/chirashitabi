@@ -15,7 +15,7 @@ defineSlots<{ default(): unknown }>();
 </template>
 
 <style scoped>
-@import "../styles/media.css";
+@import "/src/ui/styles/media.css";
 
 /* the column animates from nothing to its content's width (0fr to 1fr) */
 div:has(> div) {

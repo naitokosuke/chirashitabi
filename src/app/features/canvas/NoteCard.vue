@@ -203,7 +203,7 @@ const HOLD_MS = 600;
 </template>
 
 <style scoped>
-@import "../../../ui/styles/media.css";
+@import "/src/ui/styles/media.css";
 
 /* typed, so a change of them eases (an untyped variable only swaps) */
 @property --lift {

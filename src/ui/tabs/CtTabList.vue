@@ -70,7 +70,7 @@ onMounted(() => void reveal(false));
 </template>
 
 <style scoped>
-@import "../styles/media.css";
+@import "/src/ui/styles/media.css";
 
 [role="tablist"] {
   position: relative;

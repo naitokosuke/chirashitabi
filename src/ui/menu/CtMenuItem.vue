@@ -15,7 +15,7 @@ defineSlots<{ default(): unknown }>();
 </template>
 
 <style scoped>
-@import "../styles/media.css";
+@import "/src/ui/styles/media.css";
 
 button {
   min-height: var(--size-menu-row);
