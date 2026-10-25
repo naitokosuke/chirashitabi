@@ -6,13 +6,15 @@ import { shallowRef } from "vue";
 import { defineQuery } from "@pinia/colada";
 
 import { useNotes } from "../notes/useNotes";
+import type { RoomId } from "../rooms/types";
+import type { Here } from "../sync/InRoom.vue";
 import { draftUpdates } from "../trip/itinerary";
 import { useTrip } from "../trip/useTrip";
-import type { DayDraft, OverBudget, WorkerApi } from "../worker/types";
+import type { DayDraft, OverBudget } from "../worker/types";
 
 /**
- * A member's draft of a day: none, asked for, come, or why it did not; every kind but none is
- * about one day (`date`)
+ * A member's draft of a day in a room: none, asked for, come, or why it did not; every kind but
+ * none is about one day (`date`)
  */
 type DraftState =
   | { kind: "idle" }
@@ -21,45 +23,59 @@ type DraftState =
   | { kind: "failed"; date: Temporal.PlainDate; why: "failed" | OverBudget["ceiling"] };
 
 /**
- * The booklet's draft of a day, one at a time, kept while the booklet is read rather than
- * written. Asking is a paid call: a failure, thrown or the budget's refusal, is said by the
- * button, and asking again is the person's tap, never a retry. Defined once for the app
- * (defineQuery).
+ * The booklet's draft of a day, one at a time in each room, kept while the booklet is read
+ * rather than written or another room is open. Asking is a paid call: a failure, thrown or the
+ * budget's refusal, is said by the button, and asking again is the person's tap, never a retry.
+ * Defined once for the app (defineQuery).
  */
 const useDayDraft = defineQuery(() => {
   const store = useNotes();
   const { forDay, dayOf, setIntro } = useTrip();
-  const state = shallowRef<DraftState>({ kind: "idle" });
+  /** Each room's draft: an answer is the room's it was asked in, whichever room is open when it comes */
+  const drafts = shallowRef<ReadonlyMap<RoomId, DraftState>>(new Map());
 
-  /** A draft of `date`, asked of the Worker of the room the booklet is in (`api`) */
-  async function ask(api: WorkerApi, date: Temporal.PlainDate) {
-    if (state.value.kind === "asking") return;
-    state.value = { kind: "asking", date };
+  /** The draft in `room`; none when nothing was asked there */
+  const draftIn = (room: RoomId): DraftState => drafts.value.get(room) ?? { kind: "idle" };
+  function keep(room: RoomId, state: DraftState) {
+    drafts.value = new Map(drafts.value).set(room, state);
+  }
+
+  /** A draft of `date`, asked of the Worker of the room the booklet is in */
+  async function ask({ room, api }: Here, date: Temporal.PlainDate) {
+    if (draftIn(room).kind === "asking") return;
+    keep(room, { kind: "asking", date });
     try {
       const answer = await api.draftDay(date, forDay(date));
-      state.value = answer.ok
-        ? { kind: "drafted", date, draft: answer.value }
-        : { kind: "failed", date, why: answer.reason.ceiling };
+      keep(
+        room,
+        answer.ok
+          ? { kind: "drafted", date, draft: answer.value }
+          : { kind: "failed", date, why: answer.reason.ceiling },
+      );
     } catch {
-      state.value = { kind: "failed", date, why: "failed" };
+      keep(room, { kind: "failed", date, why: "failed" });
     }
   }
-  /** The draft becomes the day: its order and times on the memos, its intro unless one is written */
-  function adopt() {
-    const s = state.value;
+  /**
+   * The draft of the room open now (`room`, InRoom) becomes the day: its order and times on the
+   * memos, its intro unless one is written. The stores write the open room, so only its own
+   * draft is taken, never another room's.
+   */
+  function adopt(room: RoomId) {
+    const s = draftIn(room);
     if (s.kind !== "drafted") return;
     // the day's memos as they are now, not as they were when the draft was asked for
     for (const { id, patch } of draftUpdates(s.draft, forDay(s.date))) store.update(id, patch);
     // keep an intro someone already wrote
     const written = dayOf(s.date)?.intro ?? "";
     setIntro(s.date, written === "" ? s.draft.intro : written);
-    state.value = { kind: "idle" };
+    keep(room, { kind: "idle" });
   }
-  function dismiss() {
-    state.value = { kind: "idle" };
+  function dismiss(room: RoomId) {
+    keep(room, { kind: "idle" });
   }
 
-  return { state, ask, adopt, dismiss };
+  return { draftIn, ask, adopt, dismiss };
 });
 </script>
 
@@ -103,13 +119,16 @@ const inRoom = useInRoom();
 const i18n = useI18n();
 /** Cut off: what needs the Worker is not offered */
 const cut = useOffline();
-const { state: draft, ask, adopt, dismiss } = useDayDraft();
+const { draftIn, ask, adopt, dismiss } = useDayDraft();
 
 /** Every plan of the day, the maybes in their place */
 const notes = computed(() => forDay(props.day));
-/** The draft as this day has it: one asked for, come or failed for another day is none here */
+/**
+ * The draft as this day has it: one asked for, come or failed for another day, or in another
+ * room, is none here
+ */
 const here = computed((): DraftState => {
-  const s = draft.value;
+  const s = draftIn(inRoom.room);
   return s.kind !== "idle" && s.date.equals(props.day) ? s : { kind: "idle" };
 });
 /** Who drafted it; nobody once they have left the room */
@@ -226,19 +245,21 @@ function markBooked(n: Scheduled) {
                 }}</small></li></ol>
           </template>
           <template #foot>
-            <CtButton variant="primary" @click="adopt">{{ i18n.t("shiori.adoptDraft") }}</CtButton>
-            <CtButton @click="dismiss">{{ i18n.t("common.dismiss") }}</CtButton>
+            <CtButton variant="primary" @click="() => adopt(inRoom.room)">{{
+              i18n.t("shiori.adoptDraft")
+            }}</CtButton>
+            <CtButton @click="() => dismiss(inRoom.room)">{{ i18n.t("common.dismiss") }}</CtButton>
           </template>
         </CtPaper>
         <template v-else>
-          <!-- an ask for any day holds the button: one draft is asked for at a time -->
+          <!-- an ask for any day of the room holds the button: one draft is asked for at a time -->
           <CtButton
             class="ask-draft"
             data-turn
             variant="ask"
-            :disabled="draft.kind === 'asking' || cut.offline"
+            :disabled="draftIn(inRoom.room).kind === 'asking' || cut.offline"
             :busy="here.kind === 'asking'"
-            @click="() => ask(inRoom.api, day)"
+            @click="() => ask(inRoom, day)"
           >{{ i18n.t(here.kind === "asking" ? "shiori.drafting" : "shiori.askDraft") }}</CtButton>
           <CtHint v-if="cut.offline" data-turn>{{ i18n.t("offline.unavailable") }}</CtHint>
           <CtMessage v-if="here.kind === 'failed'" aria-live="polite" class="failed" danger>{{
