@@ -1,4 +1,4 @@
-import type { HexColor } from "../../shared/color";
+import type { HexColor } from "../../../contract";
 
 /**
  * The paper a member writes on: their color washed into the white stock, light enough to write

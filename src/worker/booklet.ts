@@ -1,4 +1,5 @@
-import type { Lang, NoteColor, WireMemo, WireNote, WireTrip } from "./wire";
+import type { NoteColor } from "../contract/room";
+import type { Lang, WireMemo, WireNote, WireTrip } from "../contract/wire";
 
 /**
  * The booklet as a public page (docs/auth-and-security.md): one static HTML file the Worker

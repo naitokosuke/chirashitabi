@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { parseHexColor } from "../../shared/color";
+import { parseHexColor } from "../../../contract";
 
 import { applyToMembers } from "./apply";
 import type { Member, MemberId } from "./types";

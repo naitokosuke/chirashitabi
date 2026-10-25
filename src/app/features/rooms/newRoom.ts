@@ -1,8 +1,6 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { parseHexColor } from "../../shared/color";
-import { parseCurrencyCode } from "../../shared/money";
-
+import { parseCurrencyCode, parseHexColor } from "../../../contract";
 import type { LatLng } from "../place/types";
 
 import type { NewRoom, Profile } from "./types";

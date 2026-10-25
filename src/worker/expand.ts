@@ -1,4 +1,4 @@
-import { isShortMapsLink } from "./types";
+import { isShortMapsLink } from "../contract/place";
 
 /**
  * A short Google Maps link, expanded: the one redirect it answers with is read, never followed,

@@ -2,8 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import { parseCurrencyCode } from "../../shared/money";
-
+import { parseCurrencyCode } from "../../../contract";
 import type { NoteId } from "../notes/id";
 import type { Memo, Note } from "../notes/types";
 import type { AirportCode } from "../place/airports";

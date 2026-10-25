@@ -1,7 +1,6 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { CurrencyCode } from "../../shared/money";
-
+import type { CurrencyCode } from "../../../contract";
 import type { Leg } from "../../../contract/wire";
 import type { AirportCode } from "../place/airports";
 import type { HttpUrl } from "../place/google-maps";

@@ -1,7 +1,6 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import type { Result } from "../../shared/result";
-
+import type { Result } from "../../../contract";
 import { findAirport, type Airport } from "../place/airports";
 import { parseHttpUrl, parseMapsUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";

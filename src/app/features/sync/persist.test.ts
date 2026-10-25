@@ -2,9 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import { parseHexColor } from "../../shared/color";
-import { parseCurrencyCode } from "../../shared/money";
-
+import { parseCurrencyCode, parseHexColor } from "../../../contract";
 import type { Email, MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
 import type { Memo, Tag } from "../notes/types";

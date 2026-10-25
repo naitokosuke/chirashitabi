@@ -7,8 +7,9 @@
 
 import * as v from "valibot";
 
-import { listOf, type LatLng } from "./types";
-import type { Lang } from "./wire";
+import { listOf } from "../contract";
+import type { LatLng } from "../contract/place";
+import type { Lang } from "../contract/wire";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 export const USER_AGENT = "chirashitabi/1.0 (+https://chirashitabi.app)";

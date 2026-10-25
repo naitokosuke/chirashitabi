@@ -2,8 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import { parseHexColor } from "../../shared/color";
-
+import { parseHexColor } from "../../../contract";
 import type { NoteId } from "../notes/id";
 import type { NewMemo, Tag } from "../notes/types";
 import type { AirportCode } from "../place/airports";

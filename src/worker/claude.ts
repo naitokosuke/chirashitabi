@@ -1,7 +1,9 @@
 import * as v from "valibot";
 
-import { NoteIdSchema, type CurrencyCode, type LatLng, type NoteId } from "./types";
-import type { IsoDate, WireMemo } from "./wire";
+import type { CurrencyCode } from "../contract";
+import { NoteIdSchema, type NoteId } from "../contract/note";
+import type { LatLng } from "../contract/place";
+import type { IsoDate, WireMemo } from "../contract/wire";
 
 /**
  * Claude, called from the Worker with the key held as a secret (docs/auth-and-security.md).

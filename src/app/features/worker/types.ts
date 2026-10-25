@@ -1,9 +1,8 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
-import type { Result } from "../../shared/result";
-
 import type { Locale } from "../../i18n/locale";
 
+import type { Result } from "../../../contract";
 import type { MemberId } from "../members/types";
 import type { ImageId, NoteId } from "../notes/id";
 import type { Scheduled, Tag } from "../notes/types";
