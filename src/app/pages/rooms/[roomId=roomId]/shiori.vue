@@ -68,7 +68,14 @@ const openingDay = computed(
     trip.value?.days[0]?.date ??
     null,
 );
-const dayOfTab = (t: Tab) => (t === "appendix" ? null : (t ?? openingDay.value));
+/**
+ * The day a tab is, one of the trip's: a picked day the trip no longer has (made shorter
+ * meanwhile, here or by the partner) is the opening day, as no pick is
+ */
+const dayOfTab = (t: Tab) => {
+  if (t === "appendix") return null;
+  return trip.value?.days.find((d) => t !== null && d.date.equals(t))?.date ?? openingDay.value;
+};
 /** The day on the page, or null on the appendix tab (or while the trip has no days) */
 const day = computed(() => dayOfTab(tab.shown));
 /** The day the tabs and the heading show, ahead of the page by the time it takes to turn */
