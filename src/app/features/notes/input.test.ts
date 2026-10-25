@@ -2,7 +2,17 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import { blankInput, changes, parseNoteText } from "./input";
+import { parseHttpUrl } from "../place/google-maps";
+
+import {
+  blankInput,
+  bookingDraft,
+  bookingOf,
+  changes,
+  chosenBooking,
+  parseNoteText,
+} from "./input";
+import type { Booking } from "./types";
 
 describe("parseNoteText", () => {
   test("a #tag in the title becomes a tag and leaves the title", () => {
@@ -66,5 +76,33 @@ describe("changes", () => {
     };
     expect(changes(opened, same)).toEqual({});
     expect(changes(opened, { ...same, booking: null })).toEqual({ booking: null });
+  });
+});
+
+describe("booking fields", () => {
+  test("a booking comes back the same from its fields", () => {
+    const needed: Booking = { state: "needed", by: Temporal.PlainDate.from("2026-11-01") };
+    const booked: Booking = {
+      state: "booked",
+      code: "AB12",
+      url: parseHttpUrl("https://x.test/b"),
+    };
+    expect(bookingOf(bookingDraft(null))).toBeNull();
+    expect(bookingOf(bookingDraft(needed))).toEqual(needed);
+    expect(bookingOf(bookingDraft(booked))).toEqual(booked);
+  });
+
+  test("a choice starts blank, and blank fields say no day and no page", () => {
+    expect(bookingOf(chosenBooking("needed"))).toEqual({ state: "needed", by: null });
+    expect(bookingOf(chosenBooking("booked"))).toEqual({ state: "booked", code: "", url: null });
+    expect(chosenBooking("anything")).toEqual({ state: "none" });
+  });
+
+  test("the number is trimmed, and a page that is no http(s) link is none", () => {
+    expect(bookingOf({ state: "booked", code: " AB12 ", url: "ftp://x.test" })).toEqual({
+      state: "booked",
+      code: "AB12",
+      url: null,
+    });
   });
 });
