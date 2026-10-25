@@ -337,7 +337,7 @@ function save() {
 </template>
 
 <style scoped>
-@import "../../../ui/styles/media.css";
+@import "/src/ui/styles/media.css";
 .editor {
   display: grid;
   gap: 16px;

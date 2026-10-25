@@ -743,7 +743,8 @@ function adoptDraft() {
               variant="proposal"
               wide
             >
-              <template #strip>{{ i18n.t("shiori.draft") }} · {{ drafter?.name ?? i18n.t("member.someone") }}</template>
+              <template #strip
+              >{{ i18n.t("shiori.draft") }} · {{ drafter?.name ?? i18n.t("member.someone") }}</template>
               <template #default>
                 <p>{{ draft.reason }}</p>
                 <ol><li v-for="it in draft.items" :key="it.note.id">{{ it.time ? `${hhmm(it.time)} ` : "" }}{{ it.note.title }}<small
@@ -798,7 +799,8 @@ function adoptDraft() {
                     :id="`${pageId}-check-${n.id}`"
                     :model-value="n.checked"
                     @update:model-value="(checked) => setChecked(n, checked)"
-                  ><span class="item">{{ n.title }}</span><small v-if="n.body !== ''" class="note"> —{{ n.body }}</small></CtCheck></CtPaper></li></ul>
+                  ><span class="item">{{ n.title }}</span><small v-if="n.body !== ''" class="note"
+                    > —{{ n.body }}</small></CtCheck></CtPaper></li></ul>
             <CtHint v-if="byTag(t).length === 0" data-turn size="sm">{{
               i18n.t("shiori.tagEmpty")
             }}</CtHint>
@@ -860,7 +862,7 @@ function adoptDraft() {
 </template>
 
 <style scoped>
-@import "../../../../ui/styles/media.css";
+@import "/src/ui/styles/media.css";
 
 article {
   position: absolute;

@@ -261,7 +261,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-@import "../styles/media.css";
+@import "/src/ui/styles/media.css";
 
 button {
   --tone: var(--ink);

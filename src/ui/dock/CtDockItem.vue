@@ -38,7 +38,7 @@ defineSlots<{ default(): unknown }>();
 </template>
 
 <style scoped>
-@import "../styles/media.css";
+@import "/src/ui/styles/media.css";
 
 a,
 button {

@@ -36,7 +36,7 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
 </template>
 
 <style scoped>
-@import "../styles/media.css";
+@import "/src/ui/styles/media.css";
 button {
   flex-shrink: 0;
   display: inline-flex;

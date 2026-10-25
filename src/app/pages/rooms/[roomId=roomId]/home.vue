@@ -89,7 +89,8 @@ const allTotal = computed(() => budgetOf(undefined, false));
     <div :class="{ ahead }">
       <header>
         <CtHeading as="h1" level="page">{{ trip?.name }}</CtHeading>
-        <p v-if="range !== ''">{{ range }} · {{ i18n.t("home.days", { count: trip?.days.length ?? 0 }) }}</p>
+        <p v-if="range !== ''"
+        >{{ range }} · {{ i18n.t("home.days", { count: trip?.days.length ?? 0 }) }}</p>
         <!-- who is in: a face each, initial on their color -->
         <ul>
           <li v-for="m in members" :key="m.id" :title="m.name">
@@ -180,7 +181,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
 </template>
 
 <style scoped>
-@import "../../../../ui/styles/media.css";
+@import "/src/ui/styles/media.css";
 
 section {
   position: absolute;

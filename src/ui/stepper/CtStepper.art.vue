@@ -21,8 +21,8 @@ const days = ref(4);
   <variant default name="Days">
     <div class="frame">
       <CtStepper v-model="days" fewer="Fewer days" label="Days" :max="14" :min="1" more="More days">{{
-          days
-        }} days</CtStepper>
+        days
+      }} days</CtStepper>
     </div>
   </variant>
 </art>

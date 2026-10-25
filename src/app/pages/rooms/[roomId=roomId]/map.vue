@@ -437,8 +437,10 @@ function fitAll() {
         <CtHint v-if="selected.body !== ''" size="sm">{{ selected.body }}</CtHint>
         <CtHint class="facts" strong>
           <span v-for="t in selected.tags" :key="t">#{{ t }} </span>
-          <span v-if="selected.budget !== null && selected.budget > 0">{{ price(selected.budget) }} </span>
-          <span v-if="selected.schedule !== null">{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
+          <span v-if="selected.budget !== null && selected.budget > 0"
+          >{{ price(selected.budget) }} </span>
+          <span v-if="selected.schedule !== null"
+          >{{ short(selected.schedule.date) }} {{ selected.schedule.time ? hhmm(selected.schedule.time) : "" }}</span>
         </CtHint>
         <div>
           <CtLink :href="selectedLink">{{ i18n.t("map.openInGoogleMaps") }}</CtLink>
@@ -454,7 +456,7 @@ function fitAll() {
 </template>
 
 <style scoped>
-@import "../../../../ui/styles/media.css";
+@import "/src/ui/styles/media.css";
 
 section {
   position: absolute;
