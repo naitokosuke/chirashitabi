@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import type { Temporal } from "temporal-polyfill-lite";
 
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 
 import {
   CtButton,
@@ -13,10 +13,12 @@ import {
   CtTag,
 } from "../../../ui/index";
 
+import type { MessageId } from "../../i18n/types";
 import { useI18n } from "../../i18n/useI18n";
 
 import { useOffline } from "../sync/useOffline";
 
+import type { AcceptRefusal } from "./api";
 import { datesLabel, whenLabel } from "./label";
 import { MEMBER_COLORS, profileOf } from "./newRoom";
 import type { RoomId, RoomSummary } from "./types";
@@ -57,17 +59,32 @@ const tag = computed(() => ({
 
 const { accept, decline } = useRooms();
 const busy = computed(() => accept.isLoading.value || decline.isLoading.value);
-const failed = ref<"join" | "decline" | null>(null);
+/** What did not go through: why the trip refused this person, or which answer failed */
+type Failure =
+  | { kind: "refused"; reason: AcceptRefusal }
+  | { kind: "failed"; what: "join" | "decline" };
+const failed = shallowRef<Failure | null>(null);
+/** What the person is told for each refusal; a seat that is gone is an invitation withdrawn */
+const REFUSALS: Record<AcceptRefusal, MessageId> = {
+  "no seat": "rooms.withdrawn",
+  deleted: "rooms.tripDeleted",
+  "at the cap": "rooms.atCap",
+};
+const say = (f: Failure) =>
+  f.kind === "refused"
+    ? i18n.t(REFUSALS[f.reason])
+    : i18n.t(f.what === "join" ? "rooms.joinFailed" : "rooms.declineFailed");
 
 async function join() {
   const p = profile.value;
   if (p === null || busy.value) return;
   failed.value = null;
   try {
-    await accept.mutateAsync({ room: props.room.id, me: p });
-    emit("joined", props.room.id);
+    const joined = await accept.mutateAsync({ room: props.room.id, me: p });
+    if (joined.ok) emit("joined", props.room.id);
+    else failed.value = { kind: "refused", reason: joined.reason };
   } catch {
-    failed.value = "join";
+    failed.value = { kind: "failed", what: "join" };
   }
 }
 async function no() {
@@ -76,7 +93,7 @@ async function no() {
   try {
     await decline.mutateAsync(props.room.id);
   } catch {
-    failed.value = "decline";
+    failed.value = { kind: "failed", what: "decline" };
   }
 }
 </script>
@@ -90,9 +107,7 @@ async function no() {
       <CtSwatches v-model="color" :colors="MEMBER_COLORS" :label="i18n.t('rooms.color')" />
     </CtField>
 
-    <CtMessage v-if="failed !== null" role="alert">
-      {{ i18n.t(failed === "join" ? "rooms.joinFailed" : "rooms.declineFailed") }}
-    </CtMessage>
+    <CtMessage v-if="failed !== null" role="alert">{{ say(failed) }}</CtMessage>
     <div class="answer">
       <CtButton
         class="join"

@@ -42,19 +42,20 @@ export const useRooms = defineQuery(() => {
   return {
     list,
     refresh,
-    /** Creates a room; resolves with its id */
+    /** Creates a room; resolves with its id, or why the Worker refused */
     create: change(createRoom),
     /** Takes up an invitation as who one will be in the room */
     accept: change(acceptInvitation),
     decline: change(declineInvitation),
     /**
      * Takes a trip off the list: the owner deletes it (restorable for a while), anyone else
-     * leaves it. What this device kept of it goes too, or opening it would show a room that
-     * refuses it.
+     * leaves it. Once it is off, what this device kept of it goes too, or opening it would show
+     * a room that refuses it.
      */
     remove: change(async ({ room, action }: { room: RoomId; action: "delete" | "leave" }) => {
-      await (action === "delete" ? deleteRoom(room) : leaveRoom(room));
-      forget(localStorage, room);
+      const off = await (action === "delete" ? deleteRoom(room) : leaveRoom(room));
+      if (off.ok) forget(localStorage, room);
+      return off;
     }),
     /** Brings a deleted trip back */
     restore: change(restoreRoom),

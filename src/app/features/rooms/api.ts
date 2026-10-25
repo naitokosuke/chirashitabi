@@ -4,9 +4,10 @@ import { hc, type InferResponseType } from "hono/client";
 import * as v from "valibot";
 
 import type { Api } from "../../../../.worker-types/worker";
-import { HexColorSchema, listOf } from "../../../contract";
+import { HexColorSchema, listOf, type Result } from "../../../contract";
 import { KEPT_DAYS } from "../../../contract/room";
 import { IsoDateSchema } from "../../../contract/wire";
+import { DONE, refused, type Refusal } from "../members/api";
 import { EmailSchema, type Email } from "../members/types";
 
 import { toWire } from "./newRoom";
@@ -170,28 +171,50 @@ function keptList(): unknown {
   }
 }
 
-/** A call to the API whose answer is only whether it went: anything but 200 is an error */
-async function call(request: Promise<{ status: number; url: string }>): Promise<void> {
-  const res = await request;
+const invitation = api.invitations[":roomId"];
+const room = api.rooms[":roomId"];
+
+/** Why taking up an invitation was refused */
+export type AcceptRefusal = Refusal<typeof invitation.accept.$post>;
+/** Why bringing a deleted trip back, or having it gone for good, was refused */
+export type ShelfRefusal = Refusal<typeof room.restore.$post | typeof room.purge.$post>;
+/** Why making a trip was refused */
+export type CreateRefusal = Refusal<typeof api.rooms.$post>;
+
+// Each change below returns the Worker's refusal, which the person is told; any other answer
+// that is not 200 is an error the caller's state can hold.
+
+/** Into a trip one is invited to, as `me`; returns once one is a member */
+export async function acceptInvitation({ room: roomId, me }: { room: RoomId; me: Profile }) {
+  const res = await invitation.accept.$post({ param: { roomId }, json: me });
+  if (res.status === 409) return refused(res);
+  if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+  return DONE;
+}
+/** Not going: the invitation is gone, and its seat is the owner's again */
+export async function declineInvitation(roomId: RoomId): Promise<void> {
+  const res = await invitation.decline.$post({ param: { roomId } });
   if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
 }
-
-/** Into a trip one is invited to, as `me`; resolves once one is a member */
-export const acceptInvitation = ({ room, me }: { room: RoomId; me: Profile }) =>
-  call(api.invitations[":roomId"].accept.$post({ param: { roomId: room }, json: me }));
-/** Not going: the invitation is gone, and its seat is the owner's again */
-export const declineInvitation = (room: RoomId) =>
-  call(api.invitations[":roomId"].decline.$post({ param: { roomId: room } }));
 /** A deleted trip back, for everyone who was in it */
-export const restoreRoom = (room: RoomId) =>
-  call(api.rooms[":roomId"].restore.$post({ param: { roomId: room } }));
-/** A deleted trip gone for good now, by its owner; nobody can restore it after */
-export const purgeRoom = (room: RoomId) =>
-  call(api.rooms[":roomId"].purge.$post({ param: { roomId: room } }));
-
-/** Creates a room with its trip and its first member; resolves with the new room's id */
-export async function createRoom(room: NewRoom): Promise<RoomId> {
-  const res = await api.rooms.$post({ json: toWire(room) });
+export async function restoreRoom(roomId: RoomId) {
+  const res = await room.restore.$post({ param: { roomId } });
+  if (res.status === 403) return refused(res);
   if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
-  return (await res.json()).roomId;
+  return DONE;
+}
+/** A deleted trip gone for good now, by its owner; nobody can restore it after */
+export async function purgeRoom(roomId: RoomId) {
+  const res = await room.purge.$post({ param: { roomId } });
+  if (res.status === 403) return refused(res);
+  if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+  return DONE;
+}
+
+/** Creates a room with its trip and its first member; returns the new room's id */
+export async function createRoom(trip: NewRoom): Promise<Result<RoomId, CreateRefusal>> {
+  const res = await api.rooms.$post({ json: toWire(trip) });
+  if (res.status === 409) return refused(res);
+  if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+  return { ok: true, value: (await res.json()).roomId };
 }

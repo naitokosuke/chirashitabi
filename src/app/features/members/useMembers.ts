@@ -14,7 +14,8 @@ import { deleteRoom, fetchInvited, invite, leaveRoom, removeMember, uninvite } f
  * members are what the query cache holds (keys.ts), written by the room; undefined until its
  * first snapshot. The owner (`role`) invites by e-mail, takes an invitation back, removes
  * someone and deletes the room; a guest may leave. Whom the owner invited is asked by the owner
- * only. Each change refreshes that and the list of trips, whatever happened.
+ * only. Each change resolves with whether it went or why the room refused it, and refreshes
+ * that and the list of trips, whatever happened.
  *
  * Defined once for the app (defineQuery): every card on the desk reads the same members, and
  * the query and the changes are made once, not per component.
@@ -48,7 +49,7 @@ export const useMembers = defineQuery(() => {
         // each query's own error state reports it
       });
   };
-  const change = <V>(call: (room: RoomId, v: V) => Promise<unknown>) =>
+  const change = <V, R>(call: (room: RoomId, v: V) => Promise<R>) =>
     useMutation({ mutation: (v: V) => call(inRoom(), v), onSettled: refresh });
 
   return {

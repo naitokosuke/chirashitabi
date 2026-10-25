@@ -1,3 +1,20 @@
+<script lang="ts">
+import type { MessageId } from "../../i18n/types";
+
+import type { MembersRefusal } from "./api";
+
+/** What the person is told when the room refuses a change of who is in, for each refusal */
+export const REFUSALS: Record<MembersRefusal, MessageId> = {
+  "no seat": "people.noSeat",
+  "already in": "people.alreadyIn",
+  "already invited": "people.alreadyInvited",
+  "not the owner": "people.notOwner",
+  "not theirs": "people.notOwner",
+  "the owner": "people.isOwner",
+  "not in": "people.notIn",
+};
+</script>
+
 <script setup lang="ts" vapor>
 import { computed, onMounted, ref, shallowRef, useId } from "vue";
 
@@ -18,6 +35,7 @@ import {
 
 import { useI18n } from "../../i18n/useI18n";
 
+import type { Result } from "../../../contract";
 import { KEPT_DAYS } from "../rooms/api";
 import { useInRoom } from "../sync/InRoom.vue";
 import { useOffline } from "../sync/useOffline";
@@ -60,8 +78,18 @@ const ask = (a: Asking) => {
 const cancel = () => (asking.value = null);
 
 const email = ref("");
-/** What did not go through, said once under the list */
-const failed = ref<"invite" | "other" | null>(null);
+/**
+ * What did not go through, said once under the list: why the room refused it, or that it
+ * failed (an invitation, or another change)
+ */
+type Failure =
+  | { kind: "refused"; reason: MembersRefusal }
+  | { kind: "failed"; what: "invite" | "other" };
+const failed = shallowRef<Failure | null>(null);
+const say = (f: Failure) =>
+  f.kind === "refused"
+    ? i18n.t(REFUSALS[f.reason])
+    : i18n.t(f.what === "invite" ? "people.inviteFailed" : "people.failed");
 
 const invite = membership.invite;
 async function sendInvite() {
@@ -70,29 +98,32 @@ async function sendInvite() {
   // an address that is not one is said at once, as the room would refuse it
   const address = parseEmail(email.value);
   if (address === null) {
-    failed.value = "invite";
+    failed.value = { kind: "failed", what: "invite" };
     return;
   }
   try {
-    await invite.mutateAsync(address);
-    email.value = "";
+    const sent = await invite.mutateAsync(address);
+    if (sent.ok) email.value = "";
+    else failed.value = { kind: "refused", reason: sent.reason };
   } catch {
-    failed.value = "invite";
+    failed.value = { kind: "failed", what: "invite" };
   }
 }
 
 /**
- * One change of who is in, and whether it went through; a failure is said, the list is
- * refreshed either way (useMembers)
+ * One change of who is in, and whether it went through; a refusal or a failure is said, the
+ * list is refreshed either way (useMembers). A refused change is not asked again.
  */
-async function run(change: () => Promise<unknown>) {
+async function run(change: () => Promise<Result<void, MembersRefusal>>) {
   failed.value = null;
   try {
-    await change();
+    const done = await change();
     asking.value = null;
-    return true;
+    if (done.ok) return true;
+    failed.value = { kind: "refused", reason: done.reason };
+    return false;
   } catch {
-    failed.value = "other";
+    failed.value = { kind: "failed", what: "other" };
     return false;
   }
 }
@@ -222,9 +253,7 @@ onMounted(() => {
         {{ i18n.t("people.full", { count: SEATS }) }}
       </CtHint>
 
-      <CtMessage v-if="failed !== null" role="alert">
-        {{ i18n.t(failed === "invite" ? "people.inviteFailed" : "people.failed") }}
-      </CtMessage>
+      <CtMessage v-if="failed !== null" role="alert">{{ say(failed) }}</CtMessage>
 
       <!-- the way out: the owner deletes the trip, a guest leaves it -->
       <div class="out">

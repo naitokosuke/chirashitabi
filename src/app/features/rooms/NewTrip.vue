@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, onMounted, ref, useId, useTemplateRef } from "vue";
+import { computed, onMounted, ref, shallowRef, useId, useTemplateRef } from "vue";
 
 import {
   CtBackButton,
@@ -20,6 +20,7 @@ import {
   lengthOf,
 } from "../../../ui/index";
 
+import type { MessageId } from "../../i18n/types";
 import { useI18n } from "../../i18n/useI18n";
 
 import { parseHexColor } from "../../../contract";
@@ -28,6 +29,7 @@ import Icon from "../../icons/Icon.vue";
 import { useOffline } from "../sync/useOffline";
 import { longDate } from "../trip/format";
 
+import type { CreateRefusal } from "./api";
 import { datesLabel, whenLabel } from "./label";
 import { CURRENCIES, DEFAULT_CENTER, MAX_DAYS, MAX_NAME, MEMBER_COLORS, newRoom } from "./newRoom";
 import type { RoomId, RoomSummary } from "./types";
@@ -89,14 +91,24 @@ const preview = computed(() => {
   };
 });
 
-const { mutateAsync, isLoading: busy, error } = useRooms().create;
+const { mutateAsync, isLoading: busy } = useRooms().create;
+/** What did not go through, said above the button: why the Worker refused the trip, or that it failed */
+type Failure = { kind: "refused"; reason: CreateRefusal } | { kind: "failed" };
+const failed = shallowRef<Failure | null>(null);
+/** What the person is told for each refusal */
+const REFUSALS: Record<CreateRefusal, MessageId> = { "at the cap": "rooms.atCap" };
+const say = (f: Failure) =>
+  i18n.t(f.kind === "refused" ? REFUSALS[f.reason] : "rooms.createFailed");
 async function create() {
   const room = filled.value;
   if (busy.value || room === null) return;
+  failed.value = null;
   try {
-    emit("created", await mutateAsync(room));
+    const made = await mutateAsync(room);
+    if (made.ok) emit("created", made.value);
+    else failed.value = { kind: "refused", reason: made.reason };
   } catch {
-    // the mutation's error state says so above the button; the person tries again
+    failed.value = { kind: "failed" };
   }
 }
 
@@ -168,7 +180,7 @@ onMounted(() => nameEl.value?.focus());
     <!-- the one action, always in reach under the fields -->
     <template #foot>
       <div class="act">
-        <CtMessage v-if="error !== null" role="alert">{{ i18n.t("rooms.createFailed") }}</CtMessage>
+        <CtMessage v-if="failed !== null" role="alert">{{ say(failed) }}</CtMessage>
         <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
         <CtButton
           size="lg"

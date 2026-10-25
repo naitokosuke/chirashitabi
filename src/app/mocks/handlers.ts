@@ -85,6 +85,9 @@ const rooms = new Map<RoomId, MockRoom>([
   ],
 ]);
 
+/** Yuki's address: the one person the mocks sign in, as dev-access.mjs names the one on a laptop */
+const ME = v.parse(EmailSchema, "dev@localhost");
+
 /** The app's values as they cross the wire (Temporal values as their ISO strings), checked as the room's are */
 const wire = <S extends v.GenericSchema>(schema: S, value: unknown): v.InferOutput<S> =>
   v.parse(schema, JSON.parse(JSON.stringify(value)));
@@ -419,6 +422,12 @@ const members = [
         { error: "no seat" },
         { status: 409 },
       );
+    // Yuki is in every room here, so her own address is refused as the Worker's index refuses it
+    if (email === ME)
+      return HttpResponse.json<Answer<InRoom["invite"], 409>>(
+        { error: "already in" },
+        { status: 409 },
+      );
     if (room.invited.includes(email))
       return HttpResponse.json<Answer<InRoom["invite"], 409>>(
         { error: "already invited" },
@@ -492,8 +501,7 @@ const mine = [
   http.post("/api/me", () => {
     const entries = [...rooms];
     return HttpResponse.json<Answer<Calls["me"]>>({
-      // the one person the mocks sign in, as dev-access.mjs names the one on a laptop
-      email: v.parse(EmailSchema, "dev@localhost"),
+      email: ME,
       rooms: entries.flatMap(([id, r]) => (r.deletedAt === null ? [summary(id, r)] : [])),
       invitations: [],
       deleted: entries.flatMap(([id, r]) =>
