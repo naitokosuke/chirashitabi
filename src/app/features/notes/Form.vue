@@ -60,12 +60,11 @@ import {
 } from "../place/google-maps";
 import { readHours } from "../place/hours";
 import type { FoundPlace } from "../place/types";
+import { useInRoom } from "../sync/InRoom.vue";
 import { useOffline } from "../sync/useOffline";
-import { useSync } from "../sync/useSync";
 import { useTags } from "../tags/useTags";
 import { durationChoices, durationMessage } from "../trip/format";
 import type { OverBudget } from "../worker/types";
-import { useWorker } from "../worker/useWorker";
 
 import { imageSrc, shrinkImage } from "./image";
 import {
@@ -91,6 +90,8 @@ const store = useNotes();
 const { notes } = store;
 const tags = useTags();
 const i18n = useI18n();
+/** The room the memo is written in, and the Worker that reads and finds for it */
+const here = useInRoom();
 /** Cut off: what needs the Worker is not offered */
 const cut = useOffline();
 const id = useId();
@@ -152,14 +153,13 @@ const expand = useAsk<Expand>({ kind: "idle" });
 async function onMapsUrl() {
   Object.assign(form.value, placeFromUrl(mapsUrl.value, form.value.pin));
   const short = mapsUrl.value.trim();
-  const api = worker.api;
-  if (api === null || cut.offline || !isShortMapsLink(short)) return;
+  if (cut.offline || !isShortMapsLink(short)) return;
   if (expand.state.kind !== "idle" && expand.state.short === short) return;
   // a shared short link hides its point: the Worker reads where it leads, and the link becomes
   // that one, unless something else was pasted meanwhile
   const turn = expand.ask({ kind: "expanding", short });
   try {
-    const answer = await api.expandLink(short, i18n.locale);
+    const answer = await here.api.expandLink(short, i18n.locale);
     // past the budget the short link stays, as when it could not be read; a link pasted
     // meanwhile is the newer one's
     if (!turn.current() || !answer.ok || mapsUrl.value.trim() !== short) return;
@@ -211,10 +211,9 @@ async function onLink() {
     preview.set({ kind: "place" });
     return;
   }
-  const api = worker.api;
-  if (api === null || cut.offline) return;
+  if (cut.offline) return;
   const turn = preview.ask({ kind: "fetching", url });
-  const answer = await api.preview(url).catch(() => null);
+  const answer = await here.api.preview(url).catch(() => null);
   // what came back, a failure too, is about this link only: one written meanwhile is the newer one's
   if (!turn.current() || link.value.trim() !== raw) return;
   if (answer === null) {
@@ -245,8 +244,6 @@ const tagInput = ref("");
 const keepOpen = ref(false);
 
 // ---- a picture on the card: shrunk on the device, kept by the room, then named by its id ----
-const worker = useWorker();
-const sync = useSync();
 /** What sending the picture is doing, or why it is not on the card */
 type Photo = { kind: "idle" | "sending" | "failed" | "full" };
 const photo = useAsk<Photo>({ kind: "idle" });
@@ -256,18 +253,17 @@ const PHOTO_STATE = {
   full: "form.photoFull",
 } as const satisfies Record<Exclude<Photo["kind"], "idle">, string>;
 const photoSrc = computed(() =>
-  form.value.image === null || sync.room === null ? null : imageSrc(sync.room, form.value.image),
+  form.value.image === null ? null : imageSrc(here.room, form.value.image),
 );
 async function onPhoto(e: Event) {
   const input = e.target;
   if (!(input instanceof HTMLInputElement)) return;
   const file = input.files?.[0];
   input.value = ""; // the same photo can be picked again after a failure
-  const api = worker.api;
-  if (file === undefined || api === null) return;
+  if (file === undefined) return;
   const turn = photo.ask({ kind: "sending" });
   try {
-    const kept = await api.uploadImage(await shrinkImage(file));
+    const kept = await here.api.uploadImage(await shrinkImage(file));
     if (!turn.current()) return;
     if (kept.ok) form.value.image = kept.value;
     turn.settle({ kind: kept.ok ? "idle" : "full" });
@@ -295,12 +291,11 @@ const PLACE_STATE = {
 /** What there is to choose from: only once an ask found some */
 const found = computed(() => (places.state.kind === "idle" ? places.state.found : []));
 async function findPlaces() {
-  const api = worker.api;
-  if (api === null || places.state.kind === "asking") return;
+  if (places.state.kind === "asking") return;
   const { title, body, tags: inline } = parseNoteText(text.value);
   const turn = places.ask({ kind: "asking" });
   try {
-    const answer = await api.findPlaces({
+    const answer = await here.api.findPlaces({
       title,
       body,
       tags: [...form.value.tags, ...inline],
@@ -338,11 +333,9 @@ async function nameThePin() {
   mapsUrl.value = googleMapsLink(at);
   void onMapsUrl();
   const auto = mapsUrl.value;
-  const api = worker.api;
-  if (api === null) return;
   const turn = naming.ask({ kind: "naming" });
   // the link to the point is there already; a name is a nicety
-  const place = await api.whereIs(at, i18n.locale).catch(() => null);
+  const place = await here.api.whereIs(at, i18n.locale).catch(() => null);
   if (!turn.current()) return;
   if (place === null) {
     turn.settle({ kind: "idle" });
@@ -362,9 +355,8 @@ const placeHint = computed(() => {
   if (naming.state.kind === "naming") return "form.placeNaming";
   if (expand.state.kind === "expanding") return "form.placeExpanding";
   if (hasPin()) return "form.pinned";
-  if (mapsUrl.value.trim() !== "")
-    return worker.api !== null ? "form.urlNoPinFind" : "form.urlNoPin";
-  return worker.api !== null ? "form.unpinnedFind" : "form.unpinned";
+  if (mapsUrl.value.trim() !== "") return "form.urlNoPinFind";
+  return "form.unpinnedFind";
 });
 
 const textEl = useTemplateRef<{ focus(): void }>("textEl");
@@ -532,12 +524,7 @@ function submit() {
             <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
           </CtField>
           <!-- a phone: the last field, as it was -->
-          <CtField
-            v-if="worker.api !== null"
-            class="photo"
-            :for="`${id}-photo`"
-            :label="i18n.t('form.photo')"
-          >
+          <CtField class="photo" :for="`${id}-photo`" :label="i18n.t('form.photo')">
             <figure v-if="photoSrc !== null">
               <img alt="" :src="photoSrc" />
               <CtChip float @click="removePhoto">{{ i18n.t("form.removePhoto") }}</CtChip>
@@ -567,7 +554,7 @@ function submit() {
             />
             <CtHint aria-live="polite">{{ i18n.t(placeHint) }}</CtHint>
             <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
-            <div v-if="worker.api !== null" class="places">
+            <div class="places">
               <CtButton
                 variant="ask"
                 :disabled="places.state.kind === 'asking' || !text.trim() || cut.offline"

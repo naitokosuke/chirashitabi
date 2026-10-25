@@ -24,7 +24,7 @@ import { isShortMapsLink, placeSearchLink } from "../place/google-maps";
 import type { FoundPlace } from "../place/types";
 import { useAirports } from "../place/useAirports";
 import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
-import { useWorker } from "../worker/useWorker";
+import { useInRoom } from "../sync/InRoom.vue";
 
 import AirportField from "./AirportField.vue";
 import { moveSchedules } from "./apply";
@@ -55,7 +55,7 @@ const i18n = useI18n();
 const id = useId();
 const { rename, setDates, setFlight, setStays } = useTrip();
 const { notes } = useNotes();
-const worker = useWorker();
+const here = useInRoom();
 
 const form = reactive<TripForm>(formOf(props.trip));
 const airports = useAirports();
@@ -112,12 +112,11 @@ async function onStayLink(s: StayForm) {
   readFrom.set(s, short);
   // a new link: the point the old one had is not this one's
   s.pin = null;
-  const api = worker.api;
-  if (api === null || !isShortMapsLink(short)) return;
+  if (!isShortMapsLink(short)) return;
   expanding.set(s, short);
   // the short link stays when it could not be read, and when past the budget; the hint says it
   // has no point
-  const answer = await api.expandLink(short, i18n.locale).catch(() => null);
+  const answer = await here.api.expandLink(short, i18n.locale).catch(() => null);
   // a short link sent meanwhile is still on its way: it says when it is done
   if (expanding.get(s) === short) expanding.delete(s);
   // a link written meanwhile is the newer one's
@@ -137,10 +136,9 @@ const found = reactive(new Map<StayForm, FoundPlace[]>());
 /** Places by the stay's name, from OpenStreetMap: free, so a tap is all it takes */
 async function findStay(s: StayForm) {
   const name = s.name.trim();
-  const api = worker.api;
-  if (api === null || name === "") return;
+  if (name === "") return;
   finding.add(s);
-  const places = await api.findByName(name, i18n.locale).catch((): FoundPlace[] => []);
+  const places = await here.api.findByName(name, i18n.locale).catch((): FoundPlace[] => []);
   finding.delete(s);
   // what was found is for the name asked: one written meanwhile asks again
   if (s.name.trim() === name) found.set(s, places);
@@ -272,7 +270,7 @@ function save() {
           <CtInput :id="`${id}-stay-${i}-name`" v-model="s.name" :maxlength="MAX_NAME" required />
         </CtField>
         <!-- or its place found by its name on OpenStreetMap, one chosen: no link needed -->
-        <div v-if="worker.api !== null" class="find">
+        <div class="find">
           <CtButton
             class="start"
             :busy="finding.has(s)"

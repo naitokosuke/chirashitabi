@@ -142,7 +142,7 @@ It is written as only by the Worker, from inside a request that was authenticate
 Alarms and scheduled handlers never call a paid API; every paid call runs inside a request that `identify` accepted.
 
 The room strips `by` from every client payload and stamps it with the caller's own member id.
-`useSync().me` on the client is for display only.
+`useInRoom().me` on the client is for display only.
 Without the stripping, a human could post a note as the agent, or as the other person.
 
 ## Paid APIs

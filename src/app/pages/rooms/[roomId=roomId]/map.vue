@@ -60,7 +60,6 @@ import { hhmm, shortDate } from "../../../features/trip/format";
 import { flightDays, stayOn, wakeAt } from "../../../features/trip/itinerary";
 import type { Leg } from "../../../features/trip/types";
 import { useTrip } from "../../../features/trip/useTrip";
-import { useWorker } from "../../../features/worker/useWorker";
 import closeIcon from "../../../icons/close.svg";
 import Icon from "../../../icons/Icon.vue";
 import plusIcon from "../../../icons/plus.svg";
@@ -82,8 +81,6 @@ const paperFor = (n: Note) => paperOf(members.value?.find((m) => m.id === n.by)?
 const tags = useTags();
 const { trip, forDay } = useTrip();
 const i18n = useI18n();
-/** Whether a memo's place can be found from its words (the form's "Find the place") */
-const worker = useWorker();
 const price = (amount: number) =>
   trip.value === undefined ? "" : formatMoney(amount, trip.value.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
@@ -418,7 +415,7 @@ function fitAll() {
           </CtScrollRow>
         </div>
         <CtBadge v-if="noPin > 0" as="p" class="unplaced" float>{{
-          i18n.t(worker.api ? "map.noPinFind" : "map.noPin", { count: noPin })
+          i18n.t("map.noPinFind", { count: noPin })
         }}</CtBadge>
       </div>
 

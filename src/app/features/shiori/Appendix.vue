@@ -1,12 +1,13 @@
 <script lang="ts">
 import { shallowRef } from "vue";
 
-import { defineQuery } from "@pinia/colada";
+import { defineQuery, useQueryCache } from "@pinia/colada";
 
 import type { Locale } from "../../i18n/locale";
 
+import type { Here } from "../sync/InRoom.vue";
+import { roomKeys } from "../sync/keys";
 import type { OverBudget } from "../worker/types";
-import { usePublication } from "../worker/usePublication";
 
 /** Putting the booklet up or taking it down: nothing under way, one under way, or why it failed */
 type Publishing =
@@ -15,38 +16,42 @@ type Publishing =
   | { kind: "failed"; why: "failed" | OverBudget["ceiling"] };
 
 /**
- * The booklet as a public page, and the owner's one change to it at a time. Publishing is a
- * budgeted call: a failure, thrown or the budget's refusal, is said under the buttons, and
- * trying again is the owner's tap. Kept while the appendix is not open. Defined once for the
- * app (defineQuery).
+ * The owner's one change at a time to the booklet as a public page (docs/auth-and-security.md):
+ * putting it up (at a new link each time) or taking it down, in the room it is asked in. Each
+ * answer is that room's public page (keys.ts), whichever room is open when it comes. Publishing
+ * is a budgeted call, never retried: a failure, thrown or the budget's refusal, is said under
+ * the buttons, and trying again is the owner's tap. Kept while the appendix is not open.
+ * Defined once for the app (defineQuery).
  */
 const usePublishing = defineQuery(() => {
-  const { publication, publish, withdraw } = usePublication();
+  const queryCache = useQueryCache();
   const state = shallowRef<Publishing>({ kind: "idle" });
 
   /** Puts it up in `lang`, at a new link */
-  async function putUp(lang: Locale) {
+  async function putUp({ room, api }: Here, lang: Locale) {
     if (state.value.kind === "asking") return;
     state.value = { kind: "asking", to: "publish" };
     try {
-      const answer = await publish.mutateAsync(lang);
+      const answer = await api.publish(lang);
+      if (answer.ok) queryCache.setQueryData(roomKeys.publication(room), answer.value);
       state.value = answer.ok ? { kind: "idle" } : { kind: "failed", why: answer.reason.ceiling };
     } catch {
       state.value = { kind: "failed", why: "failed" };
     }
   }
-  async function takeDown() {
+  async function takeDown({ room, api }: Here) {
     if (state.value.kind === "asking") return;
     state.value = { kind: "asking", to: "withdraw" };
     try {
-      await withdraw.mutateAsync();
+      await api.withdraw();
+      queryCache.setQueryData(roomKeys.publication(room), null);
       state.value = { kind: "idle" };
     } catch {
       state.value = { kind: "failed", why: "failed" };
     }
   }
 
-  return { publication, state, putUp, takeDown };
+  return { state, putUp, takeDown };
 });
 </script>
 
@@ -54,6 +59,8 @@ const usePublishing = defineQuery(() => {
 import { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, useId } from "vue";
+
+import { useQuery } from "@pinia/colada";
 
 import {
   CtButton,
@@ -72,11 +79,10 @@ import { paperOf } from "../members/paper";
 import { useMembers } from "../members/useMembers";
 import { ARRIVAL_TAG, PACKING_TAG, type Memo } from "../notes/types";
 import { useNotes } from "../notes/useNotes";
+import { useInRoom } from "../sync/InRoom.vue";
 import { useOffline } from "../sync/useOffline";
-import { useSync } from "../sync/useSync";
 import { calendarOf } from "../trip/calendar";
 import { useTrip } from "../trip/useTrip";
-import { useWorker } from "../worker/useWorker";
 
 /**
  * The booklet's appendix: what to pack and what to do on arrival, ticked off on the notes' own
@@ -86,14 +92,13 @@ import { useWorker } from "../worker/useWorker";
 const store = useNotes();
 const { trip, byTag } = useTrip();
 const { members, me } = useMembers();
-const worker = useWorker();
-const sync = useSync();
+const here = useInRoom();
 const i18n = useI18n();
 /** What the checklists' boxes are named by, so a label can point at its box */
 const id = useId();
 /** Cut off: what needs the Worker is not offered */
 const cut = useOffline();
-const { publication, state: publishing, putUp, takeDown } = usePublishing();
+const { state: publishing, putUp, takeDown } = usePublishing();
 /** A note's paper: whoever wrote it */
 const paperFor = (n: Memo) => paperOf(members.value?.find((m) => m.id === n.by)?.color);
 
@@ -108,8 +113,8 @@ function setChecked(n: Memo, checked: boolean) {
 function downloadCalendar() {
   if (import.meta.env.SSR) return;
   const t = trip.value;
-  if (t === undefined || sync.room === null) return;
-  const ics = calendarOf(t, store.notes.value ?? [], sync.room, Temporal.Now.instant(), {
+  if (t === undefined) return;
+  const ics = calendarOf(t, store.notes.value ?? [], here.room, Temporal.Now.instant(), {
     flight: (number, from, to) => (number === "" ? `${from} → ${to}` : `${number} ${from} → ${to}`),
     // the labels from the messages, the names as they are: a calendar keeps no isolating marks
     stay: (name) => `${i18n.t("shiori.calendarStay")} ${name}`,
@@ -126,6 +131,11 @@ function downloadCalendar() {
 }
 
 // ---- the booklet as a public page: anyone sees whether it is up; the owner puts it up or down ----
+/** Whether the room's booklet is up and where, asked over HTTP (free) and kept per room (keys.ts) */
+const publication = useQuery({
+  key: () => roomKeys.publication(here.room),
+  query: () => here.api.publication(),
+});
 const published = computed(() => publication.data.value ?? null);
 const isOwner = computed(() => me.value?.role === "owner");
 /** Why the last change to the public page did not happen */
@@ -181,45 +191,43 @@ async function copyLink() {
     <CtButton data-turn @click="downloadCalendar">{{ i18n.t("shiori.calendar") }}</CtButton>
     <CtHint data-turn size="sm">{{ i18n.t("shiori.calendarHint") }}</CtHint>
     <!-- the booklet as a page anyone with its link can read -->
-    <template v-if="worker.api !== null">
-      <CtHeading as="h3" data-turn level="minor">{{ i18n.t("shiori.publicTitle") }}</CtHeading>
-      <CtHint data-turn size="sm">{{ i18n.t("shiori.publicHint") }}</CtHint>
-      <CtPanel v-if="published !== null" class="link" data-turn>
-        <CtLink :href="published.url">{{ published.url }}</CtLink>
-        <small>{{ i18n.t("shiori.publishedAt", { at: when(published.at) }) }}</small>
-        <CtButton @click="copyLink">{{
-          i18n.t(copied ? "shiori.copied" : "shiori.copyLink")
-        }}</CtButton>
-      </CtPanel>
-      <CtHint v-else data-turn size="sm">{{
-        i18n.t(isOwner ? "shiori.notPublished" : "shiori.ownerPublishes")
-      }}</CtHint>
-      <!-- one change at a time: either button waits while the other is under way -->
-      <div v-if="isOwner" class="actions" data-turn>
-        <CtButton
-          :disabled="publishing.kind === 'asking' || cut.offline"
-          :busy="publishing.kind === 'asking' && publishing.to === 'publish'"
-          @click="() => putUp(i18n.locale)"
-        >{{
-          i18n.t(
-            publishing.kind === "asking" && publishing.to === "publish"
-              ? "shiori.publishing"
-              : published === null
-                ? "shiori.publish"
-                : "shiori.republish",
-          )
-        }}</CtButton>
-        <CtButton
-          v-if="published !== null"
-          :disabled="publishing.kind === 'asking' || cut.offline"
-          @click="takeDown"
-        >{{ i18n.t("shiori.withdraw") }}</CtButton>
-      </div>
-      <CtMessage v-if="publishing.kind === 'failed'" aria-live="polite" danger>{{
-        i18n.t(FAILED[publishing.why])
-      }}</CtMessage>
-      <CtHint v-else-if="isOwner && cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
-    </template>
+    <CtHeading as="h3" data-turn level="minor">{{ i18n.t("shiori.publicTitle") }}</CtHeading>
+    <CtHint data-turn size="sm">{{ i18n.t("shiori.publicHint") }}</CtHint>
+    <CtPanel v-if="published !== null" class="link" data-turn>
+      <CtLink :href="published.url">{{ published.url }}</CtLink>
+      <small>{{ i18n.t("shiori.publishedAt", { at: when(published.at) }) }}</small>
+      <CtButton @click="copyLink">{{
+        i18n.t(copied ? "shiori.copied" : "shiori.copyLink")
+      }}</CtButton>
+    </CtPanel>
+    <CtHint v-else data-turn size="sm">{{
+      i18n.t(isOwner ? "shiori.notPublished" : "shiori.ownerPublishes")
+    }}</CtHint>
+    <!-- one change at a time: either button waits while the other is under way -->
+    <div v-if="isOwner" class="actions" data-turn>
+      <CtButton
+        :disabled="publishing.kind === 'asking' || cut.offline"
+        :busy="publishing.kind === 'asking' && publishing.to === 'publish'"
+        @click="() => putUp(here, i18n.locale)"
+      >{{
+        i18n.t(
+          publishing.kind === "asking" && publishing.to === "publish"
+            ? "shiori.publishing"
+            : published === null
+              ? "shiori.publish"
+              : "shiori.republish",
+        )
+      }}</CtButton>
+      <CtButton
+        v-if="published !== null"
+        :disabled="publishing.kind === 'asking' || cut.offline"
+        @click="() => takeDown(here)"
+      >{{ i18n.t("shiori.withdraw") }}</CtButton>
+    </div>
+    <CtMessage v-if="publishing.kind === 'failed'" aria-live="polite" danger>{{
+      i18n.t(FAILED[publishing.why])
+    }}</CtMessage>
+    <CtHint v-else-if="isOwner && cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
   </section>
 </template>
 

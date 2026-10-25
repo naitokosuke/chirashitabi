@@ -11,6 +11,7 @@ import Form, { type FormMode } from "../../features/notes/Form.vue";
 import type { NoteInput } from "../../features/notes/types";
 import Rooms from "../../features/rooms/Rooms.vue";
 import Connection from "../../features/sync/Connection.vue";
+import InRoom from "../../features/sync/InRoom.vue";
 import { useRoom } from "../../features/sync/useRoom";
 import { useSync } from "../../features/sync/useSync";
 import { useTrips } from "../useTrips";
@@ -56,9 +57,11 @@ watch(
   },
 );
 
-const inRoom = computed(
-  () => sync.session.kind === "in" && sync.session.room === route.params.roomId,
-);
+/** The session while this device is in the room the URL names; null until then */
+const here = computed(() => {
+  const s = sync.session;
+  return s.kind === "in" && s.room === route.params.roomId ? s : null;
+});
 const tab = computed(() => viewOf(route.name) ?? "canvas");
 const form = computed(() => sheetOf(route.params));
 const BACK = {
@@ -104,7 +107,12 @@ function onSave(input: NoteInput, keepOpen: boolean) {
 </script>
 
 <template>
-  <template v-if="inRoom">
+  <!--
+    Not keyed by the room: a room this device kept, opened straight from another one (back,
+    say), is in at once and keeps the tabs as they are. What InRoom provides follows what it is
+    passed, so a tab kept alive (KeepAlive) reads the room it is in now.
+  -->
+  <InRoom v-if="here !== null" :room="here.room" :me="here.me">
     <!-- a covered tab is inert: the sheet is the one thing to use -->
     <main :inert="sheet !== null">
       <!-- the tabs are layers in the same box: the one coming up fades in over the one going -->
@@ -118,7 +126,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
       <Form v-if="sheet !== null" :mode="sheet" @close="closeSheet" @save="onSave" />
     </Transition>
     <Connection />
-  </template>
+  </InRoom>
   <Rooms
     v-else
     :creating

@@ -56,7 +56,7 @@ In a template or a store, a message is a string.
 
 ```vue
 <button type="button" @click="fitAll">{{ i18n.t("common.fitAll") }}</button>
-<p class="nopin">{{ i18n.t("map.noPin", { count: noPin }) }}</p>
+<p class="nopin">{{ i18n.t("map.noPinFind", { count: noPin }) }}</p>
 ```
 
 `t()` reads the locale, so whatever renders it updates when the locale changes.

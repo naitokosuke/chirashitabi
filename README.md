@@ -73,7 +73,8 @@ src/app/            The app
              links in a note's words); image (a photo or sticker
              shrunk on the device, and where a room's picture is shown from); Form (the note form, new or
              edit, Google Maps link -> coordinates: the memo tab, and a sheet over anything)
-    sync/    useSync (the session: which room, who this device is in it, where changes go); keys
+    sync/    useSync (the session: out, joining or in a room, and where changes go); InRoom (inside a
+             room: which room, who this device is in it, the Worker for it, never null); keys
              (the room's cache keys); useRoom (the socket to a room, written into the cache; its pictures
              fetched while reachable, for the service worker to keep); ledger
              (confirmed state and our unanswered changes); persist (the room kept on the device);
@@ -99,8 +100,8 @@ src/app/            The app
              (screen <-> world, zoom, pinch, fit); useViewport (the animated view); usePlace (adding
              a note on the canvas, placed even before the canvas is opened)
     worker/  WorkerApi: by the room's agent, drafting a day (POST /api/rooms/<id>/draft) and leaving ideas
-             on the canvas (POST /api/rooms/<id>/suggest); usePublication (the booklet as a public page:
-             whether it is up and where; the owner puts it up or takes it down)
+             on the canvas (POST /api/rooms/<id>/suggest), the booklet as a public page and the rest
+             the room asks of it (api.ts)
     toast/   useToast (the shell's one toast: a line, an undo, what happens when it leaves without one);
              Toast (it, read out as it lands)
 
@@ -218,9 +219,9 @@ docs/               Design notes: auth-and-security.md (one hostname behind Acce
 `useSync().commit(mutation)` in `features/sync/useSync.ts` is the only way out.
 `useRoom().connect(roomId)` installs a transport over the room's WebSocket and writes what the room shows into the Pinia Colada query cache, one entry per slice (`roomKeys` in `features/sync/keys.ts`: notes, trip, members).
 `useNotes`, `useTrip` and `useMembers` read those entries with `useQueryState`; only the room writes them.
-A snapshot also sets `useSync().me`, the member this device is.
+A snapshot also says who this device is in the room, which `useInRoom().me` reads (`features/sync/InRoom.vue`).
 Changes the room has not answered stay in the ledger and are sent again after the next snapshot (see `docs/data-fetching.md`).
-`useWorker().api` is the room's agent and pictures over HTTP (`features/worker/api.ts`), set while in a room.
+`useInRoom().api` is the room's agent and pictures over HTTP (`features/worker/api.ts`), there whenever a view is shown inside a room.
 
 `note:move` is throttled to every 80ms while dragging.
 
