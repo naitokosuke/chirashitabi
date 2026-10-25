@@ -3,8 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import { http, HttpResponse, ws, type WebSocketHandlerConnection } from "msw";
 import * as v from "valibot";
 
-import { listOf } from "../shared/list";
-
+import { listOf } from "../../contract";
 import { SEATS, type Member } from "../features/members/types";
 import { ImageIdSchema, NoteIdSchema, parseImageId, type ImageId } from "../features/notes/id";
 import { parseTag, type Note } from "../features/notes/types";

@@ -20,10 +20,9 @@ import {
   lengthOf,
 } from "../../../ui/index";
 
-import { parseHexColor } from "../../shared/color";
-
 import { useI18n } from "../../i18n/useI18n";
 
+import { parseHexColor } from "../../../contract";
 import backIcon from "../../icons/back.svg";
 import Icon from "../../icons/Icon.vue";
 import { useOffline } from "../sync/useOffline";

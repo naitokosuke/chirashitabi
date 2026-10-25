@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 
-import { parseHexColor } from "../../shared/color";
-import type { CurrencyCode } from "../../shared/money";
-
+import { parseHexColor, type CurrencyCode } from "../../../contract";
 import type { MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
 import type { RoomId } from "../rooms/types";

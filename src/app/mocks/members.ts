@@ -1,7 +1,6 @@
 import * as v from "valibot";
 
-import { HexColorSchema } from "../shared/color";
-
+import { HexColorSchema } from "../../contract";
 import { MemberIdSchema, type Member } from "../features/members/types";
 
 // the seed's ids as a room would have minted them: a UUID for a person, `agent:<name>` for its agent

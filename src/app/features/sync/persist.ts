@@ -2,8 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import * as v from "valibot";
 
-import { listOf } from "../../shared/list";
-
+import { listOf } from "../../../contract";
 import { MemberIdSchema, type Email, type MemberId } from "../members/types";
 import type { RoomId } from "../rooms/types";
 

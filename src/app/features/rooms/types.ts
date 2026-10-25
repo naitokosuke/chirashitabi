@@ -2,9 +2,7 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import type * as v from "valibot";
 
-import type { HexColor } from "../../shared/color";
-import type { CurrencyCode } from "../../shared/money";
-
+import type { CurrencyCode, HexColor } from "../../../contract";
 import type { RoomId } from "../../../contract/room";
 import type { ProfileSchema } from "../../../contract/wire";
 import type { Email } from "../members/types";

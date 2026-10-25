@@ -8,7 +8,7 @@
 
 import * as v from "valibot";
 
-import type { ImageType } from "./wire";
+import type { ImageType } from "../contract/wire";
 
 /**
  * Clef's answer: for each question (`t0`, `t1`, …), how likely `noul` is; a question it answered

@@ -1,9 +1,8 @@
 import { hc, type ClientResponse } from "hono/client";
 import * as v from "valibot";
 
-import { listOf } from "../../shared/list";
-
 import type { Api } from "../../../../.worker-types/worker";
+import { listOf } from "../../../contract";
 import type { RoomId } from "../rooms/types";
 
 import { EmailSchema, type Email, type MemberId } from "./types";

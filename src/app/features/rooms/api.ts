@@ -3,10 +3,8 @@ import { Temporal } from "temporal-polyfill-lite";
 import { hc, type ClientResponse } from "hono/client";
 import * as v from "valibot";
 
-import { HexColorSchema } from "../../shared/color";
-import { listOf } from "../../shared/list";
-
 import type { Api } from "../../../../.worker-types/worker";
+import { HexColorSchema, listOf } from "../../../contract";
 import { IsoDateSchema } from "../../../contract/wire";
 import { EmailSchema } from "../members/types";
 

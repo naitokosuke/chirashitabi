@@ -3,10 +3,8 @@ import { Temporal } from "temporal-polyfill-lite";
 import { hc, type ClientResponse } from "hono/client";
 import * as v from "valibot";
 
-import { listOf } from "../../shared/list";
-import type { Result } from "../../shared/result";
-
 import type { Api } from "../../../../.worker-types/worker";
+import { listOf, type Result } from "../../../contract";
 import { MemberIdSchema } from "../members/types";
 import { ImageIdSchema, NoteIdSchema } from "../notes/id";
 import { TagSchema } from "../notes/types";

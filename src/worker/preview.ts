@@ -1,6 +1,6 @@
 import * as v from "valibot";
 
-import { MAX_IMAGE_BYTES, parseImageType, type ImageType } from "./wire";
+import { MAX_IMAGE_BYTES, parseImageType, type ImageType } from "../contract/wire";
 
 /**
  * What a page says of itself (Open Graph: its title, a line and a picture), for a note that

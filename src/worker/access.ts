@@ -6,7 +6,7 @@
 
 import * as v from "valibot";
 
-import { listOf, parseEmail, type Email } from "./types";
+import { listOf, parseEmail, type Email } from "../contract";
 
 export interface AccessConfig {
   /** `<team>.cloudflareaccess.com`: the issuer, and where the signing keys are served */

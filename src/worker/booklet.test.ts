@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vite-plus/test";
 
+import type { WireNote, WireTrip } from "../contract/wire";
+
 import { escapeHtml, renderBooklet } from "./booklet";
-import type { WireNote, WireTrip } from "./wire";
 
 const trip = {
   name: "Taiwan <trip>",

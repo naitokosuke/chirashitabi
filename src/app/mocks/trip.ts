@@ -2,8 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import * as v from "valibot";
 
-import { CurrencyCodeSchema } from "../shared/money";
-
+import { CurrencyCodeSchema } from "../../contract";
 import { AirportCodeSchema } from "../features/place/airports";
 import { HttpUrlSchema } from "../features/place/google-maps";
 import type { TripSnapshot } from "../features/trip/types";

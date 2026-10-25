@@ -2,8 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import type { CurrencyCode } from "../../shared/money";
-
+import type { CurrencyCode } from "../../../contract";
 import type { MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
 import type { Memo, NoteStatus } from "../notes/types";

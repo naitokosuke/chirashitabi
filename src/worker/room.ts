@@ -1,30 +1,24 @@
 import { DurableObject } from "cloudflare:workers";
 import * as v from "valibot";
 
-import { airportCodeOf, parseAirportCode } from "./airports";
-import { renderBooklet } from "./booklet";
-import type { DraftContext, PlaceContext, SuggestContext, TagContext } from "./claude";
+import type { CurrencyCode, HexColor, Result } from "../contract";
+import { airportCodeOf, parseAirportCode } from "../contract/airport";
+import { ImageIdSchema, type ImageId } from "../contract/image";
+import { MemberIdSchema, parseMemberId, type MemberId } from "../contract/member";
+import { NoteIdSchema, type NoteId } from "../contract/note";
+import type { HttpUrl } from "../contract/place";
 import {
-  type HexColor,
-  type HttpUrl,
-  type MemberId,
-  MemberIdSchema,
-  parseMemberId,
-  type ImageId,
-  ImageIdSchema,
-  type NoteId,
-  NoteIdSchema,
-  type Result,
+  SEATS,
+  parseTag,
+  type NoteColor,
+  type NoteStatus,
   type RoomId,
-  type CurrencyCode,
-} from "./types";
+  type Tag,
+} from "../contract/room";
 import {
   COORD,
   IsoDateSchema,
   IsoInstantSchema,
-  SEATS,
-  parseTag,
-  type Tag,
   type Cid,
   type IsoDate,
   type IsoDateTime,
@@ -32,8 +26,6 @@ import {
   type IsoTime,
   type ImageType,
   type Lang,
-  type NoteColor,
-  type NoteStatus,
   type RejectReason,
   type UnreadReason,
   MAX_MESSAGE_BYTES,
@@ -52,7 +44,10 @@ import {
   type Leg,
   type WireFlights,
   type WireStay,
-} from "./wire";
+} from "../contract/wire";
+
+import { renderBooklet } from "./booklet";
+import type { DraftContext, PlaceContext, SuggestContext, TagContext } from "./claude";
 
 export type MemberKind = WireMember["kind"];
 

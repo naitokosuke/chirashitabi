@@ -5,6 +5,22 @@ import { Hono, type Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import * as v from "valibot";
 
+import { EmailSchema, type Email } from "../contract";
+import { parseImageId, type ImageId, ImageIdSchema } from "../contract/image";
+import { type MemberId, MemberIdSchema } from "../contract/member";
+import { NoteIdSchema } from "../contract/note";
+import { isShortMapsLink, LatLngSchema, type LatLng, parseMapsUrl } from "../contract/place";
+import { parseRoomId, parseTag, type RoomId, RoomIdSchema } from "../contract/room";
+import {
+  parseImageType,
+  IsoDateSchema,
+  LangSchema,
+  MAX_IMAGE_BYTES,
+  NewTripSchema,
+  PointSchema,
+  ProfileSchema,
+} from "../contract/wire";
+
 import { AccessVerifier, Unauthenticated } from "./access";
 import { ASK_LENGTH, draftDay, MODEL, namePlace, proposeTags, suggestNotes } from "./claude";
 import { CLEF_MODEL, FITS_AT, judgeTags, MAX_TAGS, type MemoToTag } from "./clef";
@@ -13,33 +29,6 @@ import { geocode, reverseGeocode, type Place } from "./geocode";
 import { preview, previewable } from "./preview";
 import { bookletKey, Room } from "./room";
 import { RoomsIndex, type Refusal } from "./rooms-index";
-import {
-  EmailSchema,
-  type Email,
-  parseImageId,
-  type ImageId,
-  ImageIdSchema,
-  isShortMapsLink,
-  LatLngSchema,
-  type LatLng,
-  type MemberId,
-  MemberIdSchema,
-  NoteIdSchema,
-  parseMapsUrl,
-  parseRoomId,
-  type RoomId,
-  RoomIdSchema,
-} from "./types";
-import {
-  parseImageType,
-  IsoDateSchema,
-  LangSchema,
-  MAX_IMAGE_BYTES,
-  NewTripSchema,
-  parseTag,
-  PointSchema,
-  ProfileSchema,
-} from "./wire";
 
 export { Room, RoomsIndex };
 
