@@ -98,7 +98,16 @@ export const useRoom = defineStore("room", () => {
     if (keepTimer !== null) clearTimeout(keepTimer);
     keepTimer = setTimeout(keepNow, 400);
   }
-  window.addEventListener("pagehide", keepNow);
+  /**
+   * The room being left (for another, for the trips, or with the page), kept as it was. What
+   * the toast holds open in it (a delete waiting on its undo) goes through first, while changes
+   * still go to that room: neither lost, nor told to the room opened next.
+   */
+  function keepLeaving() {
+    if (sync.session.kind === "in") toast.settle();
+    keepNow();
+  }
+  window.addEventListener("pagehide", keepLeaving);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") keepNow();
     // back on the page after the socket gave up: it tries again, as the person would
@@ -258,7 +267,7 @@ export const useRoom = defineStore("room", () => {
   }
 
   function connect(id: RoomId) {
-    keepNow(); // the room being left, as it was
+    keepLeaving();
     // as it was kept on this device, if it was: the booklet opens before the room answers,
     // and what is written offline is signed by who this device was in it
     const was = kept(localStorage, id);
@@ -276,7 +285,7 @@ export const useRoom = defineStore("room", () => {
    * or the rooms screen would open it again at once; what this device kept of it stays.
    */
   function leave() {
-    keepNow();
+    keepLeaving();
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {

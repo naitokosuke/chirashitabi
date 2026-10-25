@@ -9,7 +9,7 @@ import type { Note } from "../../../features/notes/types";
  */
 type Overlay =
   | { kind: "none" }
-  | { kind: "menu"; note: Note; x: number; y: number }
+  | { kind: "menu"; id: NoteId; x: number; y: number }
   | {
       kind: "writing";
       id: NoteId | null;
@@ -95,6 +95,7 @@ import {
 } from "../../../features/place/google-maps";
 import { useInRoom } from "../../../features/sync/InRoom.vue";
 import { useOffline } from "../../../features/sync/useOffline";
+import { useSync } from "../../../features/sync/useSync";
 import FilterBar from "../../../features/tags/FilterBar.vue";
 import { useTags } from "../../../features/tags/useTags";
 import { useToast } from "../../../features/toast/useToast";
@@ -119,6 +120,8 @@ const store = useNotes();
 const { notes } = store;
 const toast = useToast();
 const here = useInRoom();
+/** Where changes go now: an answer is written only while the room it was asked in is open */
+const sync = useSync();
 const tags = useTags();
 const { trip } = useTrip();
 const i18n = useI18n();
@@ -150,10 +153,10 @@ const draggingId = computed(() =>
 const panning = computed(() => gesture.value.kind === "pan");
 // Shallow: replaced whenever what is open changes, or where the menu sits
 const overlay = shallowRef<Overlay>(NONE);
-/** The menu's card as it is now (its color changes while the menu is open) */
+/** The menu's card as it is now (its color changes while the menu is open); none once it went */
 const menuNote = computed(() => {
   const m = overlay.value;
-  return m.kind !== "menu" ? null : (notes.value?.find((n) => n.id === m.note.id) ?? m.note);
+  return m.kind !== "menu" ? null : (notes.value?.find((n) => n.id === m.id) ?? null);
 });
 /**
  * The menu goes, focus staying where it is (a press on the desk, a card deleted); words being
@@ -162,6 +165,13 @@ const menuNote = computed(() => {
 function dropMenu() {
   if (overlay.value.kind === "menu") overlay.value = NONE;
 }
+// a card deleted by the partner, or in another room, takes its menu with it
+watch(
+  () => overlay.value.kind === "menu" && menuNote.value === null,
+  (gone) => {
+    if (gone) dropMenu();
+  },
+);
 
 function noteAt(el: EventTarget | null): Note | undefined {
   const card = el instanceof Element ? el.closest("[data-id]") : null;
@@ -389,7 +399,7 @@ function openMenu(note: Note, { focus = true } = {}) {
   if (card === undefined) return;
   overlay.value = {
     kind: "menu",
-    note,
+    id: note.id,
     x: Math.max(8, card.left - r.left),
     y: Math.max(card.bottom - r.top + CLEAR, 8),
   };
@@ -405,7 +415,7 @@ function openMenu(note: Note, { focus = true } = {}) {
     const dock = document.querySelector("[data-dock]")?.getBoundingClientRect().top ?? r.bottom;
     const floor = Math.min(r.bottom, dock) - r.top - 72;
     const y = below + h > floor ? card.top - r.top - h - CLEAR : below;
-    overlay.value = { kind: "menu", note: overlay.value.note, x, y: Math.max(y, 8) };
+    overlay.value = { kind: "menu", id: overlay.value.id, x, y: Math.max(y, 8) };
     // the keyboard moves into it; a tap that picked the card leaves focus where it was
     if (focus) m.focusFirst();
   });
@@ -425,11 +435,11 @@ const focusCard = (note: Note) =>
     ?.focus();
 /** Close the menu; focus returns to its card when the keyboard was in the menu */
 function closeMenu() {
-  const o = overlay.value;
-  if (o.kind !== "menu") return;
+  const n = menuNote.value;
+  if (overlay.value.kind !== "menu") return;
   const hadFocus = menuEl.value?.holdsFocus() ?? false;
   overlay.value = NONE;
-  if (hadFocus) focusCard(o.note);
+  if (hadFocus && n !== null) focusCard(n);
 }
 /** The menu's card when it is a memo, the only kind that goes on a day */
 const menuMemo = computed(() => (menuNote.value?.kind === "memo" ? menuNote.value : null));
@@ -442,7 +452,7 @@ const onMenuDay = (date: Temporal.PlainDate) =>
   menuMemo.value?.schedule?.date.equals(date) ?? false;
 function duplicateFromMenu() {
   const o = overlay.value;
-  if (o.kind === "menu") store.duplicate(o.note.id);
+  if (o.kind === "menu") store.duplicate(o.id);
   closeMenu();
 }
 function rewriteFromMenu() {
@@ -450,8 +460,8 @@ function rewriteFromMenu() {
   if (n?.kind === "text") rewrite(n);
 }
 function removeFromMenu() {
-  const o = overlay.value;
-  if (o.kind === "menu") remove(o.note);
+  const n = menuNote.value;
+  if (n !== null) remove(n);
 }
 
 // ---- fit ----
@@ -526,8 +536,7 @@ function popped(id: NoteId) {
 /** The shell's toast takes back a note just added */
 const undoAdd = (id: NoteId) => ({ undo: () => store.remove(id) });
 
-// ---- deleting: the card leaves at once; the room hears about it once the toast is gone ----
-const pendingDelete = ref(new Set<NoteId>());
+// ---- deleting: gone from every tab at once; the room hears about it once the toast is gone ----
 const shownNotes = computed(() => {
   // the card under a finger, and the text box being rewritten, read once for all of them
   const h = heldOf(gesture.value);
@@ -536,7 +545,7 @@ const shownNotes = computed(() => {
   return (
     (notes.value ?? [])
       // a text box being rewritten is shown by its field instead
-      .filter((n) => !pendingDelete.value.has(n.id) && n.id !== rewritten)
+      .filter((n) => n.id !== rewritten)
       .map((n) =>
         h?.id !== n.id ? n : { ...n, x: h.x, y: h.y, ...(h.kind === "shape" ? h.shape : {}) },
       )
@@ -548,17 +557,15 @@ function remove(note: Note) {
   const hadFocus =
     card?.contains(document.activeElement) === true || menuEl.value?.holdsFocus() === true;
   dropMenu();
-  pendingDelete.value.add(note.id);
+  const deleting = store.removeLater(here.room, note.id);
   const title = note.kind === "sticker" ? i18n.t("canvas.sticker") : note.title;
   toast.show(i18n.t("canvas.deleted", { title }), {
     undo: () => {
-      pendingDelete.value.delete(note.id);
+      deleting.undo();
       // the card comes back where the keyboard left it
       if (hadFocus) void nextTick(() => focusCard(note));
     },
-    settle: () => {
-      if (pendingDelete.value.delete(note.id)) store.remove(note.id);
-    },
+    settle: deleting.settle,
   });
   // keyboard users land on the undo, not on the page
   if (hadFocus) void nextTick(focusUndo);
@@ -580,14 +587,26 @@ const { mutateAsync: suggestAt, isLoading: thinking } = useMutation({
  * card's toolbar), or none for the whole trip. The words being written are kept apart, so a
  * failed ask keeps them for the next try.
  */
-const asking = shallowRef<{ kind: "closed" } | { kind: "trip" } | { kind: "note"; about: Note }>({
+const asking = shallowRef<{ kind: "closed" } | { kind: "trip" } | { kind: "note"; about: NoteId }>({
   kind: "closed",
 });
+/** The note the ask starts from as it is now; none for the whole trip, or once it went */
+const askAbout = computed(() => {
+  const a = asking.value;
+  return a.kind !== "note" ? null : (notes.value?.find((n) => n.id === a.about) ?? null);
+});
+// a note deleted by the partner, or in another room, takes the ask from it with it; the words stay
+watch(
+  () => asking.value.kind === "note" && askAbout.value === null,
+  (gone) => {
+    if (gone) asking.value = { kind: "closed" };
+  },
+);
 const askWords = ref("");
 const askInput = useTemplateRef<{ focus(): void }>("askInput");
 const askId = useId();
 function openAsk(about: Note | null) {
-  asking.value = about === null ? { kind: "trip" } : { kind: "note", about };
+  asking.value = about === null ? { kind: "trip" } : { kind: "note", about: about.id };
   void nextTick(() => askInput.value?.focus());
 }
 function toggleAsk() {
@@ -615,21 +634,19 @@ function onAskSubmit(e: Event) {
  */
 async function askForIdeas() {
   const a = asking.value;
-  if (thinking.value || a.kind === "closed") return;
+  // where the note is now, and only while it is there
+  const about = askAbout.value;
+  if (thinking.value || a.kind === "closed" || (a.kind === "note" && about === null)) return;
   // the desk is always there while it asks; were it not, its corner
   const r = vp.value?.getBoundingClientRect() ?? { width: 0, height: 0 };
   // the column's middle: a card's width (164px) and a gap past the note's right edge
   const at =
-    a.kind === "trip"
+    about === null
       ? toWorld(r.width / 2, r.height / 2)
-      : { x: a.about.x + 164 * a.about.scale + 24 + 94, y: a.about.y + 40 };
+      : { x: about.x + 164 * about.scale + 24 + 94, y: about.y + 40 };
   asking.value = { kind: "closed" };
   try {
-    const answer = await suggestAt({
-      at,
-      ask: askWords.value,
-      about: a.kind === "note" ? a.about.id : null,
-    });
+    const answer = await suggestAt({ at, ask: askWords.value, about: about?.id ?? null });
     if (!answer.ok) {
       const limit =
         answer.reason.ceiling === "trip" ? "canvas.ideasTripLimit" : "canvas.ideasLimit";
@@ -726,7 +743,7 @@ async function linkCard(url: HttpUrl) {
       // past the budget the short link stays, as when it could not be read
       if (!answer.ok) return;
       const now = store.notes.value?.find((x) => x.id === n.id);
-      // given another link, or gone, meanwhile: where this one leads is not wanted
+      // given another link, or gone (another room open) meanwhile: where it leads is not wanted
       if (now?.kind !== "memo" || now.mapsUrl !== url) return;
       store.update(n.id, placeFromUrl(answer.value.url, answer.value.at ?? now.pin));
     } catch {
@@ -746,7 +763,7 @@ async function linkCard(url: HttpUrl) {
     if (!answer.ok || answer.value === null) return;
     const found = answer.value;
     const now = store.notes.value?.find((x) => x.id === n.id);
-    // written on, or gone, meanwhile: the page's words are not wanted
+    // written on, or gone (another room open), meanwhile: the page's words are not wanted
     if (now?.kind !== "memo" || now.title !== site || now.body !== "") return;
     store.update(n.id, {
       link: found.url,
@@ -772,13 +789,16 @@ function onDrop(e: DragEvent) {
 }
 /**
  * Keep the picture in the room, then stick it with its middle at `at` (a point on the screen;
- * the desk's middle by default). It lands with the pop, and the toast can take it back.
+ * the desk's middle by default). It lands with the pop, and the toast can take it back. The
+ * picture is the room's it was picked in: left meanwhile, nothing is stuck anywhere.
  */
 async function stick(file: Blob, at?: Pt) {
   if (sticking.value) return;
   sticking.value = true;
+  const { room, api } = here;
   try {
-    const kept = await here.api.uploadImage(await shrinkImage(file, STICKER_SIDE));
+    const kept = await api.uploadImage(await shrinkImage(file, STICKER_SIDE));
+    if (sync.room !== room) return;
     if (!kept.ok) {
       toast.show(i18n.t("form.photoFull"));
       return;
@@ -871,9 +891,7 @@ watch(
           :aria-label="i18n.t('canvas.askIdeas')"
           @submit="onAskSubmit"
         >
-          <p v-if="asking.kind === 'note'">{{
-            i18n.t("canvas.askFrom", { title: asking.about.title })
-          }}</p>
+          <p v-if="askAbout !== null">{{ i18n.t("canvas.askFrom", { title: askAbout.title }) }}</p>
           <CtInput
             ref="askInput"
             v-model="askWords"
@@ -962,14 +980,14 @@ watch(
       />
 
       <CtMenu
-        v-if="overlay.kind === 'menu'"
+        v-if="overlay.kind === 'menu' && menuNote !== null"
         ref="menuEl"
-        :label="overlay.note.kind === 'sticker' ? i18n.t('canvas.sticker') : overlay.note.title"
+        :label="menuNote.kind === 'sticker' ? i18n.t('canvas.sticker') : menuNote.title"
         :x="overlay.x"
         :y="overlay.y"
         @close="closeMenu"
       >
-        <CtMenuItem v-if="overlay.note.kind === 'text'" @click="rewriteFromMenu">{{
+        <CtMenuItem v-if="menuNote.kind === 'text'" @click="rewriteFromMenu">{{
           i18n.t("common.edit")
         }}</CtMenuItem>
         <!-- the trip's days: a memo goes on one from the desk, where the ideas are -->
@@ -990,7 +1008,7 @@ watch(
         </CtMenuGroup>
         <!-- the agent's ideas built on this note; a sticker has no words to build on -->
         <CtMenuItem
-          v-if="overlay.note.kind !== 'sticker'"
+          v-if="menuNote.kind !== 'sticker'"
           :disabled="thinking || cut.offline"
           @click="askFromMenu"
         >{{ i18n.t("canvas.ideasFromHere") }}</CtMenuItem>
