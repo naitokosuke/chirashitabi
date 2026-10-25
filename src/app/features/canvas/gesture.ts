@@ -68,7 +68,7 @@ export function heldOf(g: Gesture): Held | null {
   }
 }
 
-/** Sizes a card may be drawn at; the room takes 0.5 to 3 (src/worker/wire.ts) */
+/** Sizes a card may be drawn at; the room takes 0.5 to 3 (MIN_SCALE, MAX_SCALE in contract/wire.ts) */
 const MIN_SCALE = 0.6;
 const MAX_SCALE = 2.5;
 /** Holding Shift while turning snaps to this many degrees */

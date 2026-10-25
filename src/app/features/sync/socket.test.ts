@@ -283,13 +283,25 @@ describe("createRoomSocket", () => {
     expect(unanswered()).toBe(1);
   });
 
-  test("a rejection that names no cid closes the socket so the next snapshot is the truth", () => {
+  test("one of ours the room could not read closes the socket so the next snapshot is the truth", () => {
     const { socket, last } = setup();
     vi.spyOn(console, "warn").mockImplementation(() => {});
     socket.connect(ROOM_1);
     last().serve(snapshot);
-    last().serve({ type: "rejected", reason: "too many messages" });
+    last().serve({ type: "unread", reason: "not JSON" });
     expect(last().closed).toEqual({ code: 4000, reason: "resync" });
+  });
+
+  test("a refusal that names no cid (a card under a finger) is not passed on, and the socket stays", () => {
+    const { socket, sockets, answers, last } = setup();
+    socket.connect(ROOM_1);
+    last().serve(snapshot);
+    last().serve({ type: "rejected", reason: "no such note" });
+    last().serve({ type: "rejected", reason: "too many messages" });
+    expect(answers).toEqual([]);
+    expect(last().closed).toBeNull();
+    expect(socket.status).toBe("connected");
+    expect(sockets).toHaveLength(1);
   });
 
   test("relays a member's mutation", () => {

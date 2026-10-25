@@ -8,7 +8,9 @@ import { MemberIdSchema, parseMemberId, type MemberId } from "../contract/member
 import { NoteIdSchema, type NoteId } from "../contract/note";
 import type { HttpUrl } from "../contract/place";
 import {
+  HEARTBEAT,
   KEPT_DAYS,
+  RATE,
   SEATS,
   parseTag,
   type NoteColor,
@@ -72,12 +74,6 @@ type Profile = v.InferOutput<typeof ProfileSchema>;
 const encode = (message: ServerMessage): string => JSON.stringify(message);
 
 /**
- * Messages a member may send in a window, the drags and the rest each this many: dragging a card
- * sends one every 80ms, and is counted apart so a long drag cannot crowd out a change to keep
- */
-const RATE = { window: 10_000, max: 200 };
-
-/**
  * The cids of a member's changes the room remembers, newest kept: a phone that lost an ack
  * resends the change, and is answered without writing it again. More than a socket ever has in
  * flight when it drops, offline replays included.
@@ -139,7 +135,7 @@ export class Room extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     // the app's heartbeat (features/sync/socket.ts), answered without waking the room
-    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(HEARTBEAT.ping, HEARTBEAT.pong));
     ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS members (
         id TEXT PRIMARY KEY,
@@ -895,7 +891,7 @@ export class Room extends DurableObject<Env> {
     // the client's id for this mutation, once it is known: an answer names it
     let cid: Cid | null = null;
     // what could not be read names no cid; what was read and refused names it when it had one
-    const unread = (reason: UnreadReason) => ws.send(encode({ type: "rejected", reason }));
+    const unread = (reason: UnreadReason) => ws.send(encode({ type: "unread", reason }));
     const reject = (reason: RejectReason) =>
       ws.send(
         encode({
@@ -921,8 +917,12 @@ export class Room extends DurableObject<Env> {
     const mutation = parseMutation(parsed, { by, updatedAt }, parseAirportCode);
     // a card on its way under a finger is relayed, not kept; letting go sends the move with a cid
     const dragging = cid === null && mutation?.type === "note:move";
-    if (!this.withinRate(dragging ? this.#dragRate : this.#rate, by))
-      return reject("too many messages");
+    // and is not answered: one past the window, or of a card already gone, is dropped, the next
+    // one or the snapshot after saying where everything is
+    if (!this.withinRate(dragging ? this.#dragRate : this.#rate, by)) {
+      if (!dragging) reject("too many messages");
+      return;
+    }
     if (mutation === null) return reject("not a mutation");
 
     const sql = this.ctx.storage.sql;
@@ -940,7 +940,7 @@ export class Room extends DurableObject<Env> {
         return ws.send(encode({ type: "ack", cid, updatedAt: again.updated_at }));
     }
 
-    if (dragging && this.note(mutation.id) === undefined) return reject("no such note");
+    if (dragging && this.note(mutation.id) === undefined) return;
     const result: Applied = dragging
       ? { ok: true, value: mutation }
       : this.apply(mutation, by, updatedAt);

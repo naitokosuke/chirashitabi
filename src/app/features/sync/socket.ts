@@ -1,5 +1,8 @@
+import { hc } from "hono/client";
 import * as v from "valibot";
 
+import type { Api } from "../../../../.worker-types/worker";
+import { HEARTBEAT, RATE } from "../../../contract/room";
 import type { RoomId } from "../rooms/types";
 
 import type { Mutation } from "./types";
@@ -30,7 +33,7 @@ export interface SocketLike {
 }
 
 export interface RoomSocketOptions {
-  /** Opens a socket to a room; defaults to a WebSocket on this origin's `/api/rooms/<id>/ws` */
+  /** Opens a socket to a room; defaults to a WebSocket to the room's route on this origin */
   open?: (roomId: RoomId) => SocketLike;
   /**
    * Ours the room has not answered, oldest first (the ledger's). Each goes once on every
@@ -74,14 +77,15 @@ const HEALTHY_MS = 10_000;
 /** A ping this often; no pong by the next one is a link gone without a close (half-open) */
 const PING_MS = 20_000;
 /**
- * How fast ours go: half what the room takes from a member in its window (src/worker/room.ts,
- * RATE), so no window of the room's ever counts more than it takes
+ * How fast ours go: half what the room takes from a member in its window, so no window of the
+ * room's ever counts more than it takes
  */
-const PACE = { window: 10_000, max: 100 };
+const PACE = { window: RATE.window, max: RATE.max / 2 };
 
 function openOnThisOrigin(roomId: RoomId): SocketLike {
-  const scheme = location.protocol === "https:" ? "wss" : "ws";
-  return new WebSocket(`${scheme}://${location.host}/api/rooms/${roomId}/ws`);
+  const url = hc<Api>(location.origin).api.rooms[":roomId"].ws.$url({ param: { roomId } });
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return new WebSocket(url);
 }
 
 /**
@@ -143,7 +147,7 @@ export function createRoomSocket(options: RoomSocketOptions) {
     conn.ws.addEventListener("message", (e) => {
       // superseded by leave(), another room, or a newer socket
       if (line !== room || room.conn !== conn) return;
-      if (e.data === "pong") {
+      if (e.data === HEARTBEAT.pong) {
         conn.ponged = true;
         return;
       }
@@ -185,7 +189,7 @@ export function createRoomSocket(options: RoomSocketOptions) {
       return;
     }
     conn.ponged = false;
-    if (conn.ws.readyState === OPEN) conn.ws.send("ping");
+    if (conn.ws.readyState === OPEN) conn.ws.send(HEARTBEAT.ping);
   }
 
   function retry() {
@@ -222,21 +226,23 @@ export function createRoomSocket(options: RoomSocketOptions) {
       case "ack":
         options.onAck(msg.cid, msg.updatedAt);
         return;
-      case "rejected":
-        if ("cid" in msg && msg.cid !== undefined) {
-          if (msg.reason === "too many messages") {
-            // not refused for what it is: it goes again, and nothing more until a window passes
-            conn.sent.delete(msg.cid);
-            pace = { since: Date.now(), n: PACE.max };
-            flush();
-            return;
-          }
-          options.onRejected(msg.cid, msg.reason);
-          return;
-        }
-        // refused without saying which (it could not read ours): the next snapshot is the truth
+      case "unread":
+        // it could not read one of ours, and cannot say which: the next snapshot is the truth
         console.warn(`room: ${msg.reason}`);
         resync();
+        return;
+      case "rejected":
+        // ours that need an answer all carry a cid; a refusal without one names nothing that
+        // waits on it (a card under a finger), and the socket goes on
+        if (msg.cid === undefined) return;
+        if (msg.reason === "too many messages") {
+          // not refused for what it is: it goes again, and nothing more until a window passes
+          conn.sent.delete(msg.cid);
+          pace = { since: Date.now(), n: PACE.max };
+          flush();
+          return;
+        }
+        options.onRejected(msg.cid, msg.reason);
         return;
       case "members":
         options.onMembers(msg.members);

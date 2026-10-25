@@ -7,8 +7,8 @@ import type { Api } from "../../../../.worker-types/worker";
 import { HexColorSchema, listOf, type Result } from "../../../contract";
 import { KEPT_DAYS } from "../../../contract/room";
 import { IsoDateSchema } from "../../../contract/wire";
-import { DONE, refused, type Refusal } from "../members/api";
 import { EmailSchema, type Email } from "../members/types";
+import { DONE, refused, type Refusal } from "../worker/api";
 
 import { toWire } from "./newRoom";
 import {
@@ -196,17 +196,20 @@ export async function declineInvitation(roomId: RoomId): Promise<void> {
   const res = await invitation.decline.$post({ param: { roomId } });
   if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
 }
-/** A deleted trip back, for everyone who was in it */
+/**
+ * A deleted trip back, for everyone who was in it. One the other person brought back first
+ * has nobody in it as a deleted trip, and is refused as not deleted
+ */
 export async function restoreRoom(roomId: RoomId) {
   const res = await room.restore.$post({ param: { roomId } });
-  if (res.status === 403) return refused(res);
+  if (res.status === 403) return refused(res, "not deleted");
   if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
   return DONE;
 }
-/** A deleted trip gone for good now, by its owner; nobody can restore it after */
+/** A deleted trip gone for good now, by its owner; nobody can restore it after, nor once it is back */
 export async function purgeRoom(roomId: RoomId) {
   const res = await room.purge.$post({ param: { roomId } });
-  if (res.status === 403) return refused(res);
+  if (res.status === 403) return refused(res, "not deleted");
   if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
   return DONE;
 }

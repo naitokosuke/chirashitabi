@@ -1,8 +1,10 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { describe, expect, test } from "vite-plus/test";
+import * as v from "valibot";
+import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 
-import { deletedOf, summaryOf } from "./api";
+import { deletedOf, restoreRoom, summaryOf } from "./api";
+import { RoomIdSchema } from "./types";
 
 const ID = "b082573b-b38b-4298-90be-f034f8b7d898";
 
@@ -65,5 +67,22 @@ describe("deletedOf", () => {
     expect(deletedOf({ id: ID, name: "x" })).toBeNull();
     expect(deletedOf({ id: ID, name: "x", deletedAt: "yesterday" })).toBeNull();
     expect(deletedOf({ id: "nope", name: "x", deletedAt: "2026-10-04T03:00:00Z" })).toBeNull();
+  });
+});
+
+describe("restoreRoom", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test("one the other person brought back first is refused as not deleted, not thrown", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ error: "not a member" }, { status: 403 })),
+    );
+    expect(await restoreRoom(v.parse(RoomIdSchema, ID))).toEqual({
+      ok: false,
+      reason: "not deleted",
+    });
   });
 });

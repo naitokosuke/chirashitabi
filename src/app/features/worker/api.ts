@@ -14,6 +14,45 @@ const inRoom = hc<Api>("/", { headers: { "Content-Type": "application/json" } })
   ":roomId"
 ];
 
+/**
+ * The refusal any room's call may answer before its route runs: the asker is not in the room,
+ * or not in it as the call needs it (a deleted room, to restore it)
+ */
+const OUTSIDER = "not a member" satisfies InferResponseType<
+  typeof inRoom.invited.$post,
+  403
+>["error"];
+
+/**
+ * Why the Worker refused a call (403, 409), as the call's route says: a word the person is told.
+ * The room's own refusal of an outsider is told as one of these (`refused`)
+ */
+export type Refusal<Post> = Exclude<InferResponseType<Post, 403 | 409>["error"], typeof OUTSIDER>;
+
+/** What a refused call answers: JSON naming the refusal */
+type Refused<E> = { json(): Promise<{ error: E }> };
+
+/**
+ * A refusal as its call returns it, with the word the Worker answered; a refusal of an
+ * outsider as `outside`, the word of the call's own that the person is told for it. A 403 from
+ * before the room (not from the app) is plain text, not a refusal: it throws as not JSON.
+ */
+export function refused<E extends string>(res: Refused<E>): Promise<Result<never, E>>;
+export function refused<E extends string, F extends string>(
+  res: Refused<E | typeof OUTSIDER>,
+  outside: F,
+): Promise<Result<never, E | F>>;
+export async function refused(
+  res: Refused<string>,
+  outside?: string,
+): Promise<Result<never, string>> {
+  const { error } = await res.json();
+  return { ok: false, reason: error === OUTSIDER ? (outside ?? error) : error };
+}
+
+/** What a call whose answer is only whether it went returns when it went */
+export const DONE: Result<void, never> = { ok: true, value: undefined };
+
 /** The budget's refusal of a paid call, with the ceiling the Worker says it met */
 async function over(res: {
   json(): Promise<{ ceiling: OverBudget["ceiling"] }>;

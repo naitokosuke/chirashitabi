@@ -20,6 +20,22 @@ export const SEATS = 2;
 /** How many days a deleted room can be restored before it is gone for good */
 export const KEPT_DAYS = 30;
 
+/** The longest a name may be written: a trip's, a stay's, a person's */
+export const MAX_NAME = 60;
+/** The most days a trip may have, and so the most nights a stay may last */
+export const MAX_DAYS = 60;
+/** The longest a flight's number may be written */
+export const MAX_FLIGHT_NO = 20;
+
+/** The app's heartbeat on a room's socket: what it sends, and what the room answers without waking */
+export const HEARTBEAT = { ping: "ping", pong: "pong" } as const;
+
+/**
+ * Messages a member may send a room in a window, the drags and the rest each this many: dragging
+ * a card sends one every 80ms, and is counted apart so a long drag cannot crowd out a change to keep
+ */
+export const RATE = { window: 10_000, max: 200 };
+
 export const COLORS = ["#fff1b8", "#ffd9de", "#d8f0e6", "#dbe7ff", "#ead9ff", "#ffffff"] as const;
 /** A card's paper: one of the palette, never a free CSS value */
 export type NoteColor = (typeof COLORS)[number];

@@ -18,7 +18,7 @@ import { ImageIdSchema } from "./image";
 import { MemberIdSchema } from "./member";
 import { NoteIdSchema } from "./note";
 import { HttpUrlSchema, LatLngSchema } from "./place";
-import { COLORS, STATUSES, TagSchema } from "./room";
+import { COLORS, MAX_DAYS, MAX_FLIGHT_NO, MAX_NAME, STATUSES, TagSchema } from "./room";
 
 export const MAX_MESSAGE_BYTES = 32 * 1024;
 
@@ -29,13 +29,10 @@ const TEXT = 1000;
 const BODY = 4000;
 const TAGS = 20;
 const INTRO = 1000;
-const NAME = 60;
 /** How far a point on the desk may be from its middle, either way */
 export const COORD = 1e6;
-const DAYS = 60;
-const FLIGHT_NO = 20;
 /** Stays in a trip: one a night at most, for a trip as long as it may be */
-const STAYS = DAYS;
+const STAYS = MAX_DAYS;
 
 /** How small and how large a card may be drawn, its own size being 1 */
 export const MIN_SCALE = 0.5;
@@ -52,8 +49,8 @@ export const MAX_IMAGE_BYTES = 1024 * 1024;
 
 // ---- pieces ----
 const text = (max: number) => v.pipe(v.string(), v.maxLength(max));
-/** A name as written, at most NAME long, trimmed and not blank */
-const named = () => v.pipe(v.string(), v.maxLength(NAME), v.trim(), v.nonEmpty());
+/** A name as written, at most MAX_NAME long, trimmed and not blank */
+const named = () => v.pipe(v.string(), v.maxLength(MAX_NAME), v.trim(), v.nonEmpty());
 const finite = (max = COORD) => v.pipe(v.number(), v.finite(), v.minValue(-max), v.maxValue(max));
 const count = (max: number) => v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(max));
 const scale = () => v.pipe(v.number(), v.finite(), v.minValue(MIN_SCALE), v.maxValue(MAX_SCALE));
@@ -119,7 +116,7 @@ export type Lang = v.InferOutput<typeof LangSchema>;
 
 /** The profile a person sets for themselves; the name may be blank, people are told apart by color for now */
 export const ProfileSchema = v.object({
-  name: v.pipe(v.string(), v.maxLength(NAME), v.trim()),
+  name: v.pipe(v.string(), v.maxLength(MAX_NAME), v.trim()),
   color: v.pipe(v.string(), v.toLowerCase(), HexColorSchema),
 });
 
@@ -182,7 +179,7 @@ export type Leg = v.InferOutput<typeof LegSchema>;
  */
 const WireFlightSchema = v.object({
   /** May be blank; trimmed */
-  number: v.pipe(v.string(), v.maxLength(FLIGHT_NO), v.trim()),
+  number: v.pipe(v.string(), v.maxLength(MAX_FLIGHT_NO), v.trim()),
   from: AirportCodeSchema,
   to: AirportCodeSchema,
   departs: v.nullable(toMinute),
@@ -204,7 +201,7 @@ const WireStaySchema = v.pipe(
   v.object({
     name: named(),
     checkIn: IsoDateSchema,
-    nights: count(DAYS),
+    nights: count(MAX_DAYS),
     mapsUrl: v.nullable(HttpUrlSchema),
     pin: v.nullable(LatLngSchema),
   }),
@@ -237,7 +234,7 @@ export const NewTripSchema = v.pipe(
     days: v.pipe(
       v.array(IsoDateSchema),
       v.minLength(1),
-      v.maxLength(DAYS),
+      v.maxLength(MAX_DAYS),
       v.check((days) => new Set(days).size === days.length),
     ),
     currency: CurrencyCodeSchema,
@@ -397,7 +394,7 @@ const mutations = [
   // the trip's name, as written on the desk
   v.object({ type: v.literal("trip:rename"), name: named() }),
   // when the trip is: its first day and how many; everything planned moves with it
-  v.object({ type: v.literal("trip:dates"), first: IsoDateSchema, days: count(DAYS) }),
+  v.object({ type: v.literal("trip:dates"), first: IsoDateSchema, days: count(MAX_DAYS) }),
   // one of its flights, or none
   v.object({
     type: v.literal("trip:flight"),
@@ -435,11 +432,11 @@ export type ClientMessage = ClientMutation & { cid?: Cid };
 
 // ---- what the room sends ----
 
-/** Why the room could not read a message at all */
+/** Why the room could not read a message at all, which it answers as `unread` */
 const UNREAD = ["text only", "too large", "not JSON"] as const;
 export type UnreadReason = (typeof UNREAD)[number];
 
-/** Why the room refused a mutation it read */
+/** Why the room refused a mutation it read, which it answers as `rejected` */
 const REJECT = [
   "too many messages",
   "not a mutation",
@@ -472,16 +469,11 @@ export const ServerMessageSchema = v.variant("type", [
     updatedAt: IsoInstantSchema,
   }),
   v.object({ type: v.literal("ack"), cid: CidSchema, updatedAt: IsoInstantSchema }),
-  v.variant("reason", [
-    // a message the room could not read: it cannot say which of ours it was
-    v.object({ type: v.literal("rejected"), reason: v.picklist(UNREAD) }),
-    // a mutation it read and refused; the cid when the message had one
-    v.object({
-      type: v.literal("rejected"),
-      reason: v.picklist(REJECT),
-      cid: v.optional(CidSchema),
-    }),
-  ]),
+  // a message the room could not read: it cannot say which of ours it was
+  v.object({ type: v.literal("unread"), reason: v.picklist(UNREAD) }),
+  // a mutation it read and refused; the cid when the message had one. A card on its way under
+  // a finger is never refused: one the room would refuse is dropped
+  v.object({ type: v.literal("rejected"), reason: v.picklist(REJECT), cid: v.optional(CidSchema) }),
   // someone joined, was removed or left: who is in the room now
   v.object({ type: v.literal("members"), members: v.array(WireMemberSchema) }),
   // this socket's person is out of the room, or the room was deleted; the socket closes after

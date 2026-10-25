@@ -603,7 +603,10 @@ describe("rooms", () => {
     const { roomId } = await createRoom(ME);
     expect((await invite("not-a-room-id", ME, PARTNER)).status).toBe(404);
     expect((await invite(crypto.randomUUID(), ME, PARTNER)).status).toBe(403);
-    expect((await invite(roomId, STRANGER, PARTNER)).status).toBe(403);
+    expect(await refusal(await invite(roomId, STRANGER, PARTNER))).toEqual([
+      403,
+      { error: "not a member" },
+    ]);
   });
 
   test("me lists each room at a glance: name, days, members and memo count", async () => {
@@ -885,7 +888,11 @@ describe("deleting a room", () => {
     expect((await post(`/api/rooms/${roomId}/restore`, STRANGER)).status).toBe(403);
     expect((await post(`/api/rooms/${roomId}/restore`, guest)).status).toBe(200);
     expect((await listed(owner)).rooms).toMatchObject([{ id: roomId }]);
-    expect((await post(`/api/rooms/${roomId}/restore`, owner)).status).toBe(403); // not deleted
+    // the other one brought it back first: a deleted room has nobody in it now
+    expect(await refusal(await post(`/api/rooms/${roomId}/restore`, owner))).toEqual([
+      403,
+      { error: "not a member" },
+    ]);
     const c = await connect(roomId, owner);
     c.ws.close(1000, "done");
   });
@@ -1623,7 +1630,7 @@ describe("the socket", () => {
     const refused = async (m: unknown) => {
       a.send(m);
       const got = await a.next();
-      if (got.type !== "rejected") throw new Error(got.type);
+      if (got.type !== "rejected" && got.type !== "unread") throw new Error(got.type);
       return got.reason;
     };
 
@@ -1748,6 +1755,22 @@ describe("the socket", () => {
     expect((await a.next()).type).toBe("ack");
     // as many moves under the finger as a window takes, then letting go
     for (let i = 0; i < 200; i++) a.send({ type: "note:move", id: "n1", x: i, y: i });
+    a.send({ type: "note:move", id: "n1", x: 5, y: 5, cid: "let-go" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "let-go" });
+    a.ws.close(1000, "done");
+  });
+
+  test("a card under a finger that is gone, or past the window, is dropped without an answer", async () => {
+    const email = "gone-drag@example.com";
+    const { roomId } = await createRoom(email);
+    const a = await connect(roomId, email);
+    a.send({ type: "note:add", note: memo("n1"), cid: "c1" });
+    expect((await a.next()).type).toBe("ack");
+    // the partner deleted it a moment ago
+    a.send({ type: "note:move", id: "gone", x: 1, y: 2 });
+    // more moves than a window takes
+    for (let i = 0; i < 210; i++) a.send({ type: "note:move", id: "n1", x: i, y: i });
+    // the next thing the sender hears is the answer to its next change: no refusal came before it
     a.send({ type: "note:move", id: "n1", x: 5, y: 5, cid: "let-go" });
     expect(await a.next()).toMatchObject({ type: "ack", cid: "let-go" });
     a.ws.close(1000, "done");
@@ -2044,7 +2067,11 @@ describe("pictures", () => {
     expect(got.headers.get("Cache-Control")).toContain("immutable");
     expect(new Uint8Array(await got.arrayBuffer())).toEqual(BYTES);
 
-    expect((await fetchImage(roomId, id, "stranger-photos@example.com")).status).toBe(403);
+    expect(await refusal(await fetchImage(roomId, id, "stranger-photos@example.com"))).toEqual([
+      403,
+      { error: "not a member" },
+    ]);
+    expect((await fetchImage(roomId, "not-an-id", email)).status).toBe(404);
     expect((await fetchImage(roomId, crypto.randomUUID(), email)).status).toBe(404);
   });
 
