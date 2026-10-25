@@ -1,13 +1,10 @@
 import { Temporal } from "temporal-polyfill-lite";
 
 import { parseCurrencyCode, parseHexColor } from "../../../contract";
+import { MAX_DAYS, MAX_NAME } from "../../../contract/room";
 import type { LatLng } from "../place/types";
 
 import type { NewRoom, Profile } from "./types";
-
-/** The Worker's limits on a new room (src/worker/wire.ts) */
-export const MAX_NAME = 60;
-export const MAX_DAYS = 60;
 
 /** What the form offers */
 export const CURRENCIES = ["TWD", "JPY", "USD", "EUR", "KRW", "THB"] as const;

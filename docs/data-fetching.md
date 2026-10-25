@@ -264,7 +264,7 @@ After a reconnect the snapshot replaces the confirmed state and every unanswered
 So nothing waits on a timer: the open question about how long to hold back is answered by the next ack, rejection or snapshot.
 
 On the wire, a client mutation may carry `cid` beside its fields; the room answers its sender `{ type: "ack", cid, updatedAt }` or `{ type: "rejected", reason, cid }`, relays as before, and treats a mutation without a `cid` (a card's position mid-drag) as before.
-A rejection without a `cid` (a message it could not read) still makes the client resync.
+A message it could not read is answered `{ type: "unread", reason }`, which names no change, and still makes the client resync; a mid-drag move the room would refuse (a card already deleted, or past the rate limit) is dropped without an answer.
 The socket no longer queues: the ledger is what is sent again.
 It sends the ledger's unanswered changes, each once per connection and oldest first, at half the room's rate limit (100 in 10 s); one refused as `too many messages` stays in the ledger and goes again once the window has passed.
 Stores commit through `useSync().commit`; only the room writes the cache.

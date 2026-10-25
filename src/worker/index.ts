@@ -6,7 +6,7 @@ import { createMiddleware } from "hono/factory";
 import * as v from "valibot";
 
 import { EmailSchema, type Email } from "../contract";
-import { parseImageId, type ImageId, ImageIdSchema } from "../contract/image";
+import { type ImageId, ImageIdSchema } from "../contract/image";
 import { type MemberId, MemberIdSchema } from "../contract/member";
 import { NoteIdSchema } from "../contract/note";
 import {
@@ -97,19 +97,21 @@ const identify = createMiddleware<ApiEnv>(async (c, next) => {
 
 /**
  * The asker as a member of the room in the path, as `roomInPath` (before it) checked it, or,
- * `deleted`, of the room as it was; logged with what they asked for
+ * `deleted`, of the room as it was; logged with what they asked for. Anyone else is refused. A
+ * plain handler, as `ownerOnly` is, so the refusal is among the answers hc types the call with
  */
-const member = (action: string, deleted = false) =>
-  createMiddleware<InRoom, string, { out: { param: { roomId: RoomId } } }>(async (c, next) => {
+const member =
+  (action: string, deleted = false) =>
+  async (c: Context<InRoom, string, { out: { param: { roomId: RoomId } } }>, next: Next) => {
     const { roomId } = c.req.valid("param");
     const memberId = await c.env.ROOMS.getByName("index").resolve(c.var.email, roomId, deleted);
-    if (memberId === null) return c.text("Forbidden", 403);
+    if (memberId === null) return c.json(refusal("not a member"), 403);
     c.var.log.set({ room: roomId, member: memberId, action });
     c.set("roomId", roomId);
     c.set("memberId", memberId);
     c.set("room", c.env.ROOM.getByName(roomId));
     await next();
-  });
+  };
 
 /**
  * A paid call the asker's budget did not reserve (docs/auth-and-security.md): logged, and
@@ -198,22 +200,30 @@ const api = new Hono<ApiEnv>()
   .use(evlog({ redact: true }))
   .use(identify)
 
-  .get(`${ROOM}/images/:imageId`, roomInPath(), member("image"), async (c) => {
-    const { roomId, memberId, room } = c.var;
-    const imageId = parseImageId(c.req.param("imageId"));
-    if (imageId === null || !(await room.hasImageFor(memberId, imageId)))
-      return c.text("Not Found", 404);
-    const object = await c.env.IMAGES.get(imageKey(roomId, imageId));
-    if (object === null) return c.text("Not Found", 404);
-    return c.body(object.body, {
-      headers: {
-        "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream",
-        // an id is never reused for other bytes; only this person's browser keeps it
-        "Cache-Control": "private, max-age=31536000, immutable",
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
-  })
+  .get(
+    `${ROOM}/images/:imageId`,
+    // the room and the picture, checked as `roomInPath` checks the room: an id the room could
+    // not have minted is no picture
+    sValidator("param", v.object({ roomId: RoomIdSchema, imageId: ImageIdSchema }), (result, c) =>
+      result.success ? undefined : c.text("Not Found", 404),
+    ),
+    member("image"),
+    async (c) => {
+      const { roomId, memberId, room } = c.var;
+      const { imageId } = c.req.valid("param");
+      if (!(await room.hasImageFor(memberId, imageId))) return c.text("Not Found", 404);
+      const object = await c.env.IMAGES.get(imageKey(roomId, imageId));
+      if (object === null) return c.text("Not Found", 404);
+      return c.body(object.body, {
+        headers: {
+          "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream",
+          // an id is never reused for other bytes; only this person's browser keeps it
+          "Cache-Control": "private, max-age=31536000, immutable",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    },
+  )
 
   // an upload is a POST of the picture's bytes and must come from the app's origin, like any
   // call that changes something

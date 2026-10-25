@@ -24,6 +24,7 @@ import type { MessageId } from "../../i18n/types";
 import { useI18n } from "../../i18n/useI18n";
 
 import { parseHexColor } from "../../../contract";
+import { MAX_DAYS, MAX_NAME } from "../../../contract/room";
 import backIcon from "../../icons/back.svg";
 import Icon from "../../icons/Icon.vue";
 import { useOffline } from "../sync/useOffline";
@@ -31,7 +32,7 @@ import { longDate } from "../trip/format";
 
 import type { CreateRefusal } from "./api";
 import { datesLabel, whenLabel } from "./label";
-import { CURRENCIES, DEFAULT_CENTER, MAX_DAYS, MAX_NAME, MEMBER_COLORS, newRoom } from "./newRoom";
+import { CURRENCIES, DEFAULT_CENTER, MEMBER_COLORS, newRoom } from "./newRoom";
 import type { RoomId, RoomSummary } from "./types";
 import { useRooms } from "./useRooms";
 import { whenOf } from "./when";

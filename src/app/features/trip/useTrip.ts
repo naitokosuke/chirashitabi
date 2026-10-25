@@ -4,9 +4,9 @@ import { computed } from "vue";
 
 import { defineQuery, useQueryState } from "@pinia/colada";
 
+import { MAX_NAME } from "../../../contract/room";
 import type { NoteStatus, Tag } from "../notes/types";
 import { useNotes } from "../notes/useNotes";
-import { MAX_NAME } from "../rooms/newRoom";
 import { roomKeys } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 

@@ -34,6 +34,13 @@ describe("a change of who is in", () => {
     expect(await leaveRoom(ROOM)).toEqual({ ok: false, reason: "the owner" });
   });
 
+  test("asked by someone no longer in the room, says they are not in it", async () => {
+    answer(json({ error: "not a member" }, 403));
+    expect(await invite(ROOM, KEN)).toEqual({ ok: false, reason: "not in" });
+    answer(json({ error: "not a member" }, 403));
+    expect(await leaveRoom(ROOM)).toEqual({ ok: false, reason: "not in" });
+  });
+
   test("throws for a 403 that is no refusal, and for any other answer", async () => {
     answer(new Response("Forbidden", { status: 403 }));
     await expect(leaveRoom(ROOM)).rejects.toThrow();

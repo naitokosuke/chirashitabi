@@ -7,7 +7,14 @@ import * as v from "valibot";
 
 import type { Api } from "../../../.worker-types/worker";
 import { listOf } from "../../contract";
-import { EmailSchema, parseEmail, SEATS, type Email, type Member } from "../features/members/types";
+import { HEARTBEAT } from "../../contract/room";
+import {
+  EmailSchema,
+  MemberIdSchema,
+  SEATS,
+  type Email,
+  type Member,
+} from "../features/members/types";
 import { ImageIdSchema, NoteIdSchema, parseImageId, type ImageId } from "../features/notes/id";
 import { parseTag, type Note } from "../features/notes/types";
 import {
@@ -25,6 +32,7 @@ import { CLAUDE, mockMembers, YUKI } from "./members";
 import { mockNotes } from "./notes";
 import { mockTrip } from "./trip";
 import {
+  IsoDateSchema,
   parseAirportCode,
   IsoInstantSchema,
   NewTripSchema,
@@ -92,7 +100,11 @@ const ME = v.parse(EmailSchema, "dev@localhost");
 const wire = <S extends v.GenericSchema>(schema: S, value: unknown): v.InferOutput<S> =>
   v.parse(schema, JSON.parse(JSON.stringify(value)));
 
-const forbidden = () => new HttpResponse(null, { status: 403 });
+/** The refusal of someone not in the room, as the Worker's membership check answers it */
+const forbidden = () =>
+  Response.json({ error: "not a member" } satisfies Answer<InRoom["invited"], 403>, {
+    status: 403,
+  });
 const notFound = () => new HttpResponse(null, { status: 404 });
 const badRequest = () => new HttpResponse(null, { status: 400 });
 /** A moment as the room stamps it */
@@ -115,10 +127,13 @@ const find = (id: unknown) => {
   return room === null ? undefined : rooms.get(room);
 };
 
-/** A field of a request's JSON body, when it is a string */
-const textOf = (body: unknown, field: string): string | null => {
-  const read = v.safeParse(v.object({ [field]: v.string() }), body);
-  return read.success ? (read.output[field] ?? null) : null;
+/**
+ * A request's JSON body as `schema` reads it, or null where the Worker's route answers 400;
+ * each schema here takes and refuses what the route's does, from the contract's pieces
+ */
+const bodyOf = async <S extends v.GenericSchema>(request: Request, schema: S) => {
+  const read = v.safeParse(schema, await request.json());
+  return read.success ? read.output : null;
 };
 
 /**
@@ -173,8 +188,8 @@ const roomSocket = socket.addEventListener("connection", ({ client, params }) =>
   client.addEventListener("message", (e) => {
     if (typeof e.data !== "string") return;
     // the app's heartbeat, answered as the Worker's room answers it
-    if (e.data === "ping") {
-      client.send("pong");
+    if (e.data === HEARTBEAT.ping) {
+      client.send(HEARTBEAT.pong);
       return;
     }
     const sent: unknown = JSON.parse(e.data);
@@ -190,7 +205,14 @@ const roomSocket = socket.addEventListener("connection", ({ client, params }) =>
       });
       return;
     }
-    // one without a cid is a card on its way under a finger: relayed, not kept
+    // one without a cid is a card on its way under a finger: relayed, not kept, and not answered;
+    // one of a card already gone is dropped
+    if (
+      cid === null &&
+      mutation.type === "note:move" &&
+      !room.state.notes.some((n) => n.id === mutation.id)
+    )
+      return;
     if (cid !== null) {
       const next = applyToRoom(room.state, reviveMutation(mutation), YUKI, at);
       if (next.trip !== null) room.state = { ...next, trip: next.trip };
@@ -211,10 +233,10 @@ const agent = [
   http.post("/api/rooms/:roomId/draft", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const date = textOf(await request.json(), "date");
-    if (date === null) return badRequest();
+    const body = await bodyOf(request, v.object({ date: IsoDateSchema }));
+    if (body === null) return badRequest();
     await wait(THINKING_MS);
-    const day = Temporal.PlainDate.from(date);
+    const day = Temporal.PlainDate.from(body.date);
     const items = room.state.notes.flatMap((n: Note) =>
       n.kind === "memo" && n.schedule !== null && n.schedule.date.equals(day) ? [n.id] : [],
     );
@@ -284,11 +306,14 @@ const agent = [
   http.post("/api/rooms/:roomId/find", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const query = textOf(await request.json(), "query");
-    if (query === null) return badRequest();
+    const body = await bodyOf(
+      request,
+      v.object({ query: v.pipe(v.string(), v.trim(), v.nonEmpty(), v.maxLength(200)) }),
+    );
+    if (body === null) return badRequest();
     const { lat, lng } = room.state.trip.center;
     return HttpResponse.json<Answer<InRoom["find"]>>({
-      places: [{ name: query.trim(), address: "臺北市, 臺灣", lat, lng, hours: null }],
+      places: [{ name: body.query, address: "臺北市, 臺灣", lat, lng, hours: null }],
     });
   }),
   // a short link leads to a point near the trip's center, as maps.app.goo.gl's redirect would;
@@ -298,11 +323,14 @@ const agent = [
   http.post("/api/rooms/:roomId/preview", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const url = textOf(await request.json(), "url");
-    if (url === null) return badRequest();
+    const body = await bodyOf(
+      request,
+      v.object({ url: v.pipe(v.string(), v.trim(), v.maxLength(2000)) }),
+    );
+    if (body === null) return badRequest();
     await wait(THINKING_MS / 2);
     // a page is only at a link a note may carry, as the Worker says
-    const link = parseHttpUrl(url);
+    const link = parseHttpUrl(body.url);
     if (link === null) return HttpResponse.json<Answer<InRoom["preview"]>>({ preview: null });
     const site = new URL(link).hostname.replace(/^www\./, "");
     const frame = new OffscreenCanvas(640, 360);
@@ -333,8 +361,9 @@ const agent = [
   http.post("/api/rooms/:roomId/expand", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const url = textOf(await request.json(), "url");
-    if (url === null) return badRequest();
+    const body = await bodyOf(request, v.object({ url: v.pipe(v.string(), v.maxLength(2000)) }));
+    if (body === null) return badRequest();
+    const { url } = body;
     if (!isShortMapsLink(url))
       return HttpResponse.json<Answer<InRoom["expand"]>>({ url, at: null });
     const { lat, lng } = room.state.trip.center;
@@ -343,15 +372,27 @@ const agent = [
       at: null,
     });
   }),
-  // the memo's title as one place near the trip's center, open in the evening, as OpenStreetMap writes it
+  // the memo's words (its title, or its body without one) as one place near the trip's center,
+  // open in the evening, as OpenStreetMap writes it
   http.post("/api/rooms/:roomId/places", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const title = textOf(await request.json(), "title");
-    if (title === null) return badRequest();
+    const body = await bodyOf(
+      request,
+      v.pipe(
+        v.object({
+          title: v.fallback(v.pipe(v.string(), v.trim()), ""),
+          body: v.fallback(v.pipe(v.string(), v.trim()), ""),
+        }),
+        // a memo with no words names no place
+        v.check(({ title, body }) => title !== "" || body !== ""),
+      ),
+    );
+    if (body === null) return badRequest();
+    const name = body.title === "" ? body.body.slice(0, 40) : body.title;
     const { lat, lng } = room.state.trip.center;
     return HttpResponse.json<Answer<InRoom["places"]>>({
-      places: [{ name: title, address: "臺北市, 臺灣", lat, lng, hours: "Mo-Su 17:00-24:00" }],
+      places: [{ name, address: "臺北市, 臺灣", lat, lng, hours: "Mo-Su 17:00-24:00" }],
     });
   }),
   http.post("/api/rooms/:roomId/where", ({ params }) =>
@@ -414,8 +455,9 @@ const members = [
   http.post("/api/rooms/:roomId/invite", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const email = parseEmail(textOf(await request.json(), "email"));
-    if (email === null) return badRequest();
+    const body = await bodyOf(request, v.object({ email: EmailSchema }));
+    if (body === null) return badRequest();
+    const { email } = body;
     const people = room.state.members.filter((m) => m.kind === "person").length;
     if (people + room.invited.length >= SEATS)
       return HttpResponse.json<Answer<InRoom["invite"], 409>>(
@@ -439,19 +481,19 @@ const members = [
   http.post("/api/rooms/:roomId/uninvite", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const email = parseEmail(textOf(await request.json(), "email"));
-    if (email === null) return badRequest();
-    if (!room.invited.includes(email)) return notFound();
-    room.invited = room.invited.filter((e) => e !== email);
+    const body = await bodyOf(request, v.object({ email: EmailSchema }));
+    if (body === null) return badRequest();
+    if (!room.invited.includes(body.email)) return notFound();
+    room.invited = room.invited.filter((e) => e !== body.email);
     return HttpResponse.json<Answer<InRoom["uninvite"]>>({});
   }),
   http.post("/api/rooms/:roomId/remove", async ({ params, request }) => {
     const id = parseRoomId(params.roomId);
     const room = open(params.roomId);
     if (id === null || room === undefined) return forbidden();
-    const member = textOf(await request.json(), "member");
-    if (member === null) return badRequest();
-    const gone = room.state.members.find((m) => m.id === member);
+    const body = await bodyOf(request, v.object({ member: MemberIdSchema }));
+    if (body === null) return badRequest();
+    const gone = room.state.members.find((m) => m.id === body.member);
     if (gone?.kind !== "person")
       return HttpResponse.json<Answer<InRoom["remove"], 403>>({ error: "not in" }, { status: 403 });
     if (gone.role === "owner")

@@ -17,20 +17,19 @@ import {
 
 import { useI18n } from "../../i18n/useI18n";
 
+import { MAX_DAYS, MAX_FLIGHT_NO, MAX_NAME } from "../../../contract/room";
 import Icon from "../../icons/Icon.vue";
 import plusIcon from "../../icons/plus.svg";
 import { useNotes } from "../notes/useNotes";
 import { isShortMapsLink, placeSearchLink } from "../place/google-maps";
 import type { FoundPlace } from "../place/types";
 import { useAirports } from "../place/useAirports";
-import { MAX_DAYS, MAX_NAME } from "../rooms/newRoom";
 import { useInRoom } from "../sync/InRoom.vue";
 
 import AirportField from "./AirportField.vue";
 import { moveSchedules } from "./apply";
 import {
   formOf,
-  MAX_FLIGHT_NO,
   newFlight,
   newStay,
   sameFlight,
