@@ -1,15 +1,10 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { hc, type ClientResponse } from "hono/client";
-import * as v from "valibot";
+import { hc, type InferResponseType } from "hono/client";
 
 import type { Api } from "../../../../.worker-types/worker";
-import { listOf, type Result } from "../../../contract";
-import { MemberIdSchema } from "../members/types";
-import { ImageIdSchema, NoteIdSchema } from "../notes/id";
-import { TagSchema } from "../notes/types";
-import { HttpUrlSchema } from "../place/google-maps";
-import { LatLngSchema, type FoundPlace } from "../place/types";
+import type { Result } from "../../../contract";
+import type { FoundPlace } from "../place/types";
 import type { RoomId } from "../rooms/types";
 
 import type { OverBudget, Publication, WorkerApi } from "./types";
@@ -19,79 +14,38 @@ const inRoom = hc<Api>("/", { headers: { "Content-Type": "application/json" } })
   ":roomId"
 ];
 
-/** One of the room's paid calls: its answer as `schema` reads it, or the budget's refusal */
-async function budgeted<S extends v.GenericSchema>(
-  request: Promise<ClientResponse<unknown>>,
-  schema: S,
-): Promise<Result<v.InferOutput<S>, OverBudget>> {
-  const res = await request;
-  if (res.status === 429) {
-    const ceiling = (await res.text()).endsWith("trip") ? "trip" : "day";
-    return { ok: false, reason: { kind: "over", ceiling } };
-  }
-  if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
-  return { ok: true, value: await answerOf(res, schema) };
+/** The budget's refusal of a paid call, with the ceiling the Worker says it met */
+async function over(res: {
+  json(): Promise<{ ceiling: OverBudget["ceiling"] }>;
+}): Promise<Result<never, OverBudget>> {
+  const { ceiling } = await res.json();
+  return { ok: false, reason: { kind: "over", ceiling } };
 }
 
-/** One of the room's free calls, its answer as `schema` reads it: the budget never answers it */
-async function free<S extends v.GenericSchema>(
-  request: Promise<ClientResponse<unknown>>,
-  schema: S,
-): Promise<v.InferOutput<S>> {
-  const res = await request;
-  if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
-  return answerOf(res, schema);
-}
-
-/** An answer's value read on, a refusal passed along as it was */
-const read = <T, U, R>(answer: Result<T, R>, f: (value: T) => U): Result<U, R> =>
-  answer.ok ? { ok: true, value: f(answer.value) } : answer;
-
-/**
- * The answer's JSON as `schema` reads it. Its fields fall back where an answer may go without
- * them, so only an answer that is not what the call returns at all is an error
- */
-async function answerOf<S extends v.GenericSchema>(
-  res: { url: string; json(): Promise<unknown> },
-  schema: S,
-): Promise<v.InferOutput<S>> {
-  const answer = v.safeParse(schema, await res.json());
-  if (!answer.success) throw new Error(`${res.url} answered with something else`);
-  return answer.output;
-}
-
-const finite = v.pipe(v.number(), v.finite());
-
-/** A place as the Worker sends it: its point as `lat` and `lng` beside its name */
-const PlaceSchema = v.pipe(
-  v.object({
-    ...LatLngSchema.entries,
-    name: v.string(),
-    address: v.string(),
-    hours: v.nullable(v.string()),
-  }),
-  v.transform(({ name, address, lat, lng, hours }): FoundPlace => ({
-    name,
-    address,
-    at: { lat, lng },
-    hours,
-  })),
-);
-
-/** A page's preview as the Worker found it; the picture's id is one the room keeps */
-const LinkPreviewSchema = v.object({
-  url: HttpUrlSchema,
-  site: v.string(),
-  title: v.fallback(v.nullable(v.string()), null),
-  description: v.fallback(v.nullable(v.string()), null),
-  image: v.fallback(v.nullable(ImageIdSchema), null),
+/** A place as the Worker sends it, its point as `lat` and `lng` beside its name */
+const foundOf = ({
+  name,
+  address,
+  lat,
+  lng,
+  hours,
+}: InferResponseType<typeof inRoom.find.$post, 200>["places"][number]): FoundPlace => ({
+  name,
+  address,
+  at: { lat, lng },
+  hours,
 });
 
-/** The public booklet as the Worker says where it is: an https link on its own host, and when */
-const PublicationSchema = v.pipe(
-  v.object({ url: HttpUrlSchema, at: v.pipe(v.string(), v.isoTimestamp()) }),
-  v.transform(({ url, at }): Publication => ({ url, at: Temporal.Instant.from(at) })),
-);
+/** The public booklet as the Worker says where it is, and as of when */
+const publicationOf = ({
+  url,
+  at,
+}: NonNullable<
+  InferResponseType<typeof inRoom.publication.$post, 200>["publication"]
+>): Publication => ({
+  url,
+  at: Temporal.Instant.from(at),
+});
 
 /** HH:MM as a time, or null when it is none or not one */
 function timeOf(time: string | null): Temporal.PlainTime | null {
@@ -103,141 +57,106 @@ function timeOf(time: string | null): Temporal.PlainTime | null {
   }
 }
 
-/** The Worker's calls for one room; the agent's are paid calls, made only when a member asks */
+/**
+ * The Worker's calls for one room; the agent's are paid calls, made only when a member asks.
+ * An answer other than the ones a call expects is an error the caller's state can hold.
+ */
 export const roomWorkerApi = (room: RoomId): WorkerApi => ({
   async uploadImage(image) {
-    const res = await fetch(`/api/rooms/${room}/images`, {
-      method: "POST",
-      headers: { "Content-Type": image.type },
-      body: image,
-    });
+    const res = await inRoom.images.$post(
+      { param: { roomId: room } },
+      // the picture's own bytes and type, not JSON
+      { headers: { "Content-Type": image.type }, init: { body: image } },
+    );
     if (res.status === 409) return { ok: false, reason: { kind: "full" } };
-    if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
-    const { id } = await answerOf(res, v.object({ id: ImageIdSchema }));
-    return { ok: true, value: id };
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+    return { ok: true, value: (await res.json()).id };
   },
   async suggestTags(memo) {
-    return read(
-      await budgeted(
-        inRoom.tags.$post({ param: { roomId: room }, json: memo }),
-        v.object({
-          tags: listOf(v.object({ tag: TagSchema, p: finite, isNew: v.boolean() })),
-        }),
-      ),
-      ({ tags }) => tags,
-    );
+    const res = await inRoom.tags.$post({ param: { roomId: room }, json: memo });
+    if (res.status === 429) return over(res);
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+    return { ok: true, value: (await res.json()).tags };
   },
   async tagCandidates() {
-    const { tags } = await free(
-      inRoom.candidates.$post({ param: { roomId: room } }),
-      v.object({ tags: listOf(TagSchema) }),
-    );
-    return tags;
+    const res = await inRoom.candidates.$post({ param: { roomId: room } });
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+    return (await res.json()).tags;
   },
   async findPlaces(memo) {
-    return read(
-      await budgeted(
-        inRoom.places.$post({ param: { roomId: room }, json: memo }),
-        v.object({ places: listOf(PlaceSchema) }),
-      ),
-      ({ places }) => places,
-    );
+    const res = await inRoom.places.$post({ param: { roomId: room }, json: memo });
+    if (res.status === 429) return over(res);
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+    return { ok: true, value: (await res.json()).places.map(foundOf) };
   },
   async findByName(query, lang) {
-    const { places } = await free(
-      inRoom.find.$post({ param: { roomId: room }, json: { query, lang } }),
-      v.object({ places: listOf(PlaceSchema) }),
-    );
-    return places;
+    const res = await inRoom.find.$post({ param: { roomId: room }, json: { query, lang } });
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+    return (await res.json()).places.map(foundOf);
   },
   async expandLink(url, lang) {
-    return budgeted(
-      inRoom.expand.$post({ param: { roomId: room }, json: { url, lang } }),
-      v.object({
-        // a link the Worker does not give back is the one asked about
-        url: v.fallback(v.string(), url),
-        at: v.fallback(v.nullable(LatLngSchema), null),
-      }),
-    );
+    const res = await inRoom.expand.$post({ param: { roomId: room }, json: { url, lang } });
+    if (res.status === 429) return over(res);
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+    return { ok: true, value: await res.json() };
   },
   async whereIs(at, lang) {
-    const { place } = await free(
-      inRoom.where.$post({ param: { roomId: room }, json: { lat: at.lat, lng: at.lng, lang } }),
-      v.object({ place: v.fallback(v.nullable(PlaceSchema), null) }),
-    );
-    return place;
+    const res = await inRoom.where.$post({
+      param: { roomId: room },
+      json: { lat: at.lat, lng: at.lng, lang },
+    });
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+    const { place } = await res.json();
+    return place === null ? null : foundOf(place);
   },
   async suggest({ at, ask, about }) {
-    return read(
-      await budgeted(
-        inRoom.suggest.$post({
-          param: { roomId: room },
-          json: { at, ask, ...(about === null ? {} : { about }) },
-        }),
-        v.object({ added: v.fallback(finite, 0) }),
-      ),
-      ({ added }) => added,
-    );
+    const res = await inRoom.suggest.$post({ param: { roomId: room }, json: { at, ask, about } });
+    if (res.status === 429) return over(res);
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+    return { ok: true, value: (await res.json()).added };
   },
   async draftDay(date, notes) {
-    return read(
-      await budgeted(
-        inRoom.draft.$post({ param: { roomId: room }, json: { date: date.toString() } }),
-        v.object({
-          by: v.fallback(v.nullable(MemberIdSchema), null),
-          reason: v.fallback(v.string(), ""),
-          intro: v.fallback(v.string(), ""),
-          items: listOf(
-            v.object({
-              id: NoteIdSchema,
-              time: v.fallback(v.nullable(v.string()), null),
-              // a Worker from before drafts said how long sends none
-              minutes: v.fallback(
-                v.nullable(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(24 * 60))),
-                null,
-              ),
-            }),
-          ),
-        }),
-      ),
-      (d) => ({
-        by: d.by,
-        reason: d.reason,
-        intro: d.intro,
+    const res = await inRoom.draft.$post({
+      param: { roomId: room },
+      json: { date: date.toString() },
+    });
+    if (res.status === 429) return over(res);
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+    const { by, reason, intro, items } = await res.json();
+    return {
+      ok: true,
+      value: {
+        by,
+        reason,
+        intro,
         // the draft names the notes it was given; one that has since gone is left out
-        items: d.items.flatMap((it) => {
+        items: items.flatMap((it) => {
           const note = notes.find((n) => n.id === it.id);
           return note === undefined ? [] : [{ note, time: timeOf(it.time), minutes: it.minutes }];
         }),
-      }),
-    );
+      },
+    };
   },
   async preview(url) {
-    return read(
-      await budgeted(
-        inRoom.preview.$post({ param: { roomId: room }, json: { url } }),
-        v.object({ preview: v.nullable(LinkPreviewSchema) }),
-      ),
-      ({ preview }) => preview,
-    );
+    const res = await inRoom.preview.$post({ param: { roomId: room }, json: { url } });
+    if (res.status === 429) return over(res);
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+    return { ok: true, value: (await res.json()).preview };
   },
   async publication() {
-    const { publication } = await free(
-      inRoom.publication.$post({ param: { roomId: room } }),
-      v.object({ publication: v.nullable(PublicationSchema) }),
-    );
-    return publication;
+    const res = await inRoom.publication.$post({ param: { roomId: room } });
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+    const { publication } = await res.json();
+    return publication === null ? null : publicationOf(publication);
   },
   async publish(lang) {
-    return read(
-      await budgeted(
-        inRoom.publish.$post({ param: { roomId: room }, json: { lang } }),
-        v.object({ publication: PublicationSchema }),
-      ),
-      ({ publication }) => publication,
-    );
+    const res = await inRoom.publish.$post({ param: { roomId: room }, json: { lang } });
+    if (res.status === 429) return over(res);
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+    return { ok: true, value: publicationOf((await res.json()).publication) };
   },
   async withdraw() {
-    await free(inRoom.withdraw.$post({ param: { roomId: room } }), v.object({}));
+    const res = await inRoom.withdraw.$post({ param: { roomId: room } });
+    if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
   },
 });

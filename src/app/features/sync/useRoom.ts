@@ -8,6 +8,7 @@ import { type EntryKeyTagged, useQueryCache } from "@pinia/colada";
 
 import { useI18n } from "../../i18n/useI18n";
 
+import type { Email } from "../members/types";
 import type { ImageId } from "../notes/id";
 import { imageSrc } from "../notes/image";
 import type { Note } from "../notes/types";
@@ -190,14 +191,12 @@ export const useRoom = defineStore("room", () => {
    * sign in again), everything stays.
    */
   async function check() {
-    let mine: Mine;
+    let mine: Mine & { email: Email };
     try {
       mine = await askMine();
     } catch {
       return;
     }
-    // a Worker from before it said who is asking: nothing to tell
-    if (mine.email === null) return;
     const someoneElse = claim(localStorage, mine.email);
     const rooms = mine.rooms.map((r) => r.id);
     prune(localStorage, rooms);

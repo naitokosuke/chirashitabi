@@ -7,7 +7,7 @@ import { deletedOf, summaryOf } from "./api";
 const ID = "b082573b-b38b-4298-90be-f034f8b7d898";
 
 describe("summaryOf", () => {
-  test("reads an entry of /api/me", () => {
+  test("reads an entry of the list this device kept", () => {
     const s = summaryOf({
       id: ID,
       name: "Taiwan trip",

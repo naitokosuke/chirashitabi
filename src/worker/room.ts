@@ -8,6 +8,7 @@ import { MemberIdSchema, parseMemberId, type MemberId } from "../contract/member
 import { NoteIdSchema, type NoteId } from "../contract/note";
 import type { HttpUrl } from "../contract/place";
 import {
+  KEPT_DAYS,
   SEATS,
   parseTag,
   type NoteColor,
@@ -584,8 +585,8 @@ export class Room extends DurableObject<Env> {
     return { ok: true };
   }
 
-  /** How long a deleted room can be restored */
-  static readonly DELETE_AFTER = 30 * 24 * 60 * 60 * 1000;
+  /** How long a deleted room can be restored: KEPT_DAYS, in milliseconds */
+  static readonly DELETE_AFTER = KEPT_DAYS * 24 * 60 * 60 * 1000;
 
   /** When the room was deleted, or null while it is not */
   deletedAt(): string | null {
