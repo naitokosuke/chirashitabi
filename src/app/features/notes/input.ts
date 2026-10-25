@@ -1,8 +1,12 @@
+import { Temporal } from "temporal-polyfill-lite";
+
+import { parseHttpUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
 
 import {
   COLORS,
   parseTag,
+  type Booking,
   type Memo,
   type MemoPatch,
   type Note,
@@ -68,6 +72,37 @@ export const blankInput = (tags: Iterable<Tag>, pin: LatLng | null): NoteInput =
   due: null,
   assignee: null,
 });
+
+/**
+ * A booking as the form holds it while it is written: none, or what its choice asks for, as
+ * typed. Only the fields of the choice made are there, so a number with no booking cannot be.
+ */
+export type BookingDraft =
+  | { state: "none" }
+  | { state: "needed"; by: string }
+  | { state: "booked"; code: string; url: string };
+
+/** The fields as a booking fills them */
+export function bookingDraft(b: Booking | null): BookingDraft {
+  if (b === null) return { state: "none" };
+  if (b.state === "needed") return { state: "needed", by: b.by?.toString() ?? "" };
+  return { state: "booked", code: b.code, url: b.url ?? "" };
+}
+
+/** A choice from the list, what it asks for still blank; what is no choice is no booking */
+export function chosenBooking(state: string): BookingDraft {
+  if (state === "needed") return { state: "needed", by: "" };
+  if (state === "booked") return { state: "booked", code: "", url: "" };
+  return { state: "none" };
+}
+
+/** The booking as the fields say it; a page that is no http(s) link is none */
+export function bookingOf(d: BookingDraft): Booking | null {
+  if (d.state === "none") return null;
+  if (d.state === "needed")
+    return { state: "needed", by: d.by === "" ? null : Temporal.PlainDate.from(d.by) };
+  return { state: "booked", code: d.code.trim(), url: parseHttpUrl(d.url.trim()) };
+}
 
 /** A copy keeps the words and the look, not the place */
 export const duplicateInput = (n: Note): NoteInput => ({
