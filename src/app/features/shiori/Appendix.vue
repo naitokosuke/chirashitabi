@@ -5,53 +5,64 @@ import { defineQuery, useQueryCache } from "@pinia/colada";
 
 import type { Locale } from "../../i18n/locale";
 
+import type { RoomId } from "../rooms/types";
 import type { Here } from "../sync/InRoom.vue";
 import { roomKeys } from "../sync/keys";
 import type { OverBudget } from "../worker/types";
 
-/** Putting the booklet up or taking it down: nothing under way, one under way, or why it failed */
+/**
+ * Putting a room's booklet up or taking it down: nothing under way, one under way, or why it
+ * failed
+ */
 type Publishing =
   | { kind: "idle" }
   | { kind: "asking"; to: "publish" | "withdraw" }
   | { kind: "failed"; why: "failed" | OverBudget["ceiling"] };
 
 /**
- * The owner's one change at a time to the booklet as a public page (docs/auth-and-security.md):
- * putting it up (at a new link each time) or taking it down, in the room it is asked in. Each
- * answer is that room's public page (keys.ts), whichever room is open when it comes. Publishing
- * is a budgeted call, never retried: a failure, thrown or the budget's refusal, is said under
- * the buttons, and trying again is the owner's tap. Kept while the appendix is not open.
- * Defined once for the app (defineQuery).
+ * The owner's one change at a time in each room to the booklet as a public page
+ * (docs/auth-and-security.md): putting it up (at a new link each time) or taking it down, in
+ * the room it is asked in. Each answer, and how the change went, is that room's (keys.ts),
+ * whichever room is open when it comes. Publishing is a budgeted call, never retried: a
+ * failure, thrown or the budget's refusal, is said under the buttons, and trying again is the
+ * owner's tap. Kept while the appendix is not open. Defined once for the app (defineQuery).
  */
 const usePublishing = defineQuery(() => {
   const queryCache = useQueryCache();
-  const state = shallowRef<Publishing>({ kind: "idle" });
+  /** Each room's change under way or failed */
+  const changes = shallowRef<ReadonlyMap<RoomId, Publishing>>(new Map());
+
+  /** How the last change in `room` went; nothing under way when none was asked there */
+  const publishingIn = (room: RoomId): Publishing => changes.value.get(room) ?? { kind: "idle" };
+  function keep(room: RoomId, state: Publishing) {
+    changes.value = new Map(changes.value).set(room, state);
+  }
 
   /** Puts it up in `lang`, at a new link */
   async function putUp({ room, api }: Here, lang: Locale) {
-    if (state.value.kind === "asking") return;
-    state.value = { kind: "asking", to: "publish" };
+    if (publishingIn(room).kind === "asking") return;
+    keep(room, { kind: "asking", to: "publish" });
     try {
       const answer = await api.publish(lang);
       if (answer.ok) queryCache.setQueryData(roomKeys.publication(room), answer.value);
-      state.value = answer.ok ? { kind: "idle" } : { kind: "failed", why: answer.reason.ceiling };
+      keep(room, answer.ok ? { kind: "idle" } : { kind: "failed", why: answer.reason.ceiling });
     } catch {
-      state.value = { kind: "failed", why: "failed" };
+      keep(room, { kind: "failed", why: "failed" });
     }
   }
   async function takeDown({ room, api }: Here) {
-    if (state.value.kind === "asking") return;
-    state.value = { kind: "asking", to: "withdraw" };
+    if (publishingIn(room).kind === "asking") return;
+    keep(room, { kind: "asking", to: "withdraw" });
     try {
       await api.withdraw();
       queryCache.setQueryData(roomKeys.publication(room), null);
-      state.value = { kind: "idle" };
+      keep(room, { kind: "idle" });
     } catch {
-      state.value = { kind: "failed", why: "failed" };
+      keep(room, { kind: "failed", why: "failed" });
     }
   }
 
-  return { state, putUp, takeDown };
+  return { publishingIn, putUp, takeDown };
 });
 </script>
 
@@ -98,7 +109,9 @@ const i18n = useI18n();
 const id = useId();
 /** Cut off: what needs the Worker is not offered */
 const cut = useOffline();
-const { state: publishing, putUp, takeDown } = usePublishing();
+const { publishingIn, putUp, takeDown } = usePublishing();
+/** The change to this room's public page: another room's under way or failed is none here */
+const publishing = computed(() => publishingIn(here.room));
 /** A note's paper: whoever wrote it */
 const paperFor = (n: Memo) => paperOf(members.value?.find((m) => m.id === n.by)?.color);
 
