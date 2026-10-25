@@ -54,8 +54,6 @@ import type { DraftContext, PlaceContext, SuggestContext, TagContext } from "./c
 
 export type MemberKind = WireMember["kind"];
 
-/** Done, or why not: what the room or the index declined, for the Worker to answer and log */
-export type Done<Reason> = { ok: true } | { ok: false; reason: Reason };
 /** Why no seat was held for an invitation */
 export type SeatRefusal = "not the owner" | "no seat";
 /** Why a person was not taken out: the owner never is, only the owner takes another, or gone already */
@@ -219,7 +217,8 @@ export class Room extends DurableObject<Env> {
       );
       CREATE TABLE IF NOT EXISTS invitations (
         id TEXT PRIMARY KEY,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        member TEXT
       );
       CREATE TABLE IF NOT EXISTS stays (
         position INTEGER PRIMARY KEY,
@@ -248,6 +247,15 @@ export class Room extends DurableObject<Env> {
         PRIMARY KEY (member, cid)
       );
     `);
+    // Rooms made before a taken seat remembered whom it let in gain the column once
+    if (
+      !ctx.storage.sql
+        .exec<{ name: string }>("PRAGMA table_info(invitations)")
+        .toArray()
+        .some((c) => c.name === "member")
+    ) {
+      ctx.storage.sql.exec("ALTER TABLE invitations ADD COLUMN member TEXT");
+    }
     ctx.storage.sql.exec(flightsTable("flights"));
     // flights kept when a time not known yet was written "" (its columns were NOT NULL then) are
     // copied once into a table where it is null, every column by name
@@ -303,14 +311,14 @@ export class Room extends DurableObject<Env> {
    * Takes a picture member `by` is uploading into room `roomId`'s list, before its bytes are
    * written; the Worker has checked its type and size. Pictures no card shows, kept longer than
    * UNUSED_AFTER, go first, so a deleted card or a replaced photo gives its place back. Returns
-   * its id, or null when the room already holds as many as it may.
+   * its id, or why not: the room already holds as many as it may.
    */
   async addImage(
     by: MemberId,
     roomId: RoomId,
     type: ImageType,
     bytes: number,
-  ): Promise<ImageId | null> {
+  ): Promise<Result<ImageId, "full">> {
     this.assertMember(by);
     const sql = this.ctx.storage.sql;
     // off the list before the bytes go, so no card can take a picture whose bytes are going
@@ -318,7 +326,7 @@ export class Room extends DurableObject<Env> {
       .exec<{ id: ImageId }>(
         `DELETE FROM pictures
          WHERE created_at < ? AND id NOT IN (
-           SELECT image FROM notes WHERE image IS NOT NULL AND deleted_at IS NULL
+           SELECT image FROM ${ON_DESK} WHERE image IS NOT NULL
          )
          RETURNING id`,
         new Date(Date.now() - Room.UNUSED_AFTER).toISOString(),
@@ -327,8 +335,10 @@ export class Room extends DurableObject<Env> {
       .map((p) => `rooms/${roomId}/images/${p.id}`);
     // R2 deletes up to 1000 keys a call; a room holds at most MAX_IMAGES
     if (unused.length > 0) await this.env.IMAGES.delete(unused);
+    // deleted while the old pictures went: nothing more is written
+    this.assertMember(by);
     if (sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM pictures").one().n >= Room.MAX_IMAGES)
-      return null;
+      return { ok: false, reason: "full" };
     const id = v.parse(ImageIdSchema, crypto.randomUUID());
     sql.exec(
       "INSERT INTO pictures (id, by, type, bytes, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -338,7 +348,7 @@ export class Room extends DurableObject<Env> {
       bytes,
       new Date().toISOString(),
     );
-    return id;
+    return { ok: true, value: id };
   }
 
   /** Its bytes could not be written: the room does not have it after all */
@@ -405,12 +415,12 @@ export class Room extends DurableObject<Env> {
   }
 
   /** The owner `by` takes the booklet down: its link answers nothing from now on */
-  async withdraw(by: MemberId): Promise<Done<"not the owner">> {
+  async withdraw(by: MemberId): Promise<Result<void, "not the owner">> {
     this.assertMember(by);
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     // one at a time with a publish, as there
     await this.ctx.blockConcurrencyWhile(() => this.unpublish());
-    return { ok: true };
+    return { ok: true, value: undefined };
   }
 
   /**
@@ -462,6 +472,14 @@ export class Room extends DurableObject<Env> {
     return creator;
   }
 
+  /**
+   * The index would not record the room `create` just set up (its maker at their cap): nothing of
+   * it is kept. It has no pictures, booklet or alarm yet, so its storage is all there is.
+   */
+  async discard(): Promise<void> {
+    await this.ctx.storage.deleteAll();
+  }
+
   /** Who made the room and so may invite, remove and delete; asked by member `by` */
   owner(by: MemberId): MemberId {
     this.assertMember(by);
@@ -477,7 +495,9 @@ export class Room extends DurableObject<Env> {
     this.assertMember(by);
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     const sql = this.ctx.storage.sql;
-    const held = sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM invitations").one().n;
+    const held = sql
+      .exec<{ n: number }>("SELECT COUNT(*) AS n FROM invitations WHERE member IS NULL")
+      .one().n;
     if (this.count("person") + held >= Room.MAX_PEOPLE) return { ok: false, reason: "no seat" };
     const id = v.parse(SeatIdSchema, crypto.randomUUID());
     sql.exec(
@@ -488,20 +508,28 @@ export class Room extends DurableObject<Env> {
     return { ok: true, value: id };
   }
 
-  /** The seat is given back: declined, withdrawn, or not recorded in the index after all */
+  /** The seat is given back, unless it was taken: declined, withdrawn, or not recorded after all */
   closeSeat(id: SeatId): void {
-    this.ctx.storage.sql.exec("DELETE FROM invitations WHERE id = ?", id);
+    this.ctx.storage.sql.exec("DELETE FROM invitations WHERE id = ? AND member IS NULL", id);
   }
 
   /**
    * The invited person takes their seat as who they say they are; returns their new member id,
-   * or why not: the seat is gone (withdrawn), or the room deleted. Everyone in is told.
+   * or why not: the seat is gone (withdrawn), or the room deleted. Everyone in is told. The seat
+   * remembers whom it let in, so asked again for it (the index not told the first time) it
+   * answers that member again rather than "no seat".
    */
   accept(seat: SeatId, me: Profile): Result<MemberId, "no seat" | "deleted"> {
     if (this.deletion() !== null) return { ok: false, reason: "deleted" };
     const sql = this.ctx.storage.sql;
-    if (sql.exec("DELETE FROM invitations WHERE id = ? RETURNING id", seat).toArray().length === 0)
-      return { ok: false, reason: "no seat" };
+    const held = sql
+      .exec<{ member: string | null }>("SELECT member FROM invitations WHERE id = ?", seat)
+      .toArray()[0];
+    if (held === undefined) return { ok: false, reason: "no seat" };
+    if (held.member !== null) {
+      const taken = this.person(held.member);
+      return taken === null ? { ok: false, reason: "no seat" } : { ok: true, value: taken };
+    }
     const id = v.parse(MemberIdSchema, crypto.randomUUID());
     sql.exec(
       "INSERT INTO members (id, kind, name, color) VALUES (?, 'person', ?, ?)",
@@ -509,13 +537,16 @@ export class Room extends DurableObject<Env> {
       me.name,
       me.color,
     );
+    sql.exec("UPDATE invitations SET member = ? WHERE id = ?", id, seat);
     this.tellMembers();
     return { ok: true, value: id };
   }
 
-  /** The index could not record a member `accept` just let in: they are not in after all */
+  /** The index would not record a member `accept` just let in: they are not in, and the seat is lost */
   unaccept(member: MemberId): void {
-    this.ctx.storage.sql.exec("DELETE FROM members WHERE id = ? AND creator = 0", member);
+    const sql = this.ctx.storage.sql;
+    sql.exec("DELETE FROM members WHERE id = ? AND creator = 0", member);
+    sql.exec("DELETE FROM invitations WHERE member = ?", member);
     this.tellMembers();
   }
 
@@ -536,9 +567,12 @@ export class Room extends DurableObject<Env> {
   /**
    * Takes `member` out: the owner `by` removing someone else, or someone other than the owner
    * leaving (`by` is `member`). Refused for anything else; the owner never leaves their own
-   * room, they delete it. Their notes stay; their socket is told and closed.
+   * room, they delete it. Their notes stay; their socket is told and closed. Someone leaving
+   * again, out already (the index not told the first time), is answered as having left.
    */
-  remove(by: MemberId, member: MemberId): Done<RemoveRefusal> {
+  remove(by: MemberId, member: MemberId): Result<void, RemoveRefusal> {
+    if (by === member && this.person(by) === null && this.deletion() === null)
+      return { ok: true, value: undefined };
     this.assertMember(by);
     const owner = this.ownerId();
     if (member === owner) return { ok: false, reason: "the owner" };
@@ -551,9 +585,10 @@ export class Room extends DurableObject<Env> {
     this.#rate.delete(member);
     this.#dragRate.delete(member);
     sql.exec("DELETE FROM applied WHERE member = ?", member);
+    sql.exec("DELETE FROM invitations WHERE member = ?", member);
     this.closeSockets(this.ctx.getWebSockets(member), by === member ? "left" : "removed");
     this.tellMembers();
-    return { ok: true };
+    return { ok: true, value: undefined };
   }
 
   /**
@@ -562,7 +597,7 @@ export class Room extends DurableObject<Env> {
    * go too. Refused when `by` is not the owner. Asked again after a try that failed part way
    * (the index not told), it keeps the first deletion's time and does the rest again.
    */
-  async delete(by: MemberId, roomId: RoomId): Promise<Done<"not the owner">> {
+  async delete(by: MemberId, roomId: RoomId): Promise<Result<void, "not the owner">> {
     this.assertPerson(by);
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     const sql = this.ctx.storage.sql;
@@ -578,7 +613,7 @@ export class Room extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(Date.parse(at) + Room.DELETE_AFTER);
     // a deleted trip's booklet is not left up for its thirty days; restoring does not bring it back
     await this.unpublish();
-    return { ok: true };
+    return { ok: true, value: undefined };
   }
 
   /** How long a deleted room can be restored: KEPT_DAYS, in milliseconds */
@@ -589,13 +624,16 @@ export class Room extends DurableObject<Env> {
     return this.deletion()?.at ?? null;
   }
 
-  /** A person in the room, `by`, takes the deletion back; refused when it is not deleted */
-  restore(by: MemberId): Done<"not deleted"> {
+  /**
+   * A person in the room, `by`, takes the deletion back; refused when it is not deleted, which,
+   * asked while the index still hides the room, means a try whose index call failed restored it
+   */
+  restore(by: MemberId): Result<void, "not deleted"> {
     if (this.deletion() === null) return { ok: false, reason: "not deleted" };
     this.assertPerson(by);
     this.ctx.storage.sql.exec("DELETE FROM deletion");
     void this.ctx.storage.deleteAlarm();
-    return { ok: true };
+    return { ok: true, value: undefined };
   }
 
   /**
@@ -623,12 +661,12 @@ export class Room extends DurableObject<Env> {
    * alarm would take it. Refused unless the room is deleted and `by` owns it; the other person
    * could still have restored it, so only the one who deleted it may end that.
    */
-  async purge(by: MemberId): Promise<Done<"not deleted" | "not the owner">> {
+  async purge(by: MemberId): Promise<Result<void, "not deleted" | "not the owner">> {
     const deletion = this.deletion();
     if (deletion === null) return { ok: false, reason: "not deleted" };
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     await this.erase(deletion);
-    return { ok: true };
+    return { ok: true, value: undefined };
   }
 
   /**
@@ -696,7 +734,7 @@ export class Room extends DurableObject<Env> {
       .sort((a, b) => Number(a.kind === "agent") - Number(b.kind === "agent"))
       .map(({ kind, name, color }) => ({ kind, name, color }));
     const { memos } = sql
-      .exec<{ memos: number }>("SELECT COUNT(*) AS memos FROM notes WHERE kind = 'memo'")
+      .exec<{ memos: number }>(`SELECT COUNT(*) AS memos FROM ${ON_DESK} WHERE kind = 'memo'`)
       .one();
     const owner = by !== null && by === this.ownerId();
     const [first] = days;
@@ -745,12 +783,56 @@ export class Room extends DurableObject<Env> {
     };
   }
 
-  /** The agent's candidate tags, kept so they are proposed once a trip, not on every ask */
+  /**
+   * How long a proposal of the candidates is waited for: one asked for longer ago was never
+   * answered (its request died), and the next ask may propose them
+   */
+  static readonly PROPOSING_FOR = 60_000;
+
+  /**
+   * Whether member `by` is the one to have the agent propose the trip's candidate tags: yes once
+   * a trip, to the first who asks, and to nobody else while that proposal is on its way, so two
+   * asks at once pay for one. Kept as proposed when it is saved, even with no tags in it.
+   */
+  claimProposal(by: MemberId): boolean {
+    this.assertMember(by);
+    this.candidateTable();
+    const sql = this.ctx.storage.sql;
+    const now = Date.now();
+    const claim = sql
+      .exec<{ at: number; done: number }>("SELECT at, done FROM tag_proposal")
+      .toArray()[0];
+    if (this.candidates().length > 0 || claim?.done === 1) return false;
+    if (claim !== undefined && now - claim.at < Room.PROPOSING_FOR) return false;
+    sql.exec(
+      `INSERT INTO tag_proposal (id, at, done) VALUES (1, ?, 0)
+       ON CONFLICT (id) DO UPDATE SET at = excluded.at`,
+      now,
+    );
+    return true;
+  }
+
+  /** The proposal claimed spent nothing (a provider's error, or past the budget): it is not made */
+  releaseProposal(by: MemberId): void {
+    this.assertMember(by);
+    this.candidateTable();
+    this.ctx.storage.sql.exec("DELETE FROM tag_proposal WHERE done = 0");
+  }
+
+  /**
+   * The agent's candidate tags, kept so they are proposed once a trip, not on every ask; none
+   * when what it answered was paid for and held no tag to keep
+   */
   saveCandidates(by: MemberId, tags: string[]): void {
     this.assertMember(by);
     const sql = this.ctx.storage.sql;
     this.candidateTable();
     for (const tag of tags) sql.exec("INSERT OR IGNORE INTO tag_candidates (tag) VALUES (?)", tag);
+    sql.exec(
+      `INSERT INTO tag_proposal (id, at, done) VALUES (1, ?, 1)
+       ON CONFLICT (id) DO UPDATE SET done = 1`,
+      Date.now(),
+    );
   }
 
   private candidates(): string[] {
@@ -762,7 +844,14 @@ export class Room extends DurableObject<Env> {
   }
 
   private candidateTable(): void {
-    this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS tag_candidates (tag TEXT PRIMARY KEY)");
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS tag_candidates (tag TEXT PRIMARY KEY);
+      CREATE TABLE IF NOT EXISTS tag_proposal (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        at INTEGER NOT NULL,
+        done INTEGER NOT NULL
+      );
+    `);
   }
 
   /**
@@ -1069,14 +1158,14 @@ export class Room extends DurableObject<Env> {
 
   private notes(): WireNote[] {
     return this.ctx.storage.sql
-      .exec<NoteRow>("SELECT * FROM notes WHERE deleted_at IS NULL ORDER BY rowid")
+      .exec<NoteRow>(`SELECT * FROM ${ON_DESK} ORDER BY rowid`)
       .toArray()
       .map(fromRow);
   }
 
   private note(id: NoteId): NoteRow | undefined {
     return this.ctx.storage.sql
-      .exec<NoteRow>("SELECT * FROM notes WHERE id = ? AND deleted_at IS NULL", id)
+      .exec<NoteRow>(`SELECT * FROM ${ON_DESK} WHERE id = ?`, id)
       .toArray()[0];
   }
 
@@ -1409,6 +1498,12 @@ const NOTE_COLUMNS = (
   ] satisfies (keyof NoteRow | "deleted_at")[]
 ).join(", ");
 
+/**
+ * The notes on the desk, to select from as from a table: a deleted note keeps its row (its id is
+ * never used again) and is no note anywhere else, so no query reads `notes` for what is on it
+ */
+const ON_DESK = "(SELECT rowid, * FROM notes WHERE deleted_at IS NULL)";
+
 /** The notes table as it is now, under `name`: memos, suggestions, text boxes and stickers */
 const notesTable = (name: string) => `
   CREATE TABLE IF NOT EXISTS ${name} (
@@ -1464,11 +1559,7 @@ const fromRow = (r: NoteRow): WireNote => {
     by: r.by,
     updatedAt: r.updated_at,
   };
-  if (r.kind === "suggestion") return { ...card, kind: "suggestion" };
-  if (r.kind === "text") return { ...card, kind: "text" };
-  // a sticker is never written without its picture
-  if (r.kind === "sticker" && r.image !== null) return { ...card, kind: "sticker", image: r.image };
-  return {
+  const memo = (): WireMemo => ({
     ...card,
     kind: "memo",
     body: r.body,
@@ -1488,7 +1579,19 @@ const fromRow = (r: NoteRow): WireNote => {
     due: r.due,
     assignee: r.assignee,
     link: r.link,
-  };
+  });
+  switch (r.kind) {
+    case "memo":
+      return memo();
+    case "suggestion":
+      return { ...card, kind: "suggestion" };
+    case "text":
+      return { ...card, kind: "text" };
+    case "sticker":
+      // a sticker is never written without its picture; one that had none would be shown as the
+      // memo it is kept as rather than not at all
+      return r.image === null ? memo() : { ...card, kind: "sticker", image: r.image };
+  }
 };
 
 /** A booking as its columns keep it: the state, then what that state has */

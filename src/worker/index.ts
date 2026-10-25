@@ -5,7 +5,7 @@ import { Hono, type Context, type Next } from "hono";
 import { createMiddleware } from "hono/factory";
 import * as v from "valibot";
 
-import { EmailSchema, type Email } from "../contract";
+import { EmailSchema, type Email, type Result } from "../contract";
 import { type ImageId, ImageIdSchema } from "../contract/image";
 import { type MemberId, MemberIdSchema } from "../contract/member";
 import { NoteIdSchema } from "../contract/note";
@@ -246,10 +246,16 @@ const api = new Hono<ApiEnv>()
       if (data.byteLength > MAX_IMAGE_BYTES) return c.text("Payload Too Large", 413);
       // the room's list first, so its cap holds; the bytes after, and the entry goes if they
       // fail. The id as it is, not as the RPC's disposable stub of one: it goes out as JSON
-      const id: ImageId | null = await room.addImage(memberId, roomId, type, data.byteLength);
-      c.var.log.set({ image: { type, bytes: data.byteLength, stored: id !== null } });
+      const stored: Result<ImageId, "full"> = await room.addImage(
+        memberId,
+        roomId,
+        type,
+        data.byteLength,
+      );
+      c.var.log.set({ image: { type, bytes: data.byteLength, stored: stored.ok } });
       // the room keeps as many pictures as it may
-      if (id === null) return c.json(refusal("full"), 409);
+      if (!stored.ok) return c.json(refusal(stored.reason), 409);
+      const { value: id } = stored;
       try {
         await c.env.IMAGES.put(imageKey(roomId, id), data, { httpMetadata: { contentType: type } });
       } catch (e) {
@@ -320,12 +326,15 @@ const api = new Hono<ApiEnv>()
     c.var.log.set({ room: roomId, action: "accept" });
     const me = c.req.valid("json");
     const index = c.env.ROOMS.getByName("index");
-    const seat = await index.take(c.var.email, roomId);
+    // the invitation stays until the membership is recorded, and the seat remembers whom it let
+    // in: an acceptance that failed after the room let them in is finished by asking again
+    const seat = await index.invitation(c.var.email, roomId);
     if (seat === null) return c.text("Not Found", 404);
     const room = c.env.ROOM.getByName(roomId);
     const accepted = await room.accept(seat, me);
     if (!accepted.ok) {
       c.var.log.set({ refused: accepted.reason });
+      await index.take(c.var.email, roomId);
       return c.json(refusal(accepted.reason), 409);
     }
     const memberId = accepted.value;
@@ -334,6 +343,7 @@ const api = new Hono<ApiEnv>()
       c.var.log.set({ refused: added.reason });
       // at the cap of rooms: the seat is lost, as a declined one would be
       await room.unaccept(memberId);
+      await index.take(c.var.email, roomId);
       return c.json(refusal(added.reason), 409);
     }
     c.var.log.set({ member: memberId });
@@ -344,10 +354,13 @@ const api = new Hono<ApiEnv>()
     const { trip, me } = c.req.valid("json");
     const roomId = v.parse(RoomIdSchema, crypto.randomUUID());
     // the id as it is, not as the RPC's disposable stub of one: it goes out as JSON
-    const memberId: MemberId = await c.env.ROOM.getByName(roomId).create(trip, me);
+    const room = c.env.ROOM.getByName(roomId);
+    const memberId: MemberId = await room.create(trip, me);
     const added = await c.env.ROOMS.getByName("index").add(c.var.email, roomId, memberId);
     if (!added.ok) {
       c.var.log.set({ refused: added.reason });
+      // a room nobody can reach is not left set up
+      await room.discard();
       return c.json(refusal(added.reason), 409);
     }
     return c.json({ roomId, memberId }, 200);
@@ -358,11 +371,13 @@ const api = new Hono<ApiEnv>()
   .post(`${ROOM}/restore`, roomInPath(), member("restore", true), async (c) => {
     const { roomId, memberId, room } = c.var;
     const restored = await room.restore(memberId);
+    // the room is not deleted either way, restored now or by a try whose index call failed: the
+    // index shows it again
+    await c.env.ROOMS.getByName("index").mark(roomId, null);
     if (!restored.ok) {
       c.var.log.set({ refused: restored.reason });
       return c.json(refusal(restored.reason), 403);
     }
-    await c.env.ROOMS.getByName("index").mark(roomId, null);
     return c.json({}, 200);
   })
   .post(`${ROOM}/purge`, roomInPath(), member("purge", true), async (c) => {
@@ -425,17 +440,24 @@ const api = new Hono<ApiEnv>()
 
       const context = await room.tagContext(memberId);
       let candidates = context.candidates;
-      // the trip's candidates, once: Claude proposes them the first time anyone asks
-      if (candidates.length === 0) {
+      // the trip's candidates, once: Claude proposes them the first time anyone asks, and only
+      // for that ask, however many come at once
+      if (candidates.length === 0 && (await room.claimProposal(memberId))) {
         const proposed = await budgeted(c, () => proposeTags(c.env, context), {
           refunds: providerRefused,
         });
-        if (proposed instanceof Response) return proposed;
+        if (proposed instanceof Response) {
+          await room.releaseProposal(memberId);
+          return proposed;
+        }
         if (proposed.ok) {
           await room.recordAgentCall(memberId, "tags", proposed.usage);
-          await room.saveCandidates(memberId, proposed.value);
           candidates = proposed.value;
         }
+        // nothing spent: a later ask proposes them; spent on an answer with no tags to keep, it
+        // was proposed all the same
+        if (providerRefused(proposed)) await room.releaseProposal(memberId);
+        else await room.saveCandidates(memberId, candidates);
         // without candidates Clef still judges the tags in use
         log.set({ claude: { model: MODEL, ok: proposed.ok, candidates: candidates.length } });
       }
@@ -553,15 +575,15 @@ const api = new Hono<ApiEnv>()
       let image: ImageId | null = null;
       if (found.image !== null) {
         const { bytes, type } = found.image;
-        const id = await room.addImage(memberId, roomId, type, bytes.byteLength);
-        if (id !== null) {
+        const stored = await room.addImage(memberId, roomId, type, bytes.byteLength);
+        if (stored.ok) {
           try {
-            await c.env.IMAGES.put(imageKey(roomId, id), bytes, {
+            await c.env.IMAGES.put(imageKey(roomId, stored.value), bytes, {
               httpMetadata: { contentType: type },
             });
-            image = id;
+            image = stored.value;
           } catch {
-            await room.dropImage(id);
+            await room.dropImage(stored.value);
           }
         }
       }
@@ -809,14 +831,17 @@ const api = new Hono<ApiEnv>()
       const { roomId, memberId, room } = c.var;
       const { member: removed } = c.req.valid("json");
       const out = await room.remove(memberId, removed);
+      // out of the room, now or by a try whose index call failed: the index forgets them either way
+      if (out.ok || out.reason === "not in")
+        await c.env.ROOMS.getByName("index").forget(roomId, removed);
       if (!out.ok) {
         c.var.log.set({ refused: out.reason });
         return c.json(refusal(out.reason), 403);
       }
-      await c.env.ROOMS.getByName("index").forget(roomId, removed);
       return c.json({}, 200);
     },
   )
+  // a leave whose index call failed is asked again: the room answers it as left
   .post(`${ROOM}/leave`, roomInPath(), member("leave"), async (c) => {
     const { roomId, memberId, room } = c.var;
     const out = await room.remove(memberId, memberId);

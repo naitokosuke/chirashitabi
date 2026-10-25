@@ -5,7 +5,7 @@ import type { MemberId } from "../contract/member";
 import type { RoomId } from "../contract/room";
 
 import { SPACING_MS } from "./geocode";
-import type { Done, SeatId } from "./room";
+import type { SeatId } from "./room";
 
 /** Why a paid call was not reserved */
 export type Refusal = "day" | "trip";
@@ -148,21 +148,33 @@ export class RoomsIndex extends DurableObject<Env> {
   }
 
   /**
-   * Records a membership the room has already minted; false when `email` is at its room cap.
-   * A deleted room still counts until it is gone for good.
+   * Records a membership the room has already minted, and its invitation, if it had one, is
+   * answered; refused when `email` is at its room cap. A deleted room still counts until it is
+   * gone for good. Recorded already (a try whose answer was lost), it is answered the same.
    */
-  add(email: Email, roomId: RoomId, memberId: MemberId): Done<"at the cap"> {
-    const count = this.ctx.storage.sql
+  add(email: Email, roomId: RoomId, memberId: MemberId): Result<void, "at the cap"> {
+    const sql = this.ctx.storage.sql;
+    const recorded = sql
+      .exec(
+        "SELECT 1 FROM memberships WHERE email = ? AND room_id = ? AND member_id = ?",
+        email,
+        roomId,
+        memberId,
+      )
+      .toArray();
+    if (recorded.length > 0) return { ok: true, value: undefined };
+    const count = sql
       .exec<{ n: number }>("SELECT COUNT(*) AS n FROM memberships WHERE email = ?", email)
       .one().n;
     if (count >= RoomsIndex.MAX_ROOMS_PER_EMAIL) return { ok: false, reason: "at the cap" };
-    this.ctx.storage.sql.exec(
+    sql.exec(
       "INSERT INTO memberships (email, room_id, member_id) VALUES (?, ?, ?)",
       email,
       roomId,
       memberId,
     );
-    return { ok: true };
+    sql.exec("DELETE FROM invitations WHERE email = ? AND room_id = ?", email, roomId);
+    return { ok: true, value: undefined };
   }
 
   /** `memberId` is no longer in `roomId`: removed by the owner, or left */
@@ -180,7 +192,11 @@ export class RoomsIndex extends DurableObject<Env> {
    * Records that `email` is invited to `roomId`, to the room's seat `inviteId`; refused when it
    * is already a member there or already invited.
    */
-  invite(email: Email, roomId: RoomId, inviteId: SeatId): Done<"already in" | "already invited"> {
+  invite(
+    email: Email,
+    roomId: RoomId,
+    inviteId: SeatId,
+  ): Result<void, "already in" | "already invited"> {
     const sql = this.ctx.storage.sql;
     const known = (table: "memberships" | "invitations") =>
       sql.exec(`SELECT 1 FROM ${table} WHERE email = ? AND room_id = ?`, email, roomId).toArray()
@@ -193,7 +209,7 @@ export class RoomsIndex extends DurableObject<Env> {
       roomId,
       inviteId,
     );
-    return { ok: true };
+    return { ok: true, value: undefined };
   }
 
   /** The rooms `email` is invited to, oldest first */
@@ -219,7 +235,23 @@ export class RoomsIndex extends DurableObject<Env> {
   }
 
   /**
-   * Takes the invitation of `email` to `roomId` out, accepted, declined or withdrawn; returns
+   * The room's seat the invitation of `email` to `roomId` holds, left in place until the
+   * membership is recorded (`add`), so an acceptance that failed part way can be asked again;
+   * null when there is none
+   */
+  invitation(email: Email, roomId: RoomId): SeatId | null {
+    const row = this.ctx.storage.sql
+      .exec<{ invite_id: SeatId }>(
+        "SELECT invite_id FROM invitations WHERE email = ? AND room_id = ?",
+        email,
+        roomId,
+      )
+      .toArray()[0];
+    return row?.invite_id ?? null;
+  }
+
+  /**
+   * Takes the invitation of `email` to `roomId` out, declined, withdrawn or refused; returns
    * the room's seat it held, or null when there was none.
    */
   take(email: Email, roomId: RoomId): SeatId | null {
