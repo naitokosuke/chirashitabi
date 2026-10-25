@@ -17,15 +17,20 @@ import {
   safeUrl,
 } from "../../../ui/index";
 
+import type { MessageId } from "../../i18n/types";
 import { useI18n } from "../../i18n/useI18n";
 
+import type { Result } from "../../../contract";
 import Icon from "../../icons/Icon.vue";
 import plusIcon from "../../icons/plus.svg";
+import type { MembersRefusal } from "../members/api";
+import { REFUSALS } from "../members/People.vue";
 import { useOffline } from "../sync/useOffline";
 import { useRoom } from "../sync/useRoom";
 import { useSync } from "../sync/useSync";
 import { shortDate } from "../trip/format";
 
+import type { ShelfRefusal } from "./api";
 import Invitation from "./Invitation.vue";
 import { datesLabel, whenLabel } from "./label";
 import NewTrip from "./NewTrip.vue";
@@ -78,41 +83,64 @@ function slide(id: RoomId, open: boolean) {
   else if (slid.value === id) slid.value = null;
 }
 const { mutateAsync: remove, isLoading: removing } = trips.remove;
-const removeFailed = ref(false);
+/** Taking a trip off the list that did not go through: why the room refused it, or that it failed */
+type Removal = { kind: "refused"; reason: MembersRefusal } | { kind: "failed" };
+const removal = shallowRef<Removal | null>(null);
 /** Off the list: deleted by its owner (then on the deleted shelf), left by anyone else */
 async function takeOff(r: RoomSummary) {
-  removeFailed.value = false;
+  removal.value = null;
   try {
-    await remove({ room: r.id, action: r.owner ? "delete" : "leave" });
+    const off = await remove({ room: r.id, action: r.owner ? "delete" : "leave" });
     slid.value = null;
+    if (!off.ok) {
+      removal.value = { kind: "refused", reason: off.reason };
+      return;
+    }
     // the device's own memory of it too, so the root does not reopen it
     if (room.remembered() === r.id) room.leave();
   } catch {
-    removeFailed.value = true;
+    removal.value = { kind: "failed" };
     slid.value = null;
   }
 }
 
 /**
- * The deleted shelf, one thing at a time: a trip being brought back or gone for good, or which
- * of the two did not go through last
+ * The deleted shelf, one thing at a time: a trip being brought back or gone for good, why the
+ * Worker refused the last of the two, or which of the two did not go through last
  */
 type ShelfWork = "restoring" | "purging";
 type Shelf =
   | { kind: "idle" }
   | { kind: ShelfWork; id: RoomId }
+  | { kind: "refused"; reason: ShelfRefusal }
   | { kind: "failed"; what: ShelfWork };
 const shelf = shallowRef<Shelf>({ kind: "idle" });
 const busyWithDeleted = computed(
   () => shelf.value.kind === "restoring" || shelf.value.kind === "purging",
 );
-const shelfFailed = (what: ShelfWork) => shelf.value.kind === "failed" && shelf.value.what === what;
-async function onShelf(kind: ShelfWork, id: RoomId, run: () => Promise<unknown>) {
+/** What the person is told for each refusal on the shelf */
+const SHELF_REFUSALS: Record<ShelfRefusal, MessageId> = {
+  "not deleted": "rooms.notDeleted",
+  "not the owner": "rooms.purgeNotOwner",
+};
+/** What the shelf says when the last thing on it did not go through; null when it went */
+const shelfSays = computed(() => {
+  const s = shelf.value;
+  if (s.kind === "refused") return i18n.t(SHELF_REFUSALS[s.reason]);
+  if (s.kind === "failed")
+    return i18n.t(s.what === "restoring" ? "rooms.restoreFailed" : "rooms.purgeFailed");
+  return null;
+});
+async function onShelf(
+  kind: ShelfWork,
+  id: RoomId,
+  run: () => Promise<Result<void, ShelfRefusal>>,
+) {
   if (busyWithDeleted.value) return;
   shelf.value = { kind, id };
   try {
-    await run();
-    shelf.value = { kind: "idle" };
+    const done = await run();
+    shelf.value = done.ok ? { kind: "idle" } : { kind: "refused", reason: done.reason };
   } catch {
     shelf.value = { kind: "failed", what: kind };
   }
@@ -154,12 +182,13 @@ function startCreating(e: MouseEvent) {
   if (follow(e)) emit("create");
 }
 
-/** Opening a trip this device has nothing of: still trying, or given up; null otherwise */
-const joining = computed(() => {
+/** Opening a trip this device has nothing of: still trying (by its name, if listed), or given up; null otherwise */
+type Joining = { kind: "connecting"; name: string | null } | { kind: "failed" };
+const joining = computed((): Joining | null => {
   const s = sync.session;
   if (s.kind !== "joining") return null;
-  const name = mine.value?.rooms.find((r) => r.id === s.room)?.name ?? null;
-  return { failed: s.link === "failed", name };
+  if (s.link === "failed") return { kind: "failed" };
+  return { kind: "connecting", name: mine.value?.rooms.find((r) => r.id === s.room)?.name ?? null };
 });
 function retry() {
   room.reconnect();
@@ -172,19 +201,19 @@ function retry() {
     <div class="list" :inert="creating">
       <div class="page" :aria-busy="listStatus === 'pending'">
         <CtHeading as="h1" level="page">chirashitabi</CtHeading>
-        <CtMessage v-if="joining !== null && !joining.failed" boxed class="notice" role="status">
+        <CtMessage v-if="joining?.kind === 'connecting'" boxed class="notice" role="status">
           {{
             joining.name === null
               ? i18n.t("rooms.connectingUnnamed")
               : i18n.t("rooms.connecting", { name: joining.name })
           }}
         </CtMessage>
-        <CtMessage v-else-if="joining !== null" boxed class="notice" role="alert">
+        <CtMessage v-else-if="joining?.kind === 'failed'" boxed class="notice" role="alert">
           {{ i18n.t("rooms.failed") }}
           <CtButton variant="primary" @click="retry">{{ i18n.t("rooms.retry") }}</CtButton>
         </CtMessage>
-        <CtMessage v-if="removeFailed" boxed class="notice" role="alert">{{
-          i18n.t("people.failed")
+        <CtMessage v-if="removal !== null" boxed class="notice" role="alert">{{
+          i18n.t(removal.kind === "refused" ? REFUSALS[removal.reason] : "people.failed")
         }}</CtMessage>
         <CtMessage v-if="listStatus === 'error'" boxed class="notice" role="alert">
           {{ i18n.t("rooms.listFailed") }}
@@ -278,11 +307,8 @@ function retry() {
           <!-- trips their owner deleted, kept a while in case it was a slip; either person brings one back -->
           <section v-if="mine !== undefined && mine.deleted.length > 0">
             <CtHeading>{{ i18n.t("rooms.deleted") }}</CtHeading>
-            <CtMessage v-if="shelfFailed('restoring')" boxed class="notice" role="alert">{{
-              i18n.t("rooms.restoreFailed")
-            }}</CtMessage>
-            <CtMessage v-if="shelfFailed('purging')" boxed class="notice" role="alert">{{
-              i18n.t("rooms.purgeFailed")
+            <CtMessage v-if="shelfSays !== null" boxed class="notice" role="alert">{{
+              shelfSays
             }}</CtMessage>
             <CtPanel as="ul" pad="none">
               <CtListItem

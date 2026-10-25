@@ -1,6 +1,7 @@
-import { hc } from "hono/client";
+import { hc, type InferResponseType } from "hono/client";
 
 import type { Api } from "../../../../.worker-types/worker";
+import type { Result } from "../../../contract";
 import type { RoomId } from "../rooms/types";
 
 import type { Email, MemberId } from "./types";
@@ -10,14 +11,30 @@ const inRoom = hc<Api>("/", { headers: { "Content-Type": "application/json" } })
   ":roomId"
 ];
 
+/** Why the Worker refused a call (403, 409), as the call's route says: a word the person is told */
+export type Refusal<Post> = InferResponseType<Post, 403 | 409>["error"];
+
 /**
- * A call to a room's API whose answer is only whether it went; a response that is not 200 is an
- * error the caller's state can hold
+ * A refusal as its call returns it, with the word the Worker answered. A 403 from before the
+ * route (not a member, or not from the app) is plain text, not a refusal: it throws as not JSON.
  */
-async function call(request: Promise<{ status: number; url: string }>): Promise<void> {
-  const res = await request;
-  if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+export async function refused<E>(res: {
+  json(): Promise<{ error: E }>;
+}): Promise<Result<never, E>> {
+  return { ok: false, reason: (await res.json()).error };
 }
+
+/** What a call whose answer is only whether it went returns when it went */
+export const DONE: Result<void, never> = { ok: true, value: undefined };
+
+/** Why the room refused a change of who is in, whichever change it was */
+export type MembersRefusal = Refusal<
+  | typeof inRoom.invite.$post
+  | typeof inRoom.uninvite.$post
+  | typeof inRoom.remove.$post
+  | typeof inRoom.leave.$post
+  | typeof inRoom.delete.$post
+>;
 
 /** Whom the owner has invited and is waiting on; the room answers its owner only */
 export async function fetchInvited(roomId: RoomId): Promise<Email[]> {
@@ -26,12 +43,37 @@ export async function fetchInvited(roomId: RoomId): Promise<Email[]> {
   return (await res.json()).invited;
 }
 
-export const invite = (roomId: RoomId, email: Email) =>
-  call(inRoom.invite.$post({ param: { roomId }, json: { email } }));
-export const uninvite = (roomId: RoomId, email: Email) =>
-  call(inRoom.uninvite.$post({ param: { roomId }, json: { email } }));
-export const removeMember = (roomId: RoomId, member: MemberId) =>
-  call(inRoom.remove.$post({ param: { roomId }, json: { member } }));
-export const leaveRoom = (roomId: RoomId) => call(inRoom.leave.$post({ param: { roomId } }));
+// Each change below returns the room's refusal, which the person is told; any other answer that
+// is not 200 is an error the caller's state can hold.
+
+export async function invite(roomId: RoomId, email: Email) {
+  const res = await inRoom.invite.$post({ param: { roomId }, json: { email } });
+  if (res.status === 403 || res.status === 409) return refused(res);
+  if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+  return DONE;
+}
+export async function uninvite(roomId: RoomId, email: Email) {
+  const res = await inRoom.uninvite.$post({ param: { roomId }, json: { email } });
+  if (res.status === 403) return refused(res);
+  if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+  return DONE;
+}
+export async function removeMember(roomId: RoomId, member: MemberId) {
+  const res = await inRoom.remove.$post({ param: { roomId }, json: { member } });
+  if (res.status === 403) return refused(res);
+  if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+  return DONE;
+}
+export async function leaveRoom(roomId: RoomId) {
+  const res = await inRoom.leave.$post({ param: { roomId } });
+  if (res.status === 403) return refused(res);
+  if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+  return DONE;
+}
 /** Deleted for everyone; its owner can restore it from the list of trips for a while */
-export const deleteRoom = (roomId: RoomId) => call(inRoom.delete.$post({ param: { roomId } }));
+export async function deleteRoom(roomId: RoomId) {
+  const res = await inRoom.delete.$post({ param: { roomId } });
+  if (res.status === 403) return refused(res);
+  if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+  return DONE;
+}
