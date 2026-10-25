@@ -1,13 +1,21 @@
 import { Temporal } from "temporal-polyfill-lite";
 
+import type { hc, InferResponseType } from "hono/client";
+import type { StatusCode } from "hono/utils/http-status";
 import { http, HttpResponse, ws, type WebSocketHandlerConnection } from "msw";
 import * as v from "valibot";
 
+import type { Api } from "../../../.worker-types/worker";
 import { listOf } from "../../contract";
-import { SEATS, type Member } from "../features/members/types";
+import { EmailSchema, parseEmail, SEATS, type Email, type Member } from "../features/members/types";
 import { ImageIdSchema, NoteIdSchema, parseImageId, type ImageId } from "../features/notes/id";
 import { parseTag, type Note } from "../features/notes/types";
-import { isShortMapsLink } from "../features/place/google-maps";
+import {
+  HttpUrlSchema,
+  isShortMapsLink,
+  parseHttpUrl,
+  type HttpUrl,
+} from "../features/place/google-maps";
 import { parseRoomId, RoomIdSchema, type RoomId } from "../features/rooms/types";
 import { applyToRoom, type RoomState } from "../features/sync/ledger";
 import { reviveMutation, reviveNote, reviveTrip } from "../features/sync/wire";
@@ -40,13 +48,25 @@ import {
  * the owner of the trip seeded here. Nothing is kept: a reload starts from the seed again.
  */
 
+/** The Worker's API as the app's client (hc) has it, typed by the Worker's routes */
+type Calls = ReturnType<typeof hc<Api>>["api"];
+type InRoom = Calls["rooms"][":roomId"];
+
+/**
+ * What a call answers with `status`, as its route on the Worker says: every answer here is
+ * typed by it, so a mock that drifts from the Worker does not compile
+ */
+type Answer<Call, Status extends StatusCode = 200> = Call extends { $post: infer Post }
+  ? InferResponseType<Post, Status>
+  : never;
+
 interface MockRoom {
   state: RoomState & { trip: TripSnapshot };
-  invited: string[];
+  invited: Email[];
   deletedAt: IsoInstant | null;
   images: Map<ImageId, Blob>;
   /** The booklet as a public page: a link that leads nowhere here, and when */
-  publication: { url: string; at: IsoInstant } | null;
+  publication: { url: HttpUrl; at: IsoInstant } | null;
 }
 
 /** The seeded trip's room */
@@ -195,7 +215,7 @@ const agent = [
     const items = room.state.notes.flatMap((n: Note) =>
       n.kind === "memo" && n.schedule !== null && n.schedule.date.equals(day) ? [n.id] : [],
     );
-    return HttpResponse.json({
+    return HttpResponse.json<Answer<InRoom["draft"]>>({
       by: CLAUDE,
       reason: "Given the locations and opening hours, this order means the least walking.",
       intro: "Xiaolongbao for lunch, Jiufen in the evening, then beer in Xinyi.",
@@ -236,7 +256,7 @@ const agent = [
       room.state = { ...room.state, notes: [...room.state.notes, reviveNote(note)] };
       tell(id, { type: "mutation", mutation, by: CLAUDE, updatedAt });
     });
-    return HttpResponse.json({ added: titles.length });
+    return HttpResponse.json<Answer<InRoom["suggest"]>>({ added: titles.length });
   }),
   http.post("/api/rooms/:roomId/tags", async ({ params, request }) => {
     const room = open(params.roomId);
@@ -248,12 +268,14 @@ const agent = [
     const tags = [...inUse, ...CANDIDATES.filter((t) => !inUse.has(t))].filter(
       (t) => !chosen.includes(t),
     );
-    return HttpResponse.json({
+    return HttpResponse.json<Answer<InRoom["tags"]>>({
       tags: tags.map((tag, i) => ({ tag, p: 0.9 * 0.8 ** i, isNew: !inUse.has(tag) })),
     });
   }),
   http.post("/api/rooms/:roomId/candidates", ({ params }) =>
-    open(params.roomId) === undefined ? forbidden() : HttpResponse.json({ tags: CANDIDATES }),
+    open(params.roomId) === undefined
+      ? forbidden()
+      : HttpResponse.json<Answer<InRoom["candidates"]>>({ tags: CANDIDATES }),
   ),
   // the typed name as one place near the trip's center, as OpenStreetMap would find it
   http.post("/api/rooms/:roomId/find", async ({ params, request }) => {
@@ -262,7 +284,7 @@ const agent = [
     const query = textOf(await request.json(), "query");
     if (query === null) return badRequest();
     const { lat, lng } = room.state.trip.center;
-    return HttpResponse.json({
+    return HttpResponse.json<Answer<InRoom["find"]>>({
       places: [{ name: query.trim(), address: "臺北市, 臺灣", lat, lng, hours: null }],
     });
   }),
@@ -276,8 +298,10 @@ const agent = [
     const url = textOf(await request.json(), "url");
     if (url === null) return badRequest();
     await wait(THINKING_MS / 2);
-    if (!URL.canParse(url)) return HttpResponse.json({ preview: null });
-    const site = new URL(url).hostname.replace(/^www\./, "");
+    // a page is only at a link a note may carry, as the Worker says
+    const link = parseHttpUrl(url);
+    if (link === null) return HttpResponse.json<Answer<InRoom["preview"]>>({ preview: null });
+    const site = new URL(link).hostname.replace(/^www\./, "");
     const frame = new OffscreenCanvas(640, 360);
     const ctx = frame.getContext("2d");
     let image: ImageId | null = null;
@@ -293,9 +317,9 @@ const agent = [
       image = v.parse(ImageIdSchema, crypto.randomUUID());
       room.images.set(image, await frame.convertToBlob({ type: "image/png" }));
     }
-    return HttpResponse.json({
+    return HttpResponse.json<Answer<InRoom["preview"]>>({
       preview: {
-        url,
+        url: link,
         site,
         title: `A page on ${site}`,
         description: "What the page says of itself, in a line",
@@ -308,9 +332,10 @@ const agent = [
     if (room === undefined) return forbidden();
     const url = textOf(await request.json(), "url");
     if (url === null) return badRequest();
-    if (!isShortMapsLink(url)) return HttpResponse.json({ url, at: null });
+    if (!isShortMapsLink(url))
+      return HttpResponse.json<Answer<InRoom["expand"]>>({ url, at: null });
     const { lat, lng } = room.state.trip.center;
-    return HttpResponse.json({
+    return HttpResponse.json<Answer<InRoom["expand"]>>({
       url: `https://www.google.com/maps/search/${lat},+${lng}`,
       at: null,
     });
@@ -322,19 +347,21 @@ const agent = [
     const title = textOf(await request.json(), "title");
     if (title === null) return badRequest();
     const { lat, lng } = room.state.trip.center;
-    return HttpResponse.json({
+    return HttpResponse.json<Answer<InRoom["places"]>>({
       places: [{ name: title, address: "臺北市, 臺灣", lat, lng, hours: "Mo-Su 17:00-24:00" }],
     });
   }),
   http.post("/api/rooms/:roomId/where", ({ params }) =>
-    open(params.roomId) === undefined ? forbidden() : HttpResponse.json({ place: null }),
+    open(params.roomId) === undefined
+      ? forbidden()
+      : HttpResponse.json<Answer<InRoom["where"]>>({ place: null }),
   ),
   http.post("/api/rooms/:roomId/images", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
     const id = v.parse(ImageIdSchema, crypto.randomUUID());
     room.images.set(id, await request.blob());
-    return HttpResponse.json({ id });
+    return HttpResponse.json<Answer<InRoom["images"]>>({ id });
   }),
   http.get("/api/rooms/:roomId/images/:id", ({ params }) => {
     const id = parseImageId(params.id);
@@ -348,7 +375,9 @@ const agent = [
 const publishing = [
   http.post("/api/rooms/:roomId/publication", ({ params }) => {
     const room = open(params.roomId);
-    return room === undefined ? forbidden() : HttpResponse.json({ publication: room.publication });
+    return room === undefined
+      ? forbidden()
+      : HttpResponse.json<Answer<InRoom["publication"]>>({ publication: room.publication });
   }),
   http.post("/api/rooms/:roomId/publish", async ({ params }) => {
     const room = open(params.roomId);
@@ -357,16 +386,16 @@ const publishing = [
     // a fresh slug each time, as the Worker mints one; nothing is served behind it here
     const slug = crypto.randomUUID().replace(/-/g, "").slice(0, 22);
     room.publication = {
-      url: `https://shiori.chirashitabi.app/r/${slug}/shiori`,
+      url: v.parse(HttpUrlSchema, `https://shiori.chirashitabi.app/r/${slug}/shiori`),
       at: stamp(Temporal.Now.instant()),
     };
-    return HttpResponse.json({ publication: room.publication });
+    return HttpResponse.json<Answer<InRoom["publish"]>>({ publication: room.publication });
   }),
   http.post("/api/rooms/:roomId/withdraw", ({ params }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
     room.publication = null;
-    return HttpResponse.json({});
+    return HttpResponse.json<Answer<InRoom["withdraw"]>>({});
   }),
 ];
 
@@ -375,27 +404,37 @@ const publishing = [
 const members = [
   http.post("/api/rooms/:roomId/invited", ({ params }) => {
     const room = open(params.roomId);
-    return room === undefined ? forbidden() : HttpResponse.json({ invited: room.invited });
+    return room === undefined
+      ? forbidden()
+      : HttpResponse.json<Answer<InRoom["invited"]>>({ invited: room.invited });
   }),
   http.post("/api/rooms/:roomId/invite", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const email = textOf(await request.json(), "email");
+    const email = parseEmail(textOf(await request.json(), "email"));
     if (email === null) return badRequest();
     const people = room.state.members.filter((m) => m.kind === "person").length;
-    if (people + room.invited.length >= SEATS || room.invited.includes(email))
-      return new HttpResponse(null, { status: 409 });
+    if (people + room.invited.length >= SEATS)
+      return HttpResponse.json<Answer<InRoom["invite"], 409>>(
+        { error: "no seat" },
+        { status: 409 },
+      );
+    if (room.invited.includes(email))
+      return HttpResponse.json<Answer<InRoom["invite"], 409>>(
+        { error: "already invited" },
+        { status: 409 },
+      );
     room.invited = [...room.invited, email];
-    return HttpResponse.json({ invited: email });
+    return HttpResponse.json<Answer<InRoom["invite"]>>({ invited: email });
   }),
   http.post("/api/rooms/:roomId/uninvite", async ({ params, request }) => {
     const room = open(params.roomId);
     if (room === undefined) return forbidden();
-    const email = textOf(await request.json(), "email");
+    const email = parseEmail(textOf(await request.json(), "email"));
     if (email === null) return badRequest();
     if (!room.invited.includes(email)) return notFound();
     room.invited = room.invited.filter((e) => e !== email);
-    return HttpResponse.json({});
+    return HttpResponse.json<Answer<InRoom["uninvite"]>>({});
   }),
   http.post("/api/rooms/:roomId/remove", async ({ params, request }) => {
     const id = parseRoomId(params.roomId);
@@ -404,14 +443,22 @@ const members = [
     const member = textOf(await request.json(), "member");
     if (member === null) return badRequest();
     const gone = room.state.members.find((m) => m.id === member);
-    if (gone?.kind !== "person" || gone.role === "owner") return forbidden();
+    if (gone?.kind !== "person")
+      return HttpResponse.json<Answer<InRoom["remove"], 403>>({ error: "not in" }, { status: 403 });
+    if (gone.role === "owner")
+      return HttpResponse.json<Answer<InRoom["remove"], 403>>(
+        { error: "the owner" },
+        { status: 403 },
+      );
     const left: Member[] = room.state.members.filter((m) => m !== gone);
     room.state = { ...room.state, members: left };
     tell(id, { type: "members", members: wire(v.array(WireMemberSchema), left) });
-    return HttpResponse.json({});
+    return HttpResponse.json<Answer<InRoom["remove"]>>({});
   }),
   // Yuki owns every room here, and the owner never leaves their own
-  http.post("/api/rooms/:roomId/leave", forbidden),
+  http.post("/api/rooms/:roomId/leave", () =>
+    HttpResponse.json<Answer<InRoom["leave"], 403>>({ error: "the owner" }, { status: 403 }),
+  ),
   http.post("/api/rooms/:roomId/delete", ({ params }) => {
     const id = parseRoomId(params.roomId);
     const room = open(params.roomId);
@@ -419,20 +466,21 @@ const members = [
     room.deletedAt = stamp(Temporal.Now.instant());
     tell(id, { type: "gone", reason: "deleted" });
     for (const c of sockets.get(id) ?? []) c.close(4001, "deleted");
-    return HttpResponse.json({});
+    return HttpResponse.json<Answer<InRoom["delete"]>>({});
   }),
   http.post("/api/rooms/:roomId/restore", ({ params }) => {
+    // a room that is not deleted resolves nobody here, as the Worker's membership check has it
     const room = find(params.roomId);
-    if (room?.deletedAt == null) return notFound();
+    if (room?.deletedAt == null) return forbidden();
     room.deletedAt = null;
-    return HttpResponse.json({});
+    return HttpResponse.json<Answer<InRoom["restore"]>>({});
   }),
   // Yuki owns every room here, so she may have a deleted one gone for good
   http.post("/api/rooms/:roomId/purge", ({ params }) => {
     const id = parseRoomId(params.roomId);
     if (id === null || rooms.get(id)?.deletedAt == null) return forbidden();
     rooms.delete(id);
-    return HttpResponse.json({});
+    return HttpResponse.json<Answer<InRoom["purge"]>>({});
   }),
   // nobody has invited Yuki anywhere
   http.post("/api/invitations/:roomId/:answer", notFound),
@@ -443,9 +491,9 @@ const members = [
 const mine = [
   http.post("/api/me", () => {
     const entries = [...rooms];
-    return HttpResponse.json({
+    return HttpResponse.json<Answer<Calls["me"]>>({
       // the one person the mocks sign in, as dev-access.mjs names the one on a laptop
-      email: "dev@localhost",
+      email: v.parse(EmailSchema, "dev@localhost"),
       rooms: entries.flatMap(([id, r]) => (r.deletedAt === null ? [summary(id, r)] : [])),
       invitations: [],
       deleted: entries.flatMap(([id, r]) =>
@@ -474,7 +522,7 @@ const mine = [
       images: new Map(),
       publication: null,
     });
-    return HttpResponse.json({ roomId: id });
+    return HttpResponse.json<Answer<Calls["rooms"]>>({ roomId: id, memberId: YUKI });
   }),
 ];
 

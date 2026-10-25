@@ -34,7 +34,7 @@ export interface DeletedRoom {
 /**
  * What the signed-in person has: the trips they are in, the ones they are invited to (each
  * with its owner leading its members) and the deleted ones they can still restore. `email` is
- * who they are, null from a Worker from before it said so.
+ * who they are, null in a list this device kept from a Worker from before it said so.
  */
 export interface Mine {
   email: Email | null;

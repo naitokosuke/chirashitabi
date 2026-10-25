@@ -9,8 +9,16 @@ import { EmailSchema, type Email } from "../contract";
 import { parseImageId, type ImageId, ImageIdSchema } from "../contract/image";
 import { type MemberId, MemberIdSchema } from "../contract/member";
 import { NoteIdSchema } from "../contract/note";
-import { isShortMapsLink, LatLngSchema, type LatLng, parseMapsUrl } from "../contract/place";
-import { parseRoomId, parseTag, type RoomId, RoomIdSchema } from "../contract/room";
+import {
+  type HttpUrl,
+  HttpUrlSchema,
+  isShortMapsLink,
+  LatLngSchema,
+  type LatLng,
+  parseHttpUrl,
+  parseMapsUrl,
+} from "../contract/place";
+import { parseTag, type RoomId, RoomIdSchema } from "../contract/room";
 import {
   parseImageType,
   IsoDateSchema,
@@ -64,7 +72,7 @@ type InRoom = ApiEnv & {
   Variables: { roomId: RoomId; memberId: MemberId; room: DurableObjectStub<Room> };
 };
 
-/** A room's path; an id that is not a UUID is no room (`member` answers 404) */
+/** A room's path; an id that is not a UUID is no room (`roomInPath` answers 404) */
 const ROOM = "/rooms/:roomId";
 
 /** Who Access says is asking; without a valid token nothing past here runs */
@@ -80,13 +88,12 @@ const identify = createMiddleware<ApiEnv>(async (c, next) => {
 });
 
 /**
- * The asker as a member of the room in the path (or, `deleted`, of the room as it was), logged
- * with what they asked for
+ * The asker as a member of the room in the path, as `roomInPath` (before it) checked it, or,
+ * `deleted`, of the room as it was; logged with what they asked for
  */
 const member = (action: string, deleted = false) =>
-  createMiddleware<InRoom>(async (c, next) => {
-    const roomId = parseRoomId(c.req.param("roomId"));
-    if (roomId === null) return c.text("Not Found", 404);
+  createMiddleware<InRoom, string, { out: { param: { roomId: RoomId } } }>(async (c, next) => {
+    const { roomId } = c.req.valid("param");
     const memberId = await c.env.ROOMS.getByName("index").resolve(c.var.email, roomId, deleted);
     if (memberId === null) return c.text("Forbidden", 403);
     c.var.log.set({ room: roomId, member: memberId, action });
@@ -96,11 +103,20 @@ const member = (action: string, deleted = false) =>
     await next();
   });
 
-/** A paid call the asker's budget did not reserve (docs/auth-and-security.md): logged, and declined */
+/**
+ * A paid call the asker's budget did not reserve (docs/auth-and-security.md): logged, and
+ * declined with the ceiling it met
+ */
 const overBudget = (c: Context<InRoom>, ceiling: Refusal) => {
   c.var.log.set({ budget: { refused: ceiling } });
-  return c.text(`Budget: ${ceiling}`, 429);
+  return c.json({ ...refusal("over"), ceiling }, 429);
 };
+
+/**
+ * A refusal's answer: `error` says which one it is, as a word the app's client tells apart from
+ * the others its call may answer with
+ */
+const refusal = <const E extends string>(error: E) => ({ error });
 
 /**
  * The API, under Access. Pictures come first: a GET comes from an <img>, which sends no Origin
@@ -114,7 +130,7 @@ const api = new Hono<ApiEnv>()
   .use(evlog({ redact: true }))
   .use(identify)
 
-  .get(`${ROOM}/images/:imageId`, member("image"), async (c) => {
+  .get(`${ROOM}/images/:imageId`, roomInPath(), member("image"), async (c) => {
     const { roomId, memberId, room } = c.var;
     const imageId = parseImageId(c.req.param("imageId"));
     if (imageId === null || !(await room.hasImageFor(memberId, imageId)))
@@ -139,6 +155,7 @@ const api = new Hono<ApiEnv>()
       if (c.req.header("Origin") !== new URL(c.req.url).origin) return c.text("Forbidden", 403);
       await next();
     },
+    roomInPath(),
     member("image"),
     async (c) => {
       const { roomId, memberId, room } = c.var;
@@ -149,17 +166,19 @@ const api = new Hono<ApiEnv>()
       const data = await c.req.arrayBuffer();
       if (data.byteLength === 0) return c.text("Bad Request", 400);
       if (data.byteLength > MAX_IMAGE_BYTES) return c.text("Payload Too Large", 413);
-      // the room's list first, so its cap holds; the bytes after, and the entry goes if they fail
-      const id = await room.addImage(memberId, roomId, type, data.byteLength);
+      // the room's list first, so its cap holds; the bytes after, and the entry goes if they
+      // fail. The id as it is, not as the RPC's disposable stub of one: it goes out as JSON
+      const id: ImageId | null = await room.addImage(memberId, roomId, type, data.byteLength);
       c.var.log.set({ image: { type, bytes: data.byteLength, stored: id !== null } });
-      if (id === null) return c.text("Conflict", 409);
+      // the room keeps as many pictures as it may
+      if (id === null) return c.json(refusal("full"), 409);
       try {
         await c.env.IMAGES.put(imageKey(roomId, id), data, { httpMetadata: { contentType: type } });
       } catch (e) {
         await room.dropImage(id);
         throw e;
       }
-      return c.json({ id });
+      return c.json({ id }, 200);
     },
   )
 
@@ -205,7 +224,7 @@ const api = new Hono<ApiEnv>()
       )
     ).flat();
     // and who is asking, so a device can tell whose what it kept is
-    return c.json({ email, rooms, invitations, deleted });
+    return c.json({ email, rooms, invitations, deleted }, 200);
   })
 
   // An invitation to a room, answered by the person invited
@@ -215,7 +234,7 @@ const api = new Hono<ApiEnv>()
     const seat = await c.env.ROOMS.getByName("index").take(c.var.email, roomId);
     if (seat === null) return c.text("Not Found", 404);
     await c.env.ROOM.getByName(roomId).closeSeat(seat);
-    return c.json({});
+    return c.json({}, 200);
   })
   // who they will be in the room is theirs to say, checked before the seat is taken
   .post("/invitations/:roomId/accept", roomInPath(), body(ProfileSchema), async (c) => {
@@ -229,7 +248,7 @@ const api = new Hono<ApiEnv>()
     const accepted = await room.accept(seat, me);
     if (!accepted.ok) {
       c.var.log.set({ refused: accepted.reason });
-      return c.text("Conflict", 409);
+      return c.json(refusal(accepted.reason), 409);
     }
     const memberId = accepted.value;
     const added = await index.add(c.var.email, roomId, memberId);
@@ -237,46 +256,47 @@ const api = new Hono<ApiEnv>()
       c.var.log.set({ refused: added.reason });
       // at the cap of rooms: the seat is lost, as a declined one would be
       await room.unaccept(memberId);
-      return c.text("Conflict", 409);
+      return c.json(refusal(added.reason), 409);
     }
     c.var.log.set({ member: memberId });
-    return c.json({ memberId });
+    return c.json({ memberId }, 200);
   })
 
   .post("/rooms", body(v.object({ trip: NewTripSchema, me: ProfileSchema })), async (c) => {
     const { trip, me } = c.req.valid("json");
     const roomId = v.parse(RoomIdSchema, crypto.randomUUID());
-    const memberId = await c.env.ROOM.getByName(roomId).create(trip, me);
+    // the id as it is, not as the RPC's disposable stub of one: it goes out as JSON
+    const memberId: MemberId = await c.env.ROOM.getByName(roomId).create(trip, me);
     const added = await c.env.ROOMS.getByName("index").add(c.var.email, roomId, memberId);
     if (!added.ok) {
       c.var.log.set({ refused: added.reason });
-      return c.text("Conflict", 409);
+      return c.json(refusal(added.reason), 409);
     }
-    return c.json({ roomId, memberId });
+    return c.json({ roomId, memberId }, 200);
   })
 
   // a deleted room resolves nobody, but the people who were in it may take the deletion
   // back, and its owner may have it gone for good at once (the room drops itself from the index)
-  .post(`${ROOM}/restore`, member("restore", true), async (c) => {
+  .post(`${ROOM}/restore`, roomInPath(), member("restore", true), async (c) => {
     const { roomId, memberId, room } = c.var;
     const restored = await room.restore(memberId);
     if (!restored.ok) {
       c.var.log.set({ refused: restored.reason });
-      return c.text("Forbidden", 403);
+      return c.json(refusal(restored.reason), 403);
     }
     await c.env.ROOMS.getByName("index").mark(roomId, null);
-    return c.json({});
+    return c.json({}, 200);
   })
-  .post(`${ROOM}/purge`, member("purge", true), async (c) => {
+  .post(`${ROOM}/purge`, roomInPath(), member("purge", true), async (c) => {
     const purged = await c.var.room.purge(c.var.memberId);
     if (!purged.ok) {
       c.var.log.set({ refused: purged.reason });
-      return c.text("Forbidden", 403);
+      return c.json(refusal(purged.reason), 403);
     }
-    return c.json({});
+    return c.json({}, 200);
   })
 
-  .get(`${ROOM}/ws`, member("ws"), async (c) => {
+  .get(`${ROOM}/ws`, roomInPath(), member("ws"), async (c) => {
     if (c.req.header("Upgrade") !== "websocket") return c.text("Forbidden", 403);
     // Only the upgrade goes through fetch, with the resolved member in a header of our own
     return await c.var.room.fetch(
@@ -286,34 +306,41 @@ const api = new Hono<ApiEnv>()
     );
   })
 
-  .post(`${ROOM}/draft`, member("draft"), body(v.object({ date: IsoDateSchema })), async (c) => {
-    const { email, log, roomId, memberId, room } = c.var;
-    const { date } = c.req.valid("json");
-    const day = await room.dayForDraft(memberId, date);
-    if (day === null) return c.text("Bad Request", 400);
-    log.set({ draft: { date, notes: day.notes.length } });
-    // reserve, call, settle (docs/auth-and-security.md): nothing is called past the budget
-    const index = c.env.ROOMS.getByName("index");
-    const reserved = await index.reserve(email, roomId);
-    if (!reserved.ok) return overBudget(c, reserved.reason);
-    const result = await draftDay(c.env, day);
-    if (!result.ok) {
-      if (result.refund) await index.refund(reserved.value);
+  .post(
+    `${ROOM}/draft`,
+    roomInPath(),
+    member("draft"),
+    body(v.object({ date: IsoDateSchema })),
+    async (c) => {
+      const { email, log, roomId, memberId, room } = c.var;
+      const { date } = c.req.valid("json");
+      const day = await room.dayForDraft(memberId, date);
+      if (day === null) return c.text("Bad Request", 400);
+      log.set({ draft: { date, notes: day.notes.length } });
+      // reserve, call, settle (docs/auth-and-security.md): nothing is called past the budget
+      const index = c.env.ROOMS.getByName("index");
+      const reserved = await index.reserve(email, roomId);
+      if (!reserved.ok) return overBudget(c, reserved.reason);
+      const result = await draftDay(c.env, day);
+      if (!result.ok) {
+        if (result.refund) await index.refund(reserved.value);
+        log.set({
+          claude: { model: MODEL, ok: false, refunded: result.refund, reason: result.reason },
+        });
+        return c.text("Bad Gateway", 502);
+      }
+      await room.recordAgentCall(memberId, "draft", result.usage);
       log.set({
-        claude: { model: MODEL, ok: false, refunded: result.refund, reason: result.reason },
+        claude: { model: MODEL, ok: true, tokens: result.usage, items: result.value.items.length },
       });
-      return c.text("Bad Gateway", 502);
-    }
-    await room.recordAgentCall(memberId, "draft", result.usage);
-    log.set({
-      claude: { model: MODEL, ok: true, tokens: result.usage, items: result.value.items.length },
-    });
-    return c.json({ by: Room.AGENT_ID, ...result.value });
-  })
+      return c.json({ by: Room.AGENT_ID, ...result.value }, 200);
+    },
+  )
 
   // the memo as it is being written: its words, the tags it has, and its picture
   .post(
     `${ROOM}/tags`,
+    roomInPath(),
     member("tags"),
     body(
       v.object({
@@ -348,7 +375,7 @@ const api = new Hono<ApiEnv>()
       const vocabulary = [...new Set([...context.tags, ...candidates])]
         .filter((t) => !taken.has(t.toLowerCase()))
         .slice(0, MAX_TAGS);
-      if (vocabulary.length === 0) return c.json({ tags: [] });
+      if (vocabulary.length === 0) return c.json({ tags: [] }, 200);
 
       // the picture goes along: Clef looks at it with the words
       let image: MemoToTag["image"] = null;
@@ -382,28 +409,32 @@ const api = new Hono<ApiEnv>()
         },
       });
       const inUse = new Set(context.tags);
-      return c.json({
-        tags: judged.value.map((t) => ({ tag: t.tag, p: t.p, isNew: !inUse.has(t.tag) })),
+      // each one a tag a memo may carry (wire.ts), as the app takes it
+      const tags = judged.value.flatMap(({ tag, p }) => {
+        const t = parseTag(tag);
+        return t === null ? [] : [{ tag: t, p, isNew: !inUse.has(tag) }];
       });
+      return c.json({ tags }, 200);
     },
   )
 
   // the trip's candidate tags, for the form to rank as the words are typed: free, so not budgeted
-  .post(`${ROOM}/candidates`, member("candidates"), async (c) => {
+  .post(`${ROOM}/candidates`, roomInPath(), member("candidates"), async (c) => {
     const { candidates } = await c.var.room.tagContext(c.var.memberId);
-    return c.json({ tags: candidates });
+    return c.json({ tags: candidates.flatMap((t) => parseTag(t) ?? []) }, 200);
   })
 
   // a short Google Maps link, expanded by reading its one redirect; anything else is answered
   // as it came, without a fetch. A fetch of a URL a person typed counts against their budget
   .post(
     `${ROOM}/expand`,
+    roomInPath(),
     member("expand"),
     body(v.object({ url: v.pipe(v.string(), v.maxLength(2000)), lang })),
     async (c) => {
       const { email, log, roomId } = c.var;
       const { url, lang } = c.req.valid("json");
-      if (!isShortMapsLink(url)) return c.json({ url, at: null });
+      if (!isShortMapsLink(url)) return c.json({ url, at: null }, 200);
       const reserved = await c.env.ROOMS.getByName("index").reserve(email, roomId);
       if (!reserved.ok) return overBudget(c, reserved.reason);
       const expanded = await expand(url, c.env.SHORTLINK_BASE_URL);
@@ -426,7 +457,7 @@ const api = new Hono<ApiEnv>()
         expand: { ok: expanded !== null, shape, point: point !== null, named: name !== null },
         geocoder: { ok: name === null || at !== null },
       });
-      return c.json({ url: expanded ?? url, at });
+      return c.json({ url: expanded ?? url, at }, 200);
     },
   )
 
@@ -435,6 +466,7 @@ const api = new Hono<ApiEnv>()
   // so it is fenced there and budgeted here (docs/auth-and-security.md, "Previewing links")
   .post(
     `${ROOM}/preview`,
+    roomInPath(),
     member("preview"),
     body(v.object({ url: v.pipe(v.string(), v.trim(), v.maxLength(2000)) })),
     async (c) => {
@@ -442,7 +474,7 @@ const api = new Hono<ApiEnv>()
       const { url } = c.req.valid("json");
       const ours = [c.env.APP_HOST, c.env.BOOKLET_HOST];
       // an address that is never fetched is no preview, and costs nothing
-      if (previewable(url, ours) === null) return c.json({ preview: null });
+      if (previewable(url, ours) === null) return c.json({ preview: null }, 200);
       const index = c.env.ROOMS.getByName("index");
       const reserved = await index.reserve(email, roomId);
       if (!reserved.ok) return overBudget(c, reserved.reason);
@@ -451,7 +483,10 @@ const api = new Hono<ApiEnv>()
       log.set({
         preview: { ok: found !== null, site: found?.site ?? null, picture: found?.image !== null },
       });
-      if (found === null) return c.json({ preview: null });
+      if (found === null) return c.json({ preview: null }, 200);
+      // where it ended, as a link a note may carry: one that is not (too long) is no preview
+      const link = parseHttpUrl(found.url);
+      if (link === null) return c.json({ preview: null }, 200);
       let image: ImageId | null = null;
       if (found.image !== null) {
         const { bytes, type } = found.image;
@@ -468,13 +503,14 @@ const api = new Hono<ApiEnv>()
         }
       }
       const { title, description, site } = found;
-      return c.json({ preview: { url: found.url, site, title, description, image } });
+      return c.json({ preview: { url: link, site, title, description, image } }, 200);
     },
   )
 
   // places by a name the asker typed (a stay's): OpenStreetMap only, free (no agent), so not budgeted
   .post(
     `${ROOM}/find`,
+    roomInPath(),
     member("find"),
     body(v.object({ query: v.pipe(v.string(), v.trim(), v.nonEmpty(), v.maxLength(200)), lang })),
     async (c) => {
@@ -482,13 +518,14 @@ const api = new Hono<ApiEnv>()
       const found = await geocode(c.env, query, lang);
       c.var.log.set({ geocoder: { ok: found !== null, found: found?.length ?? 0 } });
       if (found === null) return c.text("Bad Gateway", 502);
-      return c.json({ places: found });
+      return c.json({ places: found }, 200);
     },
   )
 
   // what is at a point the asker pinned on the map: free (no agent), so not budgeted
   .post(
     `${ROOM}/where`,
+    roomInPath(),
     member("where"),
     body(v.object({ ...LatLngSchema.entries, lang })),
     async (c) => {
@@ -498,13 +535,14 @@ const api = new Hono<ApiEnv>()
         geocoder: { reverse: true, ok: found !== null, found: found?.place != null },
       });
       if (found === null) return c.text("Bad Gateway", 502);
-      return c.json(found);
+      return c.json(found, 200);
     },
   )
 
   // the memo as it is being written; the places are named in the asker's language
   .post(
     `${ROOM}/places`,
+    roomInPath(),
     member("places"),
     body(
       v.pipe(
@@ -563,7 +601,7 @@ const api = new Hono<ApiEnv>()
         claude: { model: MODEL, ok: true, tokens: named.usage, queries: named.value.length },
         geocoder: { ok: true, found: places.length },
       });
-      return c.json({ places });
+      return c.json({ places }, 200);
     },
   )
 
@@ -571,6 +609,7 @@ const api = new Hono<ApiEnv>()
   // from), and what the asker asked for: their words, the note they started from, or neither
   .post(
     `${ROOM}/suggest`,
+    roomInPath(),
     member("suggest"),
     body(
       v.object({
@@ -611,22 +650,23 @@ const api = new Hono<ApiEnv>()
       await room.recordAgentCall(memberId, "suggest", result.usage);
       const added = await room.addSuggestions(memberId, result.value, at);
       log.set({ claude: { model: MODEL, ok: true, tokens: result.usage, items: added } });
-      return c.json({ added });
+      return c.json({ added }, 200);
     },
   )
 
   // The booklet as a public page (docs/auth-and-security.md): every member sees whether it is
   // up and its link; only the owner puts it up (again, under a new link) or takes it down.
-  .post(`${ROOM}/publication`, member("publication"), async (c) => {
+  .post(`${ROOM}/publication`, roomInPath(), member("publication"), async (c) => {
     const p = await c.var.room.publication(c.var.memberId);
-    return c.json({
-      publication: p === null ? null : { url: bookletUrl(c.env, p.slug), at: p.at },
-    });
+    return c.json(
+      { publication: p === null ? null : { url: bookletUrl(c.env, p.slug), at: p.at } },
+      200,
+    );
   })
-  .post(`${ROOM}/publish`, member("publish"), body(v.object({ lang })), async (c) => {
+  .post(`${ROOM}/publish`, roomInPath(), member("publish"), body(v.object({ lang })), async (c) => {
     const { email, log, roomId, memberId, room } = c.var;
     // refused before the budget is touched
-    if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
+    if ((await room.owner(memberId)) !== memberId) return c.json(refusal("not the owner"), 403);
     // each publish writes to R2 at a rate the member chooses, so it counts like a paid call
     const index = c.env.ROOMS.getByName("index");
     const reserved = await index.reserve(email, roomId);
@@ -640,20 +680,23 @@ const api = new Hono<ApiEnv>()
     }
     if (!published.ok) {
       await index.refund(reserved.value);
-      return c.text("Forbidden", 403);
+      return c.json(refusal(published.reason), 403);
     }
     log.set({ publish: { at: published.value.at } });
-    return c.json({
-      publication: { url: bookletUrl(c.env, published.value.slug), at: published.value.at },
-    });
+    return c.json(
+      {
+        publication: { url: bookletUrl(c.env, published.value.slug), at: published.value.at },
+      },
+      200,
+    );
   })
-  .post(`${ROOM}/withdraw`, member("withdraw"), async (c) => {
+  .post(`${ROOM}/withdraw`, roomInPath(), member("withdraw"), async (c) => {
     const out = await c.var.room.withdraw(c.var.memberId);
     if (!out.ok) {
       c.var.log.set({ refused: out.reason });
-      return c.text("Forbidden", 403);
+      return c.json(refusal(out.reason), 403);
     }
-    return c.json({});
+    return c.json({}, 200);
   })
 
   // Who is in a room, and who is asked in: the owner invites, takes an invitation back, removes
@@ -662,45 +705,53 @@ const api = new Hono<ApiEnv>()
 
   // the e-mails invited are the owner's to see: they typed them. Who owns the room and how
   // many it holds every member knows already, from the socket and the app.
-  .post(`${ROOM}/invited`, member("invited"), async (c) => {
+  .post(`${ROOM}/invited`, roomInPath(), member("invited"), async (c) => {
     const { roomId, memberId, room } = c.var;
-    if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
-    return c.json({ invited: await c.env.ROOMS.getByName("index").invited(roomId) });
-  })
-  .post(`${ROOM}/invite`, member("invite"), body(v.object({ email: EmailSchema })), async (c) => {
-    const { roomId, memberId, room } = c.var;
-    const { email: invitee } = c.req.valid("json");
-    if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
-    const held = await room.openSeat(memberId);
-    if (!held.ok) {
-      c.var.log.set({ refused: held.reason });
-      return c.text("Conflict", 409);
-    }
-    const { value: seat } = held;
-    const invited = await c.env.ROOMS.getByName("index").invite(invitee, roomId, seat);
-    if (!invited.ok) {
-      await room.closeSeat(seat);
-      c.var.log.set({ refused: invited.reason });
-      return c.text("Conflict", 409);
-    }
-    return c.json({ invited: invitee });
+    if ((await room.owner(memberId)) !== memberId) return c.json(refusal("not the owner"), 403);
+    return c.json({ invited: await c.env.ROOMS.getByName("index").invited(roomId) }, 200);
   })
   .post(
+    `${ROOM}/invite`,
+    roomInPath(),
+    member("invite"),
+    body(v.object({ email: EmailSchema })),
+    async (c) => {
+      const { roomId, memberId, room } = c.var;
+      const { email: invitee } = c.req.valid("json");
+      if ((await room.owner(memberId)) !== memberId) return c.json(refusal("not the owner"), 403);
+      const held = await room.openSeat(memberId);
+      if (!held.ok) {
+        c.var.log.set({ refused: held.reason });
+        return c.json(refusal(held.reason), 409);
+      }
+      const { value: seat } = held;
+      const invited = await c.env.ROOMS.getByName("index").invite(invitee, roomId, seat);
+      if (!invited.ok) {
+        await room.closeSeat(seat);
+        c.var.log.set({ refused: invited.reason });
+        return c.json(refusal(invited.reason), 409);
+      }
+      return c.json({ invited: invitee }, 200);
+    },
+  )
+  .post(
     `${ROOM}/uninvite`,
+    roomInPath(),
     member("uninvite"),
     body(v.object({ email: EmailSchema })),
     async (c) => {
       const { roomId, memberId, room } = c.var;
       const { email: invitee } = c.req.valid("json");
-      if ((await room.owner(memberId)) !== memberId) return c.text("Forbidden", 403);
+      if ((await room.owner(memberId)) !== memberId) return c.json(refusal("not the owner"), 403);
       const seat = await c.env.ROOMS.getByName("index").take(invitee, roomId);
       if (seat === null) return c.text("Not Found", 404);
       await room.closeSeat(seat);
-      return c.json({});
+      return c.json({}, 200);
     },
   )
   .post(
     `${ROOM}/remove`,
+    roomInPath(),
     member("remove"),
     body(v.object({ member: MemberIdSchema })),
     async (c) => {
@@ -709,31 +760,31 @@ const api = new Hono<ApiEnv>()
       const out = await room.remove(memberId, removed);
       if (!out.ok) {
         c.var.log.set({ refused: out.reason });
-        return c.text("Forbidden", 403);
+        return c.json(refusal(out.reason), 403);
       }
       await c.env.ROOMS.getByName("index").forget(roomId, removed);
-      return c.json({});
+      return c.json({}, 200);
     },
   )
-  .post(`${ROOM}/leave`, member("leave"), async (c) => {
+  .post(`${ROOM}/leave`, roomInPath(), member("leave"), async (c) => {
     const { roomId, memberId, room } = c.var;
     const out = await room.remove(memberId, memberId);
     if (!out.ok) {
       c.var.log.set({ refused: out.reason });
-      return c.text("Forbidden", 403);
+      return c.json(refusal(out.reason), 403);
     }
     await c.env.ROOMS.getByName("index").forget(roomId, memberId);
-    return c.json({});
+    return c.json({}, 200);
   })
-  .post(`${ROOM}/delete`, member("delete"), async (c) => {
+  .post(`${ROOM}/delete`, roomInPath(), member("delete"), async (c) => {
     const { roomId, memberId, room } = c.var;
     const deleted = await room.delete(memberId, roomId);
     if (!deleted.ok) {
       c.var.log.set({ refused: deleted.reason });
-      return c.text("Forbidden", 403);
+      return c.json(refusal(deleted.reason), 403);
     }
     await c.env.ROOMS.getByName("index").mark(roomId, await room.deletedAt());
-    return c.json({});
+    return c.json({}, 200);
   })
 
   // anything else under /api is no call, and never the app's files
@@ -753,8 +804,9 @@ export default new Hono<{ Bindings: Env }>()
   .route("/", api)
   .all("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
-/** A published booklet's public address */
-const bookletUrl = (env: Env, slug: string) => `https://${env.BOOKLET_HOST}/r/${slug}/shiori`;
+/** A published booklet's public address, a link on the booklet's own host */
+const bookletUrl = (env: Env, slug: string): HttpUrl =>
+  v.parse(HttpUrlSchema, `https://${env.BOOKLET_HOST}/r/${slug}/shiori`);
 
 /** A slug as newSlug() makes one; anything else is no booklet, and R2 is not asked */
 const SlugSchema = v.pipe(v.string(), v.nanoid(), v.length(22));

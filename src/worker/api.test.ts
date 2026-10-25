@@ -323,6 +323,12 @@ async function admit(roomId: string, by: string, email: string, profile = KEN) {
   return accept(roomId, email, profile);
 }
 
+/** A refusal as the app's client tells it apart: its status, and the JSON saying which it is */
+const refusal = async (res: { status: number; json(): Promise<unknown> }) => [
+  res.status,
+  await res.json(),
+];
+
 const ME = "me@example.com";
 const PARTNER = "partner@example.com";
 const STRANGER = "stranger@example.com"; // allowed by Access, in no room
@@ -629,7 +635,10 @@ describe("rooms", () => {
   test("an e-mail may hold ten rooms", async () => {
     const email = "collector@example.com";
     for (let i = 0; i < 10; i++) await createRoom(email);
-    expect((await post("/api/rooms", email, { trip: TRIP, me: YUKI })).status).toBe(409);
+    expect(await refusal(await post("/api/rooms", email, { trip: TRIP, me: YUKI }))).toEqual([
+      409,
+      { error: "at the cap" },
+    ]);
   });
 });
 
@@ -707,15 +716,32 @@ describe("invitations", () => {
     expect((await invite(roomId, STRANGER, "x@example.com")).status).toBe(403);
     expect((await invite(roomId, owner, "")).status).toBe(400);
     expect((await invite(roomId, owner, "not an e-mail")).status).toBe(400);
-    expect((await invite(roomId, owner, owner)).status).toBe(409); // already in
+    expect(await refusal(await invite(roomId, owner, owner))).toEqual([
+      409,
+      { error: "already in" },
+    ]);
 
     expect((await invite(roomId, owner, "seat-a@example.com")).status).toBe(200);
-    expect((await invite(roomId, owner, "seat-a@example.com")).status).toBe(409); // already invited
-    expect((await invite(roomId, owner, "seat-b@example.com")).status).toBe(409); // the seat is held
+    // already invited, and so holding the last seat: the seat is asked for first
+    expect(await refusal(await invite(roomId, owner, "seat-a@example.com"))).toEqual([
+      409,
+      { error: "no seat" },
+    ]);
+    // the seat is held
+    expect(await refusal(await invite(roomId, owner, "seat-b@example.com"))).toEqual([
+      409,
+      { error: "no seat" },
+    ]);
 
     expect((await accept(roomId, "seat-a@example.com")).status).toBe(200);
-    expect((await invite(roomId, "seat-a@example.com", "seat-b@example.com")).status).toBe(403);
-    expect((await invite(roomId, owner, "seat-b@example.com")).status).toBe(409); // full
+    expect(await refusal(await invite(roomId, "seat-a@example.com", "seat-b@example.com"))).toEqual(
+      [403, { error: "not the owner" }],
+    );
+    // full
+    expect(await refusal(await invite(roomId, owner, "seat-b@example.com"))).toEqual([
+      409,
+      { error: "no seat" },
+    ]);
     // the partner does not see whom the owner invites
     expect((await post(`/api/rooms/${roomId}/invited`, "seat-a@example.com")).status).toBe(403);
   });
@@ -753,7 +779,7 @@ describe("invitations", () => {
     const { roomId } = await createRoom(owner);
     for (let i = 0; i < 10; i++) await createRoom(busy);
     expect((await invite(roomId, owner, busy)).status).toBe(200);
-    expect((await accept(roomId, busy)).status).toBe(409);
+    expect(await refusal(await accept(roomId, busy))).toEqual([409, { error: "at the cap" }]);
     expect(await invited(roomId, owner)).toEqual([]);
     expect((await admit(roomId, owner, "cap-other@example.com")).status).toBe(200);
   });
@@ -774,7 +800,8 @@ describe("removing and leaving", () => {
 
     const remove = (by: string, member: string) =>
       post(`/api/rooms/${roomId}/remove`, by, { member });
-    expect((await remove(guest, yuki)).status).toBe(403); // nobody removes the owner
+    // nobody removes the owner
+    expect(await refusal(await remove(guest, yuki))).toEqual([403, { error: "the owner" }]);
     expect((await remove(owner, yuki)).status).toBe(403);
     expect((await remove(owner, "agent:claude")).status).toBe(403);
     expect((await remove(owner, "yuki")).status).toBe(400); // not a member id at all
@@ -803,7 +830,10 @@ describe("removing and leaving", () => {
     const { roomId } = await createRoom(owner);
     expect((await admit(roomId, owner, guest)).status).toBe(200);
     const b = await connect(roomId, guest);
-    expect((await post(`/api/rooms/${roomId}/leave`, owner)).status).toBe(403);
+    expect(await refusal(await post(`/api/rooms/${roomId}/leave`, owner))).toEqual([
+      403,
+      { error: "the owner" },
+    ]);
     expect((await post(`/api/rooms/${roomId}/leave`, guest)).status).toBe(200);
     expect(await b.next()).toEqual({ type: "gone", reason: "left" });
     expect((await me(guest)).rooms).toEqual([]);
@@ -1802,7 +1832,7 @@ describe("the agent's draft of a day", () => {
     for (let i = 0; i < PER_DAY; i++) expect((await draft(roomId, email)).status).toBe(200);
     const before = asked.length;
     const over = await draft(roomId, email);
-    expect(over.status).toBe(429);
+    expect(await refusal(over)).toEqual([429, { error: "over", ceiling: "day" }]);
     expect(asked.length).toBe(before);
   });
 

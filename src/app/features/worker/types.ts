@@ -1,13 +1,22 @@
 import type { Temporal } from "temporal-polyfill-lite";
 
+import type { hc, InferResponseType } from "hono/client";
+
 import type { Locale } from "../../i18n/locale";
 
+import type { Api } from "../../../../.worker-types/worker";
 import type { Result } from "../../../contract";
 import type { MemberId } from "../members/types";
 import type { ImageId, NoteId } from "../notes/id";
 import type { Scheduled, Tag } from "../notes/types";
 import type { HttpUrl } from "../place/google-maps";
 import type { FoundPlace, LatLng } from "../place/types";
+
+/** A room's calls as the app's client (hc) has them, typed by the Worker's routes */
+type RoomCalls = ReturnType<typeof hc<Api>>["api"]["rooms"][":roomId"];
+
+/** What a room's call answers when it went (200), as its route on the Worker says */
+type Answer<Call> = Call extends { $post: infer Post } ? InferResponseType<Post, 200> : never;
 
 /** A suggested order and times for one day, from whichever member drafted it */
 export interface DayDraft {
@@ -52,12 +61,12 @@ export interface WorkerApi {
     body: string;
     image: ImageId | null;
     chosen: Tag[];
-  }): Promise<Result<{ tag: Tag; p: number; isNew: boolean }[], OverBudget>>;
+  }): Promise<Result<Answer<RoomCalls["tags"]>["tags"], OverBudget>>;
   /**
    * The trip's candidate tags the agent proposed, none before the first ask for tags; free,
    * so the form ranks them with the tags in use as the words are typed
    */
-  tagCandidates(): Promise<Tag[]>;
+  tagCandidates(): Promise<Answer<RoomCalls["candidates"]>["tags"]>;
   /**
    * Where a memo is: the room's agent names the place from its words, and OpenStreetMap finds
    * it, so the points are real ones. Up to three to choose from, none when the memo is not
@@ -81,10 +90,7 @@ export interface WorkerApi {
    * read; any other link, or one that does not say, comes back as it was. When it leads to a
    * place's name and not its point, `at` is where OpenStreetMap finds that name. Budgeted
    */
-  expandLink(
-    url: string,
-    lang: Locale,
-  ): Promise<Result<{ url: string; at: LatLng | null }, OverBudget>>;
+  expandLink(url: string, lang: Locale): Promise<Result<Answer<RoomCalls["expand"]>, OverBudget>>;
   /** Have a member order a day's notes and give them times */
   draftDay(date: Temporal.PlainDate, notes: Scheduled[]): Promise<Result<DayDraft, OverBudget>>;
   /**
@@ -104,16 +110,11 @@ export interface WorkerApi {
   withdraw(): Promise<void>;
 }
 
-/** A page as it describes itself, with its picture already the room's */
-export interface LinkPreview {
-  /** Where the page is, after any redirect */
-  url: HttpUrl;
-  /** Its site, "youtube.com" */
-  site: string;
-  title: string | null;
-  description: string | null;
-  image: ImageId | null;
-}
+/**
+ * A page as it describes itself, with its picture already the room's: where it is after any
+ * redirect, its site ("youtube.com"), its title, a line and its picture, as the Worker says
+ */
+export type LinkPreview = NonNullable<Answer<RoomCalls["preview"]>["preview"]>;
 
 /** The booklet as a public page: where anyone with the link reads it, and as of when */
 export interface Publication {

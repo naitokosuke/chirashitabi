@@ -17,6 +17,9 @@ export const parseRoomId = parserOf(RoomIdSchema);
 /** How many people a room holds; an invitation holds a seat until it is answered */
 export const SEATS = 2;
 
+/** How many days a deleted room can be restored before it is gone for good */
+export const KEPT_DAYS = 30;
+
 export const COLORS = ["#fff1b8", "#ffd9de", "#d8f0e6", "#dbe7ff", "#ead9ff", "#ffffff"] as const;
 /** A card's paper: one of the palette, never a free CSS value */
 export type NoteColor = (typeof COLORS)[number];

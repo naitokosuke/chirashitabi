@@ -1,33 +1,30 @@
-import { hc, type ClientResponse } from "hono/client";
-import * as v from "valibot";
+import { hc } from "hono/client";
 
 import type { Api } from "../../../../.worker-types/worker";
-import { listOf } from "../../../contract";
 import type { RoomId } from "../rooms/types";
 
-import { EmailSchema, type Email, type MemberId } from "./types";
+import type { Email, MemberId } from "./types";
 
 /** A room's calls; every one says JSON, as the Worker's gate wants, even one with no body */
 const inRoom = hc<Api>("/", { headers: { "Content-Type": "application/json" } }).api.rooms[
   ":roomId"
 ];
 
-/** A call to a room's API; a response that is not 2xx is an error the caller's state can hold */
-async function call<R extends ClientResponse<unknown>>(request: Promise<R>): Promise<R> {
+/**
+ * A call to a room's API whose answer is only whether it went; a response that is not 200 is an
+ * error the caller's state can hold
+ */
+async function call(request: Promise<{ status: number; url: string }>): Promise<void> {
   const res = await request;
-  if (!res.ok) throw new Error(`${res.url} answered ${res.status}`);
-  return res;
-}
-
-/** `/invited` as the app holds it: the e-mails, and nothing that is not one */
-export function invitedOf(raw: unknown): Email[] {
-  const answer = v.safeParse(v.object({ invited: listOf(EmailSchema) }), raw);
-  return answer.success ? answer.output.invited : [];
+  if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
 }
 
 /** Whom the owner has invited and is waiting on; the room answers its owner only */
-export const fetchInvited = async (roomId: RoomId): Promise<Email[]> =>
-  invitedOf(await (await call(inRoom.invited.$post({ param: { roomId } }))).json());
+export async function fetchInvited(roomId: RoomId): Promise<Email[]> {
+  const res = await inRoom.invited.$post({ param: { roomId } });
+  if (res.status !== 200) throw new Error(`${res.url} answered ${res.status}`);
+  return (await res.json()).invited;
+}
 
 export const invite = (roomId: RoomId, email: Email) =>
   call(inRoom.invite.$post({ param: { roomId }, json: { email } }));
