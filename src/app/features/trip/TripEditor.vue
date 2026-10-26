@@ -29,11 +29,10 @@ import { useInRoom } from "../sync/InRoom.vue";
 import AirportField from "./AirportField.vue";
 import { moveSchedules } from "./apply";
 import {
+  changesOf,
   formOf,
   newFlight,
   newStay,
-  sameFlight,
-  sameStays,
   settingsOf,
   stayOf,
   type StayForm,
@@ -60,13 +59,20 @@ const here = useInRoom();
 const opened = formOf(props.trip);
 const form = reactive<TripForm>(formOf(props.trip));
 const airports = useAirports();
-const settings = computed(() => settingsOf(form, airports.value));
+/**
+ * What a save would send: the settings changed from what the editor opened on, or none while
+ * one of them is not one yet. The warning reads the same, so it says what the save does.
+ */
+const changes = computed(() => {
+  const s = settingsOf(form, airports.value);
+  return s === null ? null : changesOf(settingsOf(opened, airports.value), s);
+});
 
-/** How many planned notes the new dates would take off their day */
+/** How many planned notes the new dates would take off their day, from the room's as they are now */
 const dropped = computed(() => {
-  const s = settings.value;
-  if (s === null) return 0;
-  const m = { type: "trip:dates", first: s.first, days: s.days } as const;
+  const d = changes.value?.dates ?? null;
+  if (d === null) return 0;
+  const m = { type: "trip:dates", first: d.first, days: d.days } as const;
   const before = notes.value ?? [];
   const next = moveSchedules(before, props.trip.days[0]?.date, m, Temporal.Now.instant());
   // only a planned note changes, so one that changed and has no day now lost it
@@ -161,18 +167,12 @@ function stayLinkState(s: StayForm) {
 }
 
 function save() {
-  const s = settings.value;
-  if (s === null) return;
-  // the settings left as they were stay the room's: the partner may have changed them meanwhile.
-  // Both are read from inputs the same way, so one left alone is the same; when what it opened
-  // on reads as none (a trip past what the editor takes), every setting is sent, as typed
-  const was = settingsOf(opened, airports.value);
-  if (was === null || s.name !== was.name) rename(s.name);
-  if (was === null || s.days !== was.days || !s.first.equals(was.first)) setDates(s.first, s.days);
-  for (const leg of LEGS)
-    if (was === null || !sameFlight(s.flights[leg], was.flights[leg]))
-      setFlight(leg, s.flights[leg]);
-  if (was === null || !sameStays(s.stays, was.stays)) setStays(s.stays);
+  const c = changes.value;
+  if (c === null) return;
+  if (c.name !== null) rename(c.name);
+  if (c.dates !== null) setDates(c.dates.first, c.dates.days);
+  for (const { leg, flight } of c.flights) setFlight(leg, flight);
+  if (c.stays !== null) setStays(c.stays);
   emit("close");
 }
 </script>
@@ -332,7 +332,7 @@ function save() {
     </fieldset>
 
     <footer>
-      <CtButton size="lg" type="submit" variant="primary" :disabled="settings === null">{{
+      <CtButton size="lg" type="submit" variant="primary" :disabled="changes === null">{{
         i18n.t("trip.save")
       }}</CtButton>
       <CtButton size="lg" @click="() => emit('close')">{{ i18n.t("people.cancel") }}</CtButton>

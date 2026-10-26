@@ -1,4 +1,6 @@
 <script setup lang="ts" vapor>
+import { useTemplateRef } from "vue";
+
 /**
  * A pill to press. Its `variant` says what kind of act it is:
  *
@@ -16,7 +18,9 @@
  * slot is a glyph alone and `label` names it: the button is a round, a thumb's width.
  * `danger` is an act that takes something away: `primary` fills it with the danger's color;
  * `quiet` keeps it quieter still, no wash and grey words, the danger's color only on intent;
- * `text` writes it in the line's quieter ink, the same way.
+ * `text` writes it in the line's quieter ink, the same way. `focus()` puts the keyboard on it.
+ * `aria-disabled`, given as to a button, is off but keeps the keyboard: a press on it is the
+ * owner's to ignore.
  */
 const {
   variant = "quiet",
@@ -34,10 +38,14 @@ const {
 }>();
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
 defineSlots<{ default(): unknown }>();
+
+const el = useTemplateRef<HTMLButtonElement>("el");
+defineExpose({ focus: () => el.value?.focus() });
 </script>
 
 <template>
   <button
+    ref="el"
     :type
     :disabled
     :class="[variant, `size-${size}`, { glyph: label !== undefined, danger, float }]"
@@ -69,7 +77,9 @@ button {
     background-color var(--duration-swap) ease,
     box-shadow var(--duration-swap) ease;
 
-  &:disabled {
+  /* off; one that keeps the keyboard while it does nothing (aria-disabled) looks it too */
+  &:disabled,
+  &[aria-disabled="true"] {
     opacity: 0.35;
   }
 

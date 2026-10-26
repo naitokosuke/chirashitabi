@@ -73,9 +73,15 @@ function usePlacing(): Placing {
 /** Put a note at the centre of the room's canvas (providePlace); call in a component's setup */
 export const usePlace = () => usePlacing().place;
 
-/** The canvas, while it is mounted, places notes itself, in its own view; call in its setup */
+/**
+ * The canvas, while it is mounted, places notes itself, in its own view; call in its setup.
+ * Leaving, it empties the slot only while the slot is still its own: a canvas mounted since
+ * keeps its place.
+ */
 export function useCanvasPlace(place: Place) {
   const placing = usePlacing();
   onMounted(() => (placing.canvas = place));
-  onBeforeUnmount(() => (placing.canvas = undefined));
+  onBeforeUnmount(() => {
+    if (placing.canvas === place) placing.canvas = undefined;
+  });
 }

@@ -101,6 +101,8 @@ const i18n = useI18n();
 const cut = useOffline();
 const { view, toWorld, zoomAt, animateTo } = useViewport();
 const vp = useTemplateRef<HTMLElement>("vp");
+/** The whole view, where the keyboard goes when what it was on went */
+const deskView = useTemplateRef<HTMLElement>("deskView");
 const worldStyle = computed(
   // --zoom: the handles on a picked card undo it, to stay the same size on screen
   () =>
@@ -137,11 +139,15 @@ const menuNote = computed(() => {
 function dropMenu() {
   if (overlay.value.kind === "menu") overlay.value = NONE;
 }
-// a card deleted by the partner, or in another room, takes its menu with it
+// a card deleted by the partner, or in another room, takes its menu with it, and the keyboard
+// in the menu goes to the desk rather than to nowhere
 watch(
   () => overlay.value.kind === "menu" && menuNote.value === null,
   (gone) => {
-    if (gone) dropMenu();
+    if (!gone) return;
+    const hadFocus = menuEl.value?.holdsFocus() ?? false;
+    dropMenu();
+    if (hadFocus) deskView.value?.focus({ preventScroll: true });
   },
 );
 
@@ -543,14 +549,10 @@ function remove(note: Note) {
       if (hadFocus) void nextTick(() => focusCard(note));
     },
     settle: deleting.settle,
+    commits: deleting.commits,
+    // keyboard users land on the undo, not on the page
+    focus: hadFocus,
   });
-  // keyboard users land on the undo, not on the page
-  if (hadFocus) void nextTick(focusUndo);
-}
-/** The toast's undo takes the keyboard */
-function focusUndo() {
-  if (import.meta.env.SSR) return;
-  document.querySelector<HTMLElement>('[role="status"] button')?.focus();
 }
 function write() {
   void openSheet({ kind: "new", pin: null });
@@ -580,9 +582,12 @@ function placeAtCenter(input: NoteInput, how: PlaceHow) {
 }
 useCanvasPlace(placeAtCenter);
 
-/** A point on the screen, on the desk; none is the desk's middle (were the desk not there, its corner) */
+/**
+ * A point on the screen, on the desk; none is the desk's middle (kept behind another tab, the
+ * middle of the window it comes back filling, as placeAtCenter has it)
+ */
 function onDesk(at: Pt | null) {
-  const r = vp.value?.getBoundingClientRect() ?? { width: 0, height: 0 };
+  const r = vp.value?.isConnected === true ? vp.value.getBoundingClientRect() : windowSize();
   return toWorld(at?.x ?? r.width / 2, at?.y ?? r.height / 2);
 }
 /** Where the person is looking on the desk: the agent's ideas for the whole trip go there */
@@ -651,7 +656,7 @@ watch(
 </script>
 
 <template>
-  <section>
+  <section ref="deskView" tabindex="-1" :aria-label="i18n.t('nav.canvas')">
     <!-- no bar: the desk runs to the top, and what would sit in a bar floats on it -->
     <div>
       <CtHint v-if="notes?.length === 0" class="empty" size="md" strong>{{

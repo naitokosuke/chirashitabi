@@ -119,7 +119,8 @@ export const useNotes = defineQuery(() => {
    * Card `id`, deleted in `room` (InRoom) with a moment to take it back: gone from every tab
    * at once, and from the room once `settle` is called; `undo` brings it back. Settling sends
    * the delete to `room` only, and only while it is open: the room settles what it holds open
-   * before it is left (useRoom), so a delete is not lost, nor told to another room.
+   * before it is left (useRoom), so a delete is not lost, nor told to another room. `commits`
+   * is the change settling makes, for the room to keep while the page is hidden.
    */
   function removeLater(room: RoomId, id: NoteId) {
     hide(room, id, true);
@@ -128,6 +129,7 @@ export const useNotes = defineQuery(() => {
       settle: () => {
         if (hide(room, id, false) && sync.room === room) remove(id);
       },
+      commits: { type: "note:delete", id } as const,
     };
   }
   function duplicate(id: NoteId) {

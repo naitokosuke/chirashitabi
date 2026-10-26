@@ -1,7 +1,43 @@
-<script setup lang="ts" vapor>
-import { computed, nextTick, ref, shallowRef, useId, useTemplateRef, watch } from "vue";
+<script lang="ts">
+import { shallowRef } from "vue";
 
-import { useMutation } from "@pinia/colada";
+import { defineQuery } from "@pinia/colada";
+
+import type { RoomId } from "../rooms/types";
+import type { Here } from "../sync/here";
+import type { WorkerApi } from "../worker/types";
+
+/**
+ * The asks for ideas on their way, one at a time in each room, in the room it is asked in:
+ * the desk of another room opened meanwhile offers its own. A paid call
+ * (docs/auth-and-security.md), so never retried: trying again is a tap. Defined once for the
+ * app (defineQuery), so an ask outlives the desk it was made from.
+ */
+const useAsking = defineQuery(() => {
+  /** The rooms an ask is on its way in */
+  const asking = shallowRef<ReadonlySet<RoomId>>(new Set());
+  const thinkingIn = (room: RoomId) => asking.value.has(room);
+  function mark(room: RoomId, on: boolean) {
+    const next = new Set(asking.value);
+    if (on) next.add(room);
+    else next.delete(room);
+    asking.value = next;
+  }
+  /** Asks the agent of `room`; its answer, or what it threw */
+  async function ask({ room, api }: Here, request: Parameters<WorkerApi["suggest"]>[0]) {
+    mark(room, true);
+    try {
+      return await api.suggest(request);
+    } finally {
+      mark(room, false);
+    }
+  }
+  return { thinkingIn, ask };
+});
+</script>
+
+<script setup lang="ts" vapor>
+import { computed, nextTick, ref, useId, useTemplateRef, watch } from "vue";
 
 import { CtButton, CtInput, CtPanel } from "../../../ui/index";
 
@@ -13,7 +49,6 @@ import { useNotes } from "../notes/useNotes";
 import { useInRoom } from "../sync/InRoom.vue";
 import { useOffline } from "../sync/useOffline";
 import { useToast } from "../toast/useToast";
-import type { WorkerApi } from "../worker/types";
 
 import type { Pt } from "./transform";
 
@@ -32,13 +67,9 @@ const i18n = useI18n();
 /** Cut off: the agent is not offered */
 const cut = useOffline();
 
-/**
- * Asking the room's agent for ideas, as a mutation for its pending state. A paid call
- * (docs/auth-and-security.md), so never retried by the library: trying again is a tap.
- */
-const { mutateAsync: suggestAt, isLoading: thinking } = useMutation({
-  mutation: (request: Parameters<WorkerApi["suggest"]>[0]) => here.api.suggest(request),
-});
+const { thinkingIn, ask } = useAsking();
+/** An ask on its way in this room: another room's is none here */
+const thinking = computed(() => thinkingIn(here.room));
 /**
  * The ask while it is open under its button: the note it starts from (picked from a card's
  * menu), or none for the whole trip. The words being written are kept apart, so a failed ask
@@ -56,24 +87,34 @@ const askAbout = computed(() => {
 watch(
   () => asking.value.kind === "note" && askAbout.value === null,
   (gone) => {
-    if (gone) asking.value = { kind: "closed" };
+    if (gone) close();
   },
 );
 const askWords = ref("");
 const askInput = useTemplateRef<{ focus(): void }>("askInput");
+const openButton = useTemplateRef<{ focus(): void }>("openButton");
 const askId = useId();
 function open(about: Note | null) {
   asking.value = about === null ? { kind: "trip" } : { kind: "note", about: about.id };
   void nextTick(() => askInput.value?.focus());
 }
+/** The ask folds back into its button; the keyboard, when it was in the ask, goes back there too */
+function close() {
+  if (import.meta.env.SSR) return;
+  const hadFocus = document.getElementById(askId)?.contains(document.activeElement) ?? false;
+  asking.value = { kind: "closed" };
+  if (hadFocus) openButton.value?.focus();
+}
 function toggle() {
+  // while an ask is on its way the button only says so
+  if (thinking.value) return;
   if (asking.value.kind === "closed") open(null);
-  else asking.value = { kind: "closed" };
+  else close();
 }
 function onKey(e: KeyboardEvent) {
   if (e.key !== "Escape") return;
   e.stopPropagation();
-  asking.value = { kind: "closed" };
+  close();
 }
 function onSubmit(e: Event) {
   e.preventDefault();
@@ -82,8 +123,9 @@ function onSubmit(e: Event) {
 /**
  * The room's agent leaves a few ideas where the person is looking, or in a column beside the
  * note they asked from. They arrive as the room's changes, like the partner's cards; the toast
- * says how many, or why none came. What is written for the next ask meanwhile stays: only the
- * words this ask sent are cleared, once it is answered.
+ * says how many, or why none came, in the room it was asked in only: answered once another
+ * room is open, it says nothing there. What is written for the next ask meanwhile stays: only
+ * the words this ask sent are cleared, once it is answered.
  */
 async function askForIdeas() {
   const a = asking.value;
@@ -94,20 +136,23 @@ async function askForIdeas() {
   const at =
     about === null ? props.middle() : { x: about.x + 164 * about.scale + 24 + 94, y: about.y + 40 };
   const sent = askWords.value;
-  asking.value = { kind: "closed" };
+  const { room } = here;
+  close();
   try {
-    const answer = await suggestAt({ at, ask: sent, about: about?.id ?? null });
+    const answer = await ask(here, { at, ask: sent, about: about?.id ?? null });
     if (!answer.ok) {
       const limit =
         answer.reason.ceiling === "trip" ? "canvas.ideasTripLimit" : "canvas.ideasLimit";
-      toast.show(i18n.t(limit));
+      toast.show(i18n.t(limit), { room });
       return;
     }
     const n = answer.value;
     if (askWords.value === sent) askWords.value = "";
-    toast.show(n === 0 ? i18n.t("canvas.noIdeas") : i18n.t("canvas.ideasAdded", { count: n }));
+    toast.show(n === 0 ? i18n.t("canvas.noIdeas") : i18n.t("canvas.ideasAdded", { count: n }), {
+      room,
+    });
   } catch {
-    toast.show(i18n.t("canvas.ideasFailed"));
+    toast.show(i18n.t("canvas.ideasFailed"), { room });
   }
 }
 
@@ -115,11 +160,17 @@ defineExpose({ open, busy: () => thinking.value });
 </script>
 
 <template>
+  <!--
+    while an ask is on its way it keeps the keyboard (the ask sent from it hands it back), and
+    a press on it does nothing
+  -->
   <CtButton
+    ref="openButton"
     class="open"
     float
     variant="ask"
-    :disabled="thinking || cut.offline"
+    :disabled="cut.offline"
+    :aria-disabled="thinking"
     :busy="thinking"
     :aria-expanded="asking.kind !== 'closed'"
     :aria-controls="askId"
@@ -160,7 +211,7 @@ defineExpose({ open, busy: () => thinking.value });
         @keydown="onKey"
       />
       <div>
-        <CtButton @click="toggle">{{ i18n.t("common.close") }}</CtButton>
+        <CtButton @click="close">{{ i18n.t("common.close") }}</CtButton>
         <CtButton type="submit" variant="primary">{{ i18n.t("canvas.ask") }}</CtButton>
       </div>
     </CtPanel>

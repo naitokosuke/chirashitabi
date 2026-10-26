@@ -6,7 +6,7 @@ import { findAirport, type Airport } from "../place/airports";
 import { parseHttpUrl, parseMapsUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
 
-import type { Flight, Flights, Leg, Stay, TripSnapshot } from "./types";
+import { LEGS, type Flight, type Flights, type Leg, type Stay, type TripSnapshot } from "./types";
 
 /** A flight as its inputs hold it; `on` is whether the trip has this flight at all */
 interface FlightForm {
@@ -170,20 +170,20 @@ export const sameFlight = (a: Flight | null, b: Flight | null) =>
     sameTime(a.departs, b.departs) &&
     sameTime(a.arrives, b.arrives));
 
-/**
- * The settings the room takes, or null while one of them is not one yet; a flight's airports
- * are found among `airports`, so none is taken before they are fetched
- */
-export function settingsOf(
-  form: TripForm,
-  airports: Airport[],
-): {
+/** A trip's settings as the room takes them */
+interface TripSettings {
   name: string;
   first: Temporal.PlainDate;
   days: number;
   flights: Flights;
   stays: Stay[];
-} | null {
+}
+
+/**
+ * The settings the room takes, or null while one of them is not one yet; a flight's airports
+ * are found among `airports`, so none is taken before they are fetched
+ */
+export function settingsOf(form: TripForm, airports: Airport[]): TripSettings | null {
   const name = form.name.trim();
   if (name === "" || name.length > MAX_NAME) return null;
   let first: Temporal.PlainDate;
@@ -203,4 +203,33 @@ export function settingsOf(
     stays.push(s.value);
   }
   return { name, first, days: form.days, flights: { out: out.value, back: back.value }, stays };
+}
+
+/**
+ * What saving `now` changes of `was`, the settings the editor opened on: a setting left as it
+ * was is no change (null, or its flight left out), and stays the room's, since the partner may
+ * have changed it meanwhile. Both are read from inputs the same way, so one left alone is the
+ * same; when what it opened on reads as none (a trip past what the editor takes), every
+ * setting is a change, as typed.
+ */
+export function changesOf(
+  was: TripSettings | null,
+  now: TripSettings,
+): {
+  name: string | null;
+  dates: { first: Temporal.PlainDate; days: number } | null;
+  flights: { leg: Leg; flight: Flight | null }[];
+  stays: Stay[] | null;
+} {
+  return {
+    name: was === null || now.name !== was.name ? now.name : null,
+    dates:
+      was === null || now.days !== was.days || !now.first.equals(was.first)
+        ? { first: now.first, days: now.days }
+        : null,
+    flights: LEGS.filter(
+      (leg) => was === null || !sameFlight(now.flights[leg], was.flights[leg]),
+    ).map((leg) => ({ leg, flight: now.flights[leg] })),
+    stays: was === null || !sameStays(now.stays, was.stays) ? now.stays : null,
+  };
 }
