@@ -411,17 +411,27 @@ export class Room extends DurableObject<Env> {
   }
 
   /**
-   * A room the index hides as deleted since `marked`, as a person in it sees it, to restore it;
-   * null for anyone else. Only the owner deletes, but either person can take it back for its
-   * thirty days, unless the owner has it gone at once (docs/auth-and-security.md). One the index
-   * hides and the room does not count as deleted (a deletion or a restore whose second step
-   * failed) is shown as the index has it, so a restore brings it back.
+   * The room `roomId`, which the index hides as deleted since `marked`, as a person in it sees it,
+   * to restore it; null for anyone else. Only the owner deletes, but either person can take it
+   * back for its thirty days, unless the owner has it gone at once (docs/auth-and-security.md).
+   * One the index hides and the room does not count as deleted is brought to agree: a deletion
+   * whose room step failed is finished now, at the index's time, as `delete` would have; a restore
+   * whose index step failed, the room having taken back that very deletion, is answered
+   * "restored", for the Worker to show the room again.
    */
-  deletedFor(by: MemberId, marked: IsoInstant): { name: string; deletedAt: IsoInstant } | null {
+  async deletedFor(
+    by: MemberId,
+    roomId: RoomId,
+    marked: IsoInstant,
+  ): Promise<{ name: string; deletedAt: IsoInstant } | "restored" | null> {
     if (this.person(by) === null) return null;
-    const { name } = this.ctx.storage.sql
-      .exec<{ name: string }>("SELECT name FROM trip WHERE id = 1")
-      .one();
+    const sql = this.ctx.storage.sql;
+    if (this.deletion() === null) {
+      const restored = sql.exec<{ at: string }>("SELECT at FROM restored").toArray()[0];
+      if (restored?.at === marked) return "restored";
+      await this.markDeleted(roomId, marked);
+    }
+    const { name } = sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one();
     return { name, deletedAt: this.deletion()?.at ?? marked };
   }
 
@@ -490,6 +500,16 @@ export class Room extends DurableObject<Env> {
   ): Promise<Result<void, "not the owner" | Outsider>> {
     const may = this.mayDelete(by);
     if (!may.ok) return may;
+    await this.markDeleted(roomId, at);
+    return { ok: true, value: undefined };
+  }
+
+  /**
+   * What deleting does, whoever it is finished for (`delete`, `deletedFor`): the room counts as
+   * deleted at `at`, or at the first deletion's time when it did already, and the rest is done
+   * again
+   */
+  private async markDeleted(roomId: RoomId, at: IsoInstant): Promise<void> {
     const sql = this.ctx.storage.sql;
     // deleted before anything is awaited: from here on nothing is written, opened or published
     sql.exec("INSERT OR IGNORE INTO deletion (id, room_id, at) VALUES (1, ?, ?)", roomId, at);
@@ -499,7 +519,6 @@ export class Room extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(Date.parse(first) + Room.DELETE_AFTER);
     // a deleted trip's booklet is not left up for its thirty days; restoring does not bring it back
     await this.unpublish();
-    return { ok: true, value: undefined };
   }
 
   /** How long a deleted room can be restored: KEPT_DAYS, in milliseconds */
@@ -513,12 +532,16 @@ export class Room extends DurableObject<Env> {
   /**
    * A person in the room, `by`, takes the deletion back; refused when it is not deleted, which,
    * asked while the index still hides the room, means a try whose index call failed restored it,
-   * and refused for anyone else
+   * and refused for anyone else. Which deletion it took back is kept, so `deletedFor` can tell a
+   * restore whose index step failed from a deletion whose room step did.
    */
   restore(by: MemberId): Result<void, "not deleted" | Outsider> {
-    if (this.deletion() === null) return { ok: false, reason: "not deleted" };
+    const deletion = this.deletion();
+    if (deletion === null) return { ok: false, reason: "not deleted" };
     if (this.person(by) === null) return OUTSIDE;
-    this.ctx.storage.sql.exec("DELETE FROM deletion");
+    const sql = this.ctx.storage.sql;
+    sql.exec("DELETE FROM deletion");
+    sql.exec("INSERT OR REPLACE INTO restored (id, at) VALUES (1, ?)", deletion.at);
     void this.ctx.storage.deleteAlarm();
     return { ok: true, value: undefined };
   }
@@ -613,12 +636,14 @@ export class Room extends DurableObject<Env> {
   /**
    * The trip at a glance, for a member's list of rooms: its name, days, members and memo count;
    * for `by`, a person in it, or for an invitation (null). Null when `by` is not in the room (an
-   * index row the room no longer honours) or the room is deleted (the index not told yet), so the
-   * list leaves the room out
+   * index row the room no longer honours), so the list leaves the room out; when the room is
+   * deleted and the index not told (a build that told the room first), when it was, for the
+   * Worker to tell the index
    */
-  summary(by: MemberId | null = null): WireRoomSummary | null {
-    if (this.deletion() !== null) return null;
+  summary(by: MemberId | null = null): WireRoomSummary | { deletedAt: IsoInstant } | null {
     if (by !== null && this.person(by) === null) return null;
+    const deletion = this.deletion();
+    if (deletion !== null) return { deletedAt: deletion.at };
     const sql = this.ctx.storage.sql;
     const { name } = sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one();
     // a trip always has a day: made with one, and moved to one at least

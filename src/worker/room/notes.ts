@@ -4,7 +4,17 @@ import type { ImageId } from "../../contract/image";
 import type { MemberId } from "../../contract/member";
 import type { NoteId } from "../../contract/note";
 import type { HttpUrl } from "../../contract/place";
-import { parseTag, type NoteColor, type NoteStatus, type Tag } from "../../contract/room";
+import {
+  MAX_BODY,
+  MAX_TAG,
+  MAX_TAGS,
+  MAX_TEXT,
+  MAX_TITLE,
+  parseTag,
+  type NoteColor,
+  type NoteStatus,
+  type Tag,
+} from "../../contract/room";
 import {
   WireMemoSchema,
   WireNoteSchema,
@@ -102,25 +112,69 @@ const CLEARED: Partial<Record<string, Partial<NoteRow>>> = {
 };
 
 /**
- * What to do with a note's row for the contract to read it: nothing; clear the fields it
- * refuses, as these columns (each field checked as a memo's, which every kind's are but its
- * kind and a text box's words); or delete it, when that is not enough or would make it another
- * kind (a sticker without its picture)
+ * The words a note's row keeps past the contract's limits, cut to them, as the field each is and
+ * the columns that keep it; a field within its limits is not here. A text box's words (its title
+ * column) up to MAX_TEXT, paper's title up to MAX_TITLE; a memo's body up to MAX_BODY, and its
+ * tags each up to MAX_TAG and as many as it may have, the room reading no tag past its length.
+ */
+const cutsOf = (r: NoteRow, note: WireNote): { field: string; columns: Partial<NoteRow> }[] => {
+  const words =
+    note.kind === "text" ? { field: "text", max: MAX_TEXT } : { field: "title", max: MAX_TITLE };
+  const title = cutTo(r.title, words.max);
+  const body = cutTo(r.body, MAX_BODY);
+  const tags = JSON.stringify(cutTags(r.tags));
+  const memo = note.kind === "memo";
+  return [
+    ...(title === r.title ? [] : [{ field: words.field, columns: { title } }]),
+    ...(memo && body !== r.body ? [{ field: "body", columns: { body } }] : []),
+    ...(memo && tags !== JSON.stringify(tagsOf(r.tags))
+      ? [{ field: "tags", columns: { tags } }]
+      : []),
+  ];
+};
+
+/** `s` up to `max` UTF-16 units, never ending on half of a character */
+const cutTo = (s: string, max: number) => s.slice(0, max).replace(/[\uD800-\uDBFF]$/, "");
+
+/** The tags a column keeps, each cut to MAX_TAG, as many as a memo may have */
+const cutTags = (column: string): Tag[] =>
+  tagStrings(column)
+    .flatMap((t) => parseTag(cutTo(t, MAX_TAG)) ?? [])
+    .slice(0, MAX_TAGS);
+
+/**
+ * What to do with a note's row for the contract to read it, all it keeps: nothing; fix it, as
+ * these columns, its words cut to their limits (`cutsOf`), and then the fields it still refuses
+ * cleared (each field checked as a memo's, which every kind's are but its kind and a text box's
+ * words); or delete it, when that is not enough or would make it another kind (a sticker without
+ * its picture). Which fields were cut and which cleared is said.
  */
 export function repairOf(
   r: NoteRow,
-): { kind: "fine" } | { kind: "clear"; columns: Partial<NoteRow> } | { kind: "delete" } {
+):
+  | { kind: "fine" }
+  | { kind: "fix"; columns: Partial<NoteRow>; cut: string[]; cleared: string[] }
+  | { kind: "delete" } {
   const note = fromRow(r);
-  if (v.safeParse(WireNoteSchema, note).success) return { kind: "fine" };
-  const fields: Record<string, unknown> = { ...note };
-  const refused = Object.entries(WireMemoSchema.entries).flatMap(([key, schema]) =>
+  const cuts = cutsOf(r, note);
+  const cutColumns = cuts.reduce<Partial<NoteRow>>((c, f) => ({ ...c, ...f.columns }), {});
+  const fields: Record<string, unknown> = { ...fromRow({ ...r, ...cutColumns }) };
+  const cut = cuts.map((f) => f.field);
+  if (v.safeParse(WireNoteSchema, fields).success)
+    return cut.length === 0
+      ? { kind: "fine" }
+      : { kind: "fix", columns: cutColumns, cut, cleared: [] };
+  const cleared = Object.entries(WireMemoSchema.entries).flatMap(([key, schema]) =>
     key !== "kind" && key in fields && !v.is(schema, fields[key]) ? [key] : [],
   );
-  if (refused.some((key) => CLEARED[key] === undefined)) return { kind: "delete" };
-  const columns = refused.reduce<Partial<NoteRow>>((c, key) => ({ ...c, ...CLEARED[key] }), {});
-  const cleared = fromRow({ ...r, ...columns });
-  return cleared.kind === note.kind && v.safeParse(WireNoteSchema, cleared).success
-    ? { kind: "clear", columns }
+  if (cleared.some((key) => CLEARED[key] === undefined)) return { kind: "delete" };
+  const columns = cleared.reduce<Partial<NoteRow>>(
+    (c, key) => ({ ...c, ...CLEARED[key] }),
+    cutColumns,
+  );
+  const fixed = fromRow({ ...r, ...columns });
+  return fixed.kind === note.kind && v.safeParse(WireNoteSchema, fixed).success
+    ? { kind: "fix", columns, cut, cleared }
     : { kind: "delete" };
 }
 
@@ -159,16 +213,21 @@ export const bookingColumns = (
       ? ["needed", b.by, null, null]
       : ["booked", null, b.code, b.url];
 
-/** A note's tags as its column keeps them: a JSON array of strings; none, when it is not one */
-const tagsOf = (column: string): Tag[] => {
+/** The strings a note's tags column keeps, a JSON array of them; none, when it is not one */
+const tagStrings = (column: string): string[] => {
   let tags: unknown;
   try {
     tags = JSON.parse(column);
   } catch {
     return [];
   }
-  return Array.isArray(tags) ? tags.flatMap((t: unknown) => parseTag(t) ?? []) : [];
+  return Array.isArray(tags)
+    ? tags.flatMap((t: unknown) => (typeof t === "string" ? [t] : []))
+    : [];
 };
+
+/** A note's tags as its column keeps them, each read with its schema */
+const tagsOf = (column: string): Tag[] => tagStrings(column).flatMap((t) => parseTag(t) ?? []);
 
 const fromRow = (r: NoteRow): WireNote => {
   const card = {

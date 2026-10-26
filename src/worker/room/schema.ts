@@ -105,6 +105,10 @@ export const migrate = (storage: DurableObjectStorage): void => {
       room_id TEXT NOT NULL,
       at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS restored (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS publication (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       slug TEXT NOT NULL,
@@ -175,15 +179,22 @@ export const migrate = (storage: DurableObjectStorage): void => {
   repair(storage);
 };
 
-/** How far notes have been repaired against the contract; one more each time a check is added */
-const REPAIRED = 1;
+/**
+ * How far notes have been repaired against the contract; one more each time the repair does
+ * more. 1: a field the contract refused was cleared. 2: words past a limit are cut to it rather
+ * than cleared, a memo's tags past theirs too (which the room read as no tag), and each repair is
+ * recorded. A room at 1 has every note reading already, so running the repair again does only
+ * what 2 adds: the tags.
+ */
+const REPAIRED = 2;
 
 /**
  * Notes kept before a check the contract has since gained, brought up to it once (each
- * REPAIRED): what the room would read only to leave out (readNotes). A field it refuses is
- * cleared to what it takes; a note that is still refused, or has nothing to fall back to (a
- * text box left blank before its words had to be there), is deleted as `note:delete` deletes
- * one. Each is logged.
+ * REPAIRED): what the room would read only to leave out, or in part (readNotes). Words past a
+ * limit are cut to it, and any other field it refuses cleared to what it takes; a note that is
+ * still refused, or has nothing to fall back to (a text box left blank before its words had to be
+ * there), is deleted as `note:delete` deletes one. Each is recorded in `repairs` with the columns
+ * as they were, since a room's logs are not kept (wrangler.jsonc), and logged.
  */
 const repair = (storage: DurableObjectStorage): void => {
   const sql = storage.sql;
@@ -191,7 +202,16 @@ const repair = (storage: DurableObjectStorage): void => {
     CREATE TABLE IF NOT EXISTS repaired (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       version INTEGER NOT NULL
-    )
+    );
+    CREATE TABLE IF NOT EXISTS repairs (
+      note_id TEXT NOT NULL,
+      at TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      deleted INTEGER NOT NULL,
+      cut TEXT NOT NULL,
+      cleared TEXT NOT NULL,
+      before TEXT NOT NULL
+    );
   `);
   const done = sql
     .exec<{ version: number }>("SELECT version FROM repaired WHERE id = 1")
@@ -199,11 +219,31 @@ const repair = (storage: DurableObjectStorage): void => {
   if (done !== undefined && done.version >= REPAIRED) return;
   storage.transactionSync(() => {
     const now = new Date().toISOString();
+    const record = (
+      r: NoteRow,
+      deleted: boolean,
+      cut: string[],
+      cleared: string[],
+      before: object,
+    ) =>
+      sql.exec(
+        `INSERT INTO repairs (note_id, at, version, deleted, cut, cleared, before)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        r.id,
+        now,
+        REPAIRED,
+        Number(deleted),
+        JSON.stringify(cut),
+        JSON.stringify(cleared),
+        JSON.stringify(before),
+      );
     for (const r of sql.exec<NoteRow>(`SELECT * FROM ${ON_DESK}`).toArray()) {
       const fix = repairOf(r);
       if (fix.kind === "fine") continue;
       if (fix.kind === "delete") {
         sql.exec("UPDATE notes SET deleted_at = ? WHERE id = ?", now, r.id);
+        // the row stays, deleted, with all it kept
+        record(r, true, [], [], {});
         console.warn("room: a note the contract refuses is deleted", { id: r.id, kind: r.kind });
         continue;
       }
@@ -213,9 +253,14 @@ const repair = (storage: DurableObjectStorage): void => {
         ...columns.map(([, value]) => value),
         r.id,
       );
-      console.warn("room: a note the contract refuses is repaired", {
+      const before = Object.fromEntries(
+        Object.entries(r).filter(([c]) => columns.some(([changed]) => changed === c)),
+      );
+      record(r, false, fix.cut, fix.cleared, before);
+      console.warn("room: a note is repaired to the contract", {
         id: r.id,
-        cleared: columns.map(([c]) => c),
+        cut: fix.cut,
+        cleared: fix.cleared,
       });
     }
     sql.exec("INSERT OR REPLACE INTO repaired (id, version) VALUES (1, ?)", REPAIRED);
