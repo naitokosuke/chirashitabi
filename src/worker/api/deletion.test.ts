@@ -10,6 +10,7 @@ import {
   indexStorage,
   invite,
   me,
+  memo,
   now,
   PNG,
   post,
@@ -112,7 +113,7 @@ describe("deleting a room", () => {
     expect(await room.exec("SELECT name FROM sqlite_master WHERE type = 'table'")).toEqual([]);
   });
 
-  test("deleting right after a removal passes over the socket still closing; asked again, it finishes", async () => {
+  test("deleting right after a removal passes over the socket still closing; the list of trips finishes it", async () => {
     const owner = "delrm-owner@example.com";
     const guest = "delrm-guest@example.com";
     const { roomId, memberId: yuki } = await createRoom(owner);
@@ -128,28 +129,32 @@ describe("deleting a room", () => {
     expect(at).not.toBeNull();
 
     // the index was never told (a build that told the room first, its index call failed): the
-    // list of trips leaves the deleted room out, the owner asks again, and the deletion keeps its
-    // time
-    expect(await me(owner)).toMatchObject({ rooms: [], deleted: [] });
-    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(200);
+    // list of trips tells it, at the room's time, and lists the trip among the deleted ones
+    expect(await me(owner)).toMatchObject({ rooms: [], deleted: [{ id: roomId, deletedAt: at }] });
+    expect(await refusal(await post(`/api/rooms/${roomId}/delete`, owner))).toEqual([
+      403,
+      { error: "not a member" },
+    ]);
     expect(await me(owner)).toMatchObject({ rooms: [], deleted: [{ id: roomId, deletedAt: at }] });
   });
 
-  test("a restore the index did not hear of is finished by restoring again", async () => {
+  test("a restore the index did not hear of is finished by restoring again, or by the list of trips", async () => {
     const owner = "res-again-owner@example.com";
     const { roomId, memberId: yuki } = await createRoom(owner);
+    const stub = (await server.getWorker().getEnv()).ROOM.getByName(roomId);
     expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(200);
     // the room takes the deletion back, and the index's call fails: the index still hides it
-    expect(await (await server.getWorker().getEnv()).ROOM.getByName(roomId).restore(yuki)).toEqual({
-      ok: true,
-      value: undefined,
-    });
-    // still listed among the deleted trips, as the index has it, so it can be restored
-    expect(await me(owner)).toMatchObject({ rooms: [], deleted: [{ id: roomId }] });
-
+    expect(await stub.restore(yuki)).toEqual({ ok: true, value: undefined });
     // asked again, the room says it is not deleted, and the index shows it: the restore is done
     expect((await post(`/api/rooms/${roomId}/restore`, owner)).status).toBe(200);
     expect(await me(owner)).toMatchObject({ rooms: [{ id: roomId }], deleted: [] });
+
+    // and once more, nobody asking again: the room took back that very deletion, so the list of
+    // trips has the index show it
+    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(200);
+    expect(await stub.restore(yuki)).toEqual({ ok: true, value: undefined });
+    expect(await me(owner)).toMatchObject({ rooms: [{ id: roomId }], deleted: [] });
+    expect(await stub.deletedAt()).toBeNull();
     const c = await connect(roomId, owner);
     c.ws.close(1000, "done");
   });
@@ -187,9 +192,13 @@ describe("deleting a room", () => {
       [],
     );
     expect(await room.exec("SELECT id FROM publication")).toEqual([]);
-    // what restoring reads is still answered; the list of trips leaves it out
-    expect(await stub.deletedFor(yuki, now())).toEqual({ name: "Taiwan trip", deletedAt: at });
-    expect(await stub.summary(yuki)).toBeNull();
+    // what restoring reads is still answered; at a glance it says when it was deleted, so the list
+    // of trips leaves it out
+    expect(await stub.deletedFor(yuki, roomId, now())).toEqual({
+      name: "Taiwan trip",
+      deletedAt: at,
+    });
+    expect(await stub.summary(yuki)).toEqual({ deletedAt: at });
     expect((await me(owner)).rooms).toEqual([]);
   });
 
@@ -261,5 +270,103 @@ describe("deleting a room", () => {
     const index = await indexStorage();
     expect(await index.exec("SELECT * FROM memberships WHERE room_id = ?", roomId)).toEqual([]);
     expect(await env.IMAGES.head(`rooms/${roomId}/images/${imageId}`)).toBeNull();
+  });
+});
+
+describe("a deletion that went part way", () => {
+  /** Drops the room's table `name`; what it returns makes it again as the room's build made it */
+  const drop = async (roomId: string, name: string) => {
+    const room = await roomStorage(roomId);
+    const [{ sql }] = (await room.exec(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+      name,
+    )) as [{ sql: string }];
+    await room.exec(`DROP TABLE ${name}`);
+    return () => room.exec(sql);
+  };
+
+  test("a deletion the room fails before it counts shows the trip again, and can be asked again", async () => {
+    const owner = "del-throw-early@example.com";
+    const { roomId } = await createRoom(owner);
+    const a = await connect(roomId, owner);
+    // the room's step throws before the room counts as deleted
+    const back = await drop(roomId, "deletion");
+    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(500);
+    await back();
+
+    // the index shows it again: in the list of trips, open, and still deletable
+    expect(await me(owner)).toMatchObject({ rooms: [{ id: roomId }], deleted: [] });
+    a.send({ type: "note:add", note: memo("still"), cid: "c1" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c1" });
+    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(200);
+    expect(await a.next()).toEqual({ type: "gone", reason: "deleted" });
+    expect(await me(owner)).toMatchObject({ rooms: [], deleted: [{ id: roomId }] });
+  });
+
+  test("a deletion the room fails after it counts is listed among the deleted trips at the room's time", async () => {
+    const owner = "del-throw-late@example.com";
+    const { roomId } = await createRoom(owner);
+    const stub = (await server.getWorker().getEnv()).ROOM.getByName(roomId);
+    // the room counts as deleted, then its step throws
+    const back = await drop(roomId, "invitations");
+    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(500);
+    await back();
+    const at = await stub.deletedAt();
+    expect(at).not.toBeNull();
+
+    // shown again by the Worker, deleted in the room: the list of trips hides it in the index
+    expect(await me(owner)).toMatchObject({ rooms: [], deleted: [{ id: roomId, deletedAt: at }] });
+    expect((await post(`/api/rooms/${roomId}/restore`, owner)).status).toBe(200);
+    expect(await me(owner)).toMatchObject({ rooms: [{ id: roomId }], deleted: [] });
+  });
+
+  test("a deletion the index hid and the room never heard of is finished by the list of trips", async () => {
+    const owner = "del-finish-owner@example.com";
+    const { roomId } = await createRoom(owner);
+    const a = await connect(roomId, owner);
+    const env = await server.getWorker().getEnv();
+    // the room's step failed, and so did showing the trip again
+    const at = now();
+    await env.ROOMS.getByName("index").mark(roomId, at);
+
+    // the room finishes its deletion at the index's time: its sockets are told, its day is set
+    expect(await me(owner)).toMatchObject({ rooms: [], deleted: [{ id: roomId, deletedAt: at }] });
+    expect(await a.next()).toEqual({ type: "gone", reason: "deleted" });
+    expect(await env.ROOM.getByName(roomId).deletedAt()).toBe(at);
+    // and the owner can have it gone at once
+    expect((await post(`/api/rooms/${roomId}/purge`, owner)).status).toBe(200);
+    expect(await me(owner)).toMatchObject({ rooms: [], deleted: [] });
+  });
+
+  test("a room deleted in the room alone is among its people's deleted trips, and restorable", async () => {
+    const owner = "del-old-owner@example.com";
+    const guest = "del-old-guest@example.com";
+    const { roomId, memberId: yuki } = await createRoom(owner);
+    expect((await admit(roomId, owner, guest)).status).toBe(200);
+    // deleted by a build that told the room first, its index call failed
+    const at = now();
+    const stub = (await server.getWorker().getEnv()).ROOM.getByName(roomId);
+    expect((await stub.delete(yuki, roomId, at)).ok).toBe(true);
+
+    // whoever asks first, the index is told, and both see it among their deleted trips
+    expect(await me(guest)).toMatchObject({ rooms: [], deleted: [{ id: roomId, deletedAt: at }] });
+    expect(await me(owner)).toMatchObject({ rooms: [], deleted: [{ id: roomId, deletedAt: at }] });
+    expect((await post(`/api/rooms/${roomId}/restore`, guest)).status).toBe(200);
+    for (const email of [owner, guest])
+      expect(await me(email)).toMatchObject({ rooms: [{ id: roomId }], deleted: [] });
+  });
+
+  test("an invitation to a room deleted in the room alone is taken out when the invitee asks", async () => {
+    const owner = "del-old-inv-owner@example.com";
+    const invitee = "del-old-invited@example.com";
+    const { roomId, memberId: yuki } = await createRoom(owner);
+    expect((await invite(roomId, owner, invitee)).status).toBe(200);
+    const at = now();
+    const stub = (await server.getWorker().getEnv()).ROOM.getByName(roomId);
+    expect((await stub.delete(yuki, roomId, at)).ok).toBe(true);
+
+    expect((await me(invitee)).invitations).toEqual([]);
+    expect(await me(owner)).toMatchObject({ rooms: [], deleted: [{ id: roomId, deletedAt: at }] });
+    expect((await accept(roomId, invitee)).status).toBe(404);
   });
 });

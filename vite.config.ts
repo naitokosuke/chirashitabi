@@ -15,6 +15,20 @@ const devToken = existsSync(".dev-token.local")
   : null;
 
 /**
+ * How `vp run check` runs Vize's own check: its task script, an export Vize calls internal. A
+ * release that drops it fails the check alone, saying why; every other `vp` command (dev, build,
+ * test) loads this config all the same.
+ */
+const vizeCheck = (): string => {
+  try {
+    const task = fileURLToPath(import.meta.resolve("@vizejs/vite-plugin/internal/vite-plus-task"));
+    return `node ${JSON.stringify(task)} check`;
+  } catch {
+    return `node -e "console.error('@vizejs/vite-plugin has no internal/vite-plus-task'); process.exit(1)"`;
+  }
+};
+
+/**
  * The service worker (src/app/sw.js) as /sw.js, keeping every file this build emitted. Its
  * cache is named after what those files hold (the page, public/ and the worker itself
  * included), so any change at all is a new service worker with a new cache.
@@ -247,7 +261,7 @@ export default defineConfig({
       // Vize's own check, run once check:worker has written .worker-types/ afresh: the app's hc
       // client is typed by those declarations, so it is never checked against an older Worker
       check: {
-        command: `node ${JSON.stringify(fileURLToPath(import.meta.resolve("@vizejs/vite-plugin/internal/vite-plus-task")))} check`,
+        command: vizeCheck(),
         dependsOn: ["check:worker"],
         cache: false,
       },

@@ -1,6 +1,7 @@
 import * as v from "valibot";
 import { describe, expect, test } from "vite-plus/test";
 
+import { MAX_BODY, MAX_TAG, MAX_TAGS, MAX_TEXT, MAX_TITLE } from "../../contract/room";
 import { ServerMessageSchema } from "../../contract/wire";
 
 import { connect, createRoom, memo, roomStorage, server, useWorker } from "./harness";
@@ -151,7 +152,93 @@ describe("a room from before, and rows written past the checks", () => {
     a.send({ type: "note:add", note: { ...memo("blank"), kind: "memo" }, cid: "c1" });
     expect(await a.next()).toEqual({ type: "rejected", reason: "duplicate id", cid: "c1" });
     a.ws.close(1000, "done");
-    expect(await room.exec("SELECT version FROM repaired")).toEqual([{ version: 1 }]);
+    expect(await room.exec("SELECT version FROM repaired")).toEqual([{ version: 2 }]);
+  });
+
+  test("notes past a limit are cut to it, once, and each repair is recorded", async () => {
+    const owner = "repair-cut@example.com";
+    const { roomId } = await createRoom(owner);
+    const worker = server.getWorker();
+    const room = await roomStorage(roomId);
+    const row = (id: string, kind: string, title: string, body = "", tags = "[]") =>
+      room.exec(
+        `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at, body, tags)
+         VALUES (?, ?, ?, '#ffffff', 1, 2, 3, 'agent:claude', '2026-01-01T00:00:00Z', ?, ?)`,
+        id,
+        kind,
+        title,
+        body,
+        tags,
+      );
+    const many = Array.from({ length: 25 }, (_, i) => `t${i}`);
+    // a memo past every limit of its words, with a link a check refuses; a text box past its own
+    await row(
+      "long",
+      "memo",
+      "T".repeat(250),
+      "B".repeat(4100),
+      JSON.stringify(["L".repeat(45), ...many]),
+    );
+    await room.exec("UPDATE notes SET link = 'javascript:alert(1)' WHERE id = 'long'");
+    await row("words", "text", "W".repeat(1100));
+    await row("sound", "memo", "Fine", "", JSON.stringify(["Food"]));
+    await room.exec("DROP TABLE repaired");
+    await worker.evictDurableObject("Room", { name: roomId });
+
+    const a = await connect(roomId, owner);
+    a.ws.close(1000, "done");
+    const notes = a.snapshot.notes;
+    expect(notes.map((n) => n.id)).toEqual(["long", "words", "sound"]);
+    expect(notes[0]).toMatchObject({
+      title: "T".repeat(MAX_TITLE),
+      body: "B".repeat(MAX_BODY),
+      tags: ["L".repeat(MAX_TAG), ...many.slice(0, MAX_TAGS - 1)],
+      link: null,
+    });
+    expect(notes[1]).toMatchObject({ kind: "text", text: "W".repeat(MAX_TEXT) });
+    const repairs = () =>
+      room.exec<{
+        note_id: string;
+        version: number;
+        deleted: number;
+        cut: string;
+        cleared: string;
+        before: string;
+      }>("SELECT note_id, version, deleted, cut, cleared, before FROM repairs");
+    const recorded = await repairs();
+    expect(recorded.map((r) => [r.note_id, r.version, r.deleted, r.cut, r.cleared])).toEqual([
+      ["long", 2, 0, '["title","body","tags"]', '["link"]'],
+      ["words", 2, 0, '["text"]', "[]"],
+    ]);
+    // what each kept before, to be put back by hand
+    expect(JSON.parse(recorded[0]!.before)).toEqual({
+      title: "T".repeat(250),
+      body: "B".repeat(4100),
+      tags: JSON.stringify(["L".repeat(45), ...many]),
+      link: "javascript:alert(1)",
+    });
+
+    // once: opened again, nothing more is repaired
+    await worker.evictDurableObject("Room", { name: roomId });
+    (await connect(roomId, owner)).ws.close(1000, "done");
+    expect(await repairs()).toHaveLength(2);
+
+    // a room the first repair ran in has every note reading: the second only cuts the tags the
+    // room read as none for their length
+    await room.exec("UPDATE repaired SET version = 1");
+    await row("tagged", "memo", "Tags", "", JSON.stringify(["Y".repeat(45), "ok"]));
+    await worker.evictDurableObject("Room", { name: roomId });
+    const b = await connect(roomId, owner);
+    b.ws.close(1000, "done");
+    expect(b.snapshot.notes.find((n) => n.id === "tagged")).toMatchObject({
+      tags: ["Y".repeat(MAX_TAG), "ok"],
+    });
+    expect((await repairs()).map((r) => [r.note_id, r.cut])).toEqual([
+      ["long", '["title","body","tags"]'],
+      ["words", '["text"]'],
+      ["tagged", '["tags"]'],
+    ]);
+    expect(await room.exec("SELECT version FROM repaired")).toEqual([{ version: 2 }]);
   });
 
   test("a note or a member that does not read is left out of the snapshot, and the room still opens", async () => {

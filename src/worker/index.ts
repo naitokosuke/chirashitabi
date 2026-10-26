@@ -313,29 +313,51 @@ const api = new Hono<ApiEnv>()
   .post("/me", async (c) => {
     const { email } = c.var;
     const index = c.env.ROOMS.getByName("index");
-    const [mine, invitedTo, deletions] = await Promise.all([
-      index.memberships(email),
-      index.invitations(email),
-      index.deletions(email),
-    ]);
-    // each at a glance, and whether the asker made it (and so may delete it from the list); one
-    // the room does not count them in (the index behind it) is left out
-    const glance = async (id: RoomId, by: MemberId | null = null) => {
-      const summary = await c.env.ROOM.getByName(id).summary(by);
-      return summary === null ? [] : [{ id, ...summary }];
+    // the asker's lists, and whether a room and the index disagreed on its deletion (a step that
+    // failed part way): the two are brought to agree, and where the index changed, the lists are
+    // read again
+    const read = async () => {
+      const [mine, invitedTo, deletions] = await Promise.all([
+        index.memberships(email),
+        index.invitations(email),
+        index.deletions(email),
+      ]);
+      let repaired = false;
+      // each at a glance, and whether the asker made it (and so may delete it from the list); one
+      // the room does not count them in (the index behind it) is left out, and one it counts as
+      // deleted (a build that told the room first) is hidden in the index at the room's time
+      const glance = async (id: RoomId, by: MemberId | null = null) => {
+        const summary = await c.env.ROOM.getByName(id).summary(by);
+        if (summary === null) return [];
+        if ("deletedAt" in summary) {
+          await index.mark(id, summary.deletedAt);
+          repaired = true;
+          return [];
+        }
+        return [{ id, ...summary }];
+      };
+      const rooms = (await Promise.all(mine.map((m) => glance(m.roomId, m.memberId)))).flat();
+      // an invitation shows the trip it is to, its owner leading the members
+      const invitations = (await Promise.all(invitedTo.map((id) => glance(id)))).flat();
+      // a trip the index hides as deleted, to the people who were in it, who may restore it; one
+      // the room had restored (the index's step failed) is shown again
+      const deleted = (
+        await Promise.all(
+          deletions.map(async ({ roomId: id, memberId, at }) => {
+            const d = await c.env.ROOM.getByName(id).deletedFor(memberId, id, at);
+            if (d === "restored") {
+              await index.mark(id, null);
+              repaired = true;
+              return [];
+            }
+            return d === null ? [] : [{ id, ...d }];
+          }),
+        )
+      ).flat();
+      return { rooms, invitations, deleted, repaired };
     };
-    const rooms = (await Promise.all(mine.map((m) => glance(m.roomId, m.memberId)))).flat();
-    // an invitation shows the trip it is to, its owner leading the members
-    const invitations = (await Promise.all(invitedTo.map((id) => glance(id)))).flat();
-    // a trip the index hides as deleted, to the people who were in it, who may restore it
-    const deleted = (
-      await Promise.all(
-        deletions.map(async ({ roomId: id, memberId, at }) => {
-          const d = await c.env.ROOM.getByName(id).deletedFor(memberId, at);
-          return d === null ? [] : [{ id, ...d }];
-        }),
-      )
-    ).flat();
+    const first = await read();
+    const { rooms, invitations, deleted } = first.repaired ? await read() : first;
     // and who is asking, so a device can tell whose what it kept is
     return c.json({ email, rooms, invitations, deleted } satisfies WireMine, 200);
   })
@@ -959,13 +981,19 @@ const api = new Hono<ApiEnv>()
       c.var.log.set({ refused: may.reason });
       return c.json(refusal(may.reason), 403);
     }
-    // the index first, at the room's deletion time: from here on it resolves nobody in the room,
-    // and should the room's step fail, the people in it see it among their deleted trips and
-    // restore it
+    // the index first, at the room's deletion time: from here on it resolves nobody in the room
     const at = v.parse(IsoInstantSchema, new Date().toISOString());
     const index = c.env.ROOMS.getByName("index");
     await index.mark(roomId, at);
-    const deleted = await room.delete(memberId, roomId, at);
+    // the room's step failing (a call that did not answer, a step in it that threw), the room is
+    // shown again for deleting to be asked again. Every way that can end, the next /me makes the
+    // two agree: a room that counted itself deleted after all is hidden in the index again, and a
+    // room the index still hides (shown again failed too) finishes its deletion at the index's
+    // time (Room.deletedFor)
+    const deleted = await room.delete(memberId, roomId, at).catch(async (e: unknown) => {
+      await index.mark(roomId, null);
+      throw e;
+    });
     if (!deleted.ok) {
       // the room would not after all: shown again
       await index.mark(roomId, null);

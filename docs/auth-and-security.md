@@ -131,7 +131,8 @@ Creating and joining are explicit operations, not side effects of a first visit.
   Should the room's step fail, the person is already let in nowhere, and their seat comes back as above.
   An index row the room no longer honours does not stop an invitation: inviting asks the room and forgets it.
 - `room:delete` is called by the owner and is a soft delete: the index stops resolving anyone in it and drops its open invitations first, then the room is marked deleted and every socket is told and closed, and either person who was in it can restore it for 30 days (`room:restore`).
-  A room the index hides and the room does not count as deleted (its step failed) is listed among the deleted trips all the same, so restoring brings it back; a room deleted that the index still lists is left out of the list of trips.
+  Should the room's step fail, the index shows the room again, so deleting can be asked again.
+  Wherever a step that failed leaves the two disagreeing, the next `/api/me` of someone in the room makes them agree: a room the index hides and the room does not count as deleted finishes its deletion at the index's time (sockets closed, its day set), unless the room took back that very deletion (a restore whose index step failed), which the index then shows again; a room deleted that the index still lists is hidden in the index at the room's time.
   After 30 days an alarm deletes its pictures from R2, removes it from the index and calls `deleteAll` on the object; its public booklet, which deleting took down already, is gone with it. The owner can have that happen at once (`room:purge`), since only they deleted it; the other person, who could have restored it, cannot.
 - Everything else from a member id that is not in the table, or in a deleted room, is rejected inside the object, as a refusal the Worker answers as it answers anyone not in the room.
 
@@ -285,7 +286,7 @@ This design has no such endpoint, and keeps it that way by rule.
 
 The client cannot be trusted to have run its own checks, so the room validates every mutation with the same ones (`currencyCode`, `hexColor`, and whatever follows).
 
-- A message larger than 32 KB (its UTF-8 bytes) is rejected; the platform accepts up to 32 MiB per WebSocket message, so this is ours to enforce.
+- A message larger than 64 KiB (its UTF-8 bytes) is rejected; the platform accepts up to 32 MiB per WebSocket message, so this is ours to enforce.
 - Each member may send 200 messages in a fixed 10-second window, counted in the room's memory and separate from the paid-call budget; the moves of a card being dragged (a `note:move` with no `cid`) have a window of their own, so a long drag cannot crowd out the changes that are kept.
 - `updatedAt` and ordering are assigned by the room, not sent by the client.
 - The room remembers the last 1,000 `cid`s it applied for each member; a change sent again with one of them (its ack was lost on the way) is acked with its first `updatedAt` and not applied again.

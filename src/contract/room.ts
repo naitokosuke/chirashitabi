@@ -35,6 +35,8 @@ export const MAX_TITLE = 200;
 export const MAX_BODY = 4000;
 /** The most tags a memo may have */
 export const MAX_TAGS = 20;
+/** The longest a tag may be */
+export const MAX_TAG = 40;
 /** The longest a text box's words may be: a few lines at most */
 export const MAX_TEXT = 1000;
 /** The longest a day's introduction in the booklet may be */
@@ -56,8 +58,8 @@ export type NoteColor = (typeof COLORS)[number];
 export const STATUSES = ["idea", "fixed", "done"] as const;
 export type NoteStatus = (typeof STATUSES)[number];
 
-/** A tag on a memo, as the room keeps it: at most 40 characters, never empty */
-export const TagSchema = v.pipe(v.string(), v.nonEmpty(), v.maxLength(40), v.brand("Tag"));
+/** A tag on a memo, as the room keeps it: at most MAX_TAG characters, never empty */
+export const TagSchema = v.pipe(v.string(), v.nonEmpty(), v.maxLength(MAX_TAG), v.brand("Tag"));
 
 export type Tag = v.InferOutput<typeof TagSchema>;
 
