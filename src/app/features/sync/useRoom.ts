@@ -81,19 +81,22 @@ export const useRoom = defineStore("room", () => {
 
   // ---- kept on this device (persist.ts): a moment after the last change, and when the page goes away ----
   let keepTimer: ReturnType<typeof setTimeout> | null = null;
-  function keepNow() {
+  /**
+   * The room as it is now; `hidden`, the change the toast holds open in it (a delete waiting on
+   * its undo) is kept as made, though it is not yet
+   */
+  function keepNow({ hidden = false } = {}) {
     if (keepTimer !== null) clearTimeout(keepTimer);
     keepTimer = null;
     const s = sync.session;
     const confirmed = ledger.confirmed;
     // only once this device is in it, and so has it
     if (s.kind !== "in" || confirmed === null) return;
-    keep(localStorage, s.room, {
-      me: s.me,
-      confirmed,
-      pending: [...ledger.pending],
-      savedAt: s.syncedAt,
-    });
+    const held = toast.current;
+    const pending = [...ledger.pending];
+    if (hidden && held?.commits !== undefined && held.room === s.room)
+      pending.push({ cid: newCid(), m: held.commits, at: Temporal.Now.instant(), by: s.me });
+    keep(localStorage, s.room, { me: s.me, confirmed, pending, savedAt: s.syncedAt });
   }
   function keepSoon() {
     if (keepTimer !== null) clearTimeout(keepTimer);
@@ -109,10 +112,20 @@ export const useRoom = defineStore("room", () => {
     keepNow();
   }
   window.addEventListener("pagehide", keepLeaving);
+  /**
+   * Hidden, the page may be thrown away without a pagehide (a phone's browser does that to a
+   * tab in the background), so what the toast holds open is kept as made: a page that does not
+   * come back makes it on its next visit. It is not settled: someone who looks at another app
+   * for a moment comes back to the toast and its undo, and the room is kept again as it is.
+   */
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") keepNow();
+    if (document.visibilityState === "hidden") {
+      keepNow({ hidden: true });
+      return;
+    }
+    keepNow();
     // back on the page after the socket gave up: it tries again, as the person would
-    else if (sync.session.kind !== "out" && sync.session.link === "failed") socket.reconnect();
+    if (sync.session.kind !== "out" && sync.session.link === "failed") socket.reconnect();
   });
 
   /**

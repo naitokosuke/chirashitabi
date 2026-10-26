@@ -539,9 +539,12 @@ function submit() {
               rows="4"
               size="lg"
               :placeholder="i18n.t('form.notePlaceholder')"
+              :aria-invalid="tooMuch !== null"
+              :aria-describedby="`${id}-too-much`"
             />
-            <CtHint v-if="tooMuch !== null" aria-live="polite" danger>{{
-              i18n.t(TOO_MUCH[tooMuch].id, { max: TOO_MUCH[tooMuch].max })
+            <!-- the live region stays, so the words landing in it are read out -->
+            <CtHint :id="`${id}-too-much`" aria-live="polite" class="too-much" danger>{{
+              tooMuch === null ? "" : i18n.t(TOO_MUCH[tooMuch].id, { max: TOO_MUCH[tooMuch].max })
             }}</CtHint>
           </CtField>
           <TagsField
@@ -781,6 +784,11 @@ function submit() {
         @media (--desktop) {
           min-height: 240px;
         }
+      }
+
+      /* what the room would refuse, kept on the page for its live region: empty, it takes no gap */
+      > .too-much:empty {
+        position: absolute;
       }
 
       /* the ask for the place, then the places to choose */

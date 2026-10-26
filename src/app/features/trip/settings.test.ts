@@ -7,6 +7,7 @@ import { airportsOf } from "../place/airports";
 import type { HttpUrl } from "../place/google-maps";
 
 import {
+  changesOf,
   flightOf,
   formOf,
   newFlight,
@@ -70,6 +71,32 @@ describe("formOf and settingsOf", () => {
     expect(settingsOf({ ...form, days: 0 }, airports)).toBeNull();
     const half = { ...newFlight(), from: "TSA" };
     expect(settingsOf({ ...form, flights: { ...form.flights, back: half } }, airports)).toBeNull();
+  });
+});
+
+describe("changesOf", () => {
+  const was = settingsOf(formOf(trip), airports)!;
+
+  test("settings left alone are no change; one changed is, as it is now", () => {
+    expect(changesOf(was, settingsOf(formOf(trip), airports)!)).toEqual({
+      name: null,
+      dates: null,
+      flights: [],
+      stays: null,
+    });
+    const now = settingsOf({ ...formOf(trip), days: 5 }, airports)!;
+    const c = changesOf(was, now);
+    expect(c.dates?.days).toBe(5);
+    expect(c.dates?.first.equals(first)).toBe(true);
+    expect(c).toMatchObject({ name: null, flights: [], stays: null });
+  });
+
+  test("against settings that read as none, every one is a change", () => {
+    const c = changesOf(null, was);
+    expect(c.name).toBe("Taiwan trip");
+    expect(c.dates?.days).toBe(4);
+    expect(c.flights.map((f) => f.leg)).toEqual(["out", "back"]);
+    expect(c.stays).toBe(was.stays);
   });
 });
 

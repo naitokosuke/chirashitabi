@@ -1,4 +1,6 @@
 <script setup lang="ts" vapor>
+import { useTemplateRef, watch } from "vue";
+
 import { CtButton, CtToast } from "../../../ui/index";
 
 import { useI18n } from "../../i18n/useI18n";
@@ -7,6 +9,16 @@ import { useToast } from "./useToast";
 
 const toast = useToast();
 const i18n = useI18n();
+
+const undoButton = useTemplateRef<{ focus(): void }>("undoButton");
+// a toast shown for the keyboard takes it onto its undo, once that is drawn
+watch(
+  () => toast.current,
+  (t) => {
+    if (t?.focus === true) undoButton.value?.focus();
+  },
+  { flush: "post" },
+);
 </script>
 
 <template>
@@ -15,7 +27,9 @@ const i18n = useI18n();
     <CtToast v-if="toast.current !== null" class="toast">
       <template #default>{{ toast.current.text }}</template>
       <template v-if="toast.current.undo !== undefined" #action>
-        <CtButton variant="text" @click="toast.undo">{{ i18n.t("canvas.undo") }}</CtButton>
+        <CtButton ref="undoButton" variant="text" @click="toast.undo">{{
+          i18n.t("canvas.undo")
+        }}</CtButton>
       </template>
     </CtToast>
   </div>

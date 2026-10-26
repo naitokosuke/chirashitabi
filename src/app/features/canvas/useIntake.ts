@@ -164,7 +164,8 @@ export function useIntake(here: Here, place: (what: Intake) => NoteId) {
       }
       place({ kind: "sticker", image: kept.value, at });
     } catch {
-      toast.show(i18n.t("canvas.stickerFailed"));
+      // said in the room it was picked in only
+      toast.show(i18n.t("canvas.stickerFailed"), { room });
     } finally {
       sticking.value = false;
     }
