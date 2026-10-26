@@ -303,4 +303,20 @@ describe("pictures", () => {
     expect((await upload(roomId, email)).status).toBe(200);
     expect((await fetchImage(roomId, id, email)).status).toBe(404);
   });
+
+  test("a picture whose bytes failed is dropped with whatever of them landed", async () => {
+    const email = "dropped-photo@example.com";
+    const { roomId, memberId } = await createRoom(email);
+    const env = await server.getWorker().getEnv();
+    const stub = env.ROOM.getByName(roomId);
+    const listed = (await stub.addImage(memberId, roomId, "image/webp", BYTES.byteLength)) as {
+      value: string;
+    };
+    // the put answered with an error, its bytes having landed all the same
+    const key = `rooms/${roomId}/images/${listed.value}`;
+    await env.IMAGES.put(key, BYTES);
+    await stub.dropImage(roomId, listed.value);
+    expect(await env.IMAGES.head(key)).toBeNull();
+    expect(await stub.listsImage(listed.value)).toBe(false);
+  });
 });

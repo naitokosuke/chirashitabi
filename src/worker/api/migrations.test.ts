@@ -4,7 +4,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { MAX_BODY, MAX_TAG, MAX_TAGS, MAX_TEXT, MAX_TITLE } from "../../contract/room";
 import { ServerMessageSchema } from "../../contract/wire";
 
-import { connect, createRoom, memo, roomStorage, server, useWorker } from "./harness";
+import { connect, createRoom, indexStorage, memo, roomStorage, server, useWorker } from "./harness";
 
 useWorker();
 
@@ -270,5 +270,67 @@ describe("a room from before, and rows written past the checks", () => {
     const members = b.snapshot.type === "snapshot" ? b.snapshot.members : [];
     expect(members.map((m) => m.name)).not.toContain("Odd");
     b.ws.close(1000, "done");
+  });
+});
+
+describe("the index's spends", () => {
+  const OLD = "2000-01-01";
+  const today = () => new Date().toISOString().slice(0, 10);
+  /** The index's spends of `roomId`, as day and whether refunded, in the order they were made */
+  const spendsOf = async (roomId: string) =>
+    (await indexStorage()).exec(
+      "SELECT day, refunded FROM spends WHERE room_id = ? ORDER BY id",
+      roomId,
+    );
+  const spend = async (email: string, roomId: string, day: string, refunded: 0 | 1) =>
+    (await indexStorage()).exec(
+      "INSERT INTO spends (email, room_id, day, refunded) VALUES (?, ?, ?, ?)",
+      email,
+      roomId,
+      day,
+      refunded,
+    );
+
+  test("a day's first reservation prunes what no ceiling counts: refunded, or of a room gone", async () => {
+    const email = "spends-pruned@example.com";
+    const { roomId } = await createRoom(email);
+    const gone = crypto.randomUUID();
+    await spend(email, roomId, OLD, 0);
+    await spend(email, roomId, OLD, 1);
+    await spend(email, gone, OLD, 0);
+    // nothing in this file reserved before: this is the index's first reservation since it woke
+    const env = await server.getWorker().getEnv();
+    expect((await env.ROOMS.getByName("index").reserve(email, roomId)).ok).toBe(true);
+    // the trip's old spend is kept for its ceiling, today's reservation beside it
+    expect(await spendsOf(roomId)).toEqual([
+      { day: OLD, refunded: 0 },
+      { day: today(), refunded: 0 },
+    ]);
+    expect(await spendsOf(gone)).toEqual([]);
+  });
+
+  test("the counts and a room's rows are found by index", async () => {
+    const index = await indexStorage();
+    expect(
+      await index.exec(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+      ),
+    ).toEqual([
+      { name: "invitations_by_room" },
+      { name: "memberships_by_room" },
+      { name: "spends_by_day" },
+      { name: "spends_by_room" },
+    ]);
+  });
+
+  test("a room gone for good takes its spends, but what today's ceiling still counts", async () => {
+    const email = "spends-dropped@example.com";
+    const { roomId } = await createRoom(email);
+    await spend(email, roomId, OLD, 0);
+    await spend(email, roomId, today(), 1);
+    await spend(email, roomId, today(), 0);
+    const env = await server.getWorker().getEnv();
+    await env.ROOMS.getByName("index").drop(roomId);
+    expect(await spendsOf(roomId)).toEqual([{ day: today(), refunded: 0 }]);
   });
 });

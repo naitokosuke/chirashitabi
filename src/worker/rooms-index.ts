@@ -53,6 +53,15 @@ export class RoomsIndex extends DurableObject<Env> {
     if (!cols.some((c) => c.name === "deleted_at")) {
       ctx.storage.sql.exec("ALTER TABLE memberships ADD COLUMN deleted_at TEXT");
     }
+    // and the indexes the budget's counts and a room's rows are found by, once they were missed:
+    // a person's day and trip (a trip's rows by room first, which dropping a room finds them by),
+    // and a room's memberships and invitations
+    ctx.storage.sql.exec(`
+      CREATE INDEX IF NOT EXISTS spends_by_day ON spends (email, day);
+      CREATE INDEX IF NOT EXISTS spends_by_room ON spends (room_id, email);
+      CREATE INDEX IF NOT EXISTS memberships_by_room ON memberships (room_id);
+      CREATE INDEX IF NOT EXISTS invitations_by_room ON invitations (room_id);
+    `);
   }
 
   // ---- the budget: reserve, call, settle ----
@@ -65,6 +74,10 @@ export class RoomsIndex extends DurableObject<Env> {
   reserve(email: Email, roomId: RoomId): Result<number, Ceiling> {
     const day = new Date().toISOString().slice(0, 10); // UTC
     const sql = this.ctx.storage.sql;
+    if (this.#prunedOn !== day) {
+      this.prune(day);
+      this.#prunedOn = day;
+    }
     const spent = (where: string, ...args: string[]) =>
       sql
         .exec<{ n: number }>(
@@ -87,6 +100,24 @@ export class RoomsIndex extends DurableObject<Env> {
   /** The provider answered with an error: the reservation was not spent */
   refund(id: number): void {
     this.ctx.storage.sql.exec("UPDATE spends SET refunded = 1 WHERE id = ?", id);
+  }
+
+  /** The UTC day the spends were last pruned on, in memory: an index woken again prunes again */
+  #prunedOn: string | null = null;
+
+  /**
+   * The spends no ceiling counts any more go, before `today`'s first reservation: a day before it
+   * counts for no day's ceiling, so its rows are kept only for the trip's, while their room
+   * exists and they were spent. A refunded row counts for neither, and a room gone for good
+   * (no membership left) has no trip to count for
+   */
+  private prune(today: string): void {
+    this.ctx.storage.sql.exec(
+      `DELETE FROM spends WHERE day < ? AND (
+         refunded = 1 OR room_id NOT IN (SELECT room_id FROM memberships)
+       )`,
+      today,
+    );
   }
 
   // ---- OpenStreetMap's geocoder: one request a second for the whole app (geocode.ts) ----
@@ -369,11 +400,20 @@ export class RoomsIndex extends DurableObject<Env> {
     if (at !== null) sql.exec("DELETE FROM invitations WHERE room_id = ?", roomId);
   }
 
-  /** The room is gone for good: nothing of it is left here but what was spent in it */
+  /**
+   * The room is gone for good: nothing of it is left here but what was spent in it today, which
+   * its people's day ceilings still count (a trip made, spent in and erased would otherwise give
+   * the day back); the first reservation of a later day prunes that too
+   */
   drop(roomId: RoomId): void {
     const sql = this.ctx.storage.sql;
     sql.exec("DELETE FROM memberships WHERE room_id = ?", roomId);
     sql.exec("DELETE FROM invitations WHERE room_id = ?", roomId);
+    sql.exec(
+      "DELETE FROM spends WHERE room_id = ? AND (day < ? OR refunded = 1)",
+      roomId,
+      new Date().toISOString().slice(0, 10), // UTC, as `reserve` counts days
+    );
   }
 }
 

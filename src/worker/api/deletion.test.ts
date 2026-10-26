@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vite-plus/test";
+import { describe, expect, test, vi } from "vite-plus/test";
 
 import {
   accept,
@@ -271,6 +271,40 @@ describe("deleting a room", () => {
     expect(await index.exec("SELECT * FROM memberships WHERE room_id = ?", roomId)).toEqual([]);
     expect(await env.IMAGES.head(`rooms/${roomId}/images/${imageId}`)).toBeNull();
   });
+
+  test("a room gone for good leaves nothing in the bucket: pictures no row names, its booklet", async () => {
+    const owner = "erase-all-owner@example.com";
+    const { roomId, memberId: yuki } = await createRoom(owner);
+    const env = await server.getWorker().getEnv();
+    const stub = env.ROOM.getByName(roomId);
+    // bytes the room lists no row for: a sweep or a failed upload that left them
+    const loose = Array.from({ length: 3 }, () => `rooms/${roomId}/images/${crypto.randomUUID()}`);
+    for (const key of loose) await env.IMAGES.put(key, PNG);
+    // and another room's, which stay
+    const other = await createRoom("erase-all-other@example.com");
+    const theirs = `rooms/${other.roomId}/images/${crypto.randomUUID()}`;
+    await env.IMAGES.put(theirs, PNG);
+    // a picture it lists, which an upload racing the erase would ask about once its bytes landed
+    const listed = (await stub.addImage(yuki, roomId, "image/png", PNG.byteLength)) as {
+      value: string;
+    };
+    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(200);
+    // a booklet still up when the room goes (its record left by a build before this one)
+    const room = await roomStorage(roomId);
+    await room.exec(
+      "INSERT INTO publication (id, slug, by, at) VALUES (1, 'left-up', ?, ?)",
+      yuki,
+      now(),
+    );
+    await env.IMAGES.put("booklets/left-up/shiori.html", "<p>left up</p>");
+
+    expect((await post(`/api/rooms/${roomId}/purge`, owner)).status).toBe(200);
+    for (const key of loose) expect(await env.IMAGES.head(key)).toBeNull();
+    expect(await env.IMAGES.head("booklets/left-up/shiori.html")).toBeNull();
+    expect(await env.IMAGES.head(theirs)).not.toBeNull();
+    // the room lists nothing any more, so bytes landing now are taken back
+    expect(await stub.listsImage(listed.value).catch(() => false)).toBe(false);
+  });
 });
 
 describe("a deletion that went part way", () => {
@@ -303,21 +337,71 @@ describe("a deletion that went part way", () => {
     expect(await me(owner)).toMatchObject({ rooms: [], deleted: [{ id: roomId }] });
   });
 
-  test("a deletion the room fails after it counts is listed among the deleted trips at the room's time", async () => {
+  test("a deletion the room fails after it counts is listed among the deleted trips at the room's time, its booklet taken down", async () => {
     const owner = "del-throw-late@example.com";
-    const { roomId } = await createRoom(owner);
-    const stub = (await server.getWorker().getEnv()).ROOM.getByName(roomId);
-    // the room counts as deleted, then its step throws
+    const { roomId, memberId: yuki } = await createRoom(owner);
+    const env = await server.getWorker().getEnv();
+    const stub = env.ROOM.getByName(roomId);
+    const published = (await stub.publish(yuki, "en")) as { value: { slug: string } };
+    const booklet = `booklets/${published.value.slug}/shiori.html`;
+    // the room counts as deleted, then its step throws before its day is set or its booklet goes
     const back = await drop(roomId, "invitations");
     expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(500);
     await back();
     const at = await stub.deletedAt();
     expect(at).not.toBeNull();
+    expect(await env.IMAGES.head(booklet)).not.toBeNull();
 
-    // shown again by the Worker, deleted in the room: the list of trips hides it in the index
+    // shown again by the Worker, deleted in the room: the list of trips hides it in the index, and
+    // the room finishes what deleting does, its booklet taken down
     expect(await me(owner)).toMatchObject({ rooms: [], deleted: [{ id: roomId, deletedAt: at }] });
+    expect(await env.IMAGES.head(booklet)).toBeNull();
+    const room = await roomStorage(roomId);
+    expect(await room.exec("SELECT slug FROM publication")).toEqual([]);
     expect((await post(`/api/rooms/${roomId}/restore`, owner)).status).toBe(200);
     expect(await me(owner)).toMatchObject({ rooms: [{ id: roomId }], deleted: [] });
+  });
+
+  test("a deletion whose day was never set has it set by the list of trips, and goes on that day", async () => {
+    const owner = "del-no-day@example.com";
+    const { roomId } = await createRoom(owner);
+    const back = await drop(roomId, "invitations");
+    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(500);
+    await back();
+    // thirty days pass with no alarm set
+    const room = await roomStorage(roomId);
+    await room.exec("UPDATE deletion SET at = '2000-01-01T00:00:00.000Z'");
+
+    // the list of trips sets its day, which has passed: the alarm takes it for good
+    expect((await me(owner)).deleted).toMatchObject([{ id: roomId }]);
+    await vi.waitFor(
+      async () =>
+        expect(
+          await room.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'trip'"),
+        ).toEqual([]),
+      { timeout: 5000 },
+    );
+    expect(await me(owner)).toMatchObject({ rooms: [], deleted: [] });
+  });
+
+  test("a deletion the room counts is finished for whoever lists it, in either list", async () => {
+    const owner = "del-either-owner@example.com";
+    const { roomId, memberId: yuki } = await createRoom(owner);
+    const env = await server.getWorker().getEnv();
+    const stub = env.ROOM.getByName(roomId);
+    const published = (await stub.publish(yuki, "en")) as { value: { slug: string } };
+    const booklet = `booklets/${published.value.slug}/shiori.html`;
+    // deleted in the room and hidden in the index, its booklet left up (its last step failed)
+    const back = await drop(roomId, "invitations");
+    expect((await post(`/api/rooms/${roomId}/delete`, owner)).status).toBe(500);
+    await back();
+    const at = await stub.deletedAt();
+    if (at === null) throw new Error("not deleted");
+    await env.ROOMS.getByName("index").mark(roomId, at);
+
+    // listed among the deleted trips, which finishes it as the list of rooms would
+    expect(await me(owner)).toMatchObject({ rooms: [], deleted: [{ id: roomId, deletedAt: at }] });
+    expect(await env.IMAGES.head(booklet)).toBeNull();
   });
 
   test("a deletion the index hid and the room never heard of is finished by the list of trips", async () => {

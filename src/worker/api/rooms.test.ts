@@ -160,3 +160,39 @@ describe("rooms", () => {
     expect((await me(email)).rooms).toMatchObject([{ id: roomId, memos: 1 }]);
   });
 });
+
+describe("the list of trips, a room at a time", () => {
+  /** Takes the room's trip out, so whatever reads it throws; what it returns puts it back */
+  const breakTrip = async (roomId: string) => {
+    const room = await roomStorage(roomId);
+    const [{ sql }] = (await room.exec(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'trip'",
+    )) as [{ sql: string }];
+    await room.exec("ALTER TABLE trip RENAME TO trip_away");
+    return async () => {
+      await room.exec(sql);
+      await room.exec("INSERT INTO trip SELECT * FROM trip_away");
+      await room.exec("DROP TABLE trip_away");
+    };
+  };
+
+  test("a room that fails to answer is left out, the others listed, and is listed again once it answers", async () => {
+    const email = "glance-failing@example.com";
+    const failing = await createRoom(email);
+    const fine = await createRoom(email);
+    const deleted = await createRoom(email);
+    expect((await post(`/api/rooms/${deleted.roomId}/delete`, email)).status).toBe(200);
+    // the room's glance throws, and so does the deleted one's answer
+    const backs = [await breakTrip(failing.roomId), await breakTrip(deleted.roomId)];
+
+    const res = await post("/api/me", email);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ rooms: [{ id: fine.roomId }], deleted: [] });
+
+    for (const back of backs) await back();
+    expect(await me(email)).toMatchObject({
+      rooms: [{ id: failing.roomId }, { id: fine.roomId }],
+      deleted: [{ id: deleted.roomId }],
+    });
+  });
+});
