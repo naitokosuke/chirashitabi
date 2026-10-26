@@ -193,9 +193,12 @@ onMounted(() => {
         >
           <template #start><CtAvatar pending /></template>
           <template #end>
-            <CtButton :disabled="cut.offline" @click="() => uninvite(address)">{{
-              i18n.t("people.uninvite")
-            }}</CtButton>
+            <CtButton
+              :disabled="membership.uninvite.isLoading.value || cut.offline"
+              @click="() => uninvite(address)"
+            >
+              {{ i18n.t("people.uninvite") }}
+            </CtButton>
           </template>
         </CtListItem>
       </CtPanel>

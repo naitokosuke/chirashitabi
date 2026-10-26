@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, ref, shallowReactive, useTemplateRef } from "vue";
+import { computed, onActivated, ref, shallowReactive, useTemplateRef } from "vue";
 
 import {
   CtGlass,
@@ -120,6 +120,18 @@ function showTab(next: Tab) {
   if ((dayOfTab(next)?.toString() ?? APPENDIX) === activeTab.value) return;
   turnTo(tab, next);
 }
+/**
+ * How far down the page (the day's or the appendix's) has been read. Kept while another tab is
+ * up, the booklet is out of the document, which forgets a box's scroll: back in it, the page
+ * is put where it was.
+ */
+let scrolled = 0;
+function keepScroll() {
+  scrolled = page.value?.scrollTop ?? 0;
+}
+onActivated(() => {
+  if (page.value !== null) page.value.scrollTop = scrolled;
+});
 /** The tab a key of the list names */
 const tabOf = (value: string): Tab =>
   value === APPENDIX ? "appendix" : Temporal.PlainDate.from(value);
@@ -165,7 +177,7 @@ const tabOf = (value: string): Tab =>
       <CtHeading :aria-label="heading.map((p) => p.text).join('')"><CtTextMorph :parts="heading" /></CtHeading>
     </div>
 
-    <div ref="page" class="page">
+    <div ref="page" class="page" @scroll="keepScroll">
       <!-- the page (this scrolling body) morphs when the day or the mode changes: see turnTo -->
       <CtTabPanel>
         <Appendix v-if="day === null" />
