@@ -238,7 +238,7 @@ A browser cannot read another site's HTML, so the Worker fetches a URL the membe
   A note linking to one keeps the link and takes a screenshot as its picture.
 - Each preview counts against the member's budget like any other outbound call, once the address has passed the fence (one it refuses is no preview, and free); the log keeps the page's site, never its address.
 
-This is `POST /api/rooms/<id>/preview`; `src/worker/preview.test.ts` holds the fence's rules, `src/worker/api.test.ts` the route against a stub of the pages.
+This is `POST /api/rooms/<id>/preview`; `src/worker/preview.test.ts` holds the fence's rules, `src/worker/api/links.test.ts` the route against a stub of the pages.
 
 ## What stays outside Access
 

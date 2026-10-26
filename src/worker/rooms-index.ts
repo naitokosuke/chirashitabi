@@ -111,9 +111,11 @@ export class RoomsIndex extends DurableObject<Env> {
    * many lookups wait at once, so nobody's lookups crowd out everyone else's.
    */
   geocoderTurn(asker: Email): number | null {
+    const spacing = paceOf(this.env.GEOCODER_SPACING_MS, SPACING_MS);
+    const queue = paceOf(this.env.GEOCODER_QUEUE_MS, GEOCODER_QUEUE_MS);
     const now = Date.now();
     const at = Math.max(now, this.#geocoderAt);
-    if (at - now > GEOCODER_QUEUE_MS) return null;
+    if (at - now > queue) return null;
     // a turn that has come is held no longer
     for (const [email, turns] of this.#turns) {
       const ahead = turns.filter((t) => t > now);
@@ -123,7 +125,7 @@ export class RoomsIndex extends DurableObject<Env> {
     const held = this.#turns.get(asker) ?? [];
     if (held.length >= TURNS_EACH) return null;
     this.#turns.set(asker, [...held, at]);
-    this.#geocoderAt = at + SPACING_MS;
+    this.#geocoderAt = at + spacing;
     return at - now;
   }
 
@@ -379,4 +381,13 @@ export class RoomsIndex extends DurableObject<Env> {
 const ceiling = (v: unknown) => {
   const n = Number(v);
   return Number.isInteger(n) && n >= 0 ? n : 0;
+};
+
+/**
+ * The geocoder's pace in ms from a var only the tests set, to keep their waits short; unset, or
+ * anything but a non-negative integer, it is `fallback`, the pace production keeps
+ */
+const paceOf = (v: string | undefined, fallback: number) => {
+  const n = Number(v);
+  return v !== undefined && Number.isInteger(n) && n >= 0 ? n : fallback;
 };

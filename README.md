@@ -76,7 +76,8 @@ src/app/            The app
              shrunk on the device, and where a room's picture is shown from); useAsk (an ask that
              answers later, only the latest one counting); TagsField (a memo's tags, those Clef finds
              fitting moved up); Form (the note form, new or edit, Google Maps link -> coordinates: the
-             memo tab, and a sheet over anything)
+             memo tab, and a sheet over anything); fixtures (a memo as the app holds it, for the tests
+             and the mock room)
     sync/    useSync (the session: out, joining or in a room, and where changes go); session (where this
              device is: out, joining or in, and the transitions between); InRoom (inside a room: which
              room, who this device is in it, the Worker for it, never null; here.ts its shape and key);
@@ -139,6 +140,7 @@ src/contract/       What the app and the Worker both hold to; each imports it wh
   note.ts        A note's id, as the device that made the note minted it
   image.ts       A picture's id, as the room minted it
   place.ts       LatLng; a Google Maps link's point, and whether it is a short link
+  fixtures.ts    A memo as the room sends it, for the tests, read through the contract's schema
   airports-data.json  The airports with an IATA code and scheduled service, from OurAirports (scripts/airports.mjs)
   airport.ts     An airport and its code: a row of airports-data.json as one, and the one a name or code means;
                  the list loaded, for a flight's code to be checked against it and one kept from before codes
@@ -212,9 +214,10 @@ src/worker/         The Cloudflare Worker, its own program (tsconfig.json here: 
                     members and trip as the wire carries them), apply.ts (a mutation written), socket.ts
                     (a message encoded, the rate window, the changes already answered), agent.ts (what
                     the agent reads of the room, and the trip's candidate tags)
-  api.test.ts       The Worker in workerd via wrangler's test harness, Access stood in for by a throwaway key
-  env.d.ts          ANTHROPIC_API_KEY (a secret), and ACCESS_CERTS_URL and ANTHROPIC_BASE_URL, which only
-                    the tests set
+  api/              The Worker in workerd via wrangler's test harness (harness.ts: a Worker and its stubs per
+                    test file, Access stood in for by a throwaway key), and its tests by what they cover
+  env.d.ts          ANTHROPIC_API_KEY (a secret), and ACCESS_CERTS_URL, ANTHROPIC_BASE_URL and the
+                    geocoder's pace, which only the tests set
 
 public/             favicon.svg: three notes scattered on a red tile; theme.js: the device's theme, set before the
                     first paint; both served as they are

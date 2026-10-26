@@ -2,8 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import type { MemberId } from "../members/types";
-import type { NoteId } from "../notes/id";
+import { makeMemo } from "../notes/fixtures";
 import type { Memo, NoteStatus, Scheduled } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 import type { DayDraft } from "../worker/types";
@@ -13,34 +12,11 @@ import type { Stay } from "./types";
 
 const day = Temporal.PlainDate.from("2026-11-03");
 
-function memo(id: string, time: string | null, status: NoteStatus, editedAt: string): Memo {
-  return {
-    kind: "memo",
-    id: id as NoteId,
-    title: id,
-    color: "#fff1b8",
-    x: 0,
-    y: 0,
-    rot: 0,
-    scale: 1,
-    by: "m" as MemberId,
+const memo = (id: string, time: string | null, status: NoteStatus, editedAt: string) =>
+  makeMemo(id, {
     updatedAt: Temporal.Instant.from(editedAt),
-    body: "",
-    tags: [],
-    mapsUrl: null,
-    pin: null,
     schedule: { date: day, time: time === null ? null : Temporal.PlainTime.from(time), status },
-    budget: null,
-    checked: false,
-    image: null,
-    minutes: null,
-    hours: null,
-    link: null,
-    booking: null,
-    due: null,
-    assignee: null,
-  };
-}
+  });
 
 const ids = (notes: Memo[]) => notes.map((n) => n.id);
 

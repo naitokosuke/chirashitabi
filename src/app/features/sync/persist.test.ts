@@ -9,7 +9,8 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { parseCurrencyCode, parseHexColor } from "../../../contract";
 import type { Email, MemberId } from "../members/types";
-import { parseImageId, type NoteId } from "../notes/id";
+import { makeMemo } from "../notes/fixtures";
+import { parseImageId } from "../notes/id";
 import { blankInput } from "../notes/input";
 import type { Memo, Tag } from "../notes/types";
 import { useNotes } from "../notes/useNotes";
@@ -43,20 +44,14 @@ function memoryStorage(): Storage {
 const at = Temporal.Instant.from("2026-11-03T03:00:00Z");
 // an id as a room mints it: what is kept is read back with the contract's schemas
 const YUKI = "0b0d6f1e-5c1a-4e8b-9a43-7f2d1c6e9a01" as MemberId;
-const memo: Memo = {
-  id: "n1" as NoteId,
-  kind: "memo",
+const memo = makeMemo("n1", {
   title: "Din Tai Fung",
-  color: "#fff1b8",
   x: 10,
   y: 20,
   rot: 1,
-  scale: 1,
   by: YUKI,
   updatedAt: at,
-  body: "",
   tags: ["Food" as Tag],
-  mapsUrl: null,
   pin: { lat: 25.03, lng: 121.56 },
   schedule: {
     date: Temporal.PlainDate.from("2026-11-03"),
@@ -64,15 +59,7 @@ const memo: Memo = {
     status: "fixed",
   },
   budget: 700,
-  checked: false,
-  image: null,
-  minutes: null,
-  hours: null,
-  link: null,
-  booking: null,
-  due: null,
-  assignee: null,
-};
+});
 const room: RoomState = {
   notes: [memo],
   trip: {

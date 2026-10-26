@@ -1,10 +1,12 @@
+import * as v from "valibot";
 import { describe, expect, test } from "vite-plus/test";
 
-import type { WireNote, WireTrip } from "../contract/wire";
+import { makeWireMemo } from "../contract/fixtures";
+import { WireTripSchema } from "../contract/wire";
 
 import { escapeHtml, renderBooklet } from "./booklet";
 
-const trip = {
+const trip = v.parse(WireTripSchema, {
   name: "Taiwan <trip>",
   days: [
     { date: "2026-11-03", intro: "Dumplings first" },
@@ -31,36 +33,10 @@ const trip = {
       pin: null,
     },
   ],
-} as unknown as WireTrip;
+});
 
-const memo = (id: string, extra: Record<string, unknown>) =>
-  ({
-    id,
-    kind: "memo",
-    title: id,
-    color: "#ffd9de",
-    x: 0,
-    y: 0,
-    rot: 0,
-    scale: 1,
-    by: "m",
-    updatedAt: "2026-10-01T00:00:00Z",
-    body: "",
-    tags: [],
-    mapsUrl: null,
-    pin: null,
-    schedule: null,
-    budget: null,
-    checked: false,
-    image: null,
-    minutes: null,
-    hours: null,
-    link: null,
-    booking: null,
-    due: null,
-    assignee: null,
-    ...extra,
-  }) as unknown as WireNote;
+const memo = (id: string, extra: Parameters<typeof makeWireMemo>[1] = {}) =>
+  makeWireMemo(id, { color: "#ffd9de", ...extra });
 
 describe("renderBooklet", () => {
   const notes = [

@@ -3,8 +3,9 @@ import { Temporal } from "temporal-polyfill-lite";
 import { describe, expect, test } from "vite-plus/test";
 
 import { parseHexColor } from "../../../contract";
+import { makeMemo } from "../notes/fixtures";
 import type { ImageId, NoteId } from "../notes/id";
-import type { NewMemo, Tag } from "../notes/types";
+import type { Tag } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 import type { HttpUrl } from "../place/google-maps";
 
@@ -12,18 +13,17 @@ import type { Mutation } from "./types";
 import { fitsMessage, reviveMutation, wireMutation, type WireMutation } from "./wire";
 
 const id = "a" as NoteId;
-const memo: NewMemo = {
-  id,
-  kind: "memo",
+// as its writer makes it: who and when are the room's to stamp
+const {
+  by: _by,
+  updatedAt: _at,
+  ...memo
+} = makeMemo(id, {
   title: "Din Tai Fung",
-  body: "",
   tags: ["food" as Tag],
-  color: "#fff1b8",
   x: 10,
   y: 20,
   rot: 1,
-  scale: 1,
-  mapsUrl: null,
   pin: { lat: 25.03, lng: 121.56 },
   schedule: {
     date: Temporal.PlainDate.from("2026-11-03"),
@@ -31,15 +31,7 @@ const memo: NewMemo = {
     status: "fixed",
   },
   budget: 1500,
-  checked: false,
-  image: null,
-  minutes: null,
-  hours: null,
-  link: null,
-  booking: null,
-  due: null,
-  assignee: null,
-};
+});
 const flight = {
   number: "BR 191",
   from: "HND" as AirportCode,
