@@ -98,6 +98,7 @@ one {{{$count} note}}
   "trip.save": "Save",
   "trip.dropped":
     "{$count :integer} planned notes fall outside the new dates and go back to having no day",
+  "trip.unsaved": "Still open: your changes are not saved. Save them, or Cancel to let them go.",
   "flight.out": "There",
   "flight.back": "Home",
   "flight.number": "Flight",

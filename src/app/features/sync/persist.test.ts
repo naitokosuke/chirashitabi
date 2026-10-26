@@ -240,7 +240,7 @@ describe("keep and kept", () => {
     app.use(pinia).use(PiniaColada);
     setActivePinia(pinia);
     const made: Mutation[] = [];
-    useSync().transport = { commit: (m) => void made.push(m), send: () => {} };
+    useSync().transport = { commit: (...ms) => made.push(...ms) > 0, send: () => {} };
     const notes = app.runWithContext(() => useNotes());
     const image = parseImageId("0f8fad5b-d9cb-469f-a165-70867728950e")!;
     notes.add(

@@ -414,9 +414,11 @@ watch(active, (up) => {
   if (up) focusText();
 });
 
-// Esc closes the sheet, the way it closes anything that covers something
+// Esc closes the sheet, the way it closes anything that covers something; not the Esc an IME is
+// using (a word being given up), nor one a field inside took
 function onKey(e: KeyboardEvent) {
-  if (e.key === "Escape") emit("close");
+  if (e.key !== "Escape" || e.isComposing || e.keyCode === 229 || e.defaultPrevented) return;
+  emit("close");
 }
 // Focus goes back where it came from once the sheet is gone and the layer under it is live again
 let opener: HTMLElement | null = null;
@@ -510,7 +512,8 @@ function submit() {
   if (target.value.kind === "edit") {
     // the fields the person left as they were stay the room's: the partner may have changed them meanwhile
     const patch = changes(opened, input);
-    if (Object.keys(patch).length > 0) store.update(target.value.id, patch);
+    // one the room could not take (too large) is not made, and the sheet stays with what was written
+    if (Object.keys(patch).length > 0 && !store.update(target.value.id, patch)) return;
     emit("close");
     return;
   }

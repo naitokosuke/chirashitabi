@@ -4,13 +4,13 @@ import { computed } from "vue";
 
 import { defineQuery } from "@pinia/colada";
 
-import { MAX_NAME } from "../../../contract/room";
 import type { NoteStatus, Tag } from "../notes/types";
 import { useNotes } from "../notes/useNotes";
+import type { Mutation } from "../sync/types";
 import { useSync } from "../sync/useSync";
 
 import * as itinerary from "./itinerary";
-import type { Flight, Leg, Stay } from "./types";
+import type { TripChanges } from "./settings";
 
 /**
  * The notes placed on the trip's days, and the changes to the trip. The trip itself is what the
@@ -33,23 +33,18 @@ export const useTrip = defineQuery(() => {
   function setIntro(date: Temporal.PlainDate, intro: string) {
     sync.commit({ type: "day:intro", date, intro });
   }
-  /** When the trip is: `days` days from `first`; what is planned moves with it (apply.ts) */
-  function setDates(first: Temporal.PlainDate, days: number) {
-    sync.commit({ type: "trip:dates", first, days });
-  }
-  /** One of the trip's flights, or none */
-  function setFlight(leg: Leg, flight: Flight | null) {
-    sync.commit({ type: "trip:flight", leg, flight });
-  }
-  /** Where the nights are spent, the whole list at once */
-  function setStays(stays: Stay[]) {
-    sync.commit({ type: "trip:stays", stays });
-  }
-  /** A new name for the trip; a blank one changes nothing */
-  function rename(next: string) {
-    const n = next.trim();
-    if (n === "") return;
-    sync.commit({ type: "trip:rename", name: n.slice(0, MAX_NAME) });
+  /**
+   * The trip's settings as the editor saves them (settings.ts): its name, when it is (what is
+   * planned moves with it: apply.ts), its flights and where its nights are spent, all of them
+   * or none; whether they were saved
+   */
+  function save(c: TripChanges) {
+    const ms: Mutation[] = [];
+    if (c.name !== null) ms.push({ type: "trip:rename", name: c.name });
+    if (c.dates !== null) ms.push({ type: "trip:dates", ...c.dates });
+    for (const { leg, flight } of c.flights) ms.push({ type: "trip:flight", leg, flight });
+    if (c.stays !== null) ms.push({ type: "trip:stays", stays: c.stays });
+    return sync.commit(...ms);
   }
 
   return {
@@ -59,9 +54,6 @@ export const useTrip = defineQuery(() => {
     budgetOf,
     fixedCount,
     setIntro,
-    rename,
-    setDates,
-    setFlight,
-    setStays,
+    save,
   };
 });
