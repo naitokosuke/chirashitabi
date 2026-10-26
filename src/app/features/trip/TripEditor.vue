@@ -187,12 +187,9 @@ function onKey(e: KeyboardEvent) {
 
 /**
  * Everything changed goes to the room together; when the room could not take it (too large),
- * nothing is sent and the editor stays with what was written, for it to be shortened. The page
- * never leaves for the form's action: `.prevent` on a component's listener is not kept by
- * Vapor, so the editor still open would load the page again.
+ * nothing is sent and the editor stays with what was written, for it to be shortened.
  */
-function save(e: Event) {
-  e.preventDefault();
+function save() {
   const c = changes.value;
   if (c !== null && saveTrip(c)) emit("close");
 }

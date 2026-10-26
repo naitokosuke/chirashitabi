@@ -99,7 +99,7 @@ async function no() {
 </script>
 
 <template>
-  <CtPanel as="form" class="invitation" @submit.prevent="join">
+  <CtPanel as="form" class="invitation" @submit="join">
     <CtByline as="p" :color="from" strong>{{ i18n.t("rooms.invited") }}</CtByline>
     <CtTag v-bind="tag" />
 

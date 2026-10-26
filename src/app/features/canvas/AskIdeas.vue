@@ -115,10 +115,6 @@ function onKey(e: KeyboardEvent) {
   e.stopPropagation();
   close();
 }
-function onSubmit(e: Event) {
-  e.preventDefault();
-  void askForIdeas();
-}
 /**
  * The room's agent leaves a few ideas where the person is looking, or in a column beside the
  * note they asked from. They arrive as the room's changes, like the partner's cards; the toast
@@ -186,7 +182,7 @@ defineExpose({ open, busy: () => thinking.value });
       class="asking"
       float
       :aria-label="i18n.t('canvas.askIdeas')"
-      @submit="onSubmit"
+      @submit="askForIdeas"
     >
       <p v-if="askAbout !== null">{{
         i18n.t("canvas.askFrom", { title: noteLabel(askAbout, i18n.t) })
