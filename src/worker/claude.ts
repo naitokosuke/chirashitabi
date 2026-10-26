@@ -27,9 +27,18 @@ const MAX_TOKENS = 2000;
  */
 const CONTEXT_CHARS = 30_000;
 
-/** The latest of `items` (a room lists its notes oldest first) that fit in CONTEXT_CHARS */
-function latest<T>(items: T[]): T[] {
-  let left = CONTEXT_CHARS;
+/**
+ * How long a call may take before it is given up, and counted as spent: an answer of MAX_TOKENS
+ * comes well within it
+ */
+const TIMEOUT_MS = 60_000;
+
+/**
+ * The latest of `items` (a room lists its notes oldest first) that fit in `chars` characters of
+ * JSON, CONTEXT_CHARS unless a prompt shares it out
+ */
+function latest<T>(items: T[], chars = CONTEXT_CHARS): T[] {
+  let left = chars;
   let from = items.length;
   for (; from > 0; from--) {
     // each one's JSON and the comma after it
@@ -195,9 +204,11 @@ async function ask<T>(
         tool_choice: { type: "auto" },
         messages: [{ role: "user", content: prompt }],
       }),
+      // cut off with the body too: an answer still coming at TIMEOUT_MS is no answer
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch (e) {
-    // no answer: it may have run, so it counts
+    // no answer (cut off at TIMEOUT_MS, or the connection lost): it may have run, so it counts
     return { ok: false, refund: false, reason: `request failed: ${String(e)}` };
   }
   if (!res.ok) {
@@ -262,11 +273,15 @@ export interface TagContext {
  * trip; the ones in use are not proposed again
  */
 export async function proposeTags(env: Env, room: TagContext): Promise<ClaudeResult<string[]>> {
+  // the room's read shared out: the tags in use only keep Claude from proposing them again
+  // (checkTags drops any it does), so they take a third at most, the titles the rest
+  const tags = latest(room.tags, CONTEXT_CHARS / 3);
+  const titles = latest(room.titles, CONTEXT_CHARS - JSON.stringify(tags).length);
   const prompt = [
     `Trip: ${room.trip}, ${room.days[0] ?? "?"} to ${room.days.at(-1) ?? "?"}.`,
-    `Tags in use: ${JSON.stringify(room.tags)}.`,
+    `Tags in use: ${JSON.stringify(tags)}.`,
     "The notes' titles (JSON):",
-    JSON.stringify(room.titles.slice(0, 200)),
+    JSON.stringify(titles),
     "",
     `Propose up to ${MAX_CANDIDATES} more tags the travellers could sort these and later notes`,
     "under: kinds of places, food, shopping, moments of the trip. One or two words each, no '#',",

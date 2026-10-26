@@ -2,7 +2,8 @@
  * Places by name, from OpenStreetMap's geocoder (Nominatim): free, no key, real coordinates.
  * Its usage policy asks for an identifying User-Agent and at most one request a second for the
  * whole app: each request waits for its turn, which the one RoomsIndex hands out, and is cut
- * off after a timeout.
+ * off after a timeout. It also asks that answers be kept rather than asked for again: each one
+ * is kept for KEPT_FOR in the Workers Cache, and a question answered there takes no turn.
  */
 
 import * as v from "valibot";
@@ -37,6 +38,54 @@ async function turn(env: Env, asker: Email): Promise<boolean> {
   return true;
 }
 
+/** How long an answer is kept, in seconds: a week, since places change slowly */
+const KEPT_FOR = 7 * 24 * 60 * 60;
+
+/**
+ * Nominatim's answer at `path` to `params`: the one kept under `key` (the question as asked,
+ * written one way, which names a cache entry and is never sent) when there is one; else asked
+ * in the app's turn for `asker`, and kept when it is an answer. A failure is not kept, so the
+ * next lookup asks again.
+ */
+async function lookUp(
+  env: Env,
+  path: "/search" | "/reverse",
+  params: URLSearchParams,
+  key: URLSearchParams,
+  asker: Email,
+): Promise<Result<unknown, GeocoderFailure>> {
+  const base = env.GEOCODER_BASE_URL ?? NOMINATIM;
+  const entry = new Request(`${base}${path}?${key.toString()}`);
+  const kept = await caches.default.match(entry);
+  if (kept !== undefined) return { ok: true, value: await kept.json().catch(() => null) };
+  if (!(await turn(env, asker))) return { ok: false, reason: "busy" };
+  let text: string;
+  try {
+    const res = await fetch(`${base}${path}?${params.toString()}`, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) return { ok: false, reason: "failed" };
+    text = await res.text();
+  } catch {
+    return { ok: false, reason: "failed" };
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    // an answer that is no JSON is none, and not kept
+    return { ok: true, value: null };
+  }
+  await caches.default.put(
+    entry,
+    new Response(text, {
+      headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${KEPT_FOR}` },
+    }),
+  );
+  return { ok: true, value };
+}
+
 export interface Place {
   /** What it is called, in the asker's language where OpenStreetMap has it */
   name: string;
@@ -69,18 +118,12 @@ export async function geocode(
     extratags: "1",
     "accept-language": lang,
   });
-  if (!(await turn(env, asker))) return { ok: false, reason: "busy" };
-  let res: Response;
-  try {
-    res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/search?${params.toString()}`, {
-      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-  } catch {
-    return { ok: false, reason: "failed" };
-  }
-  if (!res.ok) return { ok: false, reason: "failed" };
-  return { ok: true, value: placesFrom(await res.json().catch(() => null)) };
+  // kept under the query however it was spaced, cased or its characters' widths written: the
+  // geocoder answers those the same
+  const key = new URLSearchParams(params);
+  key.set("q", query.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase());
+  const answer = await lookUp(env, "/search", params, key, asker);
+  return answer.ok ? { ok: true, value: placesFrom(answer.value) } : answer;
 }
 
 /** A place's `opening_hours` tag, on one line, or null when it has none */
@@ -145,9 +188,11 @@ export async function reverseGeocode(
   lang: Lang,
   asker: Email,
 ): Promise<Result<{ place: Place | null }, GeocoderFailure>> {
+  // asked, and kept, at the point to a metre or so: a pin a touch off is the same place
+  const round = (n: number) => String(Math.round(n * 1e5) / 1e5);
   const params = new URLSearchParams({
-    lat: String(at.lat),
-    lon: String(at.lng),
+    lat: round(at.lat),
+    lon: round(at.lng),
     format: "jsonv2",
     // a building's level: the shop or the sight the point is on, not the district
     zoom: "18",
@@ -155,18 +200,8 @@ export async function reverseGeocode(
     extratags: "1",
     "accept-language": lang,
   });
-  if (!(await turn(env, asker))) return { ok: false, reason: "busy" };
-  let res: Response;
-  try {
-    res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/reverse?${params.toString()}`, {
-      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-  } catch {
-    return { ok: false, reason: "failed" };
-  }
-  if (!res.ok) return { ok: false, reason: "failed" };
-  return { ok: true, value: { place: placeAt(await res.json().catch(() => null), at) } };
+  const answer = await lookUp(env, "/reverse", params, params, asker);
+  return answer.ok ? { ok: true, value: { place: placeAt(answer.value, at) } } : answer;
 }
 
 /** What a place at a point is called, most telling first: never a bare house number */

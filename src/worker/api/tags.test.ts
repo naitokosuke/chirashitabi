@@ -94,6 +94,33 @@ describe("tags suggested for a memo", () => {
     expect(Object.keys(judged.at(-1)!.questions)).toHaveLength(2);
   });
 
+  test("a room of many long tags and titles sends the latest that fit, not every word", async () => {
+    const email = "tagsmany@example.com";
+    const { roomId } = await createRoom(email);
+    const a = await connect(roomId, email);
+    // 160 memos, each with a title of 200 characters and 20 tags of 40 of its own
+    const pad = (s: string, n: number) => s.padEnd(n, "x");
+    for (let i = 0; i < 160; i++) {
+      const tags = Array.from({ length: 20 }, (_, t) => pad(`tag ${i}-${t} `, 40));
+      a.send({
+        type: "note:add",
+        note: { ...memo(`m${i}`, pad(`title ${i} `, 200)), tags },
+        cid: `c${i}`,
+      });
+      expect((await a.next()).type).toBe("ack");
+    }
+    a.ws.close(1000, "done");
+    stub.answer = () => proposingTags(["Tea"]);
+    stub.judge = judging({});
+    expect((await ask(roomId, email, { title: "x", body: "", image: null })).status).toBe(200);
+    const prompt = (asked.at(-1) as { messages: { content: string }[] }).messages[0]!.content;
+    expect(prompt.length).toBeLessThan(32_000);
+    expect(prompt).toContain("tag 159-19 ");
+    expect(prompt).not.toContain('"tag 0-0 ');
+    expect(prompt).toContain("title 159 ");
+    expect(prompt).not.toContain('"title 0 ');
+  }, 30_000);
+
   test("the trip's candidates are read for free: none before the first ask, then the agent's", async () => {
     const email = "candidates@example.com";
     const { roomId } = await createRoom(email);
@@ -146,6 +173,19 @@ describe("tags suggested for a memo", () => {
     expect(judged.length).toBe(before);
     // the candidates' call was spent, Clef's given back, and the bad requests spent nothing
     expect(await budgetLeft(roomId, email)).toBe(PER_DAY - 1);
+  });
+
+  test("a Clef answer that is no answer is spent: the model ran", async () => {
+    const email = "tagnonsense@example.com";
+    const { roomId } = await createRoom(email);
+    stub.answer = () => proposingTags(["Food"]);
+    // a 2xx that is no JSON, then one that is JSON but no answers
+    stub.judge = () => ({ status: 200, body: new TextEncoder().encode("<html>") });
+    expect((await ask(roomId, email, { title: "x", body: "", image: null })).status).toBe(502);
+    stub.judge = () => ({ status: 200, body: { model: "clef-flash" } });
+    expect((await ask(roomId, email, { title: "y", body: "", image: null })).status).toBe(502);
+    // the candidates' call and both of Clef's
+    expect(await budgetLeft(roomId, email)).toBe(PER_DAY - 3);
   });
 
   test("a Claude error proposing the candidates costs nothing; with no tags at all Clef is not asked", async () => {

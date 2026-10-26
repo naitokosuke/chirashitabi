@@ -35,8 +35,10 @@ const namingOne = () => ({
   },
 });
 
-const lookUp = (roomId: string, email: string) =>
-  post(`/api/rooms/${roomId}/find`, email, { query: "Taipei 101", lang: "en" });
+/** How many lookups were sent: each asks a query of its own, since an answer kept takes no turn */
+let sent = 0;
+const lookUp = (roomId: string, email: string, query = `Taipei 101 (${sent++})`) =>
+  post(`/api/rooms/${roomId}/find`, email, { query, lang: "en" });
 
 describe("the geocoder's pace: one request at a time", () => {
   paced();
@@ -86,12 +88,17 @@ describe("the geocoder's pace: a share each", () => {
 });
 
 describe("the geocoder's pace: a place with no turn", () => {
-  paced();
+  // turns a minute apart, and none taken further ahead: once the queue is taken to its end it
+  // stays so for the whole test, which never waits for a turn, however slowly it runs
+  useWorker({ GEOCODER_SPACING_MS: "60000", GEOCODER_QUEUE_MS: "60000" });
 
-  test("a place Claude named that the geocoder had no turn for is spent: Claude was paid", async () => {
+  test("a place Claude named that the geocoder had no turn for is spent: Claude was paid; an answer kept needs none", async () => {
     const email = "pace-places@example.com";
     const { roomId } = await createRoom(email);
     stub.answer = namingOne;
+    // a lookup answered while there are turns, in the first one
+    expect((await lookUp(roomId, email, "Taipei 101")).status).toBe(200);
+    expect(looked).toHaveLength(1);
     const index = (await server.getWorker().getEnv()).ROOMS.getByName("index");
     // the queue taken to its end, as many people asking at once would
     let taken = 0;
@@ -101,8 +108,12 @@ describe("the geocoder's pace: a place with no turn", () => {
       (await post(`/api/rooms/${roomId}/places`, email, { title: "寧夏夜市", body: "" })).status,
     ).toBe(502);
     expect(asked).toHaveLength(1);
-    expect(looked).toEqual([]);
+    expect(looked).toHaveLength(1);
     expect(await budgetLeft(roomId, email)).toBe(PER_DAY - 1);
+    // the same question again is answered from what was kept, with no turn; a new one has none
+    expect((await lookUp(roomId, email, " taipei  101 ")).status).toBe(200);
+    expect((await lookUp(roomId, email)).status).toBe(502);
+    expect(looked).toHaveLength(1);
   }, 15_000);
 });
 

@@ -53,6 +53,15 @@ describe("a link's preview", () => {
     expect(fetched.some((f) => f.host === "blog.example.com" && f.path === "/post")).toBe(true);
   });
 
+  test("a page in another encoding than UTF-8 is read in its own", async () => {
+    const READER = "sjis@example.com";
+    const { roomId } = await createRoom(READER);
+    const sjis = (await (await ask(roomId, READER, "https://blog.example.com/sjis")).json()) as {
+      preview: { title: string } | null;
+    };
+    expect(sjis.preview?.title).toBe("ラーメン");
+  });
+
   test("YouTube through its oEmbed; a picture too large is left out; what is no page is no preview", async () => {
     const TUBER = "tuber@example.com";
     const { roomId } = await createRoom(TUBER);

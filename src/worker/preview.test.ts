@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 
 import {
   decodeEntities,
+  decodePage,
   PAGE_BYTES,
   preview,
   previewable,
@@ -111,6 +112,48 @@ describe("readUpTo", () => {
   test("one that says it is longer is none, whatever came", async () => {
     const said = new Response(new Uint8Array(10), { headers: { "Content-Length": "100" } });
     expect(await readUpTo(said, 25)).toBeNull();
+  });
+});
+
+describe("decodePage", () => {
+  /** A page's bytes: ASCII markup around a title written in some other encoding */
+  const page = (before: string, title: number[]) =>
+    Uint8Array.from([
+      ...new TextEncoder().encode(before),
+      ...title,
+      ...new TextEncoder().encode("</title>"),
+    ]);
+  // ラーメン in Shift_JIS, and 牛肉麵 in Big5
+  const RAMEN_SJIS = [0x83, 0x89, 0x81, 0x5b, 0x83, 0x81, 0x83, 0x93];
+  const NOODLES_BIG5 = [0xa4, 0xfb, 0xa6, 0xd7, 0xc4, 0xd1];
+
+  test("in the encoding its Content-Type names", () => {
+    const sjis = decodePage(page("<title>", RAMEN_SJIS), 'text/html; charset="Shift_JIS"');
+    expect(readHead(sjis).title).toBe("ラーメン");
+    expect(decodePage(page("<title>", NOODLES_BIG5), "text/html;charset=big5")).toBe(
+      "<title>牛肉麵</title>",
+    );
+  });
+
+  test("else in the one a meta near its start names, as charset or as http-equiv", () => {
+    const charset = page(`<meta charset="shift_jis"><title>`, RAMEN_SJIS);
+    expect(readHead(decodePage(charset, "text/html")).title).toBe("ラーメン");
+    const equiv = page(
+      `<meta http-equiv="Content-Type" content="text/html; charset=Big5"><title>`,
+      NOODLES_BIG5,
+    );
+    expect(readHead(decodePage(equiv, null)).title).toBe("牛肉麵");
+    // a meta past where an encoding is looked for is not read
+    const late = page(`${" ".repeat(1024)}<meta charset="big5"><title>`, NOODLES_BIG5);
+    expect(readHead(decodePage(late, "text/html")).title).not.toBe("牛肉麵");
+  });
+
+  test("the header's over a meta's; UTF-8 without either, or by a name no decoder knows", () => {
+    const sjis = page(`<meta charset="big5"><title>`, RAMEN_SJIS);
+    expect(readHead(decodePage(sjis, "text/html; charset=shift_jis")).title).toBe("ラーメン");
+    const utf8 = new TextEncoder().encode("<title>牛肉麵</title>");
+    expect(decodePage(utf8, "text/html")).toBe("<title>牛肉麵</title>");
+    expect(decodePage(utf8, "text/html; charset=klingon")).toBe("<title>牛肉麵</title>");
   });
 });
 

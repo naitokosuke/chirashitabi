@@ -109,9 +109,10 @@ describe("finding a memo's place", () => {
     expect((await ask(roomId, email, { title: "  ", body: "" })).status).toBe(400);
     expect(asked.length).toBe(calls);
 
-    stub.answer = () => naming(["寧夏夜市, 臺北市, 臺灣"]);
+    // a query of its own: the first test's answer is kept, and would be given again
+    stub.answer = () => naming(["饒河街觀光夜市, 臺北市, 臺灣"]);
     stub.find = () => ({ status: 503, body: {} });
-    expect((await ask(roomId, email, { title: "寧夏夜市", body: "" })).status).toBe(502);
+    expect((await ask(roomId, email, { title: "饒河街夜市", body: "" })).status).toBe(502);
   });
 
   test("a provider error costs nothing, and the geocoder is not asked", async () => {
@@ -168,6 +169,11 @@ describe("what is at a pinned point", () => {
     expect(url.searchParams.get("extratags")).toBe("1");
     expect(url.searchParams.get("lat")).toBe("25.03361");
     expect(url.searchParams.get("accept-language")).toBe("en");
+    // a pin a hand's width off asks no more, and is the point pinned
+    const seen = looked.length;
+    const again = await where(roomId, email, { lat: 25.033612, lng: 121.530048, lang: "en" });
+    expect(await again.json()).toMatchObject({ place: { lat: 25.033612, lng: 121.530048 } });
+    expect(looked.length).toBe(seen);
   });
 
   test("a point with no name of its own takes its street's, never a bare house number", async () => {
@@ -248,7 +254,31 @@ describe("places by a typed name", () => {
       });
     }
     expect(asked.length).toBe(calls);
-    expect(looked[seen]).toMatchObject({ q: "Hotel Proverbs Taipei", lang: "en" });
+    // asked once: every ask after the first is answered from what was kept
+    expect(looked.slice(seen)).toEqual([
+      expect.objectContaining({ q: "Hotel Proverbs Taipei", lang: "en" }),
+    ]);
+  });
+
+  test("an answer is kept per query, however written, and per language; a failure is not kept", async () => {
+    const email = "findkept@example.com";
+    const { roomId } = await createRoom(email);
+    const hit = { name: "Raohe", display_name: "Raohe, 臺北市", lat: "25.05", lon: "121.57" };
+    stub.find = () => ({ status: 503, body: {} });
+    expect((await findByName(roomId, email, { query: "Raohe Street", lang: "en" })).status).toBe(
+      502,
+    );
+    stub.find = () => ({ status: 200, body: [hit] });
+    const seen = looked.length;
+    for (const query of ["Raohe Street", "raohe   street", "ＲＡＯＨＥ Street"])
+      expect((await findByName(roomId, email, { query, lang: "en" })).status).toBe(200);
+    expect((await findByName(roomId, email, { query: "Raohe Street", lang: "ja" })).status).toBe(
+      200,
+    );
+    expect(looked.slice(seen).map((l) => [l.q, l.lang])).toEqual([
+      ["Raohe Street", "en"],
+      ["Raohe Street", "ja"],
+    ]);
   });
 
   test("a blank or overlong name is refused; a geocoder that fails is a 502; a stranger is not let in", async () => {
