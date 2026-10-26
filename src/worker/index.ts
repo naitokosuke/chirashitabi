@@ -21,6 +21,7 @@ import {
 import { type Ceiling, parseTag, type RoomId, RoomIdSchema } from "../contract/room";
 import {
   parseImageType,
+  type ImageType,
   IsoDateSchema,
   IsoInstantSchema,
   LangSchema,
@@ -45,7 +46,7 @@ import { CLEF_MODEL, type ClefResult, FITS_AT, judgeTags, MAX_TAGS, type MemoToT
 import { expand, placeName } from "./expand";
 import { geocode, reverseGeocode, type GeocoderFailure, type Place } from "./geocode";
 import { preview, previewable, readUpTo } from "./preview";
-import { bookletKey, newSeatId, type Outsider, Room } from "./room";
+import { bookletKey, imageKey, newSeatId, type Outsider, Room } from "./room";
 import { RoomsIndex } from "./rooms-index";
 
 export { Room, RoomsIndex };
@@ -285,12 +286,9 @@ const api = new Hono<ApiEnv>()
           ? c.json(refusal(stored.reason), 409)
           : outsider(c, stored.reason);
       const { value: id } = stored;
-      try {
-        await c.env.IMAGES.put(imageKey(roomId, id), data, { httpMetadata: { contentType: type } });
-      } catch (e) {
-        await room.dropImage(id);
-        throw e;
-      }
+      // the room gone for good while the bytes were on their way: they went with it
+      if (!(await storeImage(c.env, room, roomId, id, data, type)))
+        return outsider(c, "not a member");
       return c.json({ id }, 200);
     },
   )
@@ -323,19 +321,30 @@ const api = new Hono<ApiEnv>()
         index.deletions(email),
       ]);
       let repaired = false;
+      // each room is settled on its own: one whose room or repair fails is left out of this
+      // answer and logged, the rest are listed, and the next /me asks it again
+      const settled = async <T>(id: RoomId, read: () => Promise<T[]>): Promise<T[]> => {
+        try {
+          return await read();
+        } catch (e) {
+          c.var.log.warn("a room was not settled", { unsettled: [{ room: id, error: String(e) }] });
+          return [];
+        }
+      };
       // each at a glance, and whether the asker made it (and so may delete it from the list); one
       // the room does not count them in (the index behind it) is left out, and one it counts as
       // deleted (a build that told the room first) is hidden in the index at the room's time
-      const glance = async (id: RoomId, by: MemberId | null = null) => {
-        const summary = await c.env.ROOM.getByName(id).summary(by);
-        if (summary === null) return [];
-        if ("deletedAt" in summary) {
-          await index.mark(id, summary.deletedAt);
-          repaired = true;
-          return [];
-        }
-        return [{ id, ...summary }];
-      };
+      const glance = (id: RoomId, by: MemberId | null = null) =>
+        settled(id, async () => {
+          const summary = await c.env.ROOM.getByName(id).summary(by);
+          if (summary === null) return [];
+          if ("deletedAt" in summary) {
+            await index.mark(id, summary.deletedAt);
+            repaired = true;
+            return [];
+          }
+          return [{ id, ...summary }];
+        });
       const rooms = (await Promise.all(mine.map((m) => glance(m.roomId, m.memberId)))).flat();
       // an invitation shows the trip it is to, its owner leading the members
       const invitations = (await Promise.all(invitedTo.map((id) => glance(id)))).flat();
@@ -343,15 +352,17 @@ const api = new Hono<ApiEnv>()
       // the room had restored (the index's step failed) is shown again
       const deleted = (
         await Promise.all(
-          deletions.map(async ({ roomId: id, memberId, at }) => {
-            const d = await c.env.ROOM.getByName(id).deletedFor(memberId, id, at);
-            if (d === "restored") {
-              await index.mark(id, null);
-              repaired = true;
-              return [];
-            }
-            return d === null ? [] : [{ id, ...d }];
-          }),
+          deletions.map(({ roomId: id, memberId, at }) =>
+            settled(id, async () => {
+              const d = await c.env.ROOM.getByName(id).deletedFor(memberId, id, at);
+              if (d === "restored") {
+                await index.mark(id, null);
+                repaired = true;
+                return [];
+              }
+              return d === null ? [] : [{ id, ...d }];
+            }),
+          ),
         )
       ).flat();
       return { rooms, invitations, deleted, repaired };
@@ -645,16 +656,12 @@ const api = new Hono<ApiEnv>()
       if (found.image !== null) {
         const { bytes, type } = found.image;
         const stored = await room.addImage(memberId, roomId, type, bytes.byteLength);
-        if (stored.ok) {
-          try {
-            await c.env.IMAGES.put(imageKey(roomId, stored.value), bytes, {
-              httpMetadata: { contentType: type },
-            });
-            image = stored.value;
-          } catch {
-            await room.dropImage(stored.value);
-          }
-        }
+        // a picture that could not be kept leaves the preview without one
+        if (
+          stored.ok &&
+          (await storeImage(c.env, room, roomId, stored.value, bytes, type).catch(() => false))
+        )
+          image = stored.value;
       }
       const { title, description, site } = found;
       return c.json({ preview: { url: link, site, title, description, image } }, 200);
@@ -1099,8 +1106,32 @@ async function booklet(env: Env, req: Request): Promise<Response> {
   });
 }
 
-/** The room's own folder in the bucket: one room's ids never reach another's pictures */
-const imageKey = (roomId: RoomId, id: ImageId) => `rooms/${roomId}/images/${id}`;
+/**
+ * Writes the bytes of the picture `id` room `roomId` has just listed; whether the room keeps it.
+ * Bytes that fail take the room's entry with them (Room.dropImage) and throw. Bytes written once
+ * the room no longer lists them go again: the room went for good while they were on their way,
+ * its erase having listed its folder before they landed (an erased room throws on the question,
+ * which counts as not listing them)
+ */
+async function storeImage(
+  env: Env,
+  room: DurableObjectStub<Room>,
+  roomId: RoomId,
+  id: ImageId,
+  data: ArrayBuffer | Uint8Array,
+  type: ImageType,
+): Promise<boolean> {
+  const key = imageKey(roomId, id);
+  try {
+    await env.IMAGES.put(key, data, { httpMetadata: { contentType: type } });
+  } catch (e) {
+    await room.dropImage(roomId, id);
+    throw e;
+  }
+  if (await room.listsImage(id).catch(() => false)) return true;
+  await env.IMAGES.delete(key);
+  return false;
+}
 
 /**
  * The JSON body as `schema` reads it, or 400. The app's client (hc) sends the schema's input;

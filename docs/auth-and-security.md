@@ -133,7 +133,10 @@ Creating and joining are explicit operations, not side effects of a first visit.
 - `room:delete` is called by the owner and is a soft delete: the index stops resolving anyone in it and drops its open invitations first, then the room is marked deleted and every socket is told and closed, and either person who was in it can restore it for 30 days (`room:restore`).
   Should the room's step fail, the index shows the room again, so deleting can be asked again.
   Wherever a step that failed leaves the two disagreeing, the next `/api/me` of someone in the room makes them agree: a room the index hides and the room does not count as deleted finishes its deletion at the index's time (sockets closed, its day set), unless the room took back that very deletion (a restore whose index step failed), which the index then shows again; a room deleted that the index still lists is hidden in the index at the room's time.
-  After 30 days an alarm deletes its pictures from R2, removes it from the index and calls `deleteAll` on the object; its public booklet, which deleting took down already, is gone with it. The owner can have that happen at once (`room:purge`), since only they deleted it; the other person, who could have restored it, cannot.
+  What the room does once it counts as deleted (its invitations dropped, its sockets closed, its day set, its booklet taken down) can each be done again, so a room deleted with no day set or with its booklet still up (a step that threw, an alarm that ran out of retries) has it finished by the next `/api/me` that lists it, by `room:purge`, or by its alarm.
+  `/api/me` settles each room on its own: one whose room or repair fails is left out of that answer and logged, and asked again at the next.
+  After 30 days an alarm deletes everything under the room's folder in R2 (`rooms/<id>/images/`, listed rather than read from the room's table, so bytes a failed upload or a sweep left behind go too), takes down a booklet still up, removes it from the index and calls `deleteAll` on the object; it sets its next try before it starts, so an erase that throws is tried again an hour on. The owner can have that happen at once (`room:purge`), since only they deleted it; the other person, who could have restored it, cannot.
+  An upload whose bytes land after the room went for good finds the room no longer lists them and deletes them; a picture no card shows has its bytes deleted before its row, so no row goes while its bytes may stay.
 - Everything else from a member id that is not in the table, or in a deleted room, is rejected inside the object, as a refusal the Worker answers as it answers anyone not in the room.
 
 `MemberId` is a random id assigned by the room at creation or invitation.
@@ -187,6 +190,7 @@ The budget is what bounds a lost phone or a bug, so it is specified rather than 
   Recording after the call would let a retry between the call and the record spend unrecorded money.
 - The room object keeps the ledger of who, when and how many tokens, for tracing a surprising bill.
   It stores member ids, not e-mails.
+- The index keeps a reservation only while a ceiling counts it: a day's first reservation prunes earlier days' refunded ones and those of rooms gone for good, and a room gone for good takes its reservations with it but today's, which the day's ceiling still counts.
 
 Cloudflare billing notifications and the Anthropic console's spend limit are the second line; the index is the first.
 

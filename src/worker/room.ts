@@ -136,20 +136,30 @@ export class Room extends DurableObject<Env> {
   ): Promise<Result<ImageId, "full" | Outsider>> {
     if (this.outsider(by)) return OUTSIDE;
     const sql = this.ctx.storage.sql;
-    // off the list before the bytes go, so no card can take a picture whose bytes are going
-    const unused = sql
-      .exec<{ id: ImageId }>(
-        `DELETE FROM pictures
-         WHERE created_at < ? AND id NOT IN (
-           SELECT image FROM ${ON_DESK} WHERE image IS NOT NULL
-         )
-         RETURNING id`,
-        new Date(Date.now() - Room.UNUSED_AFTER).toISOString(),
-      )
-      .toArray()
-      .map((p) => `rooms/${roomId}/images/${p.id}`);
-    // R2 deletes up to 1000 keys a call; a room holds at most MAX_IMAGES
-    if (unused.length > 0) await this.env.IMAGES.delete(unused);
+    // the bytes before the rows, so no row is dropped whose bytes may still be there, and nothing
+    // else runs meanwhile, so no card takes a picture whose bytes are going. A delete that fails
+    // leaves the rows, and the next upload tries again; it never throws here, which would reset
+    // the room
+    await this.ctx.blockConcurrencyWhile(async () => {
+      const unused = sql
+        .exec<{ id: ImageId }>(
+          `SELECT id FROM pictures
+           WHERE created_at < ? AND id NOT IN (
+             SELECT image FROM ${ON_DESK} WHERE image IS NOT NULL
+           )`,
+          new Date(Date.now() - Room.UNUSED_AFTER).toISOString(),
+        )
+        .toArray()
+        .map((p) => p.id);
+      if (unused.length === 0) return;
+      try {
+        // R2 deletes up to 1000 keys a call; a room holds at most MAX_IMAGES
+        await this.env.IMAGES.delete(unused.map((id) => imageKey(roomId, id)));
+      } catch {
+        return;
+      }
+      for (const id of unused) sql.exec("DELETE FROM pictures WHERE id = ?", id);
+    });
     // deleted while the old pictures went: nothing more is written
     if (this.outsider(by)) return OUTSIDE;
     if (sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM pictures").one().n >= Room.MAX_IMAGES)
@@ -166,9 +176,27 @@ export class Room extends DurableObject<Env> {
     return { ok: true, value: id };
   }
 
-  /** Its bytes could not be written: the room does not have it after all */
-  dropImage(id: ImageId): void {
+  /**
+   * Its bytes could not be written in room `roomId`: the room does not have it after all. A put
+   * that failed may still have landed, so the bytes go before the row; should they not go, the row
+   * stays, unused, and the next upload's sweep takes both once it is UNUSED_AFTER old
+   */
+  async dropImage(roomId: RoomId, id: ImageId): Promise<void> {
+    try {
+      await this.env.IMAGES.delete(imageKey(roomId, id));
+    } catch {
+      return;
+    }
     this.ctx.storage.sql.exec("DELETE FROM pictures WHERE id = ?", id);
+  }
+
+  /**
+   * Whether the room still lists the picture `id`, asked once its bytes are written: a room
+   * deleted since keeps it until it goes for good, and one gone for good (its storage deleted,
+   * which this throws on) lists nothing, its bytes having landed after it listed what to delete
+   */
+  listsImage(id: ImageId): boolean {
+    return hasImage(this.ctx.storage.sql, id);
   }
 
   /** Whether the room has a picture by that id, asked for member `by` */
@@ -417,7 +445,9 @@ export class Room extends DurableObject<Env> {
    * One the index hides and the room does not count as deleted is brought to agree: a deletion
    * whose room step failed is finished now, at the index's time, as `delete` would have; a restore
    * whose index step failed, the room having taken back that very deletion, is answered
-   * "restored", for the Worker to show the room again.
+   * "restored", for the Worker to show the room again. A deletion the room counts whose later
+   * steps did not all go through is finished as well (`finishDeletion`); a step that throws again
+   * is tried at the next ask, and the room is answered as deleted meanwhile, which it is.
    */
   async deletedFor(
     by: MemberId,
@@ -429,8 +459,8 @@ export class Room extends DurableObject<Env> {
     if (this.deletion() === null) {
       const restored = sql.exec<{ at: string }>("SELECT at FROM restored").toArray()[0];
       if (restored?.at === marked) return "restored";
-      await this.markDeleted(roomId, marked);
     }
+    await this.markDeleted(roomId, marked).catch(unfinished);
     const { name } = sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one();
     return { name, deletedAt: this.deletion()?.at ?? marked };
   }
@@ -510,13 +540,30 @@ export class Room extends DurableObject<Env> {
    * again
    */
   private async markDeleted(roomId: RoomId, at: IsoInstant): Promise<void> {
-    const sql = this.ctx.storage.sql;
     // deleted before anything is awaited: from here on nothing is written, opened or published
-    sql.exec("INSERT OR IGNORE INTO deletion (id, room_id, at) VALUES (1, ?, ?)", roomId, at);
-    sql.exec("DELETE FROM invitations");
+    this.ctx.storage.sql.exec(
+      "INSERT OR IGNORE INTO deletion (id, room_id, at) VALUES (1, ?, ?)",
+      roomId,
+      at,
+    );
+    await this.finishDeletion();
+  }
+
+  /**
+   * What deleting does once the room counts as deleted: its invitations go, its sockets are told
+   * and closed, its day is set and its booklet taken down, in that order. Each step can be done
+   * again, so a deleted room with no day set or a booklet still up (a step that threw, or an alarm
+   * that ran out of retries) has them all done again, by `delete` asked again, by the list of
+   * trips (`summary`, `deletedFor`), by `purge` and by the alarm; one with both is finished, and
+   * nothing is done. Nothing for a room that is not deleted.
+   */
+  private async finishDeletion(): Promise<void> {
+    const deletion = this.deletion();
+    if (deletion === null) return;
+    if ((await this.ctx.storage.getAlarm()) !== null && this.published() === null) return;
+    this.ctx.storage.sql.exec("DELETE FROM invitations");
     this.closeSockets(this.ctx.getWebSockets(), "deleted");
-    const first = sql.exec<{ at: string }>("SELECT at FROM deletion").one().at;
-    await this.ctx.storage.setAlarm(Date.parse(first) + Room.DELETE_AFTER);
+    await this.ctx.storage.setAlarm(Date.parse(deletion.at) + Room.DELETE_AFTER);
     // a deleted trip's booklet is not left up for its thirty days; restoring does not bring it back
     await this.unpublish();
   }
@@ -554,45 +601,62 @@ export class Room extends DurableObject<Env> {
     await this.sweep();
   }
 
-  /** What the alarm does, callable on its own so the tests need not wait thirty days */
+  /** How long after an erase that did not go through the alarm tries again */
+  static readonly ERASE_RETRY = 60 * 60 * 1000;
+
+  /**
+   * What the alarm does, callable on its own so the tests need not wait thirty days. Before the
+   * day, what deleting does is finished should a step of it not have gone through, which sets the
+   * day; on it, the next try is set first, so an erase that throws is tried again on its own
+   */
   async sweep(): Promise<void> {
     const deletion = this.deletion();
     if (deletion === null) return;
     const due = Date.parse(deletion.at) + Room.DELETE_AFTER;
     if (Date.now() < due) {
+      await this.finishDeletion();
+      // and set again, whatever the alarm that woke this left
       await this.ctx.storage.setAlarm(due);
       return;
     }
+    await this.ctx.storage.setAlarm(Date.now() + Room.ERASE_RETRY);
     await this.erase(deletion);
   }
 
   /**
    * The owner `by` wants the deleted room gone now rather than on its day: it goes as the
    * alarm would take it. Refused unless the room is deleted and `by` owns it; the other person
-   * could still have restored it, so only the one who deleted it may end that.
+   * could still have restored it, so only the one who deleted it may end that. What deleting
+   * does is finished first, so an erase that throws still leaves the room its day.
    */
   async purge(by: MemberId): Promise<Result<void, "not deleted" | "not the owner">> {
     const deletion = this.deletion();
     if (deletion === null) return { ok: false, reason: "not deleted" };
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
+    await this.finishDeletion();
     await this.erase(deletion);
     return { ok: true, value: undefined };
   }
 
   /**
-   * The room goes for good: its pictures, its place in the index, its storage. Nothing else runs
-   * until it is gone: a restore in between would be answered yes for a room about to go.
+   * The room goes for good: its pictures, its booklet, its place in the index, its storage and its
+   * alarm. Nothing else runs until it is gone: a restore in between would be answered yes for a
+   * room about to go. Its pictures are whatever its folder in the bucket holds, listed or not: a
+   * sweep, a failed upload or an upload racing this may have left bytes no row names.
    */
   private erase(deletion: Deletion): Promise<void> {
     return this.ctx.blockConcurrencyWhile(async () => {
-      const keys = this.ctx.storage.sql
-        .exec<{ id: ImageId }>("SELECT id FROM pictures")
-        .toArray()
-        .map((p) => `rooms/${deletion.room_id}/images/${p.id}`);
-      // R2 deletes up to 1000 keys a call; a room holds at most MAX_IMAGES
-      if (keys.length > 0) await this.env.IMAGES.delete(keys);
+      const prefix = imagesOf(deletion.room_id);
+      let cursor: string | undefined;
+      do {
+        // a page holds up to 1000 keys, as many as R2 deletes a call
+        const page = await this.env.IMAGES.list({ prefix, cursor });
+        if (page.objects.length > 0) await this.env.IMAGES.delete(page.objects.map((o) => o.key));
+        cursor = page.truncated ? page.cursor : undefined;
+      } while (cursor !== undefined);
       await this.unpublish();
       await this.env.ROOMS.getByName("index").drop(deletion.room_id);
+      await this.ctx.storage.deleteAlarm();
       await this.ctx.storage.deleteAll();
     });
   }
@@ -638,12 +702,18 @@ export class Room extends DurableObject<Env> {
    * for `by`, a person in it, or for an invitation (null). Null when `by` is not in the room (an
    * index row the room no longer honours), so the list leaves the room out; when the room is
    * deleted and the index not told (a build that told the room first), when it was, for the
-   * Worker to tell the index
+   * Worker to tell the index, with what deleting does finished (`finishDeletion`; a step that
+   * throws again is tried at the next ask)
    */
-  summary(by: MemberId | null = null): WireRoomSummary | { deletedAt: IsoInstant } | null {
+  async summary(
+    by: MemberId | null = null,
+  ): Promise<WireRoomSummary | { deletedAt: IsoInstant } | null> {
     if (by !== null && this.person(by) === null) return null;
     const deletion = this.deletion();
-    if (deletion !== null) return { deletedAt: deletion.at };
+    if (deletion !== null) {
+      await this.finishDeletion().catch(unfinished);
+      return { deletedAt: deletion.at };
+    }
     const sql = this.ctx.storage.sql;
     const { name } = sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one();
     // a trip always has a day: made with one, and moved to one at least
@@ -918,6 +988,12 @@ export class Room extends DurableObject<Env> {
   }
 }
 
+/** The room's own folder in the bucket: one room's ids never reach another's pictures */
+export const imagesOf = (roomId: RoomId) => `rooms/${roomId}/images/`;
+
+/** Where a room's picture is in the bucket, in its folder */
+export const imageKey = (roomId: RoomId, id: ImageId) => `${imagesOf(roomId)}${id}`;
+
 /** Where a published booklet is in the bucket; its slug is its only name */
 export const bookletKey = (slug: string) => `booklets/${slug}/shiori.html`;
 
@@ -927,6 +1003,12 @@ export const newSlug = () =>
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/, "");
+
+/** A step of what deleting does threw where the room answers anyway: it is done again next time */
+const unfinished = (e: unknown) =>
+  console.warn("room: what deleting does is not finished, and is done again at the next ask", {
+    error: String(e),
+  });
 
 /** Now, as the room stamps what it applies */
 const stamp = (): IsoInstant => v.parse(IsoInstantSchema, new Date().toISOString());
