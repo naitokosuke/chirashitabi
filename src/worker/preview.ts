@@ -69,7 +69,10 @@ export function youtubeWatch(u: URL): string {
 /** The site a page is on, as it reads: its host without `www.` */
 export const siteOf = (u: URL) => u.hostname.replace(/^www\./, "");
 
-/** HTML's entities back into characters: the named ones a page's head uses, and the numbered */
+/**
+ * HTML's entities back into characters: the named ones a page's head uses, and the numbered; a
+ * number that is no character (past U+10FFFF) stays as it was written
+ */
 export function decodeEntities(s: string): string {
   const NAMED: Record<string, string> = {
     amp: "&",
@@ -80,10 +83,10 @@ export function decodeEntities(s: string): string {
     nbsp: " ",
   };
   return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code: string) => {
-    if (code.startsWith("#x") || code.startsWith("#X"))
-      return String.fromCodePoint(Number.parseInt(code.slice(2), 16));
-    if (code.startsWith("#")) return String.fromCodePoint(Number(code.slice(1)));
-    return NAMED[code.toLowerCase()] ?? whole;
+    if (!code.startsWith("#")) return NAMED[code.toLowerCase()] ?? whole;
+    const hex = code.startsWith("#x") || code.startsWith("#X");
+    const n = hex ? Number.parseInt(code.slice(2), 16) : Number(code.slice(1));
+    return Number.isInteger(n) && n <= 0x10ffff ? String.fromCodePoint(n) : whole;
   });
 }
 

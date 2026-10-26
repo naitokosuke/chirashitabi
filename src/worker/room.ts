@@ -531,6 +531,14 @@ export class Room extends DurableObject<Env> {
     await this.ctx.storage.deleteAll();
   }
 
+  /**
+   * Whether the room acts for `by`, for a call that reads nothing else of it (a lookup, a fetch)
+   * and so would otherwise go on the index's word alone, which may be behind
+   */
+  admits(by: MemberId): Result<void, Outsider> {
+    return this.outsider(by) ? OUTSIDE : { ok: true, value: undefined };
+  }
+
   /** Who made the room and so may invite, remove and delete; asked by member `by` */
   owner(by: MemberId): Result<MemberId, Outsider> {
     if (this.outsider(by)) return OUTSIDE;
@@ -804,8 +812,13 @@ export class Room extends DurableObject<Env> {
     }
   }
 
-  /** The trip at a glance, for a member's list of rooms: its name, days, members and memo count */
-  summary(by: MemberId | null = null): WireRoomSummary {
+  /**
+   * The trip at a glance, for a member's list of rooms: its name, days, members and memo count;
+   * for `by`, a person in it, or for an invitation (null). Null when `by` is not in the room (an
+   * index row the room no longer honours), so the list leaves the room out
+   */
+  summary(by: MemberId | null = null): WireRoomSummary | null {
+    if (by !== null && this.person(by) === null) return null;
     const sql = this.ctx.storage.sql;
     const { name } = sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one();
     // a trip always has a day: made with one, and moved to one at least

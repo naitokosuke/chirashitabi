@@ -130,6 +130,12 @@ test("decodeEntities and siteOf", () => {
   expect(decodeEntities("a &lt;b&gt; &amp; &quot;c&quot; &apos;d&apos;&nbsp;&unknown;")).toBe(
     `a <b> & "c" 'd' &unknown;`,
   );
+  expect(decodeEntities("&#33521;&#x6587; &#X41;")).toBe("英文 A");
+  // a number past the last character is no character: kept as written, never a throw
+  expect(decodeEntities("a &#99999999; b &#x110000; c &#x10FFFF;")).toBe(
+    "a &#99999999; b &#x110000; c \u{10ffff}",
+  );
+  expect(decodeEntities(`&#${"9".repeat(400)};`)).toBe(`&#${"9".repeat(400)};`);
   expect(siteOf(new URL("https://www.youtube.com/watch?v=x"))).toBe("youtube.com");
   expect(siteOf(new URL("https://tabelog.com/x"))).toBe("tabelog.com");
 });

@@ -455,21 +455,20 @@ const members = [
     const body = await bodyOf(request, v.object({ email: EmailSchema }));
     if (body === null) return badRequest();
     const { email } = body;
-    const people = room.state.members.filter((m) => m.kind === "person").length;
-    if (people + room.invited.length >= SEATS)
-      return HttpResponse.json<Answer<InRoom["invite"], 409>>(
-        { error: "no seat" },
-        { status: 409 },
-      );
+    // in the Worker's order: the index first, then the room's seat.
     // Yuki is in every room here, so her own address is refused as the Worker's index refuses it
     if (email === ME)
       return HttpResponse.json<Answer<InRoom["invite"], 409>>(
         { error: "already in" },
         { status: 409 },
       );
+    // invited already (a double tap): the invitation stands
     if (room.invited.includes(email))
+      return HttpResponse.json<Answer<InRoom["invite"]>>({ invited: email });
+    const people = room.state.members.filter((m) => m.kind === "person").length;
+    if (people + room.invited.length >= SEATS)
       return HttpResponse.json<Answer<InRoom["invite"], 409>>(
-        { error: "already invited" },
+        { error: "no seat" },
         { status: 409 },
       );
     room.invited = [...room.invited, email];
