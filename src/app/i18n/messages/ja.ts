@@ -76,6 +76,7 @@ export const ja: Messages = {
   "offline.unavailable": "オフラインでは使えません",
   "offline.in": "オフライン · {$time} 時点の内容です",
   "room.refused": "部屋に受け付けられなかった変更を元に戻しました",
+  "room.tooLarge": "変更が大きすぎて送れないため、反映しませんでした。短くしてお試しください。",
   "room.gone.removed": "この旅から外されました",
   "room.gone.left": "旅から抜けました",
   "room.gone.deleted": "この旅は削除されました",

@@ -12,6 +12,7 @@ import * as v from "valibot";
 
 import { HexColorSchema } from "../shared/color";
 import { EmailSchema } from "../shared/email";
+import { listOf } from "../shared/list";
 import { CurrencyCodeSchema } from "../shared/money";
 
 import { AirportCodeSchema, type AirportCode } from "./airport";
@@ -34,7 +35,14 @@ import {
   TagSchema,
 } from "./room";
 
-export const MAX_MESSAGE_BYTES = 32 * 1024;
+/**
+ * The largest message the room reads, in bytes as UTF-8 writes it. A memo with every field at
+ * its limit, in characters of three bytes each, fits; the longer lists (a trip's stays) and
+ * text full of characters JSON escapes are kept under it by the mutations' own check.
+ */
+export const MAX_MESSAGE_BYTES = 64 * 1024;
+/** What a cid beside a mutation's fields may add to its message: `,"cid":"…"`, 64 characters at most */
+const CID_BYTES = ',"cid":""'.length + 64;
 
 // ---- limits ----
 /** How far a point on the desk may be from its middle, either way */
@@ -214,7 +222,7 @@ export type Leg = v.InferOutput<typeof LegSchema>;
  * each airport's own local time (YYYY-MM-DDTHH:MM; null for not known yet). The landing may read
  * earlier than the leaving, across time zones, so their order is not checked.
  */
-const WireFlightSchema = v.object({
+export const WireFlightSchema = v.object({
   /** May be blank; trimmed */
   number: v.pipe(v.string(), v.maxLength(MAX_FLIGHT_NO), v.trim()),
   from: AirportCodeSchema,
@@ -234,7 +242,7 @@ export type WireFlights = v.InferOutput<typeof WireFlightsSchema>;
  * Where the travellers sleep: a name, the first night (YYYY-MM-DD) and how many, and where it
  * is, as a Google Maps link and the point it names, when they gave one
  */
-const WireStaySchema = v.pipe(
+export const WireStaySchema = v.pipe(
   v.object({
     name: named(),
     checkIn: IsoDateSchema,
@@ -384,7 +392,7 @@ const WireNewNoteSchema = v.union([
 ]);
 export type WireNewNote = v.InferOutput<typeof WireNewNoteSchema>;
 
-const WireMemoSchema = v.object({ ...memo, ...stamped });
+export const WireMemoSchema = v.object({ ...memo, ...stamped });
 export type WireMemo = v.InferOutput<typeof WireMemoSchema>;
 export const WireNoteSchema = v.union([
   v.variant("kind", [
@@ -462,11 +470,25 @@ const mutations = [
   }),
 ] as const;
 
-/** A mutation as a client sends it: as the room relays it, but a new note unstamped */
-const ClientMutationSchema = v.variant("type", [
-  v.object({ type: v.literal("note:add"), note: WireNewNoteSchema }),
-  ...mutations,
-]);
+/**
+ * Whether a mutation, as JSON, goes in one message with the longest cid beside it. The app asks
+ * before it keeps one of its own, so a change the room could never read is never sent.
+ */
+export const fitsMessage = <M extends object>(m: M): boolean =>
+  new TextEncoder().encode(JSON.stringify(m)).byteLength + CID_BYTES <= MAX_MESSAGE_BYTES;
+
+/**
+ * A mutation as a client sends it: as the room relays it, but a new note unstamped. Every field
+ * has its limit, and the whole fits in a message: a list of stays long enough, or words of
+ * characters JSON escapes, can be past it with every field within its own.
+ */
+export const ClientMutationSchema = v.pipe(
+  v.variant("type", [
+    v.object({ type: v.literal("note:add"), note: WireNewNoteSchema }),
+    ...mutations,
+  ]),
+  v.check(fitsMessage),
+);
 export type ClientMutation = v.InferOutput<typeof ClientMutationSchema>;
 
 /** The app's `Mutation`, as JSON: as the room relays it, a new note stamped */
@@ -509,13 +531,18 @@ export type RejectReason = (typeof REJECT)[number];
 const GONE = ["removed", "left", "deleted"] as const;
 export type GoneReason = (typeof GONE)[number];
 
+/**
+ * What the room sends. A note or a member in it that does not read (a room with a row from
+ * before a check, or a newer room's kind) is left out, and the rest is read: one is never what
+ * keeps a room from opening.
+ */
 export const ServerMessageSchema = v.variant("type", [
   v.object({
     type: v.literal("snapshot"),
     me: MemberIdSchema,
-    members: v.array(WireMemberSchema),
+    members: listOf(WireMemberSchema),
     trip: WireTripSchema,
-    notes: v.array(WireNoteSchema),
+    notes: listOf(WireNoteSchema),
   }),
   v.object({
     type: v.literal("mutation"),
@@ -530,7 +557,7 @@ export const ServerMessageSchema = v.variant("type", [
   // a finger is never refused: one the room would refuse is dropped
   v.object({ type: v.literal("rejected"), reason: v.picklist(REJECT), cid: v.optional(CidSchema) }),
   // someone joined, was removed or left: who is in the room now
-  v.object({ type: v.literal("members"), members: v.array(WireMemberSchema) }),
+  v.object({ type: v.literal("members"), members: listOf(WireMemberSchema) }),
   // this socket's person is out of the room, or the room was deleted; the socket closes after
   v.object({ type: v.literal("gone"), reason: v.picklist(GONE) }),
 ]);
@@ -627,6 +654,126 @@ if (import.meta.vitest !== undefined) {
       expect(read({ type: "text:edit", id, text: "x".repeat(MAX_TEXT + 1) })).toBeNull();
       expect(read({ type: "note:add", note: { ...box, text: "Day 1" } })).not.toBeNull();
       expect(read({ type: "note:add", note: { ...box, text: "" } })).toBeNull();
+    });
+  });
+
+  describe("every mutation fits in a message", () => {
+    const stamp = {
+      by: v.parse(MemberIdSchema, "agent:claude"),
+      updatedAt: v.parse(IsoInstantSchema, "2026-10-20T09:30:00.000Z"),
+    };
+    const read = (m: unknown) => parseMutation(m, stamp, (code) => code);
+    /** The message as the app sends it, with the longest cid there may be */
+    const bytes = (m: object) =>
+      new TextEncoder().encode(JSON.stringify({ ...m, cid: "c".repeat(64) })).byteLength;
+    // every character three bytes, the most one takes unescaped
+    const wide = (n: number) => "あ".repeat(n);
+    const url = `https://example.com/${wide(2000 - "https://example.com/".length)}`;
+    const id = "n".repeat(64);
+    const who = "0f8fad5b-d9cb-469f-a165-70867728950e";
+    const far = -999_999.999_999_9;
+    const where = { x: far, y: far, rot: -359.999_999_999_9 };
+    const pin = { lat: -89.999_999_999_999, lng: -179.999_999_999_99 };
+    const memoFields = {
+      title: wide(MAX_TITLE),
+      color: "#ffffff",
+      body: wide(MAX_BODY),
+      tags: Array.from({ length: MAX_TAGS }, () => wide(40)),
+      checked: true,
+      image: who,
+      mapsUrl: url,
+      pin,
+      schedule: { date: "2026-11-03", time: "23:59:59", status: "fixed" },
+      budget: 999_999_999.999_999,
+      minutes: 1440,
+      hours: wide(255),
+      booking: { state: "booked", code: wide(100), url },
+      due: "2026-11-03",
+      assignee: who,
+      link: url,
+    };
+    const flight = {
+      number: wide(MAX_FLIGHT_NO),
+      from: "TPE",
+      to: "HND",
+      departs: "2026-11-03T23:59",
+      arrives: "2026-11-03T23:59",
+    };
+    const largest = [
+      {
+        type: "note:add",
+        note: { id, kind: "memo", ...where, scale: MIN_SCALE + 0.123_456_789, ...memoFields },
+      },
+      { type: "note:update", id, patch: { ...memoFields, ...where } },
+      { type: "note:recolor", id, color: "#ffffff" },
+      { type: "note:adopt", id },
+      { type: "text:edit", id, text: wide(MAX_TEXT) },
+      { type: "note:move", id, ...where, scale: MIN_SCALE + 0.123_456_789 },
+      { type: "note:delete", id },
+      { type: "day:intro", date: "2026-11-03", intro: wide(MAX_INTRO) },
+      { type: "member:profile", name: wide(MAX_NAME), color: "#3c6ee0" },
+      { type: "trip:rename", name: wide(MAX_NAME) },
+      { type: "trip:dates", first: "2026-11-03", days: MAX_DAYS },
+      { type: "trip:flight", leg: "back", flight },
+    ];
+
+    test.each(largest.map((m) => [m.type, m] as const))(
+      "%s with every field at its limit is read, and fits",
+      (_, m) => {
+        expect(read(m)).not.toBeNull();
+        expect(bytes(m)).toBeLessThanOrEqual(MAX_MESSAGE_BYTES);
+      },
+    );
+
+    test("every kind of mutation is among them, the stays apart", () => {
+      const types = ClientMutationSchema.pipe[0].options.map((o) => o.entries.type.literal);
+      expect([...largest.map((m) => m.type), "trip:stays"].sort()).toEqual([...types].sort());
+    });
+
+    const stay = (link: string) => ({
+      name: wide(MAX_NAME),
+      checkIn: "2026-11-03",
+      nights: MAX_DAYS,
+      mapsUrl: link,
+      pin,
+    });
+    const stays = (link: string) => ({
+      type: "trip:stays",
+      stays: Array.from({ length: MAX_DAYS }, () => stay(link)),
+    });
+
+    test("a trip's stays, each within its limits, are read only while the whole fits", () => {
+      // as long as the link may be, sixty of them are past any message
+      expect(read(stays(url))).toBeNull();
+      // the longest links that still fit are read; one character more is not
+      const fit = (n: number) => bytes(stays(`https://example.com/${"x".repeat(n)}`));
+      let n = 0;
+      while (fit(n + 1) <= MAX_MESSAGE_BYTES) n++;
+      const longest = stays(`https://example.com/${"x".repeat(n)}`);
+      expect(read(longest)).not.toBeNull();
+      expect(bytes(longest)).toBeLessThanOrEqual(MAX_MESSAGE_BYTES);
+      expect(read(stays(`https://example.com/${"x".repeat(n + 1)}`))).toBeNull();
+    });
+
+    test("words of characters JSON escapes are read only while the whole fits", () => {
+      // six bytes each as JSON writes them, within every field's own limit
+      const escaped = (n: number) => "\u0001".repeat(n);
+      // a link takes them as written too
+      const link = `https://example.com/${escaped(2000 - "https://example.com/".length)}`;
+      const patch = {
+        ...memoFields,
+        title: escaped(MAX_TITLE),
+        body: escaped(MAX_BODY),
+        tags: Array.from({ length: MAX_TAGS }, () => escaped(40)),
+        hours: `x${escaped(254)}`,
+        mapsUrl: link,
+        link,
+        booking: { state: "booked", code: escaped(100), url: link },
+      };
+      const m = { type: "note:update", id, patch };
+      expect(bytes(m)).toBeGreaterThan(MAX_MESSAGE_BYTES);
+      expect(read(m)).toBeNull();
+      expect(fitsMessage(m)).toBe(false);
     });
   });
 

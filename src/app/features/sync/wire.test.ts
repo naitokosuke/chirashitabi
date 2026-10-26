@@ -6,9 +6,10 @@ import { parseHexColor } from "../../../contract";
 import type { ImageId, NoteId } from "../notes/id";
 import type { NewMemo, Tag } from "../notes/types";
 import type { AirportCode } from "../place/airports";
+import type { HttpUrl } from "../place/google-maps";
 
 import type { Mutation } from "./types";
-import { reviveMutation, wireMutation, type WireMutation } from "./wire";
+import { fitsMessage, reviveMutation, wireMutation, type WireMutation } from "./wire";
 
 const id = "a" as NoteId;
 const memo: NewMemo = {
@@ -119,5 +120,13 @@ describe("a mutation out to the room", () => {
       const relayed = JSON.parse(JSON.stringify(wireMutation(m))) as WireMutation;
       expect(reviveMutation(relayed)).toEqual(m);
     }
+  });
+
+  test("whether it fits in a message is known before it is kept", () => {
+    for (const m of MUTATIONS) expect(fitsMessage(wireMutation(m))).toBe(true);
+    // sixty stays with links as long as a link may be: each fine, the whole past any message
+    const far = `https://www.google.com/maps?q=25.04,121.55&x=${"x".repeat(1900)}` as HttpUrl;
+    const stays = Array.from({ length: 60 }, () => ({ ...stay, mapsUrl: far }));
+    expect(fitsMessage(wireMutation({ type: "trip:stays", stays }))).toBe(false);
   });
 });

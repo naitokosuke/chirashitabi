@@ -9,9 +9,9 @@ import type { RoomId } from "../rooms/types";
 import type { Pending, RoomState } from "./ledger";
 import {
   CidSchema,
+  ClientMutationSchema,
   IsoInstantSchema,
   WireMemberSchema,
-  WireMutationSchema,
   WireNoteSchema,
   WireTripSchema,
   reviveMutation,
@@ -54,11 +54,16 @@ const SavedSchema = v.pipe(
       trip: WireTripSchema,
       members: listOf(WireMemberSchema),
     }),
-    /** `by` since this device signed each one; kept before that, they are all `me`'s */
+    /**
+     * Read as the room reads them, a new note unstamped (the room stamps it once it is sent);
+     * one too large for a message, kept by a build before that was asked, is left out, since
+     * the room would never read it. `by` since this device signed each one; kept before that,
+     * they are all `me`'s.
+     */
     pending: listOf(
       v.object({
         cid: CidSchema,
-        m: WireMutationSchema,
+        m: ClientMutationSchema,
         at: IsoInstantSchema,
         by: v.optional(MemberIdSchema),
       }),
