@@ -140,7 +140,7 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
   /* the airports it may mean, floating under the row (the parent places it: position: relative) */
   > ul {
     position: absolute;
-    inset-block-start: calc(100% + 4px);
+    inset-block-start: calc(100% + var(--space-2));
     inset-inline: 0;
     z-index: var(--z-menu);
     max-height: 300px;
@@ -148,9 +148,9 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
     > li {
       display: grid;
       grid-template-columns: 3.2em 1fr;
-      column-gap: 8px;
-      padding: 8px 10px;
-      border-radius: 8px;
+      column-gap: var(--space-4);
+      padding: var(--space-4) var(--space-5);
+      border-radius: var(--radius-4);
       cursor: pointer;
       > b {
         grid-row: span 2;

@@ -131,13 +131,13 @@ async function no() {
 /* the tag handed over on a card: the tag, then who one will be in the trip */
 .invitation {
   display: grid;
-  gap: 14px;
+  gap: var(--space-7);
 }
 
 .answer {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-4);
   > .join {
     flex: 1;
   }

@@ -89,14 +89,14 @@ function putPickedOn(date: Temporal.PlainDate) {
 <style scoped>
 /* the notes still without a day, on a tool panel above the page */
 section.tray {
-  margin-block: 10px 6px;
+  margin-block: var(--space-5) var(--space-3);
 
   > div:first-child {
     display: flex;
     justify-content: space-between;
     font-size: var(--font-sm);
     font-weight: 700;
-    margin-block-end: 6px;
+    margin-block-end: var(--space-3);
 
     > small {
       color: var(--muted);
@@ -105,7 +105,7 @@ section.tray {
   }
 
   > p {
-    padding: 14px 0;
+    padding: var(--space-7) 0;
   }
 
   /* each slip as tall as the tallest */
@@ -128,14 +128,14 @@ section.tray {
   > div:last-child {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--space-3);
     align-items: center;
-    padding-block-start: 6px;
+    padding-block-start: var(--space-3);
 
     > span {
       font-size: var(--font-sm);
       font-weight: 700;
-      margin-inline-end: 4px;
+      margin-inline-end: var(--space-2);
     }
   }
 }

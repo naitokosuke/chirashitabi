@@ -62,7 +62,7 @@ onBeforeUnmount(() => {
 /* Above the view and its write button's row, below a sheet: wherever the user is, a write confirms there */
 .toast {
   position: absolute;
-  inset-inline: 16px;
+  inset-inline: var(--space-8);
   inset-block-end: calc(var(--dock-clear) + 84px);
   max-width: 480px;
   margin-inline: auto;

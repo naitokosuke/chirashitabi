@@ -120,13 +120,15 @@ function onKey(e: KeyboardEvent) {
  * note they asked from. They arrive as the room's changes, like the partner's cards; the toast
  * says how many, or why none came, in the room it was asked in only: answered once another
  * room is open, it says nothing there. What is written for the next ask meanwhile stays: only
- * the words this ask sent are cleared, once it is answered.
+ * the words this ask sent are cleared, once it is answered. Cut off, nothing is asked: the ask
+ * stays open with its words, for when the connection is back.
  */
 async function askForIdeas() {
   const a = asking.value;
   // where the note is now, and only while it is there
   const about = askAbout.value;
-  if (thinking.value || a.kind === "closed" || (a.kind === "note" && about === null)) return;
+  if (cut.offline || thinking.value || a.kind === "closed" || (a.kind === "note" && about === null))
+    return;
   const at = props.at(about);
   const sent = askWords.value;
   const { room } = here;
@@ -196,9 +198,12 @@ defineExpose({ open, busy: () => thinking.value });
         :placeholder="i18n.t('canvas.askWords')"
         @keydown="onKey"
       />
+      <!-- cut off while open, the ask is off but keeps the keyboard (soft-disabled) -->
       <div>
         <CtButton @click="close">{{ i18n.t("common.close") }}</CtButton>
-        <CtButton type="submit" variant="primary">{{ i18n.t("canvas.ask") }}</CtButton>
+        <CtButton type="submit" variant="primary" :soft-disabled="cut.offline">{{
+          i18n.t("canvas.ask")
+        }}</CtButton>
       </div>
     </CtPanel>
   </Transition>

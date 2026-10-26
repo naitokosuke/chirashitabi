@@ -12,11 +12,14 @@ import HoldButtonHarness from "./HoldButtonHarness.vue";
  * The button in Chromium: held for its time it acts once and says so; let go early it fills
  * part way and drains back, acting not at all; Space or Enter held acts too, and Escape, a
  * cancelled pointer or the button turning disabled lets go. A screen reader's click starts it.
+ * Given an owner's `act`, it says it is done only once that answers that it went.
  */
 let app: ReturnType<typeof createVaporApp> | null = null;
 beforeEach(async () => {
   state.held = 0;
   state.disabled = false;
+  state.owned = false;
+  state.answer = null;
   const root = document.createElement("div");
   document.body.append(root);
   app = createVaporApp(HoldButtonHarness as VaporComponent);
@@ -149,6 +152,48 @@ describe("held", () => {
     expect(fill()).toBe(0);
     expect(state.held).toBe(0);
     expect(el().classList.contains("idle")).toBe(true);
+  });
+});
+
+describe("acting for its owner, who answers whether it went", () => {
+  beforeEach(async () => {
+    state.owned = true;
+    await nextTick();
+  });
+
+  test("full, it waits on the answer and says done only once it went", async () => {
+    vi.useFakeTimers(FILL_CLOCK);
+    const { x, y } = middle();
+    pointer("pointerdown", x, y);
+    await run(HOLD_TIME + 50);
+    pointer("pointerup", x, y);
+    expect(state.held).toBe(1);
+    expect(fill()).toBe(1);
+    expect(el().classList.contains("acting")).toBe(true);
+    expect(page.getByRole("status").element().textContent).toBe("");
+    // held again while it waits: nothing
+    pointer("pointerdown", x, y);
+    await run(HOLD_TIME + 50);
+    pointer("pointerup", x, y);
+    expect(state.held).toBe(1);
+
+    state.answer?.(true);
+    await vi.waitFor(() => expect(el().classList.contains("done")).toBe(true));
+    expect(page.getByRole("status").element().textContent).toBe("Deleted");
+  });
+
+  test("answered that it did not go, it drains back and never says done", async () => {
+    vi.useFakeTimers(FILL_CLOCK);
+    const { x, y } = middle();
+    pointer("pointerdown", x, y);
+    await run(HOLD_TIME + 50);
+    pointer("pointerup", x, y);
+    state.answer?.(false);
+    await vi.waitFor(() => expect(el().classList.contains("idle")).toBe(true));
+    await run(HOLD_TIME);
+    expect(fill()).toBe(0);
+    expect(page.getByRole("status").element().textContent).toBe("");
+    expect(el().textContent).not.toContain("Deleted");
   });
 });
 

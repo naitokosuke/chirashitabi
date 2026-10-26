@@ -652,7 +652,7 @@ section {
       z-index: var(--z-float-top);
       width: 56px;
       height: 56px;
-      margin: -28px 0 0 -28px;
+      margin: calc(-1 * var(--space-14)) 0 0 calc(-1 * var(--space-14));
       translate: var(--x) var(--y);
       border-radius: 50%;
       pointer-events: none;

@@ -274,13 +274,13 @@ const strip = computed(() =>
 <style scoped>
 .flights {
   display: grid;
-  gap: 8px;
-  margin-block-end: 14px;
+  gap: var(--space-4);
+  margin-block-end: var(--space-7);
 }
 
 .empty {
   margin-block: 1em;
-  padding: 14px 0;
+  padding: var(--space-7) 0;
 }
 
 /* ---- the strip: stickies pinned in order ---- */
@@ -288,16 +288,16 @@ const strip = computed(() =>
   list-style: none;
   margin: 0;
   /* on the column's edges, like the intro above and the ask below */
-  padding: 4px 0 10px;
+  padding: var(--space-2) 0 var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-6);
 
   /* the way from one place to the next: no paper, a dotted line down from the time tabs, and how far */
   > li.leg {
-    margin-block: -4px;
+    margin-block: calc(-1 * var(--space-2));
     margin-inline-start: 34px;
-    padding: 2px 0 2px 14px;
+    padding: var(--space-1) 0 var(--space-1) var(--space-7);
     border-inline-start: 2px dotted color-mix(in oklch, var(--ink) 30%, transparent);
     color: var(--muted);
     font-size: var(--font-xs);
@@ -306,7 +306,7 @@ const strip = computed(() =>
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    column-gap: 10px;
+    column-gap: var(--space-5);
 
     /* it cannot start when it says: said in the one color that means trouble */
     > strong {
@@ -335,12 +335,12 @@ const strip = computed(() =>
 
     /* when its place is open that day */
     .hours {
-      margin: 4px 0 0;
+      margin: var(--space-2) 0 0;
     }
 
     /* the plan falls while the place is shut: the one color that means trouble, darkened for the paper */
     .warn {
-      margin: 4px 0 0;
+      margin: var(--space-2) 0 0;
       font-size: var(--font-xs);
       font-weight: 700;
       color: oklch(from var(--danger) min(l, 0.5) c h);
@@ -348,11 +348,11 @@ const strip = computed(() =>
 
     /* whether it is booked: quiet once it is, the trouble color once it is late */
     .booking {
-      margin: 4px 0 0;
+      margin: var(--space-2) 0 0;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      column-gap: 10px;
+      column-gap: var(--space-5);
       font-size: var(--font-xs);
       font-weight: 700;
 
@@ -363,7 +363,7 @@ const strip = computed(() =>
 
     /* the body */
     .words {
-      margin: 2px 0 0;
+      margin: var(--space-1) 0 0;
       font-size: var(--font-sm);
       color: var(--paper-muted);
       display: -webkit-box;
@@ -375,7 +375,7 @@ const strip = computed(() =>
 }
 
 .total {
-  margin: 16px 0 0;
+  margin: var(--space-8) 0 0;
   text-align: end;
 }
 </style>

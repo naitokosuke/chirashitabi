@@ -202,16 +202,16 @@ onMounted(() => nameEl.value?.focus());
 .fields {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--space-9);
 }
 
 /* the tag rests on the desk above the fields, with room under it before the first one */
 .preview {
-  margin-block-end: 10px;
+  margin-block-end: var(--space-5);
 }
 
 .act {
   display: grid;
-  gap: 8px;
+  gap: var(--space-4);
 }
 </style>

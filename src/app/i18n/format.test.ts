@@ -25,6 +25,19 @@ describe("messages", () => {
       "場所のないメモが 3 件 · メモを開いて「場所を探す」で置けます",
     );
   });
+
+  test("every en message with a count says one in the singular", () => {
+    expect(plain(format("en", "home.days", { count: 1 }))).toBe("1 day");
+    expect(plain(format("en", "home.days", { count: 4 }))).toBe("4 days");
+    expect(plain(format("en", "home.day", { date: "11/3", count: 1 }))).toBe("11/3: 1 note");
+    expect(plain(format("en", "trip.dropped", { count: 1 }))).toBe(
+      "1 planned note falls outside the new dates and goes back to having no day",
+    );
+    expect(plain(format("en", "people.full", { count: 1 }))).toBe("A trip holds 1 person");
+    expect(plain(format("en", "people.deleteConfirm", { count: 30 }))).toBe(
+      "Delete (restorable for 30 days)",
+    );
+  });
 });
 
 describe("segments", () => {

@@ -16,7 +16,8 @@ import { useSync } from "./useSync";
 /**
  * The band along the very top of every screen while this device is cut off: in a room, as of
  * when what is on screen was last the room's, and a way to try again; out of one, only that it
- * is. Everything floating along the top moves down under it (tokens.css, --top-inset).
+ * is. Everything floating along the top moves down under it (tokens.css, --top-inset, keyed
+ * on the page's `offline` class).
  */
 const cut = useOffline();
 const room = useRoom();
@@ -24,9 +25,7 @@ const sync = useSync();
 const i18n = useI18n();
 
 const mark = (offline: boolean) => {
-  const root = document.documentElement;
-  if (offline) root.dataset.offline = "";
-  else delete root.dataset.offline;
+  document.documentElement.classList.toggle("offline", offline);
 };
 onMounted(() => mark(cut.offline));
 watch(() => cut.offline, mark);

@@ -191,10 +191,11 @@ const HOLD_MS = 600;
         >{{ day }}</CtBadge>
       </template>
     </CtPaper>
-    <!-- picked: a handle above to turn it, one at the corner to resize it (the canvas drives both) -->
+    <!-- picked: a handle above to turn it, one at the corner to resize it (the canvas drives
+         both, finding which by data-handle) -->
     <template v-if="selected">
-      <span aria-hidden="true" data-handle="rotate"></span>
-      <span aria-hidden="true" data-handle="resize"></span>
+      <span aria-hidden="true" class="handle rotate" data-handle="rotate"></span>
+      <span aria-hidden="true" class="handle resize" data-handle="resize"></span>
     </template>
   </div>
 </template>
@@ -437,7 +438,7 @@ const HOLD_MS = 600;
  * the card's scale and the desk's zoom (both undone by their own scale)
  */
 .card {
-  > [data-handle] {
+  > .handle {
     position: absolute;
     width: var(--tap);
     height: var(--tap);
@@ -458,14 +459,14 @@ const HOLD_MS = 600;
     }
 
     /* at the bottom-end corner: dragged away from the middle, the card grows */
-    &[data-handle="resize"] {
+    &.resize {
       inset-block-end: calc(var(--tap) / -2);
       inset-inline-end: calc(var(--tap) / -2);
       cursor: nwse-resize;
     }
 
     /* above the middle of the top edge: dragged around the middle, the card turns */
-    &[data-handle="rotate"] {
+    &.rotate {
       inset-block-start: calc(var(--tap) * -1.4);
       inset-inline-start: calc(50% - var(--tap) / 2);
       cursor: grab;

@@ -50,7 +50,8 @@ src/app/            The app
     __params/            The params' parsers (vue-router's experimental param parsers)
       roomId.ts          A room id, or the URL matches no page
       sheet.ts, number.ts   The memo sheet's query: writing or editing, and a place's lat / lng
-    index.vue, new.vue   The trips (`/`), with the sheet making a new one (`/new`)
+    (trips).vue          The trips, one page for both of their routes: (trips)/index.vue (`/`)
+                         and (trips)/new.vue (`/new`, the sheet making a new one over them)
     useTrips.ts          Where the trips lead: into a trip, and the new trip's sheet
     rooms/[roomId=roomId].vue   A room: enters it, keeps each tab once opened (KeepAlive), the memo sheet
     rooms/url.ts         A room's tabs by their route, and the memo sheet's place in the URL's query

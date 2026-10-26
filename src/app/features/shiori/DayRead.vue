@@ -103,8 +103,8 @@ function long(minutes: number) {
 <style scoped>
 /* the day's line, written above the strip on the desk's own ruled line */
 .intro {
-  margin: 0 0 14px;
-  padding-block-end: 8px;
+  margin: 0 0 var(--space-7);
+  padding-block-end: var(--space-4);
   border-block-end: 1px dashed var(--line);
   font-size: var(--font-base);
   line-height: 1.7;
@@ -112,7 +112,7 @@ function long(minutes: number) {
 
 /* the time on the tab */
 .time {
-  padding-block-start: 2px;
+  padding-block-start: var(--space-1);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   font-size: var(--font-md);
@@ -120,26 +120,26 @@ function long(minutes: number) {
 
 /* the price and the way there */
 .meta {
-  margin: 4px 0 0;
+  margin: var(--space-2) 0 0;
   display: flex;
-  gap: 12px;
+  gap: var(--space-6);
   align-items: center;
   font-size: var(--font-sm);
   color: var(--paper-muted);
 }
 
 .if-time {
-  margin: 18px 0 6px;
+  margin: var(--space-9) 0 var(--space-3);
 }
 
 /* the maybes, laid as the strip is */
 .maybes {
   list-style: none;
   margin: 0;
-  padding: 4px 0 10px;
+  padding: var(--space-2) 0 var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-6);
 
   .title {
     margin: 0;

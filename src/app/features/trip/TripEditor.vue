@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, onMounted, reactive, ref, useId, useTemplateRef } from "vue";
+import { computed, onMounted, reactive, ref, useId, useTemplateRef, watch } from "vue";
 
 import {
   CtButton,
@@ -171,8 +171,16 @@ function stayLinkState(s: StayForm) {
 // the keyboard starts on the name, and Esc is Cancel while nothing was changed
 const nameEl = useTemplateRef<{ focus(): void }>("nameEl");
 onMounted(() => nameEl.value?.focus());
-/** Esc pressed over changes not saved: the editor stays, and says how to leave it */
+/** The inputs say what they said when the editor opened */
+const unchanged = computed(() => JSON.stringify(form) === JSON.stringify(opened));
+/**
+ * Esc pressed over changes not saved: the editor stays, and says how to leave it, until the
+ * changes are undone by hand
+ */
 const keptOpen = ref(false);
+watch(unchanged, (u) => {
+  if (u) keptOpen.value = false;
+});
 /**
  * Esc closes the editor as Cancel does, unless an IME is using it (a word being given up) or a
  * field inside took it (an airport list shut). Over changes not saved it stays and says so: an
@@ -181,7 +189,7 @@ const keptOpen = ref(false);
  */
 function onKey(e: KeyboardEvent) {
   if (e.key !== "Escape" || e.isComposing || e.keyCode === 229 || e.defaultPrevented) return;
-  if (JSON.stringify(form) === JSON.stringify(opened)) emit("close");
+  if (unchanged.value) emit("close");
   else keptOpen.value = true;
 }
 
@@ -347,7 +355,10 @@ function save() {
       <CtButton class="start" variant="blank" @click="addStay"><Icon :size="16" :src="plusIcon" />{{ i18n.t("stay.add") }}</CtButton>
     </fieldset>
 
-    <CtMessage live>{{ keptOpen ? i18n.t("trip.unsaved") : "" }}</CtMessage>
+    <!-- Save is off while a field is not one yet: then it asks for that first -->
+    <CtMessage live>{{
+      keptOpen ? i18n.t(changes === null ? "trip.unsavedIncomplete" : "trip.unsaved") : ""
+    }}</CtMessage>
     <footer>
       <CtButton size="lg" type="submit" variant="primary" :disabled="changes === null">{{
         i18n.t("trip.save")
@@ -361,13 +372,13 @@ function save() {
 @import "/src/ui/styles/media.css";
 .editor {
   display: grid;
-  gap: 16px;
+  gap: var(--space-8);
 }
 
 .row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
+  gap: var(--space-6);
   /* the two airports side by side even on a phone: a code is short, the names wrap under */
   &.airports {
     position: relative; /* the airports offered float under the whole row (AirportField) */
@@ -378,7 +389,7 @@ function save() {
 fieldset {
   position: relative;
   display: grid;
-  gap: 12px;
+  gap: var(--space-6);
   margin: 0;
   padding: 0;
   border: 0;
@@ -390,8 +401,8 @@ fieldset {
 /* taking a flight or a stay away: quiet, in the card's corner, the danger's color only on intent */
 .remove {
   position: absolute;
-  inset-block-start: 8px;
-  inset-inline-end: 8px;
+  inset-block-start: var(--space-4);
+  inset-inline-end: var(--space-4);
 }
 
 /* one stay's fields, a dashed line under each */
@@ -399,13 +410,13 @@ fieldset {
 .stay {
   position: relative;
   display: grid;
-  gap: 12px;
+  gap: var(--space-6);
 }
 
 /* the stay's place found by its name: the ask, then the places to choose, each a line */
 .find {
   display: grid;
-  gap: 8px;
+  gap: var(--space-4);
 }
 
 /* a button in a column of fields keeps to its words, at the start */
@@ -416,6 +427,6 @@ fieldset {
 footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-4);
 }
 </style>

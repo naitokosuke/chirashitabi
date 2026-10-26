@@ -113,10 +113,11 @@ export const useRoom = defineStore("room", () => {
   /**
    * The room being left (for another, for the trips, or with the page), kept as it was. What
    * the toast holds open in it (a delete waiting on its undo) goes through first, while changes
-   * still go to that room: neither lost, nor told to the room opened next.
+   * still go to that room: neither lost, nor told to the room opened next. A word waiting behind
+   * it was about this room too, and goes unsaid.
    */
   function keepLeaving() {
-    if (sync.session.kind === "in") toast.settle();
+    if (sync.session.kind === "in") toast.leaveRoom();
     keepNow();
   }
   window.addEventListener("pagehide", keepLeaving);

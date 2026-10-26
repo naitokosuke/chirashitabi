@@ -96,9 +96,15 @@ one {{{$count} note}}
 
   "trip.edit": "Edit trip",
   "trip.save": "Save",
-  "trip.dropped":
-    "{$count :integer} planned notes fall outside the new dates and go back to having no day",
+  "trip.dropped": `
+.input {$count :integer}
+.match $count
+one {{{$count} planned note falls outside the new dates and goes back to having no day}}
+*   {{{$count} planned notes fall outside the new dates and go back to having no day}}
+`,
   "trip.unsaved": "Still open: your changes are not saved. Save them, or Cancel to let them go.",
+  "trip.unsavedIncomplete":
+    "Still open: your changes are not saved, and a field is not filled in right yet. Finish it to save, or Cancel to let them go.",
   "flight.out": "There",
   "flight.back": "Home",
   "flight.number": "Flight",
@@ -162,13 +168,23 @@ one {{From {$date} · {$count} night}}
   "people.notIn": "Not on this trip any more.",
   "people.pending": "Waiting for an answer",
   "people.uninvite": "Withdraw",
-  "people.full": "A trip holds {$count :integer} people",
+  "people.full": `
+.input {$count :integer}
+.match $count
+one {{A trip holds {$count} person}}
+*   {{A trip holds {$count} people}}
+`,
   "people.remove": "Remove",
   "people.removeConfirm": "Remove this person",
   "people.leave": "Leave this trip",
   "people.leaveConfirm": "Leave for good",
   "people.delete": "Delete this trip",
-  "people.deleteConfirm": "Delete (restorable for {$count :integer} days)",
+  "people.deleteConfirm": `
+.input {$count :integer}
+.match $count
+one {{Delete (restorable for {$count} day)}}
+*   {{Delete (restorable for {$count} days)}}
+`,
   "people.cancel": "Cancel",
   "people.failed": "That did not go through. Try again.",
   "people.loadFailed": "Could not load the members",
@@ -181,8 +197,18 @@ one {{From {$date} · {$count} night}}
   "filter.clear": "× Clear",
   "filter.none": "Write a #tag on a note to filter by it here",
 
-  "home.days": "{$count :integer} days",
-  "home.day": "{$date}: {$count :integer} notes",
+  "home.days": `
+.input {$count :integer}
+.match $count
+one {{{$count} day}}
+*   {{{$count} days}}
+`,
+  "home.day": `
+.input {$count :integer}
+.match $count
+one {{{$date}: {$count} note}}
+*   {{{$date}: {$count} notes}}
+`,
   "home.fixed": "Confirmed",
   "home.maybe": "Maybe",
   "home.loose": "No day",
