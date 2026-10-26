@@ -18,10 +18,11 @@ import {
   parseHttpUrl,
   parseMapsUrl,
 } from "../contract/place";
-import { parseTag, type RoomId, RoomIdSchema } from "../contract/room";
+import { type Ceiling, parseTag, type RoomId, RoomIdSchema } from "../contract/room";
 import {
   parseImageType,
   IsoDateSchema,
+  IsoInstantSchema,
   LangSchema,
   MAX_IMAGE_BYTES,
   NewTripSchema,
@@ -45,7 +46,7 @@ import { expand, placeName } from "./expand";
 import { geocode, reverseGeocode, type GeocoderFailure, type Place } from "./geocode";
 import { preview, previewable, readUpTo } from "./preview";
 import { bookletKey, newSeatId, type Outsider, Room } from "./room";
-import { RoomsIndex, type Refusal } from "./rooms-index";
+import { RoomsIndex } from "./rooms-index";
 
 export { Room, RoomsIndex };
 
@@ -118,7 +119,7 @@ const member =
  * A paid call the asker's budget did not reserve (docs/auth-and-security.md): logged, and
  * declined with the ceiling it met
  */
-const overBudget = (c: Context<InRoom>, ceiling: Refusal) => {
+const overBudget = (c: Context<InRoom>, ceiling: Ceiling) => {
   c.var.log.set({ budget: { refused: ceiling } });
   return c.json({ ...refusal("over"), ceiling }, 429);
 };
@@ -312,10 +313,10 @@ const api = new Hono<ApiEnv>()
   .post("/me", async (c) => {
     const { email } = c.var;
     const index = c.env.ROOMS.getByName("index");
-    const [mine, invitedTo, deletedIds] = await Promise.all([
+    const [mine, invitedTo, deletions] = await Promise.all([
       index.memberships(email),
       index.invitations(email),
-      index.rooms(email, true),
+      index.deletions(email),
     ]);
     // each at a glance, and whether the asker made it (and so may delete it from the list); one
     // the room does not count them in (the index behind it) is left out
@@ -326,12 +327,11 @@ const api = new Hono<ApiEnv>()
     const rooms = (await Promise.all(mine.map((m) => glance(m.roomId, m.memberId)))).flat();
     // an invitation shows the trip it is to, its owner leading the members
     const invitations = (await Promise.all(invitedTo.map((id) => glance(id)))).flat();
-    // a deleted trip, to the people who were in it, who may restore it
+    // a trip the index hides as deleted, to the people who were in it, who may restore it
     const deleted = (
       await Promise.all(
-        deletedIds.map(async (id) => {
-          const by = await index.resolve(email, id, true);
-          const d = by === null ? null : await c.env.ROOM.getByName(id).deletedFor(by);
+        deletions.map(async ({ roomId: id, memberId, at }) => {
+          const d = await c.env.ROOM.getByName(id).deletedFor(memberId, at);
           return d === null ? [] : [{ id, ...d }];
         }),
       )
@@ -864,6 +864,11 @@ const api = new Hono<ApiEnv>()
       const { roomId, memberId, room } = c.var;
       const { email: invitee } = c.req.valid("json");
       const index = c.env.ROOMS.getByName("index");
+      // a membership the index records and the room no longer has (taken out by a build that told
+      // the room first, and the index's step failed) is forgotten, or they could never be asked
+      // back in; the room is not deleted, or `ownerOnly` would have refused
+      const indexed = await index.resolve(invitee, roomId);
+      if (indexed !== null && !(await room.admits(indexed)).ok) await index.forget(roomId, indexed);
       // the index first, then the room's seat: the room never holds a seat the index does not
       // list, and an invitation that failed part way is finished by inviting again, the index
       // answering with the seat it recorded
@@ -873,7 +878,7 @@ const api = new Hono<ApiEnv>()
         return c.json(refusal(invited.reason), 409);
       }
       const { value: seat } = invited;
-      const held = await room.openSeat(memberId, seat, await index.seats(roomId));
+      const held = await room.openSeat(memberId, seat, await index.listed(roomId));
       // held already: the invitation is the one an earlier try made (a double tap, or an answer
       // lost), and it stands
       if (!held.ok && held.reason !== "already invited") {
@@ -911,36 +916,62 @@ const api = new Hono<ApiEnv>()
     async (c) => {
       const { roomId, memberId, room } = c.var;
       const { member: removed } = c.req.valid("json");
+      // whether they may, asked of the room before the index forgets anyone
+      const may = await room.mayRemove(memberId, removed);
+      if (!may.ok) {
+        c.var.log.set({ refused: may.reason });
+        return c.json(refusal(may.reason), 403);
+      }
+      // the index first: from here on they are let in nowhere, and should the room's step fail,
+      // the room gives their seat back at the next invitation (Room.openSeat)
+      await c.env.ROOMS.getByName("index").forget(roomId, removed);
       const out = await room.remove(memberId, removed);
+      // out already (an index row the room no longer honoured): the removal is done
       if (!out.ok && out.reason !== "not in") {
         c.var.log.set({ refused: out.reason });
         return c.json(refusal(out.reason), 403);
       }
-      // out of the room, now or by a try whose index call failed: the index forgets them either
-      // way, and the removal is done
-      await c.env.ROOMS.getByName("index").forget(roomId, removed);
       return c.json({}, 200);
     },
   )
-  // a leave whose index call failed is asked again: the room answers it as left
+  // the owner never leaves their own room, they delete it
   .post(`${ROOM}/leave`, roomInPath(), member("leave"), async (c) => {
     const { roomId, memberId, room } = c.var;
+    const may = await room.mayRemove(memberId, memberId);
+    if (!may.ok) {
+      c.var.log.set({ refused: may.reason });
+      return c.json(refusal(may.reason), 403);
+    }
+    // the index first, as a removal does
+    await c.env.ROOMS.getByName("index").forget(roomId, memberId);
     const out = await room.remove(memberId, memberId);
     if (!out.ok) {
       c.var.log.set({ refused: out.reason });
       return c.json(refusal(out.reason), 403);
     }
-    await c.env.ROOMS.getByName("index").forget(roomId, memberId);
     return c.json({}, 200);
   })
   .post(`${ROOM}/delete`, roomInPath(), member("delete"), async (c) => {
     const { roomId, memberId, room } = c.var;
-    const deleted = await room.delete(memberId, roomId);
+    // whether they may, asked of the room before the index hides it
+    const may = await room.mayDelete(memberId);
+    if (!may.ok) {
+      c.var.log.set({ refused: may.reason });
+      return c.json(refusal(may.reason), 403);
+    }
+    // the index first, at the room's deletion time: from here on it resolves nobody in the room,
+    // and should the room's step fail, the people in it see it among their deleted trips and
+    // restore it
+    const at = v.parse(IsoInstantSchema, new Date().toISOString());
+    const index = c.env.ROOMS.getByName("index");
+    await index.mark(roomId, at);
+    const deleted = await room.delete(memberId, roomId, at);
     if (!deleted.ok) {
+      // the room would not after all: shown again
+      await index.mark(roomId, null);
       c.var.log.set({ refused: deleted.reason });
       return c.json(refusal(deleted.reason), 403);
     }
-    await c.env.ROOMS.getByName("index").mark(roomId, await room.deletedAt());
     return c.json({}, 200);
   })
 
@@ -959,7 +990,39 @@ export default new Hono<{ Bindings: Env }>()
     await next();
   })
   .route("/", api)
-  .all("*", (c) => c.env.ASSETS.fetch(c.req.raw));
+  .all("*", async (c) => {
+    const res = await c.env.ASSETS.fetch(c.req.raw);
+    // the assets binding's headers cannot be changed in place
+    const out = new Response(res.body, res);
+    for (const [name, value] of Object.entries(appHeaders(c.env))) out.headers.set(name, value);
+    return out;
+  });
+
+/**
+ * What every one of the app's own files is served with (docs/auth-and-security.md): the page runs
+ * the build's scripts and nothing else, no other page frames it, and its referrer stays home.
+ * Styles may be inline, as Vue's style bindings and MapLibre's are; pictures may be the device's
+ * own (`blob:`, a photo being picked) or drawn ones (`data:`); MapLibre runs its worker from a
+ * `blob:` and fetches the map's style, tiles, glyphs and sprites from OpenFreeMap (the style in
+ * pages/rooms/[roomId=roomId]/map.vue). The referrer is kept for the app's own requests: with none,
+ * a browser sends `Origin: null` on a same-origin POST, which the API refuses.
+ */
+const appHeaders = (env: Env) => ({
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' blob: data:",
+    `connect-src 'self' wss://${env.APP_HOST} https://tiles.openfreemap.org`,
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join("; "),
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "same-origin",
+});
 
 /** A published booklet's public address, a link on the booklet's own host */
 const bookletUrl = (env: Env, slug: string): HttpUrl =>

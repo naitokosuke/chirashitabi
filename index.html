@@ -7,15 +7,7 @@
     <meta name="theme-color" content="#141518" media="(prefers-color-scheme: dark)" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>chirashitabi</title>
-    <script>
-      // The theme picked on this device (useTheme), set before the first paint so it never flashes
-      try {
-        const theme = localStorage.getItem("chirashitabi:theme");
-        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
-      } catch {
-        // storage refused: the device's theme
-      }
-    </script>
+    <script src="/theme.js"></script>
   </head>
   <body>
     <div id="app"></div>

@@ -164,15 +164,6 @@ export const recordAgentCall = (
   what: string,
   tokens: { input: number; output: number },
 ): void => {
-  sql.exec(`
-    CREATE TABLE IF NOT EXISTS agent_calls (
-      at TEXT NOT NULL,
-      by TEXT NOT NULL,
-      what TEXT NOT NULL,
-      input_tokens INTEGER NOT NULL,
-      output_tokens INTEGER NOT NULL
-    )
-  `);
   sql.exec(
     "INSERT INTO agent_calls (at, by, what, input_tokens, output_tokens) VALUES (?, ?, ?, ?, ?)",
     new Date().toISOString(),

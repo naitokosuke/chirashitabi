@@ -176,6 +176,33 @@ describe("identify", () => {
     await expect(v.verify(await sign(good()))).rejects.toBeInstanceOf(Unauthenticated);
   });
 
+  test.each([
+    ["no keys", { keys: [] }],
+    ["no key Access signs with", { keys: [{ kid: "ec", kty: "EC", x: "a", y: "b" }] }],
+    ["no keys field", {}],
+    ["another shape", ["not", "certs"]],
+  ])("certs answered with %s are a failed fetch, and keep the keys kept", async (_, body) => {
+    let now = NOW;
+    let odd = false;
+    const c = certs([jwk]);
+    const fetchImpl = async (...args: Parameters<typeof fetch>) =>
+      odd ? Response.json(body) : c.fetchImpl(...args);
+    const v = new AccessVerifier({ teamDomain: TEAM, aud: AUD }, fetchImpl, () => now);
+    await v.verify(await sign(good()));
+
+    // a minute on, an unknown kid refetches, and the odd answer replaces nothing
+    odd = true;
+    now = NOW + 60 * 1000;
+    await expect(v.verify(await sign(good(), "kid-unknown"))).rejects.toBeInstanceOf(
+      Unauthenticated,
+    );
+    expect(await v.verify(await sign(good()))).toBe("me@example.com");
+
+    // with nothing kept, it fails closed
+    const fresh = new AccessVerifier({ teamDomain: TEAM, aud: AUD }, fetchImpl, () => now);
+    await expect(fresh.verify(await sign(good()))).rejects.toBeInstanceOf(Unauthenticated);
+  });
+
   test("uses a cache under seven days old when a refetch fails, and not an older one", async () => {
     let now = NOW;
     let up = true;

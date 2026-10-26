@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import * as v from "valibot";
 
-import type { Result } from "../contract";
+import { parserOf, type Result } from "../contract";
 import { parseAirportCode } from "../contract/airport";
 import { ImageIdSchema, type ImageId } from "../contract/image";
 import { MemberIdSchema, parseMemberId, type MemberId } from "../contract/member";
@@ -51,8 +51,8 @@ type MemberKind = WireMember["kind"];
 
 /** Why no seat was held for an invitation: not the owner, every seat taken, or held for it already */
 export type SeatRefusal = "not the owner" | "no seat" | "already invited";
-/** Why a person was not taken out: the owner never is, only the owner takes another, or gone already */
-type RemoveRefusal = "the owner" | "not theirs" | "not in";
+/** Why a person may not be taken out: the owner never is, and only the owner takes another */
+type RemoveRefusal = "the owner" | "not theirs";
 
 /**
  * Why the room would not act for a member id the Worker resolved: it names no person in the
@@ -72,10 +72,7 @@ export type SeatId = v.InferOutput<typeof SeatIdSchema>;
 export const newSeatId = (): SeatId => v.parse(SeatIdSchema, crypto.randomUUID());
 
 /** A seat's id as the index kept it, read with its schema; null when it is not one */
-export const parseSeatId = (value: unknown): SeatId | null => {
-  const seat = v.safeParse(SeatIdSchema, value);
-  return seat.success ? seat.output : null;
-};
+export const parseSeatId = parserOf(SeatIdSchema);
 
 /** The booklet the room has up: its slug, and when it was published */
 type Published = { slug: string; at: IsoInstant };
@@ -304,34 +301,47 @@ export class Room extends DurableObject<Env> {
   }
 
   /**
-   * How long a held seat the index does not list is kept: an invitation is recorded in the index
-   * before its seat is held here, so one the index has not listed for this long was given back
+   * How long a seat the index does not list is kept: an invitation is recorded in the index
+   * before its seat is held here, and a membership is recorded there before its invitation goes,
+   * so a seat held this long whose invitation and member the index lists neither was given back
    * there and lost here (a call that failed part way), and goes
    */
   static readonly UNLISTED_FOR = 60_000;
 
   /**
    * Holds the seat `seat` for someone the owner `by` invites, until they answer or the owner
-   * takes it back; `listed` are the seats the index has invitations to. Refused when `by` is not
-   * the owner, when every seat is taken or held (a held seat the index lost is given back first),
-   * or when the seat is held already: asked again after a try whose answer was lost. The index
-   * keeps who the seat is for; the room keeps no e-mail.
+   * takes it back; `listed` is what the index has of the room, its invitations' seats and its
+   * members, read in one step. Refused when `by` is not the owner, when every seat is taken or
+   * held, or when the seat is held already: asked again after a try whose answer was lost. A seat
+   * the index lost is given back first: one held for nobody yet, and one taken by someone the
+   * index does not record (a decline, a removal or a leave whose second step failed), who is
+   * taken out with it, as `unaccept` does. The index keeps who the seat is for; the room keeps no
+   * e-mail.
    */
-  openSeat(by: MemberId, seat: SeatId, listed: SeatId[]): Result<void, SeatRefusal | Outsider> {
+  openSeat(
+    by: MemberId,
+    seat: SeatId,
+    listed: { seats: SeatId[]; members: MemberId[] },
+  ): Result<void, SeatRefusal | Outsider> {
     if (this.outsider(by)) return OUTSIDE;
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     const sql = this.ctx.storage.sql;
     if (sql.exec("SELECT 1 FROM invitations WHERE id = ?", seat).toArray().length > 0)
       return { ok: false, reason: "already invited" };
     const lost = new Date(Date.now() - Room.UNLISTED_FOR).toISOString();
-    const known = new Set<string>(listed);
-    for (const { id } of sql
-      .exec<{ id: string }>(
-        "SELECT id FROM invitations WHERE member IS NULL AND created_at < ?",
+    const seats = new Set<string>(listed.seats);
+    const members = new Set<string>(listed.members);
+    for (const { id, member } of sql
+      .exec<{ id: string; member: string | null }>(
+        "SELECT id, member FROM invitations WHERE created_at < ?",
         lost,
       )
-      .toArray())
-      if (!known.has(id)) sql.exec("DELETE FROM invitations WHERE id = ?", id);
+      .toArray()) {
+      if (seats.has(id)) continue;
+      const taken = member === null ? null : this.person(member);
+      if (taken === null) sql.exec("DELETE FROM invitations WHERE id = ?", id);
+      else if (!members.has(taken)) this.unaccept(taken);
+    }
     const held = sql
       .exec<{ n: number }>("SELECT COUNT(*) AS n FROM invitations WHERE member IS NULL")
       .one().n;
@@ -401,37 +411,52 @@ export class Room extends DurableObject<Env> {
   }
 
   /**
-   * A deleted room as a person in it sees it, to restore it; null for anyone else, or when it
-   * is not deleted. Only the owner deletes, but either person can take it back for its thirty
-   * days, unless the owner has it gone at once (docs/auth-and-security.md).
+   * A room the index hides as deleted since `marked`, as a person in it sees it, to restore it;
+   * null for anyone else. Only the owner deletes, but either person can take it back for its
+   * thirty days, unless the owner has it gone at once (docs/auth-and-security.md). One the index
+   * hides and the room does not count as deleted (a deletion or a restore whose second step
+   * failed) is shown as the index has it, so a restore brings it back.
    */
-  deletedFor(by: MemberId): { name: string; deletedAt: IsoInstant } | null {
-    const deletion = this.deletion();
-    if (deletion === null || this.person(by) === null) return null;
+  deletedFor(by: MemberId, marked: IsoInstant): { name: string; deletedAt: IsoInstant } | null {
+    if (this.person(by) === null) return null;
     const { name } = this.ctx.storage.sql
       .exec<{ name: string }>("SELECT name FROM trip WHERE id = 1")
       .one();
-    return { name, deletedAt: deletion.at };
+    return { name, deletedAt: this.deletion()?.at ?? marked };
   }
 
   /**
-   * Takes `member` out: the owner `by` removing someone else, or someone other than the owner
-   * leaving (`by` is `member`). Refused for anything else; the owner never leaves their own
-   * room, they delete it. Their notes stay; their socket is told and closed. Someone leaving
-   * again, out already (the index not told the first time), is answered as having left.
+   * Whether `by` may take `member` out, as `remove` decides it, asked by the Worker before the
+   * index forgets them: the owner may take anyone else, anyone else only themselves, and someone
+   * leaving who is out already (an index row the room no longer honours) may go
    */
-  remove(by: MemberId, member: MemberId): Result<void, RemoveRefusal | Outsider> {
+  mayRemove(by: MemberId, member: MemberId): Result<void, RemoveRefusal | Outsider> {
     if (by === member && this.person(by) === null && this.deletion() === null)
       return { ok: true, value: undefined };
     if (this.outsider(by)) return OUTSIDE;
     const owner = this.ownerId();
     if (member === owner) return { ok: false, reason: "the owner" };
     if (by !== owner && by !== member) return { ok: false, reason: "not theirs" };
+    return { ok: true, value: undefined };
+  }
+
+  /**
+   * Takes `member` out: the owner `by` removing someone else, or someone other than the owner
+   * leaving (`by` is `member`). Refused for anything else; the owner never leaves their own
+   * room, they delete it. Their notes stay; their socket is told and closed. The Worker has the
+   * index forget them first, so someone this fails for is no longer let in and their seat is given
+   * back at the next invitation (`openSeat`). Someone leaving who is out already (an index row the
+   * room no longer honours) is answered as having left.
+   */
+  remove(by: MemberId, member: MemberId): Result<void, RemoveRefusal | "not in" | Outsider> {
+    const may = this.mayRemove(by, member);
+    if (!may.ok) return may;
     const sql = this.ctx.storage.sql;
     const gone = sql
       .exec("DELETE FROM members WHERE id = ? AND kind = 'person' RETURNING id", member)
       .toArray();
-    if (gone.length === 0) return { ok: false, reason: "not in" };
+    if (gone.length === 0)
+      return by === member ? { ok: true, value: undefined } : { ok: false, reason: "not in" };
     this.#rate.delete(member);
     this.#dragRate.delete(member);
     sql.exec("DELETE FROM applied WHERE member = ?", member);
@@ -442,21 +467,36 @@ export class Room extends DurableObject<Env> {
   }
 
   /**
-   * The owner `by` deletes the room: nobody can open it from now on, and in DELETE_AFTER it is
-   * gone for good unless the owner restores it. `roomId` is kept for that day, when its pictures
-   * go too. Refused when `by` is not the owner. Asked again after a try that failed part way
-   * (the index not told), it keeps the first deletion's time and does the rest again.
+   * Whether `by` may delete the room, as `delete` decides it, asked by the Worker before the index
+   * hides it: only its owner, and again after a try that failed part way, the room deleted already
    */
-  async delete(by: MemberId, roomId: RoomId): Promise<Result<void, "not the owner" | Outsider>> {
+  mayDelete(by: MemberId): Result<void, "not the owner" | Outsider> {
     if (this.person(by) === null) return OUTSIDE;
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
+    return { ok: true, value: undefined };
+  }
+
+  /**
+   * The owner `by` deletes the room at `at`, the time the index hid it first: nobody can open it
+   * from now on, and in DELETE_AFTER it is gone for good unless a person in it restores it.
+   * `roomId` is kept for that day, when its pictures go too. Refused when `by` is not the owner.
+   * Asked again after a try that failed part way, it keeps the first deletion's time and does the
+   * rest again.
+   */
+  async delete(
+    by: MemberId,
+    roomId: RoomId,
+    at: IsoInstant,
+  ): Promise<Result<void, "not the owner" | Outsider>> {
+    const may = this.mayDelete(by);
+    if (!may.ok) return may;
     const sql = this.ctx.storage.sql;
     // deleted before anything is awaited: from here on nothing is written, opened or published
-    sql.exec("INSERT OR IGNORE INTO deletion (id, room_id, at) VALUES (1, ?, ?)", roomId, stamp());
+    sql.exec("INSERT OR IGNORE INTO deletion (id, room_id, at) VALUES (1, ?, ?)", roomId, at);
     sql.exec("DELETE FROM invitations");
     this.closeSockets(this.ctx.getWebSockets(), "deleted");
-    const { at } = sql.exec<{ at: string }>("SELECT at FROM deletion").one();
-    await this.ctx.storage.setAlarm(Date.parse(at) + Room.DELETE_AFTER);
+    const first = sql.exec<{ at: string }>("SELECT at FROM deletion").one().at;
+    await this.ctx.storage.setAlarm(Date.parse(first) + Room.DELETE_AFTER);
     // a deleted trip's booklet is not left up for its thirty days; restoring does not bring it back
     await this.unpublish();
     return { ok: true, value: undefined };
@@ -573,9 +613,11 @@ export class Room extends DurableObject<Env> {
   /**
    * The trip at a glance, for a member's list of rooms: its name, days, members and memo count;
    * for `by`, a person in it, or for an invitation (null). Null when `by` is not in the room (an
-   * index row the room no longer honours), so the list leaves the room out
+   * index row the room no longer honours) or the room is deleted (the index not told yet), so the
+   * list leaves the room out
    */
   summary(by: MemberId | null = null): WireRoomSummary | null {
+    if (this.deletion() !== null) return null;
     if (by !== null && this.person(by) === null) return null;
     const sql = this.ctx.storage.sql;
     const { name } = sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one();
@@ -700,9 +742,12 @@ export class Room extends DurableObject<Env> {
 
   /**
    * The ledger of the agent's paid calls: who asked, when, for what and how many tokens, for
-   * tracing a surprising bill. Member ids only, never an e-mail.
+   * tracing a surprising bill. Member ids only, never an e-mail. Nothing is written for anyone
+   * the room does not act for: a call that answers after its asker was removed, or after the room
+   * was deleted and gone, leaves nothing behind.
    */
   recordAgentCall(by: MemberId, what: string, tokens: { input: number; output: number }): void {
+    if (this.outsider(by)) return;
     recordAgentCall(this.ctx.storage.sql, by, what, tokens);
   }
 
