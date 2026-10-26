@@ -110,10 +110,15 @@ const editingNote = computed(() => {
   return n?.kind === "memo" ? n : undefined;
 });
 const editing = computed(() => target.value.kind === "edit");
-// a memo deleted (or turned into something else) while it is open: nothing is left to edit
-watch(editingNote, (n) => {
-  if (editing.value && n === undefined) emit("close");
-});
+// a memo deleted (or turned into something else) while it is open, or opened from a link to one
+// no longer there: nothing is left to edit (asked once the room's notes are known)
+watch(
+  () => editing.value && notes.value !== undefined && editingNote.value === undefined,
+  (gone) => {
+    if (gone) emit("close");
+  },
+  { immediate: true },
+);
 
 const startingInput = (): NoteInput => {
   const t = target.value;
@@ -275,6 +280,12 @@ async function onLink() {
   turn.settle({ kind: "found", site: found.site, url: found.url });
 }
 const onLinkPaste = () => setTimeout(onLink);
+/** What reading the page says under the link: what it found, what it is doing or why nothing */
+const linkSays = computed(() => {
+  const read = memo.value.preview.state;
+  if (read.kind === "found") return i18n.t("form.linkFound", { site: read.site });
+  return read.kind === "idle" ? "" : i18n.t(LINK_STATE[read.kind]);
+});
 const hasPin = () => memo.value.form.pin !== null;
 const keepOpen = ref(false);
 
@@ -542,8 +553,7 @@ function submit() {
               :aria-invalid="tooMuch !== null"
               :aria-describedby="`${id}-too-much`"
             />
-            <!-- the live region stays, so the words landing in it are read out -->
-            <CtHint :id="`${id}-too-much`" aria-live="polite" class="too-much" danger>{{
+            <CtHint :id="`${id}-too-much`" danger live>{{
               tooMuch === null ? "" : i18n.t(TOO_MUCH[tooMuch].id, { max: TOO_MUCH[tooMuch].max })
             }}</CtHint>
           </CtField>
@@ -563,13 +573,10 @@ function submit() {
               @change="onLink"
               @paste="onLinkPaste"
             />
-            <CtHint v-if="memo.preview.state.kind === 'found'" aria-live="polite">{{
-              i18n.t("form.linkFound", { site: memo.preview.state.site })
+            <CtHint live>{{ linkSays }}</CtHint>
+            <CtHint v-if="memo.preview.state.kind === 'idle' && cut.offline">{{
+              i18n.t("offline.unavailable")
             }}</CtHint>
-            <CtHint v-else-if="memo.preview.state.kind !== 'idle'" aria-live="polite">{{
-              i18n.t(LINK_STATE[memo.preview.state.kind])
-            }}</CtHint>
-            <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
           </CtField>
           <!-- a phone: the last field, as it was -->
           <CtField class="photo" :for="`${id}-photo`" :label="i18n.t('form.photo')">
@@ -583,10 +590,12 @@ function submit() {
               :disabled="memo.photo.state.kind === 'sending' || cut.offline"
               @change="onPhoto"
             />
-            <CtHint v-if="memo.photo.state.kind !== 'idle'" aria-live="polite">{{
-              i18n.t(PHOTO_STATE[memo.photo.state.kind])
+            <CtHint live>{{
+              memo.photo.state.kind === "idle" ? "" : i18n.t(PHOTO_STATE[memo.photo.state.kind])
             }}</CtHint>
-            <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
+            <CtHint v-if="memo.photo.state.kind === 'idle' && cut.offline">{{
+              i18n.t("offline.unavailable")
+            }}</CtHint>
           </CtField>
         </div>
         <div class="details">
@@ -600,7 +609,7 @@ function submit() {
               @change="onMapsUrl"
               @paste="onMapsPaste"
             />
-            <CtHint aria-live="polite">{{ i18n.t(placeHint) }}</CtHint>
+            <CtHint live>{{ i18n.t(placeHint) }}</CtHint>
             <!-- or found from the memo's words: the agent names it, OpenStreetMap places it, one is chosen -->
             <div class="places">
               <CtButton
@@ -625,10 +634,12 @@ function submit() {
               <CtHint v-if="found.length > 0 || memo.naming.state.kind === 'named'">{{
                 i18n.t("form.placesCredit")
               }}</CtHint>
-              <CtHint v-if="memo.places.state.kind !== 'idle'" aria-live="polite">{{
-                i18n.t(PLACE_STATE[memo.places.state.kind])
+              <CtHint live>{{
+                memo.places.state.kind === "idle" ? "" : i18n.t(PLACE_STATE[memo.places.state.kind])
               }}</CtHint>
-              <CtHint v-else-if="cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
+              <CtHint v-if="memo.places.state.kind === 'idle' && cut.offline">{{
+                i18n.t("offline.unavailable")
+              }}</CtHint>
             </div>
           </CtField>
           <CtField :for="`${id}-hours`" :label="i18n.t('form.hours')">
@@ -639,7 +650,7 @@ function submit() {
               spellcheck="false"
               :placeholder="i18n.t('form.hoursPlaceholder')"
             />
-            <CtHint aria-live="polite">{{
+            <CtHint live>{{
               i18n.t(hoursUnread ? "form.hoursUnread" : "form.hoursHint")
             }}</CtHint>
           </CtField>
@@ -736,13 +747,13 @@ function submit() {
 /* a sheet (CtSheet), or docked as the memo tab; on a computer, all of it along 1100px of columns */
 .note-form {
   @media (--desktop) {
-    --sheet-inline: max(32px, (100% - 1100px) / 2);
+    --sheet-inline: max(var(--space-16), (100% - 1100px) / 2);
   }
 
   .fields {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--space-8);
 
     /* a phone: one column of fields, the photo last */
     > .what,
@@ -763,7 +774,7 @@ function submit() {
       grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
       align-content: start;
       align-items: start;
-      gap: 24px 48px;
+      gap: var(--space-12) 48px;
 
       > .title {
         grid-column: 1 / -1;
@@ -773,7 +784,7 @@ function submit() {
       > .details {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: var(--space-8);
       }
     }
 
@@ -786,18 +797,13 @@ function submit() {
         }
       }
 
-      /* what the room would refuse, kept on the page for its live region: empty, it takes no gap */
-      > .too-much:empty {
-        position: absolute;
-      }
-
       /* the ask for the place, then the places to choose */
       > .places {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        gap: 8px;
-        margin-top: 2px;
+        gap: var(--space-4);
+        margin-top: var(--space-1);
 
         /* the places to choose, as wide as the field */
         > ul {
@@ -808,22 +814,22 @@ function submit() {
       /* the card's picture, as it will show, with a way to take it off */
       > figure {
         position: relative;
-        margin: 0 0 2px;
+        margin: 0 0 var(--space-1);
 
         > img {
           display: block;
           width: 100%;
           max-height: 240px;
           object-fit: cover;
-          border-radius: 10px;
+          border-radius: var(--radius-5);
           background: var(--wash);
         }
 
         /* taking it off: a chip floating on the picture's corner */
         > button {
           position: absolute;
-          inset-block-start: 8px;
-          inset-inline-end: 8px;
+          inset-block-start: var(--space-4);
+          inset-inline-end: var(--space-4);
         }
       }
     }
@@ -832,7 +838,7 @@ function submit() {
   .act {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-4);
 
     > p {
       text-align: center;
@@ -847,7 +853,7 @@ function submit() {
     @media (--desktop) {
       flex-direction: row;
       align-items: center;
-      gap: 20px;
+      gap: var(--space-10);
 
       > p {
         order: -1;

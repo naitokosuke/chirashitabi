@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import type { MorphPart } from "./glyphs";
+
 defineArt("./CtTextMorph.vue", {
   title: "CtTextMorph",
   category: "Text",
@@ -10,9 +12,9 @@ defineArt("./CtTextMorph.vue", {
 });
 
 const day = ref(1);
-const parts = computed(() => [
-  { text: `${day.value}日目 `, tone: "day" },
-  { text: `11/${day.value + 2}` },
+const parts = computed((): MorphPart[] => [
+  { text: `${day.value}日目 ` },
+  { text: `11/${day.value + 2}`, tone: "quiet" },
 ]);
 </script>
 

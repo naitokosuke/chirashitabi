@@ -1,14 +1,14 @@
-/** A run of text and the class its characters wear ("" for none) */
+/** A run of text and how its characters are said: `quiet`, smaller and in muted ink, or plainly */
 export interface MorphPart {
   text: string;
-  tone?: string;
+  tone?: "quiet";
 }
 
 /** One character on screen; `id` survives a change of text when the character does */
 export interface Glyph {
   id: number;
   ch: string;
-  tone: string;
+  tone: "quiet" | "";
 }
 
 const segmenter =

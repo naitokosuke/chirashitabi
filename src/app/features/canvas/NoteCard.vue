@@ -13,6 +13,7 @@ import { paperOf } from "../members/paper";
 import { useMembers } from "../members/useMembers";
 import type { ImageId } from "../notes/id";
 import { imageSrc } from "../notes/image";
+import { noteLabel } from "../notes/label";
 import { segments, siteOf } from "../notes/links";
 import type { Note } from "../notes/types";
 import { useInRoom } from "../sync/InRoom.vue";
@@ -65,13 +66,7 @@ const HOLD_MS = 600;
       (note.kind === 'text' || note.kind === 'sticker') && visibility !== 'dimmed' ? 0 : undefined
     "
     :role="note.kind === 'text' || note.kind === 'sticker' ? 'button' : 'group'"
-    :aria-label="note.kind === 'sticker'
-      ? i18n.t('canvas.sticker')
-      : note.kind === 'text'
-        ? note.text
-        : note.kind === 'memo'
-          ? note.title
-          : undefined"
+    :aria-label="note.kind === 'suggestion' ? undefined : noteLabel(note, i18n.t)"
     :aria-labelledby="note.kind === 'suggestion' ? `${id}-strip ${id}-title` : undefined"
   >
     <!-- a slip from the agent, cut square: what it is in the strip, the proposal, what to do with it;
@@ -230,7 +225,7 @@ const HOLD_MS = 600;
   position: absolute;
   inset-inline-start: 0;
   inset-block-start: 0;
-  width: 164px;
+  width: var(--size-paper);
   /*
    * the card's place and tilt live in variables so the pop can scale it where it lands; a held
    * card is lifted on top of them (`--lift`, `--tilt`), which alone are eased: the place follows
@@ -298,7 +293,7 @@ const HOLD_MS = 600;
 
   /* a print is the wider cut */
   &.print {
-    width: 220px;
+    width: var(--size-print);
   }
 }
 
@@ -340,7 +335,7 @@ const HOLD_MS = 600;
 }
 
 .words {
-  margin: 4px 0 0;
+  margin: var(--space-2) 0 0;
   font-size: var(--font-xs);
   line-height: 1.45;
   color: var(--paper-muted);
@@ -352,7 +347,7 @@ const HOLD_MS = 600;
 }
 
 .tags {
-  margin: 6px 0 0;
+  margin: var(--space-3) 0 0;
   font-size: var(--font-xs);
   font-weight: 700;
   line-height: 1.3;
@@ -367,7 +362,7 @@ const HOLD_MS = 600;
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   max-width: 100%;
   min-width: 0;
   vertical-align: bottom;
@@ -388,17 +383,15 @@ const HOLD_MS = 600;
 }
 
 /*
- * Whatever is pressed on paper (a link, a slip's two actions) aims at a touch 24px across on
- * screen (WCAG 2.5.8): the target reaches past what is drawn by what the card's scale and the
- * desk's zoom took off it. It reaches only into the room around it (--room), never over the
- * words beside it or the next action, nor off the paper: zoomed far out, the card is picked
- * and dragged rather than pressed through.
+ * A link on paper aims at a touch 24px across on screen (WCAG 2.5.8): the target reaches past
+ * what is drawn by what the card's scale and the desk's zoom took off it. It reaches only into
+ * the room around it (--room), never over the words beside it, nor off the paper: zoomed far
+ * out, the card is picked and dragged rather than pressed through. (A slip's two answers are a
+ * thumb's width already: see below.)
  */
-.link,
-.keep,
-.dismiss {
+.link {
   --reach: calc(24px / (var(--scale, 1) * var(--zoom, 1)));
-  --room: 6px;
+  --room: var(--space-3);
 
   &::after {
     content: "";
@@ -411,7 +404,7 @@ const HOLD_MS = 600;
 .words {
   /* a link in the words has the lines beside it, and nothing else */
   > .link {
-    --room: 2px;
+    --room: var(--space-1);
   }
 }
 
@@ -419,7 +412,7 @@ const HOLD_MS = 600;
 .source {
   display: flex;
   width: fit-content;
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-4);
 }
 
 /* a day, wherever it is on the desk: a small stamp, at the end of its line */
@@ -488,7 +481,7 @@ const HOLD_MS = 600;
   width: max-content;
   max-width: 560px;
   padding: var(--text-box-pad);
-  border-radius: 4px;
+  border-radius: var(--radius-2);
 
   &.selected {
     box-shadow: 0 0 0 2px var(--ink);
@@ -512,7 +505,7 @@ const HOLD_MS = 600;
  */
 .card.kind-sticker {
   width: var(--sticker-size);
-  border-radius: 4px;
+  border-radius: var(--radius-2);
 
   &.selected {
     box-shadow: 0 0 0 2px var(--ink);

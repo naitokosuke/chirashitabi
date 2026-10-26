@@ -236,10 +236,12 @@ async function copyLink() {
         @click="() => takeDown(here)"
       >{{ i18n.t("shiori.withdraw") }}</CtButton>
     </div>
-    <CtMessage v-if="publishing.kind === 'failed'" aria-live="polite" danger>{{
-      i18n.t(FAILED[publishing.why])
+    <CtMessage danger live>{{
+      publishing.kind === "failed" ? i18n.t(FAILED[publishing.why]) : ""
     }}</CtMessage>
-    <CtHint v-else-if="isOwner && cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
+    <CtHint v-if="publishing.kind !== 'failed' && isOwner && cut.offline">{{
+      i18n.t("offline.unavailable")
+    }}</CtHint>
   </section>
 </template>
 

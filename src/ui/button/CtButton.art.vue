@@ -24,6 +24,12 @@ defineArt("./CtButton.vue", {
   <variant name="Ask, waiting">
     <CtButton busy variant="ask">Asking Clef…</CtButton>
   </variant>
+  <variant name="Ask, soft-disabled while it thinks">
+    <CtButton busy float soft-disabled variant="ask">Thinking…</CtButton>
+  </variant>
+  <variant name="Primary, soft-disabled">
+    <CtButton soft-disabled variant="primary">Save</CtButton>
+  </variant>
   <variant name="Blank">
     <CtButton variant="blank">Add a stay</CtButton>
   </variant>

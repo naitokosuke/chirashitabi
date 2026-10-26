@@ -69,6 +69,7 @@ import {
   type PlaceHow,
 } from "../../../features/canvas/usePlace";
 import { useViewport } from "../../../features/canvas/useViewport";
+import { noteLabel } from "../../../features/notes/label";
 import { type FormTarget, type NoteInput, type TextBox } from "../../../features/notes/types";
 import { useNotes } from "../../../features/notes/useNotes";
 import { useInRoom } from "../../../features/sync/InRoom.vue";
@@ -536,13 +537,7 @@ function remove(note: Note) {
     card?.contains(document.activeElement) === true || menuEl.value?.holdsFocus() === true;
   dropMenu();
   const deleting = store.removeLater(here.room, note.id);
-  const title =
-    note.kind === "sticker"
-      ? i18n.t("canvas.sticker")
-      : note.kind === "text"
-        ? note.text
-        : note.title;
-  toast.show(i18n.t("canvas.deleted", { title }), {
+  toast.show(i18n.t("canvas.deleted", { title: noteLabel(note, i18n.t) }), {
     undo: () => {
       deleting.undo();
       // the card comes back where the keyboard left it
@@ -550,8 +545,9 @@ function remove(note: Note) {
     },
     settle: deleting.settle,
     commits: deleting.commits,
-    // keyboard users land on the undo, not on the page
+    // keyboard users land on the undo, not on the page; gone without it, they are back on the desk
     focus: hadFocus,
+    refocus: () => deskView.value?.focus({ preventScroll: true }),
   });
 }
 function write() {
@@ -567,6 +563,7 @@ function placeAtCenter(input: NoteInput, how: PlaceHow) {
   // filling the window, so the note goes to the middle of the view it comes back to
   const r = vp.value?.isConnected === true ? vp.value.getBoundingClientRect() : windowSize();
   const c = toWorld(r.width / 2, r.height / 2);
+  // a sticky's middle there: half its width (--size-paper) and about half its height
   const n = store.add(input, { x: c.x - 82, y: c.y - 40 });
   if (how === "pop") {
     pop.value = { id: n.id, x: n.x - 14, y: n.y - 14 };
@@ -590,8 +587,18 @@ function onDesk(at: Pt | null) {
   const r = vp.value?.isConnected === true ? vp.value.getBoundingClientRect() : windowSize();
   return toWorld(at?.x ?? r.width / 2, at?.y ?? r.height / 2);
 }
-/** Where the person is looking on the desk: the agent's ideas for the whole trip go there */
-const deskMiddle = () => onDesk(null);
+/**
+ * Where the agent's ideas go on the desk: for the whole trip, where the person is looking; from
+ * a note, a column beside it, a gap past its end edge as it is drawn (a print, a long text box
+ * and a sticker are wider than a sticky). The Worker centers each idea's card on the column's
+ * middle, askew by 12px either way, so the middle sits half a card (82px) and that 12px further
+ * on. A card's width is its own before its scale, which grows it about its middle.
+ */
+function ideasAt(about: Note | null): Pt {
+  if (about === null) return onDesk(null);
+  const width = cardEl(about)?.offsetWidth ?? 0;
+  return { x: about.x + (width * (1 + about.scale)) / 2 + 24 + 82 + 12, y: about.y + 40 };
+}
 
 // ---- asking for ideas: from its button, or from a card's menu ----
 const askEl = useTemplateRef<{ open(about: Note | null): void; busy(): boolean }>("askEl");
@@ -665,7 +672,7 @@ watch(
 
       <div class="top">
         <FilterBar />
-        <AskIdeas ref="askEl" :middle="deskMiddle" />
+        <AskIdeas ref="askEl" :at="ideasAt" />
       </div>
 
       <!--
@@ -742,11 +749,7 @@ watch(
       <CtMenu
         v-if="overlay.kind === 'menu' && menuNote !== null"
         ref="menuEl"
-        :label="menuNote.kind === 'sticker'
-          ? i18n.t('canvas.sticker')
-          : menuNote.kind === 'text'
-            ? menuNote.text
-            : menuNote.title"
+        :label="noteLabel(menuNote, i18n.t)"
         :x="overlay.x"
         :y="overlay.y"
         @close="closeMenu"
@@ -809,9 +812,9 @@ section {
       z-index: var(--z-chrome);
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: var(--space-3);
       min-height: var(--top-row);
-      padding: var(--top-inset) 12px 0 0;
+      padding: var(--top-inset) var(--space-6) 0 0;
       pointer-events: none;
 
       > * {
@@ -822,7 +825,7 @@ section {
     /* An empty desk says what to do first */
     > .empty {
       position: absolute;
-      inset-inline: 24px;
+      inset-inline: var(--space-12);
       inset-block-start: 62%;
       text-align: center;
       pointer-events: none;
@@ -860,7 +863,7 @@ section {
           width: 192px;
           height: 110px;
           border: 2px solid color-mix(in oklch, var(--ink) 50%, transparent);
-          border-radius: 14px;
+          border-radius: var(--radius-7);
           pointer-events: none;
           transform: translate(var(--x), var(--y));
           animation: ring .7s ease-out .1s both;
@@ -875,11 +878,11 @@ section {
     /* level with the write button's middle: a chip (--tap tall) floating over the desk */
     > .jump {
       position: absolute;
-      inset-inline-start: 16px;
-      inset-block-end: calc(var(--dock-clear) + 16px + (56px - var(--tap)) / 2);
+      inset-inline-start: var(--space-8);
+      inset-block-end: calc(var(--dock-clear) + var(--space-8) + (var(--size-fab) - var(--tap)) / 2);
       z-index: var(--z-chrome);
       display: flex;
-      gap: 8px;
+      gap: var(--space-4);
     }
 
     /*
@@ -887,7 +890,7 @@ section {
      * new on the desk in the thumb's reach
      */
     > .sticker {
-      inset-block-end: calc(var(--dock-clear) + 16px + 56px + 12px);
+      inset-block-end: calc(var(--dock-clear) + var(--space-8) + var(--size-fab) + var(--space-6));
     }
   }
 }

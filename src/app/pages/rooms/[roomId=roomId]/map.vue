@@ -158,6 +158,7 @@ onMounted(() => {
     syncStays();
     syncAirports();
     syncRoute();
+    fitRoute();
   });
   map.on("click", () => {
     // the click that ends a long press is not also a click on the map (closing the open card)
@@ -215,25 +216,24 @@ onBeforeUnmount(() => {
 });
 
 /**
- * A memo's marker, an element on the page: only ever made for the map, which is a browser's.
- * It holds the note's id, not the note: its words and its pin are written in as they change
- * (syncMarkers), and a click goes to where the pin is now.
+ * A marker, an element on the page: only ever made for the map, which is a browser's. A memo's
+ * is a button, pressed to open its card; a stay's is a square of ink and an airport's a plane on
+ * a round badge of ink, neither of them to tap. Each has its name under it.
  */
-function pinEl(id: NoteId) {
+function markerEl(kind: "memo" | "stay" | "airport", label: string) {
   if (import.meta.env.SSR) throw new Error("a map marker is made in a browser only");
-  const d = document.createElement("button");
-  d.type = "button";
-  d.className = "pin";
+  const d =
+    kind === "memo"
+      ? Object.assign(document.createElement("button"), { type: "button" })
+      : document.createElement("div");
+  d.className = kind === "memo" ? "pin" : `pin ${kind}`;
   const dot = document.createElement("span"),
     lbl = document.createElement("span");
   dot.className = "dot";
+  if (kind === "airport") dot.textContent = "✈";
   lbl.className = "lbl";
+  lbl.textContent = label;
   d.append(dot, lbl);
-  d.addEventListener("click", (e) => {
-    e.stopPropagation();
-    selectedId.value = id;
-    if (selected.value !== null) map?.easeTo({ center: lngLat(selected.value.pin), duration: 300 });
-  });
   return d;
 }
 
@@ -246,9 +246,17 @@ function syncMarkers() {
     seen.add(n.id);
     let m = markers.get(n.id);
     if (m === undefined) {
-      m = new Marker({ element: pinEl(n.id), anchor: "bottom" })
-        .setLngLat(lngLat(n.pin))
-        .addTo(map);
+      // it holds the note's id, not the note: its words and its pin are written in below as
+      // they change, and a press goes to where the pin is now
+      const { id } = n;
+      const pin = markerEl("memo", n.title);
+      pin.addEventListener("click", (e) => {
+        e.stopPropagation();
+        selectedId.value = id;
+        if (selected.value !== null)
+          map?.easeTo({ center: lngLat(selected.value.pin), duration: 300 });
+      });
+      m = new Marker({ element: pin, anchor: "bottom" }).setLngLat(lngLat(n.pin)).addTo(map);
       markers.set(n.id, m);
     } else m.setLngLat(lngLat(n.pin));
     const e = m.getElement();
@@ -268,55 +276,53 @@ function syncMarkers() {
       markers.delete(id);
     }
 }
-function syncRoute() {
-  if (map === null) return;
-  const src = map.getSource("route");
-  if (!(src instanceof maplibregl.GeoJSONSource)) return;
+/**
+ * The stops of the picked day's route, none for every day. A day leaves from the night before's
+ * stay, or the airport it lands at on the way there; and ends at its night's stay, or the
+ * airport it leaves from on the way home
+ */
+function routeStops() {
   const d = day.value;
   const stays = here.trip.stays;
-  // a day leaves from the night before's stay, or the airport it lands at on the way there; and
-  // ends at its night's stay, or the airport it leaves from on the way home
-  const stops =
-    d === null
-      ? []
-      : dayStops(
-          forDay(d),
-          wakeAt(stays, d)?.pin ?? airportOn(d, "out")?.at ?? null,
-          stayOn(stays, d)?.pin ?? airportOn(d, "back")?.at ?? null,
-        );
-  src.setData(routeLine(stops));
-  const b = boundsOf(stops);
-  if (b !== null) {
-    map.fitBounds(b, {
-      padding: { top: 60, bottom: 240, left: 40, right: 40 },
-      duration: 500,
-      maxZoom: 14,
-    });
-  }
+  return d === null
+    ? []
+    : dayStops(
+        forDay(d),
+        wakeAt(stays, d)?.pin ?? airportOn(d, "out")?.at ?? null,
+        stayOn(stays, d)?.pin ?? airportOn(d, "back")?.at ?? null,
+      );
 }
-// re-sync whenever notes, filter or selection change (cheap: a dozen DOM toggles), once there
-// is a page to put pins on
-onMounted(() => {
-  watchEffect(() => {
-    void pinnedOf(notes.value ?? []).map((n) => [
-      n.pin.lat,
-      n.pin.lng,
-      n.title,
-      n.by,
-      n.tags.length,
-    ]);
-    void members.value;
-    void tags.mode;
-    void [...tags.selected];
-    void selected.value;
-    syncMarkers();
+/** The picked day's route drawn as it is now, the map left where it is looked at */
+function syncRoute() {
+  const src = map?.getSource("route");
+  if (src instanceof maplibregl.GeoJSONSource) src.setData(routeLine(routeStops()));
+}
+/** The map brought round the picked day's route */
+function fitRoute() {
+  const b = boundsOf(routeStops());
+  if (b === null) return;
+  map?.fitBounds(b, {
+    padding: { top: 60, bottom: 240, left: 40, right: 40 },
+    duration: 500,
+    maxZoom: 14,
   });
-});
+}
+// the pins follow the notes, the filter and the pick (cheap: a dozen DOM toggles), once there is
+// a page to put them on; what they read is what is watched
+onMounted(() => watchEffect(syncMarkers));
+// The route is drawn again when what it goes through changes, and the map comes round it only
+// when another day is picked: a partner's card on its way (a dozen times a second) or an edit
+// leaves the map where it is looked at. What it goes through is watched as one string, which
+// stays the same while nothing on the route changed.
 const scheduleKey = (n: Note) =>
   n.kind === "memo" && n.schedule !== null
     ? `${n.schedule.date} ${n.schedule.time} ${n.schedule.status}`
     : "";
-watch([day, () => (notes.value ?? []).map(scheduleKey), () => here.trip.stays], syncRoute);
+watch(day, () => {
+  syncRoute();
+  fitRoute();
+});
+watch([() => (notes.value ?? []).map(scheduleKey).join("\n"), () => here.trip.stays], syncRoute);
 
 /** Where the nights are spent, a square of ink each, under the notes' pins */
 const stayMarkers: Marker[] = [];
@@ -326,16 +332,10 @@ function syncStays() {
   for (const m of stayMarkers.splice(0)) m.remove();
   for (const s of here.trip.stays) {
     if (s.pin === null) continue;
-    const d = document.createElement("div");
-    d.className = "pin stay";
-    const dot = document.createElement("span"),
-      lbl = document.createElement("span");
-    dot.className = "dot";
-    lbl.className = "lbl";
-    lbl.textContent = s.name;
-    d.append(dot, lbl);
     stayMarkers.push(
-      new Marker({ element: d, anchor: "bottom" }).setLngLat(lngLat(s.pin)).addTo(map),
+      new Marker({ element: markerEl("stay", s.name), anchor: "bottom" })
+        .setLngLat(lngLat(s.pin))
+        .addTo(map),
     );
   }
 }
@@ -367,20 +367,12 @@ function syncAirports() {
       const a = findAirport(airports.value, text);
       if (a !== undefined) named.set(a.code, a);
     }
-  for (const a of named.values()) {
-    const d = document.createElement("div");
-    d.className = "pin airport";
-    const dot = document.createElement("span"),
-      lbl = document.createElement("span");
-    dot.className = "dot";
-    dot.textContent = "✈";
-    lbl.className = "lbl";
-    lbl.textContent = `${a.code} ${a.name}`;
-    d.append(dot, lbl);
+  for (const a of named.values())
     airportMarkers.push(
-      new Marker({ element: d, anchor: "bottom" }).setLngLat(lngLat(a.at)).addTo(map),
+      new Marker({ element: markerEl("airport", `${a.code} ${a.name}`), anchor: "bottom" })
+        .setLngLat(lngLat(a.at))
+        .addTo(map),
     );
-  }
 }
 watch([() => here.trip.flights, airports], () => {
   syncAirports();
@@ -485,14 +477,14 @@ section {
   flex-direction: column;
   background: var(--bg);
 
-  /* marker elements are built with innerHTML inside the map container */
+  /* the markers, made by markerEl inside the map container */
   :deep(.pin) {
     /* the white under a pin's name, and round and on an ink badge, over the map in either theme */
     --halo: rgb(255 255 255 / 0.92);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    gap: var(--space-1);
     background: none;
     border: 0;
     padding: 0;
@@ -518,8 +510,8 @@ section {
       font-weight: 700;
       color: var(--paper-ink);
       background: var(--halo);
-      padding: 1px 6px;
-      border-radius: 999px;
+      padding: var(--space-px) var(--space-3);
+      border-radius: var(--radius-pill);
       box-shadow: 0 1px 2px rgb(17 19 24 / 0.12);
     }
 
@@ -553,7 +545,7 @@ section {
       pointer-events: none;
 
       > .dot {
-        border-radius: 4px;
+        border-radius: var(--radius-2);
         transform: none;
         background: var(--paper-ink);
         border-color: var(--halo);
@@ -602,7 +594,7 @@ section {
   /* open, the credit line sits in the middle of the pill, beside the button */
   :deep(.maplibregl-ctrl-attrib.maplibregl-compact-show) {
     min-height: 20px;
-    padding: 8px calc(var(--tap) + 4px) 8px 12px;
+    padding: var(--space-4) calc(var(--tap) + var(--space-2)) var(--space-4) var(--space-6);
   }
 
   /* the attribution would sit under the fit button otherwise */
@@ -631,7 +623,7 @@ section {
       pointer-events: none;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: var(--space-3);
 
       > * {
         pointer-events: auto;
@@ -650,7 +642,7 @@ section {
 
       /* the notes with no place yet, under the rows, at the view's edge margin */
       > .unplaced {
-        margin: 0 16px;
+        margin: 0 var(--space-8);
         align-self: flex-start;
       }
     }
@@ -682,22 +674,22 @@ section {
     /* level with the write button's middle, as on the desk: a chip floating over the map */
     > .jump {
       position: absolute;
-      inset-inline-start: 16px;
-      inset-block-end: calc(var(--dock-clear) + 16px + (56px - var(--tap)) / 2);
+      inset-inline-start: var(--space-8);
+      inset-block-end: calc(var(--dock-clear) + var(--space-8) + (var(--size-fab) - var(--tap)) / 2);
       z-index: var(--z-float);
     }
 
     /* the open pin's card */
     > article {
       position: absolute;
-      inset-inline: 12px;
+      inset-inline: var(--space-6);
       inset-block-end: calc(var(--dock-clear) + 88px);
       z-index: var(--z-float-top);
 
       > h2 {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: var(--space-4);
 
         /* the note's paper, as a swatch rather than a stripe */
         &::before {
@@ -712,23 +704,23 @@ section {
       }
 
       > p {
-        margin: 2px 0 0;
+        margin: var(--space-1) 0 0;
       }
 
       /* tags, budget, when */
       > .facts {
-        margin: 4px 0 0;
+        margin: var(--space-2) 0 0;
         display: flex;
         flex-wrap: wrap;
-        gap: 0 8px;
+        gap: 0 var(--space-4);
       }
 
       /* the actions */
       > div {
         display: flex;
         align-items: center;
-        gap: 4px;
-        margin-top: 6px;
+        gap: var(--space-2);
+        margin-top: var(--space-3);
         font-size: var(--font-sm);
         font-weight: 700;
 

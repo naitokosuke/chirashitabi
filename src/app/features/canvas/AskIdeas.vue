@@ -44,6 +44,7 @@ import { CtButton, CtInput, CtPanel } from "../../../ui/index";
 import { useI18n } from "../../i18n/useI18n";
 
 import type { NoteId } from "../notes/id";
+import { noteLabel } from "../notes/label";
 import type { Note } from "../notes/types";
 import { useNotes } from "../notes/useNotes";
 import { useInRoom } from "../sync/InRoom.vue";
@@ -55,11 +56,11 @@ import type { Pt } from "./transform";
 /**
  * Asking the room's agent for ideas: the button, in the row it is put in, and the ask that
  * unfolds under it, a line of words, blank for anything, from a note or for the whole trip.
- * `middle` is where the person is looking on the desk, in the desk's own coordinates; the
- * ideas for the whole trip go there. The desk opens it from a note (`open`), and asks whether
- * an ask is on its way (`busy`) to offer that or not.
+ * `at` is where the ideas go on the desk, in its own coordinates, for the note they are asked
+ * from (or none, for the whole trip): the desk knows where its cards are drawn. The desk opens
+ * it from a note (`open`), and asks whether an ask is on its way (`busy`) to offer that or not.
  */
-const props = defineProps<{ middle: () => Pt }>();
+const props = defineProps<{ at: (about: Note | null) => Pt }>();
 const { notes } = useNotes();
 const toast = useToast();
 const here = useInRoom();
@@ -106,8 +107,6 @@ function close() {
   if (hadFocus) openButton.value?.focus();
 }
 function toggle() {
-  // while an ask is on its way the button only says so
-  if (thinking.value) return;
   if (asking.value.kind === "closed") open(null);
   else close();
 }
@@ -132,9 +131,7 @@ async function askForIdeas() {
   // where the note is now, and only while it is there
   const about = askAbout.value;
   if (thinking.value || a.kind === "closed" || (a.kind === "note" && about === null)) return;
-  // the column's middle: a card's width (164px) and a gap past the note's right edge
-  const at =
-    about === null ? props.middle() : { x: about.x + 164 * about.scale + 24 + 94, y: about.y + 40 };
+  const at = props.at(about);
   const sent = askWords.value;
   const { room } = here;
   close();
@@ -162,7 +159,7 @@ defineExpose({ open, busy: () => thinking.value });
 <template>
   <!--
     while an ask is on its way it keeps the keyboard (the ask sent from it hands it back), and
-    a press on it does nothing
+    a press on it does nothing (soft-disabled)
   -->
   <CtButton
     ref="openButton"
@@ -170,7 +167,7 @@ defineExpose({ open, busy: () => thinking.value });
     float
     variant="ask"
     :disabled="cut.offline"
-    :aria-disabled="thinking"
+    :soft-disabled="thinking"
     :busy="thinking"
     :aria-expanded="asking.kind !== 'closed'"
     :aria-controls="askId"
@@ -192,14 +189,7 @@ defineExpose({ open, busy: () => thinking.value });
       @submit="onSubmit"
     >
       <p v-if="askAbout !== null">{{
-        i18n.t("canvas.askFrom", {
-          title:
-            askAbout.kind === "sticker"
-              ? i18n.t("canvas.sticker")
-              : askAbout.kind === "text"
-                ? askAbout.text
-                : askAbout.title,
-        })
+        i18n.t("canvas.askFrom", { title: noteLabel(askAbout, i18n.t) })
       }}</p>
       <CtInput
         ref="askInput"
@@ -238,12 +228,12 @@ defineExpose({ open, busy: () => thinking.value });
  */
 .asking {
   position: absolute;
-  inset-inline-end: 12px;
+  inset-inline-end: var(--space-6);
   inset-block-start: var(--top-clear);
   z-index: var(--z-menu);
-  width: min(360px, calc(100% - 24px));
+  width: min(360px, calc(100% - var(--space-12)));
   display: grid;
-  gap: 10px;
+  gap: var(--space-5);
   pointer-events: auto;
   /* it grows out of its button, at the row's end above it */
   transform-origin: 100% 0;
@@ -299,7 +289,7 @@ defineExpose({ open, busy: () => thinking.value });
   > div {
     display: flex;
     justify-content: flex-end;
-    gap: 6px;
+    gap: var(--space-3);
   }
 }
 </style>

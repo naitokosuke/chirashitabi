@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import type { Temporal } from "temporal-polyfill-lite";
 
-import { computed, ref } from "vue";
+import { computed, nextTick, ref, useTemplateRef } from "vue";
 
 import { useRoute, useRouter } from "vue-router";
 
@@ -56,6 +56,12 @@ const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 const today = useToday();
 /** The trip's settings are open under its title */
 const editing = ref(false);
+const editButton = useTemplateRef<{ focus(): void }>("editButton");
+/** The settings close, saved or not: the keyboard goes back to the button that opened them */
+function closeEditor() {
+  editing.value = false;
+  void nextTick(() => editButton.value?.focus());
+}
 
 /** "11/3 – 11/6", or one date for a day trip */
 const range = computed(() => {
@@ -107,7 +113,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
       <div class="main">
         <!-- how the trip goes: its flights and stays, and the way to change them, its name and dates -->
         <div class="plan">
-          <TripEditor v-if="editing" :trip="here.trip" @close="() => (editing = false)" />
+          <TripEditor v-if="editing" :trip="here.trip" @close="closeEditor" />
           <template v-else>
             <FlightLine
               v-if="here.trip.flights.out !== null"
@@ -127,7 +133,9 @@ const allTotal = computed(() => budgetOf(undefined, false));
               :label="i18n.t('stay.title')"
               :stay="s"
             />
-            <CtButton @click="() => (editing = true)">{{ i18n.t("trip.edit") }}</CtButton>
+            <CtButton ref="editButton" @click="() => (editing = true)">{{
+              i18n.t("trip.edit")
+            }}</CtButton>
           </template>
         </div>
 
@@ -198,10 +206,10 @@ section {
   > div {
     flex: 1;
     overflow-y: auto;
-    padding: var(--page-top) var(--page-margin) calc(var(--dock-clear) + 24px);
+    padding: var(--page-top) var(--page-margin) calc(var(--dock-clear) + var(--space-12));
     display: flex;
     flex-direction: column;
-    gap: 28px;
+    gap: var(--space-14);
 
     /* a phone: the two columns are one, in this order; before the trip, its to-dos come first */
     > .main,
@@ -240,7 +248,7 @@ section {
     /* the flights, one ticket strip each, and the way into the trip's settings under them */
     .main > .plan {
       display: grid;
-      gap: 8px;
+      gap: var(--space-4);
 
       > button {
         justify-self: start;
@@ -249,7 +257,7 @@ section {
 
     > header {
       > p {
-        margin: 6px 0 0;
+        margin: var(--space-3) 0 0;
         font-size: var(--font-md);
         font-weight: 700;
         color: var(--muted);
@@ -258,17 +266,17 @@ section {
 
       > ul {
         list-style: none;
-        margin: 16px 0 0;
+        margin: var(--space-8) 0 0;
         padding: 0;
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
+        gap: var(--space-6);
 
         > li {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 4px;
+          gap: var(--space-2);
 
           > span:last-child {
             font-size: var(--font-xs);
@@ -283,13 +291,13 @@ section {
       display: grid;
       grid-auto-flow: column;
       grid-auto-columns: minmax(0, 1fr);
-      gap: 8px;
+      gap: var(--space-4);
 
       > li {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 8px;
+        gap: var(--space-4);
 
         > div {
           min-height: 96px;
@@ -298,8 +306,8 @@ section {
           flex-direction: column-reverse;
           align-items: center;
           gap: 3px;
-          padding-block-end: 6px;
-          border-block-end: 1px solid var(--line);
+          padding-block-end: var(--space-3);
+          border-block-end: var(--line-width) solid var(--line);
 
           /* a slip too short for its title, which is there for a wider screen */
           > span {
@@ -344,20 +352,20 @@ section {
       @media (--wide) {
         grid-auto-flow: row;
         grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-        gap: 20px 10px;
-        padding: 20px 16px 16px;
+        gap: var(--space-10) var(--space-5);
+        padding: var(--space-10) var(--space-8) var(--space-8);
 
         > li > div {
           min-height: 144px;
           flex-direction: column;
           justify-content: flex-end;
-          gap: 4px;
+          gap: var(--space-2);
 
           > span {
             width: 100%;
             height: auto;
             box-sizing: border-box;
-            padding: 4px 6px;
+            padding: var(--space-2) var(--space-3);
             font-size: var(--font-xs);
             font-weight: 700;
             line-height: 1.3;
@@ -379,15 +387,15 @@ section {
       grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
       align-content: start;
       align-items: start;
-      gap: 36px 40px;
-      padding-inline: max(32px, (100% - 1200px) / 2);
+      gap: 36px var(--space-20);
+      padding-inline: max(var(--space-16), (100% - 1200px) / 2);
 
       > header {
         grid-column: 1 / -1;
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         align-items: end;
-        column-gap: 24px;
+        column-gap: var(--space-12);
 
         > h1,
         > p {
@@ -405,7 +413,7 @@ section {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         align-items: end;
-        gap: 28px 40px;
+        gap: var(--space-14) var(--space-20);
 
         > .days {
           order: 0;

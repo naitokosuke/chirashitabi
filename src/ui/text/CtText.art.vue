@@ -36,4 +36,13 @@ defineArt("./CtHint.vue", {
       </CtMessage>
     </div>
   </variant>
+  <variant name="Live, with nothing to say yet and with words">
+    <div class="stack">
+      <CtHint>Above an empty live hint, which takes no room.</CtHint>
+      <CtHint live />
+      <CtHint live>Reading the page…</CtHint>
+      <CtMessage danger live />
+      <CtMessage danger live>The draft did not come. Ask again.</CtMessage>
+    </div>
+  </variant>
 </art>

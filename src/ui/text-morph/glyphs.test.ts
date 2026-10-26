@@ -6,7 +6,7 @@ function counter(from = 100) {
   let n = from;
   return () => n++;
 }
-const row = (text: string, tone = "") => align([], flatten([{ text, tone }]), counter(0));
+const row = (text: string) => align([], flatten([{ text }]), counter(0));
 const kept = (prev: Glyph[], next: Glyph[]) =>
   next
     .filter((g) => prev.some((p) => p.id === g.id))
@@ -28,9 +28,9 @@ describe("align", () => {
   });
 
   test("a character in another tone is another character", () => {
-    const prev = align([], flatten([{ text: "1" }, { text: "1", tone: "date" }]), counter(0));
-    const next = align(prev, flatten([{ text: "1", tone: "date" }]), counter());
-    expect(next).toEqual([{ id: prev[1]!.id, ch: "1", tone: "date" }]);
+    const prev = align([], flatten([{ text: "1" }, { text: "1", tone: "quiet" }]), counter(0));
+    const next = align(prev, flatten([{ text: "1", tone: "quiet" }]), counter());
+    expect(next).toEqual([{ id: prev[1]!.id, ch: "1", tone: "quiet" }]);
   });
 
   test("the same text keeps every id", () => {
