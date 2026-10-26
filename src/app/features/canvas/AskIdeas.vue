@@ -135,7 +135,7 @@ defineExpose({ open, busy: () => thinking.value });
       v-if="asking.kind !== 'closed'"
       :id="askId"
       as="form"
-      class="ask"
+      class="asking"
       float
       :aria-label="i18n.t('canvas.askIdeas')"
       @submit="onSubmit"
@@ -176,7 +176,7 @@ defineExpose({ open, busy: () => thinking.value });
  * The ask, open under its button: a panel with a line of words and the ask. The row spans the
  * desk from its top, so the panel is placed as on the desk itself.
  */
-.ask {
+.asking {
   position: absolute;
   inset-inline-end: 12px;
   inset-block-start: var(--top-clear);
