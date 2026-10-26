@@ -3,8 +3,7 @@ import { computed } from "vue";
 import { defineQuery, useMutation, useQuery, useQueryCache, useQueryState } from "@pinia/colada";
 
 import type { RoomId } from "../rooms/types";
-import { ROOMS_KEY } from "../rooms/useRooms";
-import { roomKeys } from "../sync/keys";
+import { roomKeys, ROOMS_KEY } from "../sync/keys";
 import { useSync } from "../sync/useSync";
 
 import { deleteRoom, fetchInvited, invite, leaveRoom, removeMember, uninvite } from "./api";

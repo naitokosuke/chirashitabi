@@ -231,8 +231,8 @@ const LINK_STATE = {
   none: "form.linkNone",
   failed: "form.linkFailed",
   place: "form.linkIsPlace",
-  day: "form.tagsLimit",
-  trip: "form.tagsTripLimit",
+  day: "form.linkLimit",
+  trip: "form.linkTripLimit",
 } as const satisfies Record<Exclude<Preview["kind"], "idle" | "found">, string>;
 /**
  * The page behind the link, once: its title and line fill words not written yet, its picture
@@ -314,8 +314,8 @@ const PLACE_STATE = {
   asking: "form.placesAsking",
   none: "form.placesNone",
   failed: "form.placesFailed",
-  day: "form.tagsLimit",
-  trip: "form.tagsTripLimit",
+  day: "form.placesLimit",
+  trip: "form.placesTripLimit",
 } as const satisfies Record<Exclude<Places["kind"], "idle">, string>;
 /** What there is to choose from: only once an ask found some */
 const found = computed(() => {

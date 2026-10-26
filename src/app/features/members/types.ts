@@ -8,10 +8,5 @@ export { SEATS } from "../../../contract/room";
 /** Anyone in the room, as the room sends them: nothing in a member needs reviving */
 export type Member = WireMember;
 
-/** A person in the room; only a person can be invited, removed or leave */
-export type Person = Extract<Member, { kind: "person" }>;
-
 /** An agent in the room (Claude): on the desk on equal terms, with no say in who is in it */
 export type Agent = Extract<Member, { kind: "agent" }>;
-
-export type Role = Person["role"];

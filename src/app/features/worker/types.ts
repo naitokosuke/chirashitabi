@@ -31,7 +31,7 @@ export interface DayDraft {
 /** The budget declined a paid call (docs/auth-and-security.md): asking again will not help */
 export type OverBudget = { kind: "over"; ceiling: "day" | "trip" };
 /** The room already keeps as many pictures as it may */
-export type RoomFull = { kind: "full" };
+type RoomFull = { kind: "full" };
 
 /** What the Cloudflare Worker will do for the room, besides sync */
 export interface WorkerApi {
@@ -114,7 +114,7 @@ export interface WorkerApi {
  * A page as it describes itself, with its picture already the room's: where it is after any
  * redirect, its site ("youtube.com"), its title, a line and its picture, as the Worker says
  */
-export type LinkPreview = NonNullable<Answer<RoomCalls["preview"]>["preview"]>;
+type LinkPreview = NonNullable<Answer<RoomCalls["preview"]>["preview"]>;
 
 /** The booklet as a public page: where anyone with the link reads it, and as of when */
 export interface Publication {

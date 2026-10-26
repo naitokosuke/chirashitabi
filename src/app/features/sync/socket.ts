@@ -33,7 +33,7 @@ export interface SocketLike {
   addEventListener(type: "close", listener: () => void): void;
 }
 
-export interface RoomSocketOptions {
+interface RoomSocketOptions {
   /** Opens a socket to a room; defaults to a WebSocket to the room's route on this origin */
   open?: (roomId: RoomId) => SocketLike;
   /**
@@ -343,5 +343,3 @@ export function createRoomSocket(options: RoomSocketOptions) {
     },
   };
 }
-
-export type RoomSocket = ReturnType<typeof createRoomSocket>;

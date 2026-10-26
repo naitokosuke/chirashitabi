@@ -14,10 +14,9 @@ import { imageSrc } from "../notes/image";
 import type { Note } from "../notes/types";
 import { askMine } from "../rooms/api";
 import { parseRoomId, type Mine, type RoomId } from "../rooms/types";
-import { ROOMS_KEY } from "../rooms/useRooms";
 import { useToast } from "../toast/useToast";
 
-import { roomKeys } from "./keys";
+import { roomKeys, ROOMS_KEY } from "./keys";
 import { createLedger, type RoomState } from "./ledger";
 import { claim, forget, keep, kept, prune } from "./persist";
 import { linked, opened, OUT, synced } from "./session";

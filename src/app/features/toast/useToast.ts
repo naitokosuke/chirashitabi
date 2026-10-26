@@ -3,7 +3,7 @@ import { shallowRef } from "vue";
 import { defineStore } from "pinia";
 
 /** What the toast offers: an undo, and what happens when it leaves without one */
-export interface ToastAction {
+interface ToastAction {
   /** Called by 取り消す */
   undo?: () => void;
   /**

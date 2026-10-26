@@ -9,7 +9,7 @@ import type { Mutation, Transport } from "./types";
  * Before the room store is made, changes go nowhere. None is made then: what makes changes is
  * shown only inside a room, under the page that makes the room store first.
  */
-export const NOWHERE: Transport = { commit: () => {}, send: () => {} };
+const NOWHERE: Transport = { commit: () => {}, send: () => {} };
 
 /**
  * The session (session.ts) and where changes go, as the stores need them without depending

@@ -27,6 +27,12 @@ export interface Schedule {
   status: NoteStatus;
 }
 
+/** How a card is turned (degrees) and how large it is drawn */
+export interface Shape {
+  rot: number;
+  scale: number;
+}
+
 /** What every card on the canvas has */
 interface CardBase {
   id: NoteId;

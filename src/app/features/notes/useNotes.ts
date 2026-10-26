@@ -9,15 +9,9 @@ import { useSync } from "../sync/useSync";
 
 import { NoteIdSchema, type ImageId, type NoteId } from "./id";
 import { duplicateInput } from "./input";
-import type { MemoPatch, NewMemo, NewSticker, NewText, NoteInput } from "./types";
+import type { MemoPatch, NewMemo, NewSticker, NewText, NoteInput, Shape } from "./types";
 
 const uid = () => v.parse(NoteIdSchema, Math.random().toString(36).slice(2, 10));
-
-/** How a card is turned (degrees) and how large it is drawn */
-export interface Shape {
-  rot: number;
-  scale: number;
-}
 
 /**
  * The room's notes, as the query cache holds them (keys.ts), and the

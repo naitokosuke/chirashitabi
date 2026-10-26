@@ -19,7 +19,7 @@ export function viewOf(name: unknown): View | null {
  * The sheet's part of a room's URL: its query, as the room's routes parse it (`definePage` in
  * `[roomId=roomId].vue`), each value the router could not read left out
  */
-export type SheetQuery = Partial<Omit<RouteParams<"/rooms/[roomId=roomId]">, "roomId">>;
+type SheetQuery = Partial<Omit<RouteParams<"/rooms/[roomId=roomId]">, "roomId">>;
 
 /**
  * The sheet a room's URL has open over its tab, in the query, so going back closes it. A key

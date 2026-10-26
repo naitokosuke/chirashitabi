@@ -112,5 +112,3 @@ export function createLedger() {
     },
   };
 }
-
-export type Ledger = ReturnType<typeof createLedger>;

@@ -53,12 +53,12 @@ import {
 import { renderBooklet } from "./booklet";
 import type { DraftContext, PlaceContext, SuggestContext, TagContext } from "./claude";
 
-export type MemberKind = WireMember["kind"];
+type MemberKind = WireMember["kind"];
 
 /** Why no seat was held for an invitation: not the owner, every seat taken, or held for it already */
 export type SeatRefusal = "not the owner" | "no seat" | "already invited";
 /** Why a person was not taken out: the owner never is, only the owner takes another, or gone already */
-export type RemoveRefusal = "the owner" | "not theirs" | "not in";
+type RemoveRefusal = "the owner" | "not theirs" | "not in";
 
 /**
  * Why the room would not act for a member id the Worker resolved: it names no person in the

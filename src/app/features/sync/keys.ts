@@ -2,7 +2,7 @@ import type { EntryKeyTagged } from "@pinia/colada";
 
 import type { Email, Member } from "../members/types";
 import type { Note } from "../notes/types";
-import type { RoomId } from "../rooms/types";
+import type { Mine, RoomId } from "../rooms/types";
 import type { TripSnapshot } from "../trip/types";
 import type { Publication } from "../worker/types";
 
@@ -32,3 +32,7 @@ export const roomKeys = {
   /** Not a slice of the socket's either: the public booklet, fetched over HTTP (the booklet's appendix) */
   publication: slice<Publication | null>("publication"),
 };
+
+/** The person's rooms, invitations and deleted trips, as `/api/me` lists them (docs/data-fetching.md) */
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Pinia Colada's tag is a type alone, with no value to make it from
+export const ROOMS_KEY = ["me", "rooms"] as unknown as EntryKeyTagged<Mine>;

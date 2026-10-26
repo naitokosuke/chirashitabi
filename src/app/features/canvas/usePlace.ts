@@ -1,4 +1,4 @@
-import { onBeforeUnmount, onMounted } from "vue";
+import { inject, onBeforeUnmount, onMounted, provide, type InjectionKey } from "vue";
 
 import { useI18n } from "../../i18n/useI18n";
 
@@ -12,9 +12,17 @@ import { fitView, type View } from "./transform";
 export type PlaceHow = "pop" | "quiet" | "away";
 type Place = (input: NoteInput, how: PlaceHow) => NewMemo;
 
-// Module scope is shared with every importer. The canvas is kept once it is first opened
-// (the room keeps its tabs), so one slot is enough; until then it is empty.
-let placeOnMounted: Place | undefined;
+/**
+ * A room's placing: how a note is put on its canvas, and the canvas's own place while it is
+ * mounted. The canvas is kept once it is first opened (the room keeps its tabs), so one slot is
+ * enough; until then it is empty.
+ */
+interface Placing {
+  readonly place: (input: NoteInput, how?: PlaceHow) => NewMemo;
+  canvas: Place | undefined;
+}
+
+const PLACING: InjectionKey<Placing> = Symbol("placing");
 
 /** The first look never shrinks a card past readable; the fit button still shows everything */
 export const FIRST_LOOK_MIN_SCALE = 0.6;
@@ -30,27 +38,44 @@ export const firstLook = (notes: Note[], width: number, height: number): View =>
   };
 
 /**
- * Put a note at the centre of the canvas; the toast confirms it wherever the user is.
- * Call in a component's setup. A canvas not opened yet has no view of its own: the note goes
- * to the middle of the first look it will open on, and the toast says it is there.
+ * Put a note at the centre of the canvas; the toast confirms it wherever the user is. Call in
+ * the room's setup: what it shows places through the same (usePlace). A canvas not opened yet
+ * has no view of its own: the note goes to the middle of the first look it will open on, and
+ * the toast says it is there.
  */
-export function usePlace() {
+export function providePlace() {
   const { notes, add, remove } = useNotes();
   const toast = useToast();
   const i18n = useI18n();
-  return (input: NoteInput, how: PlaceHow = "pop"): NewMemo => {
-    if (placeOnMounted !== undefined) return placeOnMounted(input, how);
-    const [w, h] = [window.innerWidth, window.innerHeight];
-    const v = firstLook(notes.value ?? [], w, h);
-    const n = add(input, { x: (w / 2 - v.tx) / v.s - 82, y: (h / 2 - v.ty) / v.s - 40 });
-    const message = how === "quiet" ? "canvas.added" : "canvas.addedAway";
-    toast.show(i18n.t(message, { title: n.title }), { undo: () => remove(n.id) });
-    return n;
+  const placing: Placing = {
+    canvas: undefined,
+    place(input, how = "pop") {
+      if (placing.canvas !== undefined) return placing.canvas(input, how);
+      const [w, h] = [window.innerWidth, window.innerHeight];
+      const v = firstLook(notes.value ?? [], w, h);
+      const n = add(input, { x: (w / 2 - v.tx) / v.s - 82, y: (h / 2 - v.ty) / v.s - 40 });
+      const message = how === "quiet" ? "canvas.added" : "canvas.addedAway";
+      toast.show(i18n.t(message, { title: n.title }), { undo: () => remove(n.id) });
+      return n;
+    },
   };
+  provide(PLACING, placing);
+  return placing.place;
 }
+
+/** The room's placing (providePlace) */
+function usePlacing(): Placing {
+  const placing = inject(PLACING);
+  if (placing === undefined) throw new Error("usePlace outside a room");
+  return placing;
+}
+
+/** Put a note at the centre of the room's canvas (providePlace); call in a component's setup */
+export const usePlace = () => usePlacing().place;
 
 /** The canvas, while it is mounted, places notes itself, in its own view; call in its setup */
 export function useCanvasPlace(place: Place) {
-  onMounted(() => (placeOnMounted = place));
-  onBeforeUnmount(() => (placeOnMounted = undefined));
+  const placing = usePlacing();
+  onMounted(() => (placing.canvas = place));
+  onBeforeUnmount(() => (placing.canvas = undefined));
 }
