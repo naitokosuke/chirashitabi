@@ -21,17 +21,17 @@ export const SPACING_MS = 1100;
 const TIMEOUT_MS = 8000;
 
 /**
- * Why the geocoder answered nothing: its turns ran too far ahead, or the asker's free lookups
- * hold their share of them, and it was not asked ("busy"); or it was asked and did not answer
+ * Why the geocoder answered nothing: its turns ran too far ahead, or the asker's lookups hold
+ * their share of them, and it was not asked ("busy"); or it was asked and did not answer
  */
 export type GeocoderFailure = "busy" | "failed";
 
 /**
- * Waits for the app's turn at the geocoder (RoomsIndex.geocoderTurn), for a free lookup by
- * `free` or a budgeted one (null); false when there is no turn, and it is not asked
+ * Waits for the app's turn at the geocoder (RoomsIndex.geocoderTurn), for a lookup `asker`
+ * makes; false when there is no turn, and it is not asked
  */
-async function turn(env: Env, free: Email | null): Promise<boolean> {
-  const wait = await env.ROOMS.getByName("index").geocoderTurn(free);
+async function turn(env: Env, asker: Email): Promise<boolean> {
+  const wait = await env.ROOMS.getByName("index").geocoderTurn(asker);
   if (wait === null) return false;
   await new Promise((r) => setTimeout(r, wait));
   return true;
@@ -52,14 +52,14 @@ export interface Place {
 const HOURS = 255;
 
 /**
- * The places a query finds, best first, looked up free for `free` or within a budget (null);
- * or why there are none to give
+ * The places a query finds, best first, looked up for `asker`, free or within their budget; or
+ * why there are none to give
  */
 export async function geocode(
   env: Env,
   query: string,
   lang: Lang,
-  free: Email | null,
+  asker: Email,
 ): Promise<Result<Place[], GeocoderFailure>> {
   const params = new URLSearchParams({
     q: query,
@@ -69,7 +69,7 @@ export async function geocode(
     extratags: "1",
     "accept-language": lang,
   });
-  if (!(await turn(env, free))) return { ok: false, reason: "busy" };
+  if (!(await turn(env, asker))) return { ok: false, reason: "busy" };
   let res: Response;
   try {
     res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/search?${params.toString()}`, {
@@ -136,14 +136,14 @@ export function placesFrom(raw: unknown): Place[] {
 }
 
 /**
- * What is at a point, looked up free for `free`: the place there (a shop, a sight) or, short
+ * What is at a point, looked up free for `asker`: the place there (a shop, a sight) or, short
  * of one, the street, null when OpenStreetMap has nothing there; or why it could not be told
  */
 export async function reverseGeocode(
   env: Env,
   at: LatLng,
   lang: Lang,
-  free: Email,
+  asker: Email,
 ): Promise<Result<{ place: Place | null }, GeocoderFailure>> {
   const params = new URLSearchParams({
     lat: String(at.lat),
@@ -155,7 +155,7 @@ export async function reverseGeocode(
     extratags: "1",
     "accept-language": lang,
   });
-  if (!(await turn(env, free))) return { ok: false, reason: "busy" };
+  if (!(await turn(env, asker))) return { ok: false, reason: "busy" };
   let res: Response;
   try {
     res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/reverse?${params.toString()}`, {

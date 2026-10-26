@@ -135,7 +135,6 @@ export const ja: Messages = {
   "people.inviteFailed": "招待できませんでした。アドレスを確かめて、もう一度お試しください。",
   "people.noSeat": "この旅にはもう空きがありません。",
   "people.alreadyIn": "その人はもうこの旅のメンバーです。",
-  "people.alreadyInvited": "その人はもう招待済みで、返事待ちです。",
   "people.notOwner": "これは旅の作成者だけができます。",
   "people.isOwner": "作成者は旅から抜けられません。かわりに旅を削除してください。",
   "people.notIn": "もうこの旅にはいません。",

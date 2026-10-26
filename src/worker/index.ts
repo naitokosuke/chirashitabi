@@ -186,6 +186,17 @@ const ownerOnly = async (c: Context<InRoom>, next: Next) => {
 };
 
 /**
+ * The room acts for the asker, for a call that asks it nothing else and would otherwise go on
+ * the index's word alone (`member`), which may be behind; anyone it does not act for is refused
+ * as `member` refuses them. A plain handler, as `ownerOnly` is
+ */
+const admitted = async (c: Context<InRoom>, next: Next) => {
+  const admits = await c.var.room.admits(c.var.memberId);
+  if (!admits.ok) return outsider(c, admits.reason);
+  await next();
+};
+
+/**
  * The room would not act for the asker after all (`Outsider`): the index was behind, the asker
  * removed or the room deleted since `member` asked it. Answered as `member` answers anyone not
  * in the room, so it is among the answers hc types the call with already
@@ -306,14 +317,15 @@ const api = new Hono<ApiEnv>()
       index.invitations(email),
       index.rooms(email, true),
     ]);
-    // each at a glance, and whether the asker made it (and so may delete it from the list)
-    const glance = async (id: RoomId, by: MemberId | null = null) => ({
-      id,
-      ...(await c.env.ROOM.getByName(id).summary(by)),
-    });
-    const rooms = await Promise.all(mine.map((m) => glance(m.roomId, m.memberId)));
+    // each at a glance, and whether the asker made it (and so may delete it from the list); one
+    // the room does not count them in (the index behind it) is left out
+    const glance = async (id: RoomId, by: MemberId | null = null) => {
+      const summary = await c.env.ROOM.getByName(id).summary(by);
+      return summary === null ? [] : [{ id, ...summary }];
+    };
+    const rooms = (await Promise.all(mine.map((m) => glance(m.roomId, m.memberId)))).flat();
     // an invitation shows the trip it is to, its owner leading the members
-    const invitations = await Promise.all(invitedTo.map((id) => glance(id)));
+    const invitations = (await Promise.all(invitedTo.map((id) => glance(id)))).flat();
     // a deleted trip, to the people who were in it, who may restore it
     const deleted = (
       await Promise.all(
@@ -332,13 +344,12 @@ const api = new Hono<ApiEnv>()
   .post("/invitations/:roomId/decline", roomInPath(), async (c) => {
     const { roomId } = c.req.valid("param");
     c.var.log.set({ room: roomId, action: "decline" });
-    const index = c.env.ROOMS.getByName("index");
-    const seat = await index.invitation(c.var.email, roomId);
+    // the invitation first, in one step, so an acceptance racing it either was recorded and
+    // this finds none, or is refused and leaves the room; then the room's seat, which the room
+    // gives back on its own if this call fails (Room.UNLISTED_FOR)
+    const seat = await c.env.ROOMS.getByName("index").take(c.var.email, roomId);
     if (seat === null) return c.text("Not Found", 404);
-    // the room's seat first, then the invitation: a decline that failed part way is finished by
-    // declining again, and the room never keeps a seat the index has forgotten
     await c.env.ROOM.getByName(roomId).closeSeat(seat);
-    await index.take(c.var.email, roomId);
     return c.json({}, 200);
   })
   // who they will be in the room is theirs to say, checked before the seat is taken
@@ -365,13 +376,16 @@ const api = new Hono<ApiEnv>()
       return c.json(refusal(accepted.reason), 409);
     }
     const memberId = accepted.value;
-    const added = await index.add(c.var.email, roomId, memberId);
-    if (!added.ok) {
-      c.var.log.set({ refused: added.reason });
-      // at the cap of rooms: the seat is lost, as a declined one would be
+    // the index decides, in one step with the invitation: withdrawn, declined or the room
+    // deleted meanwhile, it was taken out first and the room has the seat back or soon will
+    const joined = await index.join(c.var.email, roomId, memberId, seat);
+    if (!joined.ok) {
+      c.var.log.set({ refused: joined.reason });
       await room.unaccept(memberId);
+      if (joined.reason === "not invited") return c.json(refusal("no seat"), 409);
+      // at the cap of rooms: the seat is lost, as a declined one would be
       await index.take(c.var.email, roomId);
-      return c.json(refusal(added.reason), 409);
+      return c.json(refusal(joined.reason), 409);
     }
     c.var.log.set({ member: memberId });
     return c.json({ memberId }, 200);
@@ -549,6 +563,7 @@ const api = new Hono<ApiEnv>()
     `${ROOM}/expand`,
     roomInPath(),
     member("expand"),
+    admitted,
     body(v.object({ url: v.pipe(v.string(), v.maxLength(2000)), lang })),
     async (c) => {
       const { log } = c.var;
@@ -586,6 +601,7 @@ const api = new Hono<ApiEnv>()
     `${ROOM}/preview`,
     roomInPath(),
     member("preview"),
+    admitted,
     body(v.object({ url: v.pipe(v.string(), v.trim(), v.maxLength(2000)) })),
     async (c) => {
       const { log, roomId, memberId, room } = c.var;
@@ -629,6 +645,7 @@ const api = new Hono<ApiEnv>()
     `${ROOM}/find`,
     roomInPath(),
     member("find"),
+    admitted,
     body(v.object({ query: v.pipe(v.string(), v.trim(), v.nonEmpty(), v.maxLength(200)), lang })),
     async (c) => {
       const { query, lang } = c.req.valid("json");
@@ -649,6 +666,7 @@ const api = new Hono<ApiEnv>()
     `${ROOM}/where`,
     roomInPath(),
     member("where"),
+    admitted,
     body(v.object({ ...LatLngSchema.entries, lang })),
     async (c) => {
       const { lat, lng, lang } = c.req.valid("json");
@@ -695,10 +713,11 @@ const api = new Hono<ApiEnv>()
 
       const context = await room.placeContext(memberId);
       if (!context.ok) return outsider(c, context.reason);
-      // Claude names the place and the geocoder finds it, settled as one call: a lookup that had
-      // no turn (the geocoder's queue full) gave the asker nothing for what Claude was paid, and
-      // the reservation goes back, as it does for a provider's error. One the geocoder failed is
-      // spent, as a provider's timeout is.
+      // Claude names the place and the geocoder finds it, settled as one call: only Claude's
+      // error gives the reservation back. Claude was paid once it answered, so a lookup that had
+      // no turn (the geocoder's queue full, or the asker's share of it held) is spent as one the
+      // geocoder failed is, and the budget stays a bound on what Claude is paid however many
+      // lookups are asked at once.
       const found = await budgeted(
         c,
         async () => {
@@ -707,17 +726,12 @@ const api = new Hono<ApiEnv>()
           // the best query first; the other only when the first finds nothing (geocode.ts spaces them)
           let places: Result<Place[], GeocoderFailure> = { ok: true, value: [] };
           for (const query of named.value) {
-            places = await geocode(c.env, query, lang, null);
+            places = await geocode(c.env, query, lang, c.var.email);
             if (!places.ok || places.value.length > 0) break;
           }
           return { named, places };
         },
-        {
-          refunds: (found) =>
-            found.places === null
-              ? providerRefused(found.named)
-              : !found.places.ok && found.places.reason === "busy",
-        },
+        { refunds: (found) => found.places === null && providerRefused(found.named) },
       );
       if (found instanceof Response) return found;
       if (found.places === null) return badGateway(c, "claude", found.named);
@@ -726,7 +740,7 @@ const api = new Hono<ApiEnv>()
       if (!places.ok) {
         log.set({
           claude: { model: MODEL, ok: true, tokens: named.usage },
-          geocoder: { ok: false, failed: places.reason, refunded: places.reason === "busy" },
+          geocoder: { ok: false, failed: places.reason },
         });
         return c.text("Bad Gateway", 502);
       }
@@ -860,10 +874,12 @@ const api = new Hono<ApiEnv>()
       }
       const { value: seat } = invited;
       const held = await room.openSeat(memberId, seat, await index.seats(roomId));
-      if (!held.ok) {
+      // held already: the invitation is the one an earlier try made (a double tap, or an answer
+      // lost), and it stands
+      if (!held.ok && held.reason !== "already invited") {
         c.var.log.set({ refused: held.reason });
-        // held already, the invitation is the one there was; else there is no seat for it
-        if (held.reason !== "already invited") await index.take(invitee, roomId);
+        // there is no seat for it
+        await index.take(invitee, roomId);
         return held.reason === "not a member"
           ? outsider(c, held.reason)
           : c.json(refusal(held.reason), 409);
@@ -880,12 +896,10 @@ const api = new Hono<ApiEnv>()
     async (c) => {
       const { roomId, room } = c.var;
       const { email: invitee } = c.req.valid("json");
-      const index = c.env.ROOMS.getByName("index");
-      const seat = await index.invitation(invitee, roomId);
+      // the invitation first, then the room's seat, as a decline does
+      const seat = await c.env.ROOMS.getByName("index").take(invitee, roomId);
       if (seat === null) return c.text("Not Found", 404);
-      // the room's seat first, then the invitation, as a decline does
       await room.closeSeat(seat);
-      await index.take(invitee, roomId);
       return c.json({}, 200);
     },
   )

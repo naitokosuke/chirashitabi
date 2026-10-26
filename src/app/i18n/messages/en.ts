@@ -154,7 +154,6 @@ one {{From {$date} · {$count} night}}
   "people.inviteFailed": "Could not invite. Check the address and try again.",
   "people.noSeat": "No seat is left on this trip.",
   "people.alreadyIn": "They are on this trip already.",
-  "people.alreadyInvited": "They are invited already and have yet to answer.",
   "people.notOwner": "Only the trip's owner can do that.",
   "people.isOwner": "The owner cannot leave the trip; delete it instead.",
   "people.notIn": "Not on this trip any more.",

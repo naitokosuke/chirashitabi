@@ -15,10 +15,10 @@ export type Refusal = "day" | "trip";
 const GEOCODER_QUEUE_MS = 5000;
 
 /**
- * How many of the turns to come one person's free lookups may hold: of the few that fit in
- * GEOCODER_QUEUE_MS, enough for a lookup and the next, and never all of them
+ * How many of the turns to come one person's lookups may hold, free or budgeted: of the few
+ * that fit in GEOCODER_QUEUE_MS, enough for a lookup and the next, and never all of them
  */
-const FREE_TURNS = 2;
+const TURNS_EACH = 2;
 
 /**
  * One per account: which rooms each e-mail belongs to, and as which member, which rooms it is
@@ -101,33 +101,31 @@ export class RoomsIndex extends DurableObject<Env> {
   #geocoderAt = 0;
 
   /**
-   * The turns each person's free lookups hold that have not come yet, by e-mail, in memory as
-   * the queue is
+   * The turns each person's lookups hold that have not come yet, by e-mail, in memory as the
+   * queue is
    */
-  #freeTurns = new Map<Email, number[]>();
+  #turns = new Map<Email, number[]>();
 
   /**
-   * A turn at the geocoder: how many ms to wait before asking, the turns spaced SPACING_MS
-   * apart; null when the turns already taken run past GEOCODER_QUEUE_MS, and it is not asked.
-   * A free lookup names who asks (`free`), and is refused too while they hold FREE_TURNS of the
-   * turns to come, so nobody's free lookups crowd out everyone else's; a budgeted one (null) is
-   * bounded by the budget already.
+   * A turn at the geocoder for a lookup `asker` makes: how many ms to wait before asking, the
+   * turns spaced SPACING_MS apart; null when the turns already taken run past GEOCODER_QUEUE_MS,
+   * or while `asker` holds TURNS_EACH of the turns to come, and it is not asked. A budgeted
+   * lookup is held to the share as a free one is: the budget bounds what Claude is paid, not how
+   * many lookups wait at once, so nobody's lookups crowd out everyone else's.
    */
-  geocoderTurn(free: Email | null): number | null {
+  geocoderTurn(asker: Email): number | null {
     const now = Date.now();
     const at = Math.max(now, this.#geocoderAt);
     if (at - now > GEOCODER_QUEUE_MS) return null;
-    if (free !== null) {
-      // a turn that has come is held no longer
-      for (const [email, turns] of this.#freeTurns) {
-        const ahead = turns.filter((t) => t > now);
-        if (ahead.length === 0) this.#freeTurns.delete(email);
-        else this.#freeTurns.set(email, ahead);
-      }
-      const held = this.#freeTurns.get(free) ?? [];
-      if (held.length >= FREE_TURNS) return null;
-      this.#freeTurns.set(free, [...held, at]);
+    // a turn that has come is held no longer
+    for (const [email, turns] of this.#turns) {
+      const ahead = turns.filter((t) => t > now);
+      if (ahead.length === 0) this.#turns.delete(email);
+      else this.#turns.set(email, ahead);
     }
+    const held = this.#turns.get(asker) ?? [];
+    if (held.length >= TURNS_EACH) return null;
+    this.#turns.set(asker, [...held, at]);
     this.#geocoderAt = at + SPACING_MS;
     return at - now;
   }
@@ -179,33 +177,71 @@ export class RoomsIndex extends DurableObject<Env> {
   }
 
   /**
-   * Records a membership the room has already minted, and its invitation, if it had one, is
-   * answered; refused when `email` is at its room cap. A deleted room still counts until it is
-   * gone for good. Recorded already (a try whose answer was lost), it is answered the same.
+   * Records the creator of a room `create` has just set up; refused when `email` is at its room
+   * cap. A deleted room still counts until it is gone for good. Recorded already (a try whose
+   * answer was lost), it is answered the same.
    */
   add(email: Email, roomId: RoomId, memberId: MemberId): Result<void, "at the cap"> {
-    const sql = this.ctx.storage.sql;
-    const recorded = sql
-      .exec(
-        "SELECT 1 FROM memberships WHERE email = ? AND room_id = ? AND member_id = ?",
-        email,
-        roomId,
-        memberId,
-      )
-      .toArray();
-    if (recorded.length > 0) return { ok: true, value: undefined };
-    const count = sql
-      .exec<{ n: number }>("SELECT COUNT(*) AS n FROM memberships WHERE email = ?", email)
-      .one().n;
-    if (count >= RoomsIndex.MAX_ROOMS_PER_EMAIL) return { ok: false, reason: "at the cap" };
-    sql.exec(
+    if (this.recorded(email, roomId, memberId)) return { ok: true, value: undefined };
+    if (this.atCap(email)) return { ok: false, reason: "at the cap" };
+    this.ctx.storage.sql.exec(
       "INSERT INTO memberships (email, room_id, member_id) VALUES (?, ?, ?)",
       email,
       roomId,
       memberId,
     );
+    return { ok: true, value: undefined };
+  }
+
+  /**
+   * Records someone the room let in on their invitation to the seat `seat`, which is answered
+   * with it, in one step: refused when that invitation is gone (withdrawn, declined, or the room
+   * deleted, all of which take it out first), so the index never lists someone the room has given
+   * the seat back from, and refused at the room cap as `add` is. The row is as deleted as the
+   * room's others. Recorded already (a try whose answer was lost), it is answered the same.
+   */
+  join(
+    email: Email,
+    roomId: RoomId,
+    memberId: MemberId,
+    seat: SeatId,
+  ): Result<void, "not invited" | "at the cap"> {
+    if (this.recorded(email, roomId, memberId)) return { ok: true, value: undefined };
+    if (this.invitation(email, roomId) !== seat) return { ok: false, reason: "not invited" };
+    if (this.atCap(email)) return { ok: false, reason: "at the cap" };
+    const sql = this.ctx.storage.sql;
+    sql.exec(
+      `INSERT INTO memberships (email, room_id, member_id, deleted_at)
+         VALUES (?, ?, ?, (SELECT deleted_at FROM memberships WHERE room_id = ? LIMIT 1))`,
+      email,
+      roomId,
+      memberId,
+      roomId,
+    );
     sql.exec("DELETE FROM invitations WHERE email = ? AND room_id = ?", email, roomId);
     return { ok: true, value: undefined };
+  }
+
+  /** Whether `email` is recorded in `roomId` as `memberId` already */
+  private recorded(email: Email, roomId: RoomId, memberId: MemberId): boolean {
+    return (
+      this.ctx.storage.sql
+        .exec(
+          "SELECT 1 FROM memberships WHERE email = ? AND room_id = ? AND member_id = ?",
+          email,
+          roomId,
+          memberId,
+        )
+        .toArray().length > 0
+    );
+  }
+
+  /** Whether `email` has as many rooms as it may, deleted ones counted */
+  private atCap(email: Email): boolean {
+    const { n } = this.ctx.storage.sql
+      .exec<{ n: number }>("SELECT COUNT(*) AS n FROM memberships WHERE email = ?", email)
+      .one();
+    return n >= RoomsIndex.MAX_ROOMS_PER_EMAIL;
   }
 
   /** `memberId` is no longer in `roomId`: removed by the owner, or left */
@@ -274,8 +310,8 @@ export class RoomsIndex extends DurableObject<Env> {
 
   /**
    * The room's seat the invitation of `email` to `roomId` holds, left in place until the
-   * membership is recorded (`add`) or the room has given the seat back, so an answer that failed
-   * part way can be asked again; null when there is none
+   * membership is recorded (`join`) or the invitation is taken (`take`), so an acceptance that
+   * failed part way can be asked again; null when there is none
    */
   invitation(email: Email, roomId: RoomId): SeatId | null {
     const row = this.ctx.storage.sql
@@ -288,13 +324,20 @@ export class RoomsIndex extends DurableObject<Env> {
     return row === undefined ? null : parseSeatId(row.invite_id);
   }
 
-  /** Takes the invitation of `email` to `roomId` out, declined, withdrawn or refused */
-  take(email: Email, roomId: RoomId): void {
-    this.ctx.storage.sql.exec(
-      "DELETE FROM invitations WHERE email = ? AND room_id = ?",
-      email,
-      roomId,
-    );
+  /**
+   * Takes the invitation of `email` to `roomId` out, declined, withdrawn or refused; returns the
+   * seat it held, for the room to give back, or null when there was none to take: answered
+   * (`join`) or taken already. Taken in one step, so of an answer and a withdrawal only one wins.
+   */
+  take(email: Email, roomId: RoomId): SeatId | null {
+    const row = this.ctx.storage.sql
+      .exec<{ invite_id: string }>(
+        "DELETE FROM invitations WHERE email = ? AND room_id = ? RETURNING invite_id",
+        email,
+        roomId,
+      )
+      .toArray()[0];
+    return row === undefined ? null : parseSeatId(row.invite_id);
   }
 
   // ---- deleting a room: hidden from everyone at once, gone for good when the room says so ----

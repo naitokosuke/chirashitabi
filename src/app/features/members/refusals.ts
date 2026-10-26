@@ -6,7 +6,6 @@ import type { MembersRefusal } from "./api";
 export const REFUSALS: Record<MembersRefusal, MessageId> = {
   "no seat": "people.noSeat",
   "already in": "people.alreadyIn",
-  "already invited": "people.alreadyInvited",
   "not the owner": "people.notOwner",
   "not theirs": "people.notOwner",
   "the owner": "people.isOwner",

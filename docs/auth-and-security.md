@@ -119,8 +119,10 @@ Creating and joining are explicit operations, not side effects of a first visit.
   An e-mail may have at most ten rooms, counted in the index; a deleted room counts until it is gone for good.
 - `room:invite(email)` is called by the owner, and a room holds at most `Room.MAX_PEOPLE` people (two).
   The room holds a seat for the invitation and the index records the e-mail against it; a held seat counts as taken, so the people plus the open invitations never exceed the limit.
-  The index records the invitation before the room holds its seat, and the room gives the seat back before the index forgets the invitation, so a call that fails part way is finished by asking again and the room never keeps a seat nobody can see; a held seat the index has not listed for a minute is given back at the next invitation.
+  The index records the invitation before the room holds its seat, so an invitation that fails part way is finished by inviting again, and inviting again an invitation that went through answers it as it stands.
   The invitee sees it in `/api/me` and answers it: accepting (`/api/invitations/<room>/accept`) brings their own color (and a name, blank for now), and the room mints their member id only then; declining gives the seat back, and so does the owner withdrawing it (`room:uninvite`).
+  The index decides which answer wins, each in one step: an acceptance is recorded only while its invitation is there, which it uses up, and a decline, a withdrawal or a deletion takes the invitation out before the room gives the seat back; an acceptance the index refused takes its member out of the room again.
+  A seat a failed second step leaves held, which the index no longer lists, is given back at the next invitation once it is a minute old.
   The invitee must also be allowed by Access, or the invitation sits unused.
 - `room:remove(member)` is called by the owner, for anyone but themselves; `room:leave` by anyone else, for themselves.
   The room tells that person's sockets they are out (`gone`) and closes them, tells the rest who is in now (`members`), and the index forgets the membership; what they wrote stays, signed with their old id.
@@ -185,9 +187,9 @@ Cloudflare billing notifications and a Google Cloud budget alert are the second 
 
 Built for `draftDay` (`POST /api/rooms/<id>/draft`), the agent's suggestions (`POST /api/rooms/<id>/suggest`), tag suggestions (`POST /api/rooms/<id>/tags`) and finding a memo's place (`POST /api/rooms/<id>/places`), which share it.
 Finding a place is one Claude call, which names the place as search strings; the coordinates then come from OpenStreetMap's geocoder (Nominatim), which is free and takes no key, so it is not budgeted. What reaches it is Claude's search string (a place's name, city and country), never the memo itself, with an identifying User-Agent and a timeout, at most one request a second for the whole app, as its usage policy asks: `RoomsIndex.geocoderTurn` hands out the turns, and a lookup that would wait more than five seconds fails instead.
-Claude's call and the lookups settle as one: a lookup that got no turn leaves the asker nothing for the call, so it refunds; one the geocoder failed is spent, as a provider's timeout is.
+Claude's call and the lookups settle as one, and only Claude's error refunds: Claude was paid once it answered, so a lookup that got no turn is spent as one the geocoder failed is, and however many are asked at once the budget bounds what Claude is paid.
 A point pinned on the map is named the same way (`POST /api/rooms/<id>/where`): one reverse lookup at the geocoder, no Claude call, so it is not budgeted either; only the point's coordinates reach it.
-Free lookups (`where`, a name typed for a stay with `find`, and the name a short link led to) are each held to two of the turns to come per person, so one person's cannot take every turn from everyone else's.
+Every lookup, free (`where`, a name typed for a stay with `find`, and the name a short link led to) or budgeted (`places`), is held to two of the turns to come per person, so one person's cannot take every turn from everyone else's.
 A tag suggestion is one Clef call; the first one in a trip also makes the Claude call that proposes the trip's candidate tags, which the room then keeps, so each counts on its own.
 Reading the kept candidates (`POST /api/rooms/<id>/candidates`) calls nothing outside the room, so it is not budgeted.
 The ceilings count calls, `SPEND_PER_DAY` (20, a UTC day) and `SPEND_PER_TRIP` (200); a var that is missing or not a number allows nothing.
