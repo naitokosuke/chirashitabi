@@ -20,6 +20,9 @@ export const SEATS = 2;
 /** How many days a deleted room can be restored before it is gone for good */
 export const KEPT_DAYS = 30;
 
+/** Which of a person's budget ceilings a paid call met, and so was not made: the day's or the trip's */
+export type Ceiling = "day" | "trip";
+
 /** The longest a name may be written: a trip's, a stay's, a person's */
 export const MAX_NAME = 60;
 /** The most days a trip may have, and so the most nights a stay may last */

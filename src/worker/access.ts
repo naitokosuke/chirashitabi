@@ -34,8 +34,12 @@ const RsaJwkSchema = v.object({
   e: v.string(),
 });
 
-/** The certs as Access serves them: the keys Access signs with; any other key is left out */
-const CertsSchema = v.fallback(v.object({ keys: listOf(RsaJwkSchema) }), { keys: [] });
+/**
+ * The certs as Access serves them: the keys Access signs with; any other key is left out. A body
+ * of another shape, or with no such key, is a failed fetch (`fetchKeys`), so it never replaces the
+ * keys kept with none
+ */
+const CertsSchema = v.object({ keys: listOf(RsaJwkSchema) });
 
 /** A token's header as Access writes it: RS256, and which key signed it */
 const HeaderSchema = v.object({ alg: v.literal("RS256"), kid: v.string() });
@@ -138,6 +142,7 @@ export class AccessVerifier {
       );
       byKid.set(jwk.kid, key);
     }
+    if (byKid.size === 0) throw new Error("certs with no usable key");
     return { fetchedAt: this.now(), byKid };
   }
 }

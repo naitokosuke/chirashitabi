@@ -6,6 +6,7 @@ import type { Locale } from "../../i18n/locale";
 
 import type { Api } from "../../../../.worker-types/worker";
 import type { Result } from "../../../contract";
+import type { Ceiling } from "../../../contract/room";
 import type { MemberId } from "../members/types";
 import type { ImageId, NoteId } from "../notes/id";
 import type { Scheduled, Tag } from "../notes/types";
@@ -29,7 +30,7 @@ export interface DayDraft {
 }
 
 /** The budget declined a paid call (docs/auth-and-security.md): asking again will not help */
-export type OverBudget = { kind: "over"; ceiling: "day" | "trip" };
+export type OverBudget = { kind: "over"; ceiling: Ceiling };
 /** The room already keeps as many pictures as it may */
 type RoomFull = { kind: "full" };
 

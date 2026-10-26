@@ -207,7 +207,8 @@ src/worker/         The Cloudflare Worker, its own program (tsconfig.json here: 
   env.d.ts          ANTHROPIC_API_KEY (a secret), and ACCESS_CERTS_URL and ANTHROPIC_BASE_URL, which only
                     the tests set
 
-public/             favicon.svg: three notes scattered on a red tile, served as they are
+public/             favicon.svg: three notes scattered on a red tile; theme.js: the device's theme, set before the
+                    first paint; both served as they are
 scripts/            dev-access.mjs: stands in for Cloudflare Access on a laptop (see "Running against the Worker");
                     airports.mjs: rebuilds src/contract/airports-data.json from OurAirports (public domain)
 

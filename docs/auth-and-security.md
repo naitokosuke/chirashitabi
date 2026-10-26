@@ -68,6 +68,7 @@ So a member who is logged in and opens a stranger's page would let that page ope
 
 Every API call is a `POST` with `Content-Type: application/json`, so the browser always sends `Origin`; the Worker rejects any API or upgrade request whose `Origin` is missing or is not the app's own origin, and the Access application's cookie is set to `SameSite=Strict`.
 There is no CORS configuration, so no other origin is ever allowed.
+The app's own files are served with a CSP that runs only the build's scripts (no inline script), lets the page fetch only its own origin, its socket and OpenFreeMap, allows no plugin, no `<base>` and no framing (`frame-ancestors 'none'`), with `X-Content-Type-Options: nosniff` and `Referrer-Policy: same-origin`; `no-referrer` would make the browser send `Origin: null` on the app's own POSTs, which the check above refuses.
 
 Pictures on cards are the one exception, and only for reading.
 `GET /api/rooms/<id>/images/<image id>` comes from an `<img>`, which sends no `Origin`; it changes nothing, so it passes on Access's identity and the room membership alone, and answers only for a picture the room's list has, from that room's folder in the private R2 bucket.
@@ -88,6 +89,7 @@ It returns a verified e-mail or throws; it never returns a member id, and it nev
 - It verifies the signature against the team's `/cdn-cgi/access/certs`, cached in the Worker's memory, with the `kid` picked from the header; keys rotate every six weeks and the old one stays valid for seven days.
   A `kid` the cache does not have fetches the keys again, at most once a minute.
   When a fetch fails, the cached keys are still used while they are younger than seven days; with none that young, the request is rejected.
+  An answer that is not the certs, or carries no RSA key, is a failed fetch too, so it never replaces the cached keys with none.
 - It checks `aud` against the application's AUD tag, `iss` against the team domain, `exp` and `nbf` with 60 seconds of skew.
   Without the `aud` check a token from any other Access application on the team, or a service token, would pass.
 
@@ -122,11 +124,14 @@ Creating and joining are explicit operations, not side effects of a first visit.
   The index records the invitation before the room holds its seat, so an invitation that fails part way is finished by inviting again, and inviting again an invitation that went through answers it as it stands.
   The invitee sees it in `/api/me` and answers it: accepting (`/api/invitations/<room>/accept`) brings their own color (and a name, blank for now), and the room mints their member id only then; declining gives the seat back, and so does the owner withdrawing it (`room:uninvite`).
   The index decides which answer wins, each in one step: an acceptance is recorded only while its invitation is there, which it uses up, and a decline, a withdrawal or a deletion takes the invitation out before the room gives the seat back; an acceptance the index refused takes its member out of the room again.
-  A seat a failed second step leaves held, which the index no longer lists, is given back at the next invitation once it is a minute old.
+  A seat a failed second step leaves held, which the index no longer lists, is given back at the next invitation once it is a minute old; so is a seat taken by someone the index does not record (a decline, a removal or a leave whose room step failed), who goes with it.
   The invitee must also be allowed by Access, or the invitation sits unused.
 - `room:remove(member)` is called by the owner, for anyone but themselves; `room:leave` by anyone else, for themselves.
-  The room tells that person's sockets they are out (`gone`) and closes them, tells the rest who is in now (`members`), and the index forgets the membership; what they wrote stays, signed with their old id.
-- `room:delete` is called by the owner and is a soft delete: the room is marked deleted, every socket is told and closed, the index stops resolving anyone in it and drops its open invitations, and either person who was in it can restore it for 30 days (`room:restore`).
+  The room decides who may; then the index forgets the membership, and only then does the room tell that person's sockets they are out (`gone`) and close them, and tell the rest who is in now (`members`); what they wrote stays, signed with their old id.
+  Should the room's step fail, the person is already let in nowhere, and their seat comes back as above.
+  An index row the room no longer honours does not stop an invitation: inviting asks the room and forgets it.
+- `room:delete` is called by the owner and is a soft delete: the index stops resolving anyone in it and drops its open invitations first, then the room is marked deleted and every socket is told and closed, and either person who was in it can restore it for 30 days (`room:restore`).
+  A room the index hides and the room does not count as deleted (its step failed) is listed among the deleted trips all the same, so restoring brings it back; a room deleted that the index still lists is left out of the list of trips.
   After 30 days an alarm deletes its pictures from R2, removes it from the index and calls `deleteAll` on the object; its public booklet, which deleting took down already, is gone with it. The owner can have that happen at once (`room:purge`), since only they deleted it; the other person, who could have restored it, cannot.
 - Everything else from a member id that is not in the table, or in a deleted room, is rejected inside the object, as a refusal the Worker answers as it answers anyone not in the room.
 
@@ -195,7 +200,7 @@ Reading the kept candidates (`POST /api/rooms/<id>/candidates`) calls nothing ou
 The ceilings count calls, `SPEND_PER_DAY` (20, a UTC day) and `SPEND_PER_TRIP` (200); a var that is missing or not a number allows nothing.
 `RoomsIndex.reserve` refuses past either with a 429 naming which, and the app says so instead of offering a retry.
 A provider answer outside 2xx refunds; no answer, or an answer that is not a draft, is spent.
-The room's `agent_calls` table is the ledger.
+The room's `agent_calls` table is the ledger; an answer that comes after its asker left or the room was deleted writes nothing into it.
 
 ## Expanding short links
 

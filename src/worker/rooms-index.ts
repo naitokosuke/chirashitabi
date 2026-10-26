@@ -1,15 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 
-import { parseEmail, type Email, type Result } from "../contract";
+import { parseEmail, parserOf, type Email, type Result } from "../contract";
 import { parseMemberId, type MemberId } from "../contract/member";
-import { parseRoomId, type RoomId } from "../contract/room";
-import type { IsoInstant } from "../contract/wire";
+import { parseRoomId, type Ceiling, type RoomId } from "../contract/room";
+import { IsoInstantSchema, type IsoInstant } from "../contract/wire";
 
 import { SPACING_MS } from "./geocode";
 import { parseSeatId, type SeatId } from "./room";
-
-/** Why a paid call was not reserved */
-export type Refusal = "day" | "trip";
 
 /** How far ahead the geocoder's turns may be taken: past it, a lookup fails rather than waits */
 const GEOCODER_QUEUE_MS = 5000;
@@ -65,7 +62,7 @@ export class RoomsIndex extends DurableObject<Env> {
    * so only a deploy changes them; a var that is missing or not a number allows nothing.
    * Returns the reservation's id, to refund it if the provider answers with an error.
    */
-  reserve(email: Email, roomId: RoomId): Result<number, Refusal> {
+  reserve(email: Email, roomId: RoomId): Result<number, Ceiling> {
     const day = new Date().toISOString().slice(0, 10); // UTC
     const sql = this.ctx.storage.sql;
     const spent = (where: string, ...args: string[]) =>
@@ -148,16 +145,26 @@ export class RoomsIndex extends DurableObject<Env> {
     return row === undefined ? null : parseMemberId(row.member_id);
   }
 
-  /** The rooms `email` is in, oldest first; with `deleted`, the deleted ones instead */
-  rooms(email: Email, deleted = false): RoomId[] {
+  /**
+   * The deleted rooms `email` was in, oldest first: who it was in each, and when the index hid it,
+   * which is the room's own deletion time unless the room's part of it did not go through
+   */
+  deletions(email: Email): { roomId: RoomId; memberId: MemberId; at: IsoInstant }[] {
     return this.ctx.storage.sql
-      .exec<{ room_id: string }>(
-        `SELECT room_id FROM memberships
-           WHERE email = ? AND deleted_at IS ${deleted ? "NOT NULL" : "NULL"} ORDER BY rowid`,
+      .exec<{ room_id: string; member_id: string; deleted_at: string }>(
+        `SELECT room_id, member_id, deleted_at FROM memberships
+           WHERE email = ? AND deleted_at IS NOT NULL ORDER BY rowid`,
         email,
       )
       .toArray()
-      .flatMap((r) => parseRoomId(r.room_id) ?? []);
+      .flatMap((r) => {
+        const roomId = parseRoomId(r.room_id);
+        const memberId = parseMemberId(r.member_id);
+        const at = parserOf(IsoInstantSchema)(r.deleted_at);
+        return roomId === null || memberId === null || at === null
+          ? []
+          : [{ roomId, memberId, at }];
+      });
   }
 
   /** The rooms `email` is in and who it is in each, oldest first; deleted ones left out */
@@ -300,12 +307,22 @@ export class RoomsIndex extends DurableObject<Env> {
       .flatMap((r) => parseEmail(r.email) ?? []);
   }
 
-  /** The room's seats the invitations to `roomId` hold, for the room to give back any it lost */
-  seats(roomId: RoomId): SeatId[] {
-    return this.ctx.storage.sql
-      .exec<{ invite_id: string }>("SELECT invite_id FROM invitations WHERE room_id = ?", roomId)
-      .toArray()
-      .flatMap((r) => parseSeatId(r.invite_id) ?? []);
+  /**
+   * What the index lists of `roomId`, read in one step for the room to give back what it lost: the
+   * seats its invitations hold, and the members it records
+   */
+  listed(roomId: RoomId): { seats: SeatId[]; members: MemberId[] } {
+    const sql = this.ctx.storage.sql;
+    return {
+      seats: sql
+        .exec<{ invite_id: string }>("SELECT invite_id FROM invitations WHERE room_id = ?", roomId)
+        .toArray()
+        .flatMap((r) => parseSeatId(r.invite_id) ?? []),
+      members: sql
+        .exec<{ member_id: string }>("SELECT member_id FROM memberships WHERE room_id = ?", roomId)
+        .toArray()
+        .flatMap((r) => parseMemberId(r.member_id) ?? []),
+    };
   }
 
   /**

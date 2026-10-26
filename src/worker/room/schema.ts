@@ -117,6 +117,13 @@ export const migrate = (storage: DurableObjectStorage): void => {
       updated_at TEXT NOT NULL,
       PRIMARY KEY (member, cid)
     );
+    CREATE TABLE IF NOT EXISTS agent_calls (
+      at TEXT NOT NULL,
+      by TEXT NOT NULL,
+      what TEXT NOT NULL,
+      input_tokens INTEGER NOT NULL,
+      output_tokens INTEGER NOT NULL
+    );
   `);
   // Rooms made before a taken seat remembered whom it let in gain the column once
   if (
