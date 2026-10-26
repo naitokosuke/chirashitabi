@@ -34,7 +34,12 @@ export function applyToNotes(
     case "note:update":
       return edit(m.id, (n) => (n.kind === "memo" ? { ...n, ...m.patch, updatedAt: at } : null));
     case "note:recolor":
-      return edit(m.id, (n) => ({ ...n, color: m.color, updatedAt: at }));
+      // only paper has a color to change
+      return edit(m.id, (n) =>
+        n.kind === "memo" || n.kind === "suggestion"
+          ? { ...n, color: m.color, updatedAt: at }
+          : null,
+      );
     case "note:move":
       return edit(m.id, (n) => ({
         ...n,
@@ -45,7 +50,7 @@ export function applyToNotes(
         updatedAt: at,
       }));
     case "text:edit":
-      return edit(m.id, (n) => (n.kind === "text" ? { ...n, title: m.text, updatedAt: at } : null));
+      return edit(m.id, (n) => (n.kind === "text" ? { ...n, text: m.text, updatedAt: at } : null));
     case "note:adopt":
       return edit(m.id, (n) => (n.kind === "suggestion" ? { ...adopted(n), updatedAt: at } : null));
     case "note:delete":

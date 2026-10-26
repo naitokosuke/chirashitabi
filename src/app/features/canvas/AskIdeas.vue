@@ -140,7 +140,16 @@ defineExpose({ open, busy: () => thinking.value });
       :aria-label="i18n.t('canvas.askIdeas')"
       @submit="onSubmit"
     >
-      <p v-if="askAbout !== null">{{ i18n.t("canvas.askFrom", { title: askAbout.title }) }}</p>
+      <p v-if="askAbout !== null">{{
+        i18n.t("canvas.askFrom", {
+          title:
+            askAbout.kind === "sticker"
+              ? i18n.t("canvas.sticker")
+              : askAbout.kind === "text"
+                ? askAbout.text
+                : askAbout.title,
+        })
+      }}</p>
       <CtInput
         ref="askInput"
         v-model="askWords"

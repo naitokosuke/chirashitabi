@@ -110,6 +110,7 @@ const APPLIED_KEPT = 1000;
 type NoteRow = {
   id: NoteId;
   kind: WireNote["kind"];
+  /** Paper's title, a text box's words, blank for a sticker; `color` is white for all but paper (faceColumns) */
   title: string;
   color: NoteColor;
   x: number;
@@ -834,7 +835,8 @@ export class Room extends DurableObject<Env> {
         trip: trip.name,
         days: trip.days.map((d) => d.date),
         tags,
-        titles: notes.map((n) => n.title),
+        // what is written on paper: a text box's words are a label on the desk, not a plan
+        titles: notes.flatMap((n) => (n.kind === "memo" || n.kind === "suggestion" ? n.title : [])),
         candidates: this.candidates(),
       },
     };
@@ -935,7 +937,7 @@ export class Room extends DurableObject<Env> {
         trip: trip.name,
         days: trip.days.map((d) => d.date),
         notes: notes.map((n) => ({
-          title: n.title,
+          title: n.kind === "text" ? n.text : n.title,
           tags: n.kind === "memo" ? n.tags : [],
           date: n.kind === "memo" ? (n.schedule?.date ?? null) : null,
         })),
@@ -943,7 +945,7 @@ export class Room extends DurableObject<Env> {
           from === null
             ? null
             : {
-                title: from.title,
+                title: from.kind === "text" ? from.text : from.title,
                 body: from.kind === "memo" ? from.body : "",
                 tags: from.kind === "memo" ? from.tags : [],
                 pin: from.kind === "memo" ? from.pin : null,
@@ -1249,12 +1251,11 @@ export class Room extends DurableObject<Env> {
         if (sql.exec("SELECT 1 FROM notes WHERE id = ?", m.note.id).toArray().length > 0)
           return { ok: false, reason: "duplicate id" };
         const note = { ...m.note, by, updatedAt: now };
-        const memo: WireMemo =
+        // every other kind is kept in a memo's columns, with nothing in those it does not have
+        const memo =
           note.kind === "memo"
             ? note
             : {
-                ...note,
-                kind: "memo",
                 body: "",
                 tags: [],
                 mapsUrl: null,
@@ -1281,8 +1282,7 @@ export class Room extends DurableObject<Env> {
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           note.id,
           note.kind,
-          note.title,
-          note.color,
+          ...faceColumns(note),
           note.x,
           note.y,
           note.rot,
@@ -1354,7 +1354,11 @@ export class Room extends DurableObject<Env> {
         return { ok: true, value: m };
       }
       case "note:recolor": {
-        if (this.note(m.id) === undefined) return { ok: false, reason: "no such note" };
+        const row = this.note(m.id);
+        if (row === undefined) return { ok: false, reason: "no such note" };
+        // a text box and a sticker have no paper to color
+        if (row.kind !== "memo" && row.kind !== "suggestion")
+          return { ok: false, reason: "not on paper" };
         sql.exec("UPDATE notes SET color = ?, updated_at = ? WHERE id = ?", m.color, now, m.id);
         return { ok: true, value: m };
       }
@@ -1362,6 +1366,7 @@ export class Room extends DurableObject<Env> {
         const row = this.note(m.id);
         if (row === undefined) return { ok: false, reason: "no such note" };
         if (row.kind !== "text") return { ok: false, reason: "not a text box" };
+        // a text box's words are kept as its title (faceColumns)
         sql.exec("UPDATE notes SET title = ?, updated_at = ? WHERE id = ?", m.text, now, m.id);
         return { ok: true, value: m };
       }
@@ -1619,8 +1624,6 @@ const tagsOf = (column: string): Tag[] => {
 const fromRow = (r: NoteRow): WireNote => {
   const card = {
     id: r.id,
-    title: r.title,
-    color: r.color,
     x: r.x,
     y: r.y,
     rot: r.rot,
@@ -1630,6 +1633,8 @@ const fromRow = (r: NoteRow): WireNote => {
   };
   const memo = (): WireMemo => ({
     ...card,
+    title: r.title,
+    color: r.color,
     kind: "memo",
     body: r.body,
     tags: tagsOf(r.tags),
@@ -1653,13 +1658,29 @@ const fromRow = (r: NoteRow): WireNote => {
     case "memo":
       return memo();
     case "suggestion":
-      return { ...card, kind: "suggestion" };
+      return { ...card, title: r.title, color: r.color, kind: "suggestion" };
     case "text":
-      return { ...card, kind: "text" };
+      return { ...card, kind: "text", text: r.title };
     case "sticker":
       // a sticker is never written without its picture; one that had none would be shown as the
       // memo it is kept as rather than not at all
       return r.image === null ? memo() : { ...card, kind: "sticker", image: r.image };
+  }
+};
+
+/**
+ * What a note shows of itself as the title and color columns keep it: paper its title and
+ * color; a text box its words, as its title, on white; a sticker no words, on white
+ */
+const faceColumns = (n: WireNote): [NoteRow["title"], NoteRow["color"]] => {
+  switch (n.kind) {
+    case "memo":
+    case "suggestion":
+      return [n.title, n.color];
+    case "text":
+      return [n.text, "#ffffff"];
+    case "sticker":
+      return ["", "#ffffff"];
   }
 };
 

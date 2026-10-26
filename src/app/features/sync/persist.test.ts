@@ -188,6 +188,42 @@ describe("keep and kept", () => {
     expect(back?.pending).toEqual(pending);
   });
 
+  test("a text box and a sticker kept with a title and a color come back with their own fields", () => {
+    const storage = memoryStorage();
+    keep(storage, R1, { me: YUKI, confirmed: room, pending: [], savedAt: at });
+    const saved = JSON.parse(storage.getItem("chirashitabi:room:r1")!) as {
+      confirmed: { notes: unknown[] };
+      pending: unknown[];
+    };
+    const where = { x: 0, y: 0, rot: 0, scale: 1 };
+    const placed = { ...where, color: "#ffffff" };
+    const image = "0f8fad5b-d9cb-469f-a165-70867728950e";
+    const stamp = { by: YUKI, updatedAt: at.toString() };
+    saved.confirmed.notes.push(
+      { ...placed, ...stamp, id: "t1", kind: "text", title: "Day 1" },
+      { ...placed, ...stamp, id: "s1", kind: "sticker", title: "", image },
+    );
+    saved.pending.push({
+      cid: "c1",
+      m: {
+        type: "note:add",
+        note: { ...placed, ...stamp, id: "t2", kind: "text", title: "Day 2" },
+      },
+      at: at.toString(),
+      by: YUKI,
+    });
+    storage.setItem("chirashitabi:room:r1", JSON.stringify(saved));
+    const back = kept(storage, R1);
+    expect(back?.confirmed.notes.slice(1)).toEqual([
+      { ...where, by: YUKI, updatedAt: at, id: "t1", kind: "text", text: "Day 1" },
+      { ...where, by: YUKI, updatedAt: at, id: "s1", kind: "sticker", image },
+    ]);
+    expect(back?.pending[0]?.m).toEqual({
+      type: "note:add",
+      note: { ...where, by: YUKI, updatedAt: at, id: "t2", kind: "text", text: "Day 2" },
+    });
+  });
+
   test("a newer version's save is neither read nor written over", () => {
     const storage = memoryStorage();
     const newer = JSON.stringify({ v: 3, anything: "else" });

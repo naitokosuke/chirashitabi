@@ -1328,8 +1328,7 @@ describe("the socket", () => {
     const box = {
       id: "t1",
       kind: "text",
-      title: "Day 1",
-      color: "#ffffff",
+      text: "Day 1",
       x: 5,
       y: 6,
       rot: 0,
@@ -1353,18 +1352,41 @@ describe("the socket", () => {
     await b.next();
     a.send({ type: "text:edit", id: "m1", text: "x", cid: "c4" });
     expect(await a.next()).toMatchObject({ type: "rejected", reason: "not a text box" });
+    // it has no paper to color
+    a.send({ type: "note:recolor", id: "t1", color: "#ffd9de", cid: "c5" });
+    expect(await a.next()).toMatchObject({ type: "rejected", reason: "not on paper" });
 
     const c = await connect(roomId, partner);
-    expect(c.snapshot).toMatchObject({
-      notes: [
-        { id: "t1", kind: "text", title: "Day 1 · Taipei", x: 50, y: 60, scale: 2 },
-        { id: "m1" },
-      ],
+    expect(c.snapshot.notes[0]).toEqual({
+      id: "t1",
+      kind: "text",
+      text: "Day 1 · Taipei",
+      x: 50,
+      y: 60,
+      rot: 0,
+      scale: 2,
+      by: expect.any(String),
+      updatedAt: expect.any(String),
     });
+    expect(c.snapshot.notes[1]).toMatchObject({ id: "m1" });
     a.send({ type: "note:delete", id: "t1" });
     await b.next();
     const d = await connect(roomId, partner);
     expect(d.snapshot).toMatchObject({ notes: [{ id: "m1" }] });
+    // a client from before each kind had only its own fields says the words as a title, on
+    // white paper: read as the words, and told as them
+    const where = { id: "t3", kind: "text", x: 5, y: 6, rot: 0, scale: 1 };
+    a.send({
+      type: "note:add",
+      note: { ...where, title: "Day 2", color: "#ffffff" },
+      cid: "c6",
+    });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c6" });
+    const told = await b.next();
+    expect(told.type === "mutation" && told.mutation).toEqual({
+      type: "note:add",
+      note: { ...where, text: "Day 2", by: expect.any(String), updatedAt: expect.any(String) },
+    });
     // the room's list counts memos, not words on the desk
     expect((await me(owner)).rooms).toMatchObject([{ memos: 1 }]);
     for (const s of [a, b, c, d]) s.ws.close(1000, "done");
@@ -1391,7 +1413,7 @@ describe("the socket", () => {
     await worker.evictDurableObject("Room", { name: roomId });
 
     const a = await connect(roomId, owner);
-    expect(a.snapshot).toMatchObject({ notes: [{ id: "old", kind: "text", title: "Kept" }] });
+    expect(a.snapshot).toMatchObject({ notes: [{ id: "old", kind: "text", text: "Kept" }] });
     a.ws.close(1000, "done");
   });
 
@@ -1464,8 +1486,7 @@ describe("the socket", () => {
     const box = {
       id: "t2",
       kind: "text",
-      title: "Hi",
-      color: "#ffffff",
+      text: "Hi",
       x: 0,
       y: 0,
       rot: 0,
@@ -2185,7 +2206,11 @@ describe("the agent's suggestions", () => {
     }
     expect(
       got.map((m) =>
-        m.type === "mutation" && m.mutation.type === "note:add" ? m.mutation.note.title : "",
+        m.type === "mutation" &&
+        m.mutation.type === "note:add" &&
+        m.mutation.note.kind === "suggestion"
+          ? m.mutation.note.title
+          : "",
       ),
     ).toEqual(["Elephant Mountain at sunset", "Beitou hot springs", "Jiufen"]);
 
@@ -2395,8 +2420,6 @@ describe("pictures", () => {
     const sticker = (image: unknown) => ({
       id: "s1",
       kind: "sticker",
-      title: "",
-      color: "#ffffff",
       x: 5,
       y: 6,
       rot: -3,
@@ -2415,17 +2438,44 @@ describe("pictures", () => {
     // it has no fields of a memo's to change
     a.send({ type: "note:update", id: "s1", patch: { title: "x" }, cid: "c5" });
     expect(await a.next()).toMatchObject({ type: "rejected", reason: "not a memo", cid: "c5" });
+    // nor any paper to color
+    a.send({ type: "note:recolor", id: "s1", color: "#ffd9de", cid: "c5b" });
+    expect(await a.next()).toMatchObject({ type: "rejected", reason: "not on paper", cid: "c5b" });
 
     const b = await connect(roomId, email);
-    expect(b.snapshot).toMatchObject({
-      notes: [{ id: "s1", kind: "sticker", image: id, x: 50, y: 60, rot: 10, scale: 2 }],
-    });
+    expect(b.snapshot.notes).toEqual([
+      {
+        id: "s1",
+        kind: "sticker",
+        image: id,
+        x: 50,
+        y: 60,
+        rot: 10,
+        scale: 2,
+        by: expect.any(String),
+        updatedAt: expect.any(String),
+      },
+    ]);
     // the room's list counts memos, not stickers
     expect((await me(email)).rooms).toMatchObject([{ memos: 0 }]);
     a.send({ type: "note:delete", id: "s1", cid: "c6" });
     expect((await a.next()).type).toBe("ack");
     const c = await connect(roomId, email);
     expect(c.snapshot).toMatchObject({ notes: [] });
+
+    // a client from before each kind had only its own fields sends a blank title and white
+    // paper with it: stuck all the same, and kept and told without them
+    a.send({
+      type: "note:add",
+      note: { ...sticker(id), id: "s2", title: "", color: "#ffffff" },
+      cid: "c7",
+    });
+    expect((await a.next()).type).toBe("ack");
+    const told = await c.next();
+    expect(told.type === "mutation" && told.mutation).toEqual({
+      type: "note:add",
+      note: { ...sticker(id), id: "s2", by: expect.any(String), updatedAt: expect.any(String) },
+    });
     for (const s of [a, b, c]) s.ws.close(1000, "done");
   });
 

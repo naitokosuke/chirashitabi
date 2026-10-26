@@ -33,11 +33,9 @@ export interface Shape {
   scale: number;
 }
 
-/** What every card on the canvas has */
+/** What every card on the canvas has, whatever its kind: which it is, where, and whose */
 interface CardBase {
   id: NoteId;
-  title: string;
-  color: NoteColor;
   x: number;
   y: number;
   rot: number;
@@ -47,8 +45,14 @@ interface CardBase {
   updatedAt: Temporal.Instant;
 }
 
+/** A card on paper: it has a title, and the paper a color */
+interface PaperBase extends CardBase {
+  title: string;
+  color: NoteColor;
+}
+
 /** An ordinary note: it can carry tags, a place, a day and a budget */
-export interface Memo extends CardBase {
+export interface Memo extends PaperBase {
   kind: "memo";
   body: string;
   tags: Tag[];
@@ -83,21 +87,22 @@ export type Booking =
   | { state: "booked"; code: string; url: HttpUrl | null };
 
 /** A suggestion waits to be adopted (becoming a memo) or dismissed; anyone can make one */
-export interface Suggestion extends CardBase {
+export interface Suggestion extends PaperBase {
   kind: "suggestion";
 }
 
 /**
  * Words set straight on the desk, with no paper under them: a heading, a label, where a note
- * would be too much. `title` is what it says; it has no paper, so its color is not shown.
+ * would be too much. `text` is what it says.
  */
 export interface TextBox extends CardBase {
   kind: "text";
+  text: string;
 }
 
 /**
  * A picture cut out and stuck straight on the desk: no paper and no words, only what it shows,
- * edged in white like a sticker. Its title and color are not shown.
+ * edged in white like a sticker
  */
 export interface Sticker extends CardBase {
   kind: "sticker";
@@ -105,6 +110,8 @@ export interface Sticker extends CardBase {
 }
 
 export type Note = Memo | Suggestion | TextBox | Sticker;
+/** A card on paper, which has a title and a color: a memo or a suggestion */
+export type Paper = Memo | Suggestion;
 
 /**
  * A note as its writer makes it. Who wrote it and when is the room's to stamp (the Worker

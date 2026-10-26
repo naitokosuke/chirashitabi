@@ -11,8 +11,7 @@ import { heldOf, IDLE, resized, turned, wrap, type Gesture, type Pivot } from ".
 const box: TextBox = {
   id: "t" as NoteId,
   kind: "text",
-  title: "Day 1",
-  color: "#ffffff",
+  text: "Day 1",
   x: 10,
   y: 20,
   rot: 5,
