@@ -91,6 +91,7 @@ const reads = (from: (s: string) => unknown) =>
 export const IsoDateSchema = v.pipe(
   v.string(),
   v.isoDate(),
+  // oxlint-disable-next-line typescript/unbound-method -- Temporal's static from never reads `this`
   reads(Temporal.PlainDate.from),
   v.brand("IsoDate"),
 );
@@ -99,6 +100,7 @@ export type IsoDate = v.InferOutput<typeof IsoDateSchema>;
 /** A time of day as it travels: HH:MM or HH:MM:SS */
 export const IsoTimeSchema = v.pipe(
   v.union([v.pipe(v.string(), v.isoTime()), v.pipe(v.string(), v.isoTimeSecond())]),
+  // oxlint-disable-next-line typescript/unbound-method -- Temporal's static from never reads `this`
   reads(Temporal.PlainTime.from),
   v.brand("IsoTime"),
 );
@@ -107,6 +109,7 @@ export type IsoTime = v.InferOutput<typeof IsoTimeSchema>;
 /** A local date and time as it travels: YYYY-MM-DDTHH:MM, seconds optional (as Temporal writes one) */
 export const IsoDateTimeSchema = v.pipe(
   v.union([v.pipe(v.string(), v.isoDateTime()), v.pipe(v.string(), v.isoDateTimeSecond())]),
+  // oxlint-disable-next-line typescript/unbound-method -- Temporal's static from never reads `this`
   reads(Temporal.PlainDateTime.from),
   v.brand("IsoDateTime"),
 );
@@ -117,6 +120,7 @@ export const IsoInstantSchema = v.pipe(
   v.string(),
   v.isoTimestamp(),
   v.endsWith("Z"),
+  // oxlint-disable-next-line typescript/unbound-method -- Temporal's static from never reads `this`
   reads(Temporal.Instant.from),
   v.brand("IsoInstant"),
 );

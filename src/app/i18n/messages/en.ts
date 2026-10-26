@@ -7,6 +7,7 @@ export const en = {
   "common.edit": "Edit",
   "common.close": "Close",
   "common.dismiss": "Dismiss",
+  "common.failed": "Something went wrong. Try again.",
 
   "nav.label": "Menu",
   "nav.home": "Home",

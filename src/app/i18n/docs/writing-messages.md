@@ -65,11 +65,11 @@ English needs a different sentence for one and for several.
 Declare the count with `.input`, then `.match` on it; each variant is a key and a pattern in double braces, and `*` catches every other case.
 
 ```ts
-"map.noPin": `
+"map.noPinFind": `
 .input {$count :integer}
 .match $count
-one {{{$count} note has no place · long-press the map to place}}
-*   {{{$count} notes have no place · long-press the map to place}}
+one {{{$count} note has no place · open it and use “Find the place”}}
+*   {{{$count} notes have no place · open one and use “Find the place”}}
 `,
 ```
 
@@ -77,7 +77,7 @@ The keys are the locale's plural categories (`zero`, `one`, `two`, `few`, `many`
 Japanese has only `other`, so the Japanese message is plain and needs no `.match`.
 
 ```ts
-"map.noPin": "場所のないメモが {$count :integer} 件 · 地図を長押しして置けます",
+"map.noPinFind": "場所のないメモが {$count :integer} 件 · メモを開いて「場所を探す」で置けます",
 ```
 
 A message with declarations is easier to read on several lines; a template literal keeps the line breaks, and the whitespace around declarations and variants is ignored.

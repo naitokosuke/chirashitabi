@@ -216,7 +216,7 @@ The canvas's ask for ideas does not ask at once: it opens a white panel under th
 
 Views are built the first time they are opened and then kept: switching only says which one is painted, and nothing reloads (the map keeps its tiles, the booklet its scroll, the canvas its pan and zoom). A hidden view is inert, and takes no part in a View Transition.
 
-Changing tabs cross-fades the kept views as layers (180ms): the one coming up fades in over the one going, which is hidden once it has faded. No snapshot of the screen is taken, so what floats over the views (the dock) is never pictured, scaled or covered on the way; it does not move at all. Other changes of place run through **View Transitions** (`useViewTransition`, `transitions.css`): only named regions morph, everything else renders live. A named region is always a box that clips its own content, since a snapshot is not clipped by its ancestors.
+Changing tabs cross-fades the kept views as layers (180ms): the one coming up fades in over the one going, which is hidden once it has faded. No snapshot of the screen is taken, so what floats over the views (the dock) is never pictured, scaled or covered on the way; it does not move at all. The one **View Transition** is the theme's switch (`useTheme`, `transitions.css`; see Theme switch below), in which nothing else morphs; everything else renders live.
 
 A page whose content is replaced, the booklet's day or its edit/read, never cross-fades: two different pages seen through each other read as a flicker. It **turns** (`usePageTurn`): the tabs and the heading answer the tap at once, the old page clears (120ms), and the new day's pieces (`data-turn`: the intro, each sticky, the draft, the total) are laid down from the top one after another, each rising 10px into place (280ms, 35ms apart, at most eight steps). Under reduced motion, without the API, or with the page hidden, the change simply happens. The note form appears two ways: as the memo tab, a page with a large title like home, and as the one sheet, opened by the write button on the canvas or the map, which slides in over everything with its way back floating at the top; the dock sinks out of the way while a sheet is up.
 
@@ -354,7 +354,7 @@ When a note is written over the canvas it appears where the canvas was looking, 
 - **Don't** add an accent hue, a cream or ivory surface, a tinted chrome, or a color per tag.
 - **Don't** use red for anything but deleting.
 - **Don't** add a bar, a header strip or a bordered title row to a view.
-- **Don't** remount a view, or fade it with CSS, when the tab changes; morph through a View Transition.
+- **Don't** remount a view when the tab changes; the kept views cross-fade as layers.
 - **Don't** let anything that holds for the whole view slide with a page that changes under it.
 - **Don't** add a second typeface, uppercase tracking, gradient text or an eyebrow label above a heading.
 - **Don't** fill the canvas with same-size cards in a grid; stickies keep their scatter and their tilt.

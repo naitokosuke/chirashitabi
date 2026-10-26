@@ -169,9 +169,9 @@ A rejection keeps today's behaviour, closing the socket so the next snapshot is 
 
 ### Dragging
 
-A card's position while it is dragged lives in a small local layer (`useDrag`: the note's id and its x and y), which the card renders over its cached position.
-Throttled `note:move` messages still go out so the partner sees the card travel, but they do not touch our cache.
-On release one `note:move` is written to the cache and sent.
+A card's position while it is dragged, turned or resized lives in the canvas's gesture (`features/canvas/gesture.ts`: `heldOf` gives the held card's id, its x and y, and its turn and size), which the card renders over its cached position.
+Throttled `note:move` messages (`sendMove`, every 80ms) still go out so the partner sees the card travel, but they do not touch our cache.
+On release one `note:move` is written to the cache and sent (`move`).
 A partner's throttled moves arrive at about 12 a second and are written to the cache as they come; with notes in the tens this is a new array of small objects per message, and it is measured in the first step that moves notes, not assumed.
 
 ### Connection state
@@ -186,8 +186,8 @@ These are ordinary queries and mutations.
 
 - The rooms list is `useQuery` on `["me", "rooms"]` with the default `staleTime`, refetched on focus so a room the partner created appears.
 - Creating a room is `useMutation`, invalidating `["me", "rooms"]` in `onSettled`.
-- `draftDay` is `useMutation`, and the booklet shows its `isLoading` on the "ask for a draft" button.
-- The public booklet is `useQuery` (`usePublication`), and putting it up or down `useMutation`.
+- Asking for a day's draft (`useDayDraft` in `features/shiori/DayEdit.vue`) and putting the booklet up or taking it down (`usePublishing` in `features/shiori/Appendix.vue`) are not `useMutation`s: each is one `defineQuery` holding, for each room, the ask under way, its answer or why it failed, so an answer is the room's it was asked in whichever room is open when it comes. The button shows the ask under way.
+- The public booklet is `useQuery` on `roomKeys.publication(room)` (`Appendix.vue`), and a publish or a withdrawal writes its answer there with `setQueryData`.
 
 No mutation retries.
 `draftDay` is a paid call, and `docs/auth-and-security.md` bounds what one person can spend; a retry must be the person's tap, never the library's.
@@ -210,7 +210,7 @@ This is where Vapor compatibility is proven in the real app.
 The "ask for a draft" button gets its pending state.
 
 Done.
-The calls live in `features/rooms/api.ts` (plain `fetch`), `features/rooms/useRooms.ts` and `features/worker/useWorkerCalls.ts`, and Pinia Colada 1.4.6 runs under Vapor with no change to it.
+The calls live in `features/rooms/api.ts` and `features/worker/api.ts` (Hono's typed client over `fetch`) and `features/rooms/useRooms.ts`, and Pinia Colada 1.4.6 runs under Vapor with no change to it.
 One thing learned: Pinia Colada awaits `onSettled` before a mutation leaves `loading`, so a hook that returns a failing `invalidateQueries` leaves the mutation loading for good.
 Follow-up invalidations in mutation hooks are fired, caught and not returned.
 
@@ -222,7 +222,7 @@ This step is worth doing even if the next one is dropped.
 
 Done.
 The reducers are `applyToNotes`, `applyToDays` and `applyToMembers` in each feature's `apply.ts`, and the stores now hold their arrays in `shallowRef`s.
-Since a note that changes is replaced, nothing may hold a note object across a change: the canvas's menu and the map's open card look their note up by id, and a card under a finger moves with `nudge` (local, every frame) between the throttled `move`s that send it.
+Since a note that changes is replaced, nothing may hold a note object across a change: the canvas's menu and the map's open card look their note up by id, and a card under a finger is drawn from the canvas's gesture (local, every frame) between the throttled moves that send it.
 `useRoom` keeps only what messages mean; `socket.ts` connects, retries, queues and reports its status.
 The heartbeat is not in this step: the room does not answer one yet.
 Since added: the client sends `ping` every 20 s and the room answers `pong` without waking (`setWebSocketAutoResponse`); a ping left unanswered by the next one is a drop.
@@ -301,7 +301,7 @@ Each unanswered change in the ledger carries who made it, so the ledger no longe
   One entry makes the snapshot a single write; three keep a note's change from re-rendering the trip and members.
   The design picks three and the third step can revisit it.
 - Whether the stores stay as a facade over the cache for good, or components call the queries directly once the move is done.
-  They stay: a store is a slice read with `useQueryState` plus what is derived from it (`nameOf`, `forDay`, the tag counts) and the commits a view makes; a component calling the cache would have to know the room's keys.
+  They stay: a store is a slice read with `useQueryState` plus what is derived from it (`me`, `forDay`, `byTag`) and the commits a view makes; a component calling the cache would have to know the room's keys.
   Since then they are not Pinia stores: `useNotes`, `useTrip` and `useMembers` hold no state of their own, so each is one composable defined with Pinia Colada's `defineQuery`, handing out the slice's `data` as the cache holds it (undefined until the first snapshot) for its readers to read where they use it.
 - How long a held-back incoming change may wait for its ack before the client gives up on it and takes the room's version.
   Answered by the ledger: until the next ack, rejection or snapshot, with no timer.
