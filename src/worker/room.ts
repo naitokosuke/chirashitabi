@@ -1,33 +1,17 @@
 import { DurableObject } from "cloudflare:workers";
 import * as v from "valibot";
 
-import type { CurrencyCode, HexColor, Result } from "../contract";
-import { airportCodeOf, parseAirportCode } from "../contract/airport";
+import type { Result } from "../contract";
+import { parseAirportCode } from "../contract/airport";
 import { ImageIdSchema, type ImageId } from "../contract/image";
 import { MemberIdSchema, parseMemberId, type MemberId } from "../contract/member";
-import { NoteIdSchema, type NoteId } from "../contract/note";
-import type { HttpUrl } from "../contract/place";
+import type { NoteId } from "../contract/note";
+import { HEARTBEAT, KEPT_DAYS, RoomIdSchema, SEATS, type RoomId } from "../contract/room";
 import {
-  HEARTBEAT,
-  KEPT_DAYS,
-  RATE,
-  RoomIdSchema,
-  SEATS,
-  parseTag,
-  type NoteColor,
-  type NoteStatus,
-  type RoomId,
-  type Tag,
-} from "../contract/room";
-import {
-  COORD,
-  IsoDateSchema,
   IsoInstantSchema,
   type Cid,
   type IsoDate,
-  type IsoDateTime,
   type IsoInstant,
-  type IsoTime,
   type ImageType,
   type Lang,
   type RejectReason,
@@ -37,21 +21,31 @@ import {
   parseMutation,
   type ServerMessage,
   type WireMember,
-  type WireBooking,
-  type WireMemo,
-  type WireMutation,
-  type WireNote,
   type ProfileSchema,
   type WireRoomSummary,
   type WireTrip,
   type GoneReason,
-  type Leg,
-  type WireFlights,
-  type WireStay,
 } from "../contract/wire";
 
 import { renderBooklet } from "./booklet";
 import type { DraftContext, PlaceContext, SuggestContext, TagContext } from "./claude";
+import {
+  candidates,
+  claimProposal,
+  draftContext,
+  placeContext,
+  recordAgentCall,
+  releaseProposal,
+  saveCandidates,
+  suggestContext,
+  suggestionNote,
+  tagContext,
+} from "./room/agent";
+import { apply, type Applied } from "./room/apply";
+import { ON_DESK, readNote, readNotes } from "./room/notes";
+import { migrate } from "./room/schema";
+import { appliedAt, encode, keepApplied, withinRate } from "./room/socket";
+import { hasImage, readMembers, readTrip } from "./room/state";
 
 type MemberKind = WireMember["kind"];
 
@@ -66,9 +60,6 @@ type RemoveRefusal = "the owner" | "not theirs" | "not in";
  * refuses anyone outside a room with, so the room's refusal is answered as that one
  */
 export type Outsider = "not a member";
-
-/** A mutation the room wrote, as it wrote it, or why it did not */
-type Applied = Result<WireMutation, RejectReason>;
 
 /**
  * A seat the room holds for an invitation, as the Worker minted it for the index to record
@@ -97,75 +88,6 @@ const OUTSIDE: { ok: false; reason: Outsider } = { ok: false, reason: "not a mem
 
 type Profile = v.InferOutput<typeof ProfileSchema>;
 
-/** A message to a member's socket, as it goes; the type checks it against what the app reads */
-const encode = (message: ServerMessage): string => JSON.stringify(withPreviousBuildFields(message));
-
-/**
- * A message as a tab still on the previous build reads it too: that build reads a `title` and a
- * `color` on every note, so a text box goes with its words as its `title` and a sticker with a
- * blank one, both on white. The app now drops both as it reads (its checks keep only a kind's own
- * fields). It is here for tabs left open across a deploy, which would otherwise read no room
- * with a text box or a sticker in it, and can go after a release or two.
- */
-const withPreviousBuildFields = (message: ServerMessage) => {
-  const note = (n: WireNote) => {
-    switch (n.kind) {
-      case "memo":
-      case "suggestion":
-        return n;
-      case "text":
-        return { ...n, title: n.text, color: "#ffffff" };
-      case "sticker":
-        return { ...n, title: "", color: "#ffffff" };
-    }
-  };
-  if (message.type === "snapshot") return { ...message, notes: message.notes.map(note) };
-  if (message.type === "mutation" && message.mutation.type === "note:add")
-    return { ...message, mutation: { ...message.mutation, note: note(message.mutation.note) } };
-  return message;
-};
-
-/**
- * The cids of a member's changes the room remembers, newest kept: a phone that lost an ack
- * resends the change, and is answered without writing it again. More than a socket ever has in
- * flight when it drops, offline replays included.
- */
-const APPLIED_KEPT = 1000;
-
-type NoteRow = {
-  id: NoteId;
-  kind: WireNote["kind"];
-  /** Paper's title, a text box's words, blank for a sticker; `color` is white for all but paper (faceColumns) */
-  title: string;
-  color: NoteColor;
-  x: number;
-  y: number;
-  rot: number;
-  scale: number;
-  by: MemberId;
-  updated_at: IsoInstant;
-  body: string;
-  tags: string;
-  maps_url: HttpUrl | null;
-  pin_lat: number | null;
-  pin_lng: number | null;
-  sched_date: IsoDate | null;
-  sched_time: IsoTime | null;
-  sched_status: NoteStatus | null;
-  budget: number | null;
-  checked: number;
-  image: ImageId | null;
-  minutes: number | null;
-  hours: string | null;
-  link: HttpUrl | null;
-  booking_state: WireBooking["state"] | null;
-  booking_by: IsoDate | null;
-  booking_code: string | null;
-  booking_url: HttpUrl | null;
-  due: IsoDate | null;
-  assignee: MemberId | null;
-};
-
 /**
  * A room: one trip, its notes, and the people and agent working on it. Holds
  * its member table keyed by member id; the Worker resolves the caller's e-mail
@@ -189,166 +111,7 @@ export class Room extends DurableObject<Env> {
     super(ctx, env);
     // the app's heartbeat (features/sync/socket.ts), answered without waking the room
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(HEARTBEAT.ping, HEARTBEAT.pong));
-    ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS members (
-        id TEXT PRIMARY KEY,
-        kind TEXT NOT NULL CHECK (kind IN ('person', 'agent')),
-        creator INTEGER NOT NULL DEFAULT 0,
-        name TEXT NOT NULL,
-        color TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS trip (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        name TEXT NOT NULL,
-        currency TEXT NOT NULL,
-        center_lat REAL NOT NULL,
-        center_lng REAL NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS days (
-        date TEXT PRIMARY KEY,
-        position INTEGER NOT NULL,
-        intro TEXT NOT NULL DEFAULT ''
-      );
-    `);
-    ctx.storage.sql.exec(notesTable("notes"));
-    // Rooms made before the appendix's checks were shared gain the column once
-    const cols = ctx.storage.sql.exec<{ name: string }>("PRAGMA table_info(notes)").toArray();
-    if (!cols.some((c) => c.name === "checked")) {
-      ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN checked INTEGER NOT NULL DEFAULT 0");
-    }
-    // and the pictures on cards, once they arrived
-    if (!cols.some((c) => c.name === "image")) {
-      ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN image TEXT");
-    }
-    // and how large a card is drawn, once cards could be resized
-    if (!cols.some((c) => c.name === "scale")) {
-      ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN scale REAL NOT NULL DEFAULT 1");
-    }
-    // and how long a memo takes, once the booklet said when each thing ends
-    if (!cols.some((c) => c.name === "minutes")) {
-      ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN minutes INTEGER");
-    }
-    // and when its place is open, once that was its own rather than a line of its words
-    if (!cols.some((c) => c.name === "hours")) {
-      ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN hours TEXT");
-    }
-    // and where its idea came from, once a memo could carry a page's link
-    if (!cols.some((c) => c.name === "link")) {
-      ctx.storage.sql.exec("ALTER TABLE notes ADD COLUMN link TEXT");
-    }
-    // and whether it has to be booked, once bookings were kept
-    if (!cols.some((c) => c.name === "booking_state")) {
-      for (const col of ["booking_state", "booking_by", "booking_code", "booking_url"])
-        ctx.storage.sql.exec(`ALTER TABLE notes ADD COLUMN ${col} TEXT`);
-    }
-    // and a to-do's day and who is to do it, once there were to-dos
-    if (!cols.some((c) => c.name === "due")) {
-      for (const col of ["due", "assignee"])
-        ctx.storage.sql.exec(`ALTER TABLE notes ADD COLUMN ${col} TEXT`);
-    }
-    // and text boxes and stickers, once there were any: a CHECK cannot be altered, so the table
-    // is copied once into one whose CHECK lets them in, every column by name
-    const { sql: ddl } = ctx.storage.sql
-      .exec<{ sql: string }>(
-        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'notes'",
-      )
-      .one();
-    if (!ddl.includes("'sticker'")) {
-      ctx.storage.transactionSync(() => {
-        const sql = ctx.storage.sql;
-        sql.exec(notesTable("notes_next"));
-        sql.exec(`INSERT INTO notes_next (${NOTE_COLUMNS}) SELECT ${NOTE_COLUMNS} FROM notes`);
-        sql.exec("DROP TABLE notes");
-        sql.exec("ALTER TABLE notes_next RENAME TO notes");
-      });
-    }
-    ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS pictures (
-        id TEXT PRIMARY KEY,
-        by TEXT NOT NULL,
-        type TEXT NOT NULL,
-        bytes INTEGER NOT NULL,
-        created_at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS invitations (
-        id TEXT PRIMARY KEY,
-        created_at TEXT NOT NULL,
-        member TEXT
-      );
-      CREATE TABLE IF NOT EXISTS stays (
-        position INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        check_in TEXT NOT NULL,
-        nights INTEGER NOT NULL,
-        maps_url TEXT,
-        pin_lat REAL,
-        pin_lng REAL
-      );
-      CREATE TABLE IF NOT EXISTS deletion (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        room_id TEXT NOT NULL,
-        at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS publication (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        slug TEXT NOT NULL,
-        by TEXT NOT NULL,
-        at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS applied (
-        member TEXT NOT NULL,
-        cid TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        PRIMARY KEY (member, cid)
-      );
-    `);
-    // Rooms made before a taken seat remembered whom it let in gain the column once
-    if (
-      !ctx.storage.sql
-        .exec<{ name: string }>("PRAGMA table_info(invitations)")
-        .toArray()
-        .some((c) => c.name === "member")
-    ) {
-      ctx.storage.sql.exec("ALTER TABLE invitations ADD COLUMN member TEXT");
-    }
-    ctx.storage.sql.exec(flightsTable("flights"));
-    // flights kept when a time not known yet was written "" (its columns were NOT NULL then) are
-    // copied once into a table where it is null, every column by name
-    const { sql: flightsDdl } = ctx.storage.sql
-      .exec<{ sql: string }>(
-        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'flights'",
-      )
-      .one();
-    if (flightsDdl.includes("departs TEXT NOT NULL")) {
-      ctx.storage.transactionSync(() => {
-        const sql = ctx.storage.sql;
-        sql.exec(flightsTable("flights_next"));
-        sql.exec(`INSERT INTO flights_next (leg, number, from_place, to_place, departs, arrives)
-          SELECT leg, number, from_place, to_place, NULLIF(departs, ''), NULLIF(arrives, '')
-          FROM flights`);
-        sql.exec("DROP TABLE flights");
-        sql.exec("ALTER TABLE flights_next RENAME TO flights");
-      });
-    }
-    // a flight kept before its airports had to be codes on the list: one it names by a code in
-    // another case, a name or a Japanese name becomes that code; one it names by nothing on the
-    // list stays as written, out of the snapshot (trip()), until a member sets it again
-    for (const f of ctx.storage.sql
-      .exec<{ leg: string; from_place: string; to_place: string }>(
-        "SELECT leg, from_place, to_place FROM flights",
-      )
-      .toArray()) {
-      const from = airportCodeOf(f.from_place);
-      const to = airportCodeOf(f.to_place);
-      if (from === null || to === null) continue;
-      if (from !== f.from_place || to !== f.to_place)
-        ctx.storage.sql.exec(
-          "UPDATE flights SET from_place = ?, to_place = ? WHERE leg = ?",
-          from,
-          to,
-          f.leg,
-        );
-    }
+    migrate(ctx.storage);
   }
 
   // ---- pictures (RPC from the Worker; the bytes are in R2, the room keeps which it has) ----
@@ -414,13 +177,7 @@ export class Room extends DurableObject<Env> {
   /** Whether the room has a picture by that id, asked for member `by` */
   hasImageFor(by: MemberId, id: ImageId): Result<boolean, Outsider> {
     if (this.outsider(by)) return OUTSIDE;
-    return { ok: true, value: this.hasImage(id) };
-  }
-
-  private hasImage(id: ImageId): boolean {
-    return (
-      this.ctx.storage.sql.exec("SELECT 1 FROM pictures WHERE id = ?", id).toArray().length > 0
-    );
+    return { ok: true, value: hasImage(this.ctx.storage.sql, id) };
   }
 
   // ---- the public booklet (RPC from the Worker; its file is in R2, the room keeps its slug) ----
@@ -448,14 +205,15 @@ export class Room extends DurableObject<Env> {
       if (before !== null) await this.env.IMAGES.delete(bookletKey(before.slug));
       const slug = newSlug();
       const at = stamp();
+      const sql = this.ctx.storage.sql;
       await this.env.IMAGES.put(
         bookletKey(slug),
-        renderBooklet(this.trip(), this.notes(), lang, at),
+        renderBooklet(readTrip(sql), readNotes(sql), lang, at),
         {
           httpMetadata: { contentType: "text/html; charset=utf-8" },
         },
       );
-      this.ctx.storage.sql.exec(
+      sql.exec(
         `INSERT INTO publication (id, slug, by, at) VALUES (1, ?, ?, ?)
          ON CONFLICT (id) DO UPDATE SET slug = excluded.slug, by = excluded.by, at = excluded.at`,
         slug,
@@ -796,7 +554,7 @@ export class Room extends DurableObject<Env> {
   private tellMembers(): void {
     const out = encode({
       type: "members",
-      members: this.members(),
+      members: readMembers(this.ctx.storage.sql),
     });
     // a socket just closed on someone removed is still listed, and takes nothing more
     for (const ws of this.ctx.getWebSockets()) if (ws.readyState === WebSocket.OPEN) ws.send(out);
@@ -827,7 +585,7 @@ export class Room extends DurableObject<Env> {
       .one();
     const { days } = sql.exec<{ days: number }>("SELECT COUNT(*) AS days FROM days").one();
     // the people first, the creator leading; the agent after them
-    const members = this.members()
+    const members = readMembers(sql)
       .sort((a, b) => Number(a.kind === "agent") - Number(b.kind === "agent"))
       .map(({ kind, name, color }) => ({ kind, name, color }));
     const { memos } = sql
@@ -842,12 +600,8 @@ export class Room extends DurableObject<Env> {
   /** What the agent needs to draft `date`, asked by member `by`; null when the trip has no such day */
   dayForDraft(by: MemberId, date: IsoDate): Result<DraftContext | null, Outsider> {
     if (this.outsider(by)) return OUTSIDE;
-    const trip = this.trip();
-    if (!trip.days.some((d) => d.date === date)) return { ok: true, value: null };
-    const notes = this.notes()
-      .filter((n) => n.kind === "memo")
-      .filter((n) => n.schedule?.date === date);
-    return { ok: true, value: { trip: trip.name, currency: trip.currency, date, notes } };
+    const sql = this.ctx.storage.sql;
+    return { ok: true, value: draftContext(readTrip(sql), readNotes(sql), date) };
   }
 
   // ---- places: where a memo is ----
@@ -855,8 +609,7 @@ export class Room extends DurableObject<Env> {
   /** What naming a memo's place needs, asked by member `by`: which trip, and when */
   placeContext(by: MemberId): Result<PlaceContext, Outsider> {
     if (this.outsider(by)) return OUTSIDE;
-    const trip = this.trip();
-    return { ok: true, value: { trip: trip.name, days: trip.days.map((d) => d.date) } };
+    return { ok: true, value: placeContext(readTrip(this.ctx.storage.sql)) };
   }
 
   // ---- tags: the ones in use, and the agent's candidates for the trip ----
@@ -864,20 +617,8 @@ export class Room extends DurableObject<Env> {
   /** What tagging a memo needs, asked by member `by`: the trip, the tags in use, the candidates */
   tagContext(by: MemberId): Result<TagContext & { candidates: string[] }, Outsider> {
     if (this.outsider(by)) return OUTSIDE;
-    const trip = this.trip();
-    const notes = this.notes();
-    const tags = [...new Set(notes.flatMap((n) => (n.kind === "memo" ? n.tags : [])))];
-    return {
-      ok: true,
-      value: {
-        trip: trip.name,
-        days: trip.days.map((d) => d.date),
-        tags,
-        // what is written on paper: a text box's words are a label on the desk, not a plan
-        titles: notes.flatMap((n) => (n.kind === "memo" || n.kind === "suggestion" ? n.title : [])),
-        candidates: this.candidates(),
-      },
-    };
+    const sql = this.ctx.storage.sql;
+    return { ok: true, value: tagContext(readTrip(sql), readNotes(sql), candidates(sql)) };
   }
 
   /**
@@ -896,20 +637,7 @@ export class Room extends DurableObject<Env> {
    */
   claimProposal(by: MemberId): boolean {
     if (this.outsider(by)) return false;
-    this.candidateTable();
-    const sql = this.ctx.storage.sql;
-    const now = Date.now();
-    const claim = sql
-      .exec<{ at: number; done: number }>("SELECT at, done FROM tag_proposal")
-      .toArray()[0];
-    if (this.candidates().length > 0 || claim?.done === 1) return false;
-    if (claim !== undefined && now - claim.at < Room.PROPOSING_FOR) return false;
-    sql.exec(
-      `INSERT INTO tag_proposal (id, at, done) VALUES (1, ?, 0)
-       ON CONFLICT (id) DO UPDATE SET at = excluded.at`,
-      now,
-    );
-    return true;
+    return claimProposal(this.ctx.storage.sql, Room.PROPOSING_FOR);
   }
 
   /**
@@ -918,8 +646,7 @@ export class Room extends DurableObject<Env> {
    */
   releaseProposal(by: MemberId): void {
     if (this.outsider(by)) return;
-    this.candidateTable();
-    this.ctx.storage.sql.exec("DELETE FROM tag_proposal WHERE done = 0");
+    releaseProposal(this.ctx.storage.sql);
   }
 
   /**
@@ -929,33 +656,7 @@ export class Room extends DurableObject<Env> {
    */
   saveCandidates(by: MemberId, tags: string[]): void {
     if (this.outsider(by)) return;
-    const sql = this.ctx.storage.sql;
-    this.candidateTable();
-    for (const tag of tags) sql.exec("INSERT OR IGNORE INTO tag_candidates (tag) VALUES (?)", tag);
-    sql.exec(
-      `INSERT INTO tag_proposal (id, at, done) VALUES (1, ?, 1)
-       ON CONFLICT (id) DO UPDATE SET done = 1`,
-      Date.now(),
-    );
-  }
-
-  private candidates(): string[] {
-    this.candidateTable();
-    return this.ctx.storage.sql
-      .exec<{ tag: string }>("SELECT tag FROM tag_candidates ORDER BY rowid")
-      .toArray()
-      .map((r) => r.tag);
-  }
-
-  private candidateTable(): void {
-    this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS tag_candidates (tag TEXT PRIMARY KEY);
-      CREATE TABLE IF NOT EXISTS tag_proposal (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        at INTEGER NOT NULL,
-        done INTEGER NOT NULL
-      );
-    `);
+    saveCandidates(this.ctx.storage.sql, tags);
   }
 
   /**
@@ -964,32 +665,8 @@ export class Room extends DurableObject<Env> {
    */
   contextForSuggest(by: MemberId, about: NoteId | null): Result<SuggestContext | null, Outsider> {
     if (this.outsider(by)) return OUTSIDE;
-    const trip = this.trip();
-    // a sticker has no words to read
-    const notes = this.notes().filter((n) => n.kind !== "sticker");
-    const from = about === null ? null : notes.find((n) => n.id === about);
-    if (from === undefined) return { ok: true, value: null };
-    return {
-      ok: true,
-      value: {
-        trip: trip.name,
-        days: trip.days.map((d) => d.date),
-        notes: notes.map((n) => ({
-          title: n.kind === "text" ? n.text : n.title,
-          tags: n.kind === "memo" ? n.tags : [],
-          date: n.kind === "memo" ? (n.schedule?.date ?? null) : null,
-        })),
-        about:
-          from === null
-            ? null
-            : {
-                title: from.kind === "text" ? from.text : from.title,
-                body: from.kind === "memo" ? from.body : "",
-                tags: from.kind === "memo" ? from.tags : [],
-                pin: from.kind === "memo" ? from.pin : null,
-              },
-      },
-    };
+    const sql = this.ctx.storage.sql;
+    return { ok: true, value: suggestContext(readTrip(sql), readNotes(sql), about) };
   }
 
   /**
@@ -1006,21 +683,8 @@ export class Room extends DurableObject<Env> {
     const now = stamp();
     let added = 0;
     titles.forEach((title, i) => {
-      const note: WireNote = {
-        id: v.parse(NoteIdSchema, crypto.randomUUID()),
-        kind: "suggestion",
-        title,
-        color: "#ffffff",
-        // a short column under where the asker was looking, slightly askew like any card, and
-        // on the desk however near its edge they looked
-        x: Math.min(Math.max(at.x - 82 + (i % 2 === 0 ? -12 : 12), -COORD), COORD),
-        y: Math.min(Math.max(at.y - 40 + i * 120, -COORD), COORD),
-        rot: Math.random() * 4 - 2,
-        scale: 1,
-        by: Room.AGENT_ID,
-        updatedAt: now,
-      };
-      const result = this.apply({ type: "note:add", note }, Room.AGENT_ID, now);
+      const note = suggestionNote(title, i, at, Room.AGENT_ID, now);
+      const result = apply(this.ctx.storage.sql, { type: "note:add", note }, Room.AGENT_ID, now);
       if (!result.ok) return;
       added++;
       const out = encode({
@@ -1039,24 +703,7 @@ export class Room extends DurableObject<Env> {
    * tracing a surprising bill. Member ids only, never an e-mail.
    */
   recordAgentCall(by: MemberId, what: string, tokens: { input: number; output: number }): void {
-    const sql = this.ctx.storage.sql;
-    sql.exec(`
-      CREATE TABLE IF NOT EXISTS agent_calls (
-        at TEXT NOT NULL,
-        by TEXT NOT NULL,
-        what TEXT NOT NULL,
-        input_tokens INTEGER NOT NULL,
-        output_tokens INTEGER NOT NULL
-      )
-    `);
-    sql.exec(
-      "INSERT INTO agent_calls (at, by, what, input_tokens, output_tokens) VALUES (?, ?, ?, ?, ?)",
-      new Date().toISOString(),
-      by,
-      what,
-      tokens.input,
-      tokens.output,
-    );
+    recordAgentCall(this.ctx.storage.sql, by, what, tokens);
   }
 
   // ---- the socket ----
@@ -1119,7 +766,7 @@ export class Room extends DurableObject<Env> {
     const dragging = cid === null && mutation?.type === "note:move";
     // and is not answered: one past the window, or of a card already gone, is dropped, the next
     // one or the snapshot after saying where everything is
-    if (!this.withinRate(dragging ? this.#dragRate : this.#rate, by)) {
+    if (!withinRate(dragging ? this.#dragRate : this.#rate, by)) {
       if (!dragging) reject("too many messages");
       return;
     }
@@ -1129,39 +776,19 @@ export class Room extends DurableObject<Env> {
     // sent again by a phone that never heard the answer: answered as before, and not written over
     // what came since
     if (cid !== null) {
-      const again = sql
-        .exec<{ updated_at: IsoInstant }>(
-          "SELECT updated_at FROM applied WHERE member = ? AND cid = ?",
-          by,
-          cid,
-        )
-        .toArray()[0];
-      if (again !== undefined)
-        return ws.send(encode({ type: "ack", cid, updatedAt: again.updated_at }));
+      const again = appliedAt(sql, by, cid);
+      if (again !== null) return ws.send(encode({ type: "ack", cid, updatedAt: again }));
     }
 
-    if (dragging && this.note(mutation.id) === undefined) return;
+    if (dragging && readNote(sql, mutation.id) === undefined) return;
     const result: Applied = dragging
       ? { ok: true, value: mutation }
-      : this.apply(mutation, by, updatedAt);
+      : apply(sql, mutation, by, updatedAt);
     if (!result.ok) return reject(result.reason);
 
     if (cid !== null) {
       ws.send(encode({ type: "ack", cid, updatedAt }));
-      sql.exec(
-        "INSERT INTO applied (member, cid, updated_at) VALUES (?, ?, ?)",
-        by,
-        cid,
-        updatedAt,
-      );
-      sql.exec(
-        `DELETE FROM applied WHERE member = ? AND rowid <= (
-           SELECT rowid FROM applied WHERE member = ? ORDER BY rowid DESC LIMIT 1 OFFSET ?
-         )`,
-        by,
-        by,
-        APPLIED_KEPT,
-      );
+      keepApplied(sql, by, cid, updatedAt);
     }
 
     const out = encode({
@@ -1184,366 +811,14 @@ export class Room extends DurableObject<Env> {
   // ---- state ----
 
   snapshot(me: MemberId): ServerMessage {
+    const sql = this.ctx.storage.sql;
     return {
       type: "snapshot",
       me,
-      members: this.members(),
-      trip: this.trip(),
-      notes: this.notes(),
+      members: readMembers(sql),
+      trip: readTrip(sql),
+      notes: readNotes(sql),
     };
-  }
-
-  private members(): WireMember[] {
-    return this.ctx.storage.sql
-      .exec<{ id: MemberId; kind: MemberKind; creator: number; name: string; color: HexColor }>(
-        "SELECT id, kind, creator, name, color FROM members ORDER BY creator DESC, rowid",
-      )
-      .toArray()
-      .map(({ id, kind, creator, name, color }) =>
-        kind === "agent"
-          ? { id, kind, name, color }
-          : { id, kind, role: creator === 1 ? "owner" : "guest", name, color },
-      );
-  }
-
-  private trip(): WireTrip {
-    const sql = this.ctx.storage.sql;
-    const t = sql
-      .exec<{ name: string; currency: CurrencyCode; center_lat: number; center_lng: number }>(
-        "SELECT name, currency, center_lat, center_lng FROM trip WHERE id = 1",
-      )
-      .one();
-    const days = sql
-      .exec<{ date: IsoDate; intro: string }>("SELECT date, intro FROM days ORDER BY position")
-      .toArray();
-    const flights: WireFlights = { out: null, back: null };
-    for (const f of sql
-      .exec<{
-        leg: Leg;
-        number: string;
-        from_place: string;
-        to_place: string;
-        departs: IsoDateTime | null;
-        arrives: IsoDateTime | null;
-      }>("SELECT * FROM flights")
-      .toArray()) {
-      // only a flight between airports on the list (one kept from before stays out until set again)
-      const [from, to] = [parseAirportCode(f.from_place), parseAirportCode(f.to_place)];
-      if (from === null || to === null) continue;
-      flights[f.leg] = {
-        number: f.number,
-        from,
-        to,
-        departs: f.departs,
-        arrives: f.arrives,
-      };
-    }
-    const stays = sql
-      .exec<{
-        name: string;
-        check_in: IsoDate;
-        nights: number;
-        maps_url: HttpUrl | null;
-        pin_lat: number | null;
-        pin_lng: number | null;
-      }>("SELECT * FROM stays ORDER BY position")
-      .toArray()
-      .map((s): WireStay => {
-        const stay = { name: s.name, checkIn: s.check_in, nights: s.nights };
-        const pin =
-          s.pin_lat === null || s.pin_lng === null ? null : { lat: s.pin_lat, lng: s.pin_lng };
-        // no link, no point: a pin is only ever the point a link names
-        return s.maps_url === null
-          ? { ...stay, mapsUrl: null, pin: null }
-          : { ...stay, mapsUrl: s.maps_url, pin };
-      });
-    return {
-      name: t.name,
-      currency: t.currency,
-      center: { lat: t.center_lat, lng: t.center_lng },
-      days,
-      flights,
-      stays,
-    };
-  }
-
-  private notes(): WireNote[] {
-    return this.ctx.storage.sql
-      .exec<NoteRow>(`SELECT * FROM ${ON_DESK} ORDER BY rowid`)
-      .toArray()
-      .map(fromRow);
-  }
-
-  private note(id: NoteId): NoteRow | undefined {
-    return this.ctx.storage.sql
-      .exec<NoteRow>(`SELECT * FROM ${ON_DESK} WHERE id = ?`, id)
-      .toArray()[0];
-  }
-
-  /** Writes the mutation as `by` at `now`; returns what was written, or why it was not */
-  private apply(m: WireMutation, by: MemberId, now: IsoInstant): Applied {
-    const sql = this.ctx.storage.sql;
-    switch (m.type) {
-      case "note:add": {
-        // a deleted note keeps its id
-        if (sql.exec("SELECT 1 FROM notes WHERE id = ?", m.note.id).toArray().length > 0)
-          return { ok: false, reason: "duplicate id" };
-        const note = { ...m.note, by, updatedAt: now };
-        // every other kind is kept in a memo's columns, with nothing in those it does not have
-        const memo =
-          note.kind === "memo"
-            ? note
-            : {
-                body: "",
-                tags: [],
-                mapsUrl: null,
-                pin: null,
-                schedule: null,
-                budget: null,
-                checked: false,
-                // a sticker is its picture
-                image: note.kind === "sticker" ? note.image : null,
-                minutes: null,
-                hours: null,
-                link: null,
-                booking: null,
-                due: null,
-                assignee: null,
-              };
-        // a card shows only a picture the room has
-        if (memo.image !== null && !this.hasImage(memo.image))
-          return { ok: false, reason: "no such image" };
-        sql.exec(
-          `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at, body, tags, maps_url,
-             pin_lat, pin_lng, sched_date, sched_time, sched_status, budget, checked, image, scale, minutes, hours,
-             booking_state, booking_by, booking_code, booking_url, due, assignee, link)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          note.id,
-          note.kind,
-          ...faceColumns(note),
-          note.x,
-          note.y,
-          note.rot,
-          by,
-          now,
-          memo.body,
-          JSON.stringify(memo.tags),
-          memo.mapsUrl,
-          memo.pin?.lat ?? null,
-          memo.pin?.lng ?? null,
-          memo.schedule?.date ?? null,
-          memo.schedule?.time ?? null,
-          memo.schedule?.status ?? null,
-          memo.budget,
-          memo.checked ? 1 : 0,
-          memo.image,
-          note.scale,
-          memo.minutes,
-          memo.hours,
-          ...bookingColumns(memo.booking),
-          memo.due,
-          memo.assignee,
-          memo.link,
-        );
-        return { ok: true, value: { type: "note:add", note } };
-      }
-      case "note:update": {
-        const row = this.note(m.id);
-        if (row === undefined) return { ok: false, reason: "no such note" };
-        if (row.kind !== "memo") return { ok: false, reason: "not a memo" };
-        const p = m.patch;
-        const has = <K extends keyof typeof p>(k: K) => Object.hasOwn(p, k);
-        if (has("image") && typeof p.image === "string" && !this.hasImage(p.image))
-          return { ok: false, reason: "no such image" };
-        sql.exec(
-          `UPDATE notes SET
-             title = ?, body = ?, tags = ?, color = ?, maps_url = ?, pin_lat = ?, pin_lng = ?,
-             sched_date = ?, sched_time = ?, sched_status = ?, budget = ?, checked = ?, image = ?,
-             minutes = ?, hours = ?, booking_state = ?, booking_by = ?, booking_code = ?,
-             booking_url = ?, due = ?, assignee = ?, link = ?, x = ?, y = ?, rot = ?, updated_at = ?
-           WHERE id = ?`,
-          has("title") ? p.title : row.title,
-          has("body") ? p.body : row.body,
-          has("tags") ? JSON.stringify(p.tags) : row.tags,
-          has("color") ? p.color : row.color,
-          has("mapsUrl") ? p.mapsUrl : row.maps_url,
-          has("pin") ? (p.pin?.lat ?? null) : row.pin_lat,
-          has("pin") ? (p.pin?.lng ?? null) : row.pin_lng,
-          has("schedule") ? (p.schedule?.date ?? null) : row.sched_date,
-          has("schedule") ? (p.schedule?.time ?? null) : row.sched_time,
-          has("schedule") ? (p.schedule?.status ?? null) : row.sched_status,
-          has("budget") ? p.budget : row.budget,
-          has("checked") ? (p.checked === true ? 1 : 0) : row.checked,
-          has("image") ? (p.image ?? null) : row.image,
-          has("minutes") ? (p.minutes ?? null) : row.minutes,
-          has("hours") ? (p.hours ?? null) : row.hours,
-          ...(has("booking")
-            ? bookingColumns(p.booking ?? null)
-            : [row.booking_state, row.booking_by, row.booking_code, row.booking_url]),
-          has("due") ? (p.due ?? null) : row.due,
-          has("assignee") ? (p.assignee ?? null) : row.assignee,
-          has("link") ? (p.link ?? null) : row.link,
-          has("x") ? p.x : row.x,
-          has("y") ? p.y : row.y,
-          has("rot") ? p.rot : row.rot,
-          now,
-          m.id,
-        );
-        return { ok: true, value: m };
-      }
-      case "note:recolor": {
-        const row = this.note(m.id);
-        if (row === undefined) return { ok: false, reason: "no such note" };
-        // a text box and a sticker have no paper to color
-        if (row.kind !== "memo" && row.kind !== "suggestion")
-          return { ok: false, reason: "not on paper" };
-        sql.exec("UPDATE notes SET color = ?, updated_at = ? WHERE id = ?", m.color, now, m.id);
-        return { ok: true, value: m };
-      }
-      case "text:edit": {
-        const row = this.note(m.id);
-        if (row === undefined) return { ok: false, reason: "no such note" };
-        if (row.kind !== "text") return { ok: false, reason: "not a text box" };
-        // a text box's words are kept as its title (faceColumns)
-        sql.exec("UPDATE notes SET title = ?, updated_at = ? WHERE id = ?", m.text, now, m.id);
-        return { ok: true, value: m };
-      }
-      case "note:adopt": {
-        const row = this.note(m.id);
-        if (row === undefined) return { ok: false, reason: "no such note" };
-        if (row.kind !== "suggestion") return { ok: false, reason: "not a suggestion" };
-        sql.exec(
-          `UPDATE notes SET kind = 'memo', color = '#ffffff', body = '', tags = '[]', maps_url = NULL,
-             pin_lat = NULL, pin_lng = NULL, sched_date = NULL, sched_time = NULL, sched_status = NULL,
-             budget = NULL, checked = 0, minutes = NULL, hours = NULL, booking_state = NULL, booking_by = NULL,
-             booking_code = NULL, booking_url = NULL, due = NULL, assignee = NULL, link = NULL, updated_at = ?
-           WHERE id = ?`,
-          now,
-          m.id,
-        );
-        return { ok: true, value: m };
-      }
-      case "note:move": {
-        const row = this.note(m.id);
-        if (row === undefined) return { ok: false, reason: "no such note" };
-        // a move that does not say how the card is turned or how large keeps what it was
-        sql.exec(
-          "UPDATE notes SET x = ?, y = ?, rot = ?, scale = ?, updated_at = ? WHERE id = ?",
-          m.x,
-          m.y,
-          m.rot ?? row.rot,
-          m.scale ?? row.scale,
-          now,
-          m.id,
-        );
-        return { ok: true, value: m };
-      }
-      case "note:delete": {
-        if (this.note(m.id) === undefined) return { ok: false, reason: "no such note" };
-        sql.exec("UPDATE notes SET deleted_at = ? WHERE id = ?", now, m.id);
-        return { ok: true, value: m };
-      }
-      case "day:intro": {
-        const n = sql.exec("UPDATE days SET intro = ? WHERE date = ?", m.intro, m.date).rowsWritten;
-        return n === 0 ? { ok: false, reason: "no such day" } : { ok: true, value: m };
-      }
-      case "member:profile": {
-        sql.exec("UPDATE members SET name = ?, color = ? WHERE id = ?", m.name, m.color, by);
-        return { ok: true, value: m };
-      }
-      case "trip:dates": {
-        // the trip moves by how far its first day moved, and its days are the new run of them:
-        // each day keeps its place in the trip (day 2's intro is day 2's), each planned note
-        // moves with the trip, and one that falls past the new last day loses its day
-        const old = sql
-          .exec<{ date: IsoDate; intro: string }>("SELECT date, intro FROM days ORDER BY position")
-          .toArray();
-        const was = old[0]?.date ?? m.first;
-        const shift = (Date.parse(`${m.first}T00:00Z`) - Date.parse(`${was}T00:00Z`)) / 86_400_000;
-        const dates = Array.from({ length: m.days }, (_, i) =>
-          new Date(Date.parse(`${m.first}T00:00Z`) + i * 86_400_000).toISOString().slice(0, 10),
-        );
-        // a trip running past 9999-12-31 has days no date is written for ("+010000-01")
-        if (!dates.every((date) => v.is(IsoDateSchema, date)))
-          return { ok: false, reason: "no such day" };
-        sql.exec("DELETE FROM days");
-        dates.forEach((date, i) =>
-          sql.exec(
-            "INSERT INTO days (date, position, intro) VALUES (?, ?, ?)",
-            date,
-            i,
-            old[i]?.intro ?? "",
-          ),
-        );
-        if (shift !== 0)
-          sql.exec(
-            `UPDATE notes SET sched_date = date(sched_date, ? || ' days'), updated_at = ?
-               WHERE sched_date IS NOT NULL`,
-            (shift > 0 ? "+" : "") + String(shift),
-            now,
-          );
-        sql.exec(
-          `UPDATE notes SET sched_date = NULL, sched_time = NULL, sched_status = NULL, updated_at = ?
-             WHERE sched_date IS NOT NULL AND (sched_date < ? OR sched_date > ?)`,
-          now,
-          dates[0],
-          dates.at(-1),
-        );
-        return { ok: true, value: m };
-      }
-      case "trip:flight": {
-        if (m.flight === null) sql.exec("DELETE FROM flights WHERE leg = ?", m.leg);
-        else
-          sql.exec(
-            `INSERT INTO flights (leg, number, from_place, to_place, departs, arrives)
-               VALUES (?, ?, ?, ?, ?, ?)
-             ON CONFLICT (leg) DO UPDATE SET number = excluded.number, from_place = excluded.from_place,
-               to_place = excluded.to_place, departs = excluded.departs, arrives = excluded.arrives`,
-            m.leg,
-            m.flight.number,
-            m.flight.from,
-            m.flight.to,
-            m.flight.departs,
-            m.flight.arrives,
-          );
-        return { ok: true, value: m };
-      }
-      case "trip:stays": {
-        sql.exec("DELETE FROM stays");
-        m.stays.forEach((s, i) =>
-          sql.exec(
-            `INSERT INTO stays (position, name, check_in, nights, maps_url, pin_lat, pin_lng)
-               VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            i,
-            s.name,
-            s.checkIn,
-            s.nights,
-            s.mapsUrl,
-            s.pin?.lat ?? null,
-            s.pin?.lng ?? null,
-          ),
-        );
-        return { ok: true, value: m };
-      }
-      case "trip:rename": {
-        sql.exec("UPDATE trip SET name = ? WHERE id = 1", m.name);
-        return { ok: true, value: m };
-      }
-    }
-  }
-
-  private withinRate(
-    counts: Map<MemberId, { since: number; n: number }>,
-    member: MemberId,
-  ): boolean {
-    const now = Date.now();
-    const r = counts.get(member);
-    if (r === undefined || now - r.since > RATE.window) {
-      counts.set(member, { since: now, n: 1 });
-      return true;
-    }
-    r.n++;
-    return r.n <= RATE.max;
   }
 
   private count(kind?: MemberKind): number {
@@ -1573,177 +848,6 @@ export class Room extends DurableObject<Env> {
   }
 }
 
-/** Every column of a note, in the order `notesTable` makes them; a misspelt one fails to compile */
-const NOTE_COLUMNS = (
-  [
-    "id",
-    "kind",
-    "title",
-    "color",
-    "x",
-    "y",
-    "rot",
-    "by",
-    "updated_at",
-    "body",
-    "tags",
-    "maps_url",
-    "pin_lat",
-    "pin_lng",
-    "sched_date",
-    "sched_time",
-    "sched_status",
-    "budget",
-    "deleted_at",
-    "checked",
-    "image",
-    "scale",
-    "minutes",
-    "hours",
-    "booking_state",
-    "booking_by",
-    "booking_code",
-    "booking_url",
-    "due",
-    "assignee",
-    "link",
-  ] satisfies (keyof NoteRow | "deleted_at")[]
-).join(", ");
-
-/**
- * The notes on the desk, to select from as from a table: a deleted note keeps its row (its id is
- * never used again) and is no note anywhere else, so no query reads `notes` for what is on it
- */
-const ON_DESK = "(SELECT rowid, * FROM notes WHERE deleted_at IS NULL)";
-
-/** The notes table as it is now, under `name`: memos, suggestions, text boxes and stickers */
-const notesTable = (name: string) => `
-  CREATE TABLE IF NOT EXISTS ${name} (
-    id TEXT PRIMARY KEY,
-    kind TEXT NOT NULL CHECK (kind IN ('memo', 'suggestion', 'text', 'sticker')),
-    title TEXT NOT NULL,
-    color TEXT NOT NULL,
-    x REAL NOT NULL,
-    y REAL NOT NULL,
-    rot REAL NOT NULL,
-    by TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    body TEXT NOT NULL DEFAULT '',
-    tags TEXT NOT NULL DEFAULT '[]',
-    maps_url TEXT,
-    pin_lat REAL,
-    pin_lng REAL,
-    sched_date TEXT,
-    sched_time TEXT,
-    sched_status TEXT,
-    budget REAL,
-    deleted_at TEXT,
-    checked INTEGER NOT NULL DEFAULT 0,
-    image TEXT,
-    scale REAL NOT NULL DEFAULT 1,
-    minutes INTEGER,
-    hours TEXT,
-    booking_state TEXT,
-    booking_by TEXT,
-    booking_code TEXT,
-    booking_url TEXT,
-    due TEXT,
-    assignee TEXT,
-    link TEXT
-  )
-`;
-
-/** A note's tags as its column keeps them: a JSON array of strings */
-const tagsOf = (column: string): Tag[] => {
-  const tags: unknown = JSON.parse(column);
-  return Array.isArray(tags) ? tags.flatMap((t: unknown) => parseTag(t) ?? []) : [];
-};
-
-const fromRow = (r: NoteRow): WireNote => {
-  const card = {
-    id: r.id,
-    x: r.x,
-    y: r.y,
-    rot: r.rot,
-    scale: r.scale,
-    by: r.by,
-    updatedAt: r.updated_at,
-  };
-  const memo = (): WireMemo => ({
-    ...card,
-    title: r.title,
-    color: r.color,
-    kind: "memo",
-    body: r.body,
-    tags: tagsOf(r.tags),
-    mapsUrl: r.maps_url,
-    pin: r.pin_lat === null || r.pin_lng === null ? null : { lat: r.pin_lat, lng: r.pin_lng },
-    schedule:
-      r.sched_date === null || r.sched_status === null
-        ? null
-        : { date: r.sched_date, time: r.sched_time, status: r.sched_status },
-    budget: r.budget,
-    checked: r.checked === 1,
-    image: r.image ?? null,
-    minutes: r.minutes,
-    hours: r.hours,
-    booking: bookingOf(r),
-    due: r.due,
-    assignee: r.assignee,
-    link: r.link,
-  });
-  switch (r.kind) {
-    case "memo":
-      return memo();
-    case "suggestion":
-      return { ...card, title: r.title, color: r.color, kind: "suggestion" };
-    case "text":
-      return { ...card, kind: "text", text: r.title };
-    case "sticker":
-      // a sticker is never written without its picture; one that had none would be shown as the
-      // memo it is kept as rather than not at all
-      return r.image === null ? memo() : { ...card, kind: "sticker", image: r.image };
-  }
-};
-
-/**
- * What a note shows of itself as the title and color columns keep it: paper its title and
- * color; a text box its words, as its title, on white; a sticker no words, on white
- */
-const faceColumns = (n: WireNote): [NoteRow["title"], NoteRow["color"]] => {
-  switch (n.kind) {
-    case "memo":
-    case "suggestion":
-      return [n.title, n.color];
-    case "text":
-      return [n.text, "#ffffff"];
-    case "sticker":
-      return ["", "#ffffff"];
-  }
-};
-
-/** A booking as its columns keep it: the state, then what that state has */
-const bookingColumns = (
-  b: WireBooking | null,
-): [
-  NoteRow["booking_state"],
-  NoteRow["booking_by"],
-  NoteRow["booking_code"],
-  NoteRow["booking_url"],
-] =>
-  b === null
-    ? [null, null, null, null]
-    : b.state === "needed"
-      ? ["needed", b.by, null, null]
-      : ["booked", null, b.code, b.url];
-
-const bookingOf = (r: NoteRow): WireBooking | null => {
-  if (r.booking_state === "needed") return { state: "needed", by: r.booking_by };
-  if (r.booking_state === "booked")
-    return { state: "booked", code: r.booking_code ?? "", url: r.booking_url };
-  return null;
-};
-
 /** Where a published booklet is in the bucket; its slug is its only name */
 export const bookletKey = (slug: string) => `booklets/${slug}/shiori.html`;
 
@@ -1756,15 +860,3 @@ export const newSlug = () =>
 
 /** Now, as the room stamps what it applies */
 const stamp = (): IsoInstant => v.parse(IsoInstantSchema, new Date().toISOString());
-
-/** The trip's flights, one a leg; a time not known yet is null */
-const flightsTable = (name: string) => `
-  CREATE TABLE IF NOT EXISTS ${name} (
-    leg TEXT PRIMARY KEY CHECK (leg IN ('out', 'back')),
-    number TEXT NOT NULL,
-    from_place TEXT NOT NULL,
-    to_place TEXT NOT NULL,
-    departs TEXT,
-    arrives TEXT
-  )
-`;

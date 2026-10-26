@@ -196,6 +196,11 @@ src/worker/         The Cloudflare Worker, its own program (tsconfig.json here: 
   room.ts           Room: the trip, its notes and members in SQLite, and which pictures it has (their bytes
                     in the R2 bucket chirashitabi-images); the socket: snapshot on connect,
                     mutations checked, stamped (by, updatedAt), written and sent to the other sockets
+  room/             What the Room calls on: schema.ts (its tables, and bringing older rooms' up to date),
+                    notes.ts (a note's row read as a wire note, and its fields as columns), state.ts (its
+                    members and trip as the wire carries them), apply.ts (a mutation written), socket.ts
+                    (a message encoded, the rate window, the changes already answered), agent.ts (what
+                    the agent reads of the room, and the trip's candidate tags)
   wire.ts           What crosses the socket and the checks it must pass (src/contract's wire.ts and room.ts)
   types.ts          Ids, colors, money, places and Result (the rest of src/contract)
   api.test.ts       The Worker in workerd via wrangler's test harness, Access stood in for by a throwaway key
