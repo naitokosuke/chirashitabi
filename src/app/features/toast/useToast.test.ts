@@ -2,6 +2,10 @@ import { createPinia, setActivePinia } from "pinia";
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 
+import type { RoomId } from "../rooms/types";
+import { opened } from "../sync/session";
+import { useSync } from "../sync/useSync";
+
 import { useToast } from "./useToast";
 
 beforeEach(() => {
@@ -60,4 +64,35 @@ describe("a word said while an undo is held", () => {
     expect(settle).toHaveBeenCalledOnce();
     expect(toast.current?.text).toBe("Deleted another");
   });
+
+  test("goes unsaid once a newer toast with an undo takes the held one's place", () => {
+    const { toast } = deleted();
+    toast.hold("pointer", true);
+    toast.show("Something went wrong");
+    toast.show("Deleted another", { undo: () => {}, settle: () => {} });
+    toast.hold("pointer", false);
+
+    vi.advanceTimersByTime(3200);
+    expect(toast.current).toBeNull();
+  });
+
+  test("goes unsaid when its room is left, though what the undo held open goes through", () => {
+    const sync = useSync();
+    sync.session = opened(ROOM_A, null);
+    const { toast, settle } = deleted();
+    toast.hold("focus", true);
+    toast.show("Something went wrong", { room: ROOM_A });
+
+    // useRoom leaves the toast before the session moves on to the next room
+    toast.leaveRoom();
+    expect(settle).toHaveBeenCalledOnce();
+    expect(toast.current).toBeNull();
+
+    sync.session = opened(ROOM_B, null);
+    vi.advanceTimersByTime(10_000);
+    expect(toast.current).toBeNull();
+  });
 });
+
+const ROOM_A = "00000000-0000-4000-8000-00000000000a" as RoomId;
+const ROOM_B = "00000000-0000-4000-8000-00000000000b" as RoomId;

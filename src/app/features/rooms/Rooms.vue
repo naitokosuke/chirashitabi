@@ -46,7 +46,7 @@ import { shelve, whenOf } from "./when";
  * asks the page to go (`open`, `create`); so do closing the sheet and the trip it made.
  */
 defineProps<{
-  creating: boolean;
+  creating?: boolean;
   hrefOf: (id: RoomId) => string;
   newHref: string;
 }>();
@@ -129,18 +129,21 @@ const shelfSays = computed(() => {
     return i18n.t(s.what === "restoring" ? "rooms.restoreFailed" : "rooms.purgeFailed");
   return null;
 });
+/** One thing on the shelf, answering whether it went: its held button says done only then */
 async function onShelf(
   kind: ShelfWork,
   id: RoomId,
   run: () => Promise<Result<void, ShelfRefusal>>,
 ) {
-  if (busyWithDeleted.value) return;
+  if (busyWithDeleted.value) return false;
   shelf.value = { kind, id };
   try {
     const done = await run();
     shelf.value = done.ok ? { kind: "idle" } : { kind: "refused", reason: done.reason };
+    return done.ok;
   } catch {
     shelf.value = { kind: "failed", what: kind };
+    return false;
   }
 }
 /** A deleted trip back on the shelf */
@@ -322,7 +325,7 @@ function retry() {
                     :label="i18n.t('rooms.restore')"
                     :done="i18n.t('rooms.restored')"
                     :disabled="busyWithDeleted || cut.offline"
-                    @hold="() => bringBack(d.id)"
+                    :act="() => bringBack(d.id)"
                   >
                     <template #hint>{{ i18n.t("rooms.hold") }}</template>
                   </CtHoldButton>
@@ -331,7 +334,7 @@ function retry() {
                     :label="i18n.t('rooms.purge')"
                     :done="i18n.t('rooms.purged')"
                     :disabled="busyWithDeleted || cut.offline"
-                    @hold="() => purgeForGood(d.id)"
+                    :act="() => purgeForGood(d.id)"
                   >
                     <template #hint>{{ i18n.t("rooms.hold") }}</template>
                   </CtHoldButton>
@@ -372,22 +375,22 @@ function retry() {
 .page {
   flex: 1;
   overflow-y: auto;
-  padding: var(--page-top) var(--page-margin) calc(var(--dock-clear) + 24px);
+  padding: var(--page-top) var(--page-margin) calc(var(--dock-clear) + var(--space-12));
 
   /* a shelf's name, with room above it from the shelf before */
   > section > h2 {
-    margin: 28px 0 12px;
+    margin: var(--space-14) 0 var(--space-6);
   }
 }
 
 /* the room did not answer, or the list did not come: said once, with the way to try again */
 .notice {
-  margin: 16px 0 0;
+  margin: var(--space-8) 0 0;
 }
 
 .empty {
   max-width: 32em;
-  margin: 28px 0 16px;
+  margin: var(--space-14) 0 var(--space-8);
 }
 
 .tags {
@@ -395,7 +398,7 @@ function retry() {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 12px;
+  gap: var(--space-6);
 
   > li {
     min-width: 0;
@@ -404,7 +407,7 @@ function retry() {
   /* a whole tag is the way into its trip */
   a {
     display: block;
-    border-radius: 12px 20px 20px 12px;
+    border-radius: var(--radius-6) var(--radius-10) var(--radius-10) var(--radius-6);
     color: inherit;
     text-decoration: none;
     -webkit-tap-highlight-color: transparent;

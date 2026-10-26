@@ -13,6 +13,10 @@ import { onBeforeUnmount, onMounted, ref, useId, useTemplateRef, watch } from "v
  * `danger` fills it in the danger color, for something that goes for good. With an `icon`,
  * the icon is what is shown and `label` / `done` are what a screen reader is told.
  *
+ * What it does may be its owner's to answer (a request): then, full, it calls `act` instead,
+ * stays full and takes no hold while that runs, and says `done` only once `act` answers true;
+ * answering false or failing, it drains back as if let go, and the owner says why.
+ *
  * Its `variant` is how it rests: `quiet`, a wash of ink; `primary`, filled with ink, filling a
  * step lighter (the yes of two); `outline`, a hairline, filling in muted ink (the no of two).
  * On paper (.on-paper) all three are in the paper's ink.
@@ -24,6 +28,7 @@ const {
   danger,
   disabled,
   variant = "quiet",
+  act,
 } = defineProps<{
   label: string;
   done: string;
@@ -31,6 +36,8 @@ const {
   danger?: boolean;
   disabled?: boolean;
   variant?: "quiet" | "primary" | "outline";
+  /** What a full hold does, answering whether it went; without it, the hold emits `hold` */
+  act?: () => Promise<boolean>;
 }>();
 const emit = defineEmits<{ hold: [] }>();
 const slots = defineSlots<{ icon?(): unknown; hint?(): unknown }>();
@@ -45,7 +52,9 @@ const id = useId();
 const el = useTemplateRef<HTMLButtonElement>("el");
 /** How full: 0 to 1 */
 const p = ref(0);
-const state = ref<"idle" | "holding" | "done">("idle");
+const state = ref<"idle" | "holding" | "acting" | "done">("idle");
+/** Unmounted: an `act` answering after that changes nothing */
+let gone = false;
 /** The button's size, for the wave on the fill's edge */
 const size = ref({ w: 0, h: 0 });
 let frame = 0;
@@ -95,12 +104,26 @@ function fill() {
     frame = 0;
     held = null;
     watchAway(false);
-    state.value = "done";
-    emit("hold");
-    // done, it takes no new hold until it is reset; going away clears this timer
-    timer = setTimeout(reset, RESET);
+    if (act === undefined) {
+      emit("hold");
+      finish();
+      return;
+    }
+    state.value = "acting";
+    void act().then(answered, () => answered(false));
   };
   frame = requestAnimationFrame(step);
+}
+/** Its owner answered whether what the hold did went: done if so, drained back if not */
+function answered(ok: boolean) {
+  if (gone) return;
+  if (ok) finish();
+  else reset();
+}
+/** It has acted: it says so, and takes no new hold until it is reset (going away clears this timer) */
+function finish() {
+  state.value = "done";
+  timer = setTimeout(reset, RESET);
 }
 /** After a while done, it is ready again and drains */
 function reset() {
@@ -210,6 +233,7 @@ onMounted(() => {
   observer.observe(button);
 });
 onBeforeUnmount(() => {
+  gone = true;
   stop();
   clearTimeout(timer);
   watchAway(false);

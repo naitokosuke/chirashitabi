@@ -7,5 +7,10 @@ describe("the sheet param", () => {
     expect(parser.get?.("write")).toBe("write");
     expect(parser.get?.("edit")).toBe("edit");
     expect(() => parser.get?.("nope")).toThrow();
+    expect(() => parser.get?.(" write")).toThrow();
+  });
+
+  test("a key with no value (`?sheet`) is null", () => {
+    expect(parser.get?.(null)).toBeNull();
   });
 });

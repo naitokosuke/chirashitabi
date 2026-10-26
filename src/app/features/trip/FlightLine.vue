@@ -54,13 +54,13 @@ const days = computed(() => {
   margin: 0;
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: var(--space-5);
   flex-wrap: wrap;
   font-variant-numeric: tabular-nums;
   > span:not(.arrow) {
     display: inline-flex;
     align-items: baseline;
-    gap: 6px;
+    gap: var(--space-3);
     min-width: 0;
   }
   > .arrow {

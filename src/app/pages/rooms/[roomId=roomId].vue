@@ -39,7 +39,7 @@ const room = useRoom();
 const sync = useSync();
 const place = providePlace();
 const i18n = useI18n();
-const { creating, hrefOf, newHref, open, create, close, created } = useTrips();
+const { hrefOf, newHref, open, create, close, created } = useTrips();
 
 // The room the URL names, `route.params.roomId`: only a room id matches this page
 // (pages/__params/roomId.ts)
@@ -153,7 +153,6 @@ function sheetLeft() {
   </InRoom>
   <Rooms
     v-else
-    :creating
     :href-of
     :new-href
     @open="open"

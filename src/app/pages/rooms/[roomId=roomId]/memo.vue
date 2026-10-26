@@ -1,6 +1,4 @@
 <script setup lang="ts" vapor>
-import { computed } from "vue";
-
 import { useRoute } from "vue-router";
 
 import { usePlace } from "../../../features/canvas/usePlace";
@@ -14,13 +12,16 @@ import { sheetOf } from "../url";
  */
 const route = useRoute();
 const place = usePlace();
-/** Live while it is the tab up with no sheet over it */
-const active = computed(
-  () => route.name === "/rooms/[roomId=roomId]/memo" && sheetOf(route.params) === null,
-);
 const saved = (input: NoteInput) => void place(input, "away");
 </script>
 
 <template>
-  <Form :mode="{ kind: 'tab', active }" @save="saved" />
+  <!-- live while it is the tab up with no sheet over it -->
+  <Form
+    :mode="{
+      kind: 'tab',
+      active: route.name === '/rooms/[roomId=roomId]/memo' && sheetOf(route.params) === null,
+    }"
+    @save="saved"
+  />
 </template>

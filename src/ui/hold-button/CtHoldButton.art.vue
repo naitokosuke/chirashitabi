@@ -10,6 +10,15 @@ defineArt("./CtHoldButton.vue", {
 });
 
 const held = ref(0);
+
+/** A request the hold sends, answering a moment later that it went */
+function goes() {
+  return new Promise<boolean>((resolve) => setTimeout(resolve, 800, true));
+}
+/** One answering that it did not: the button drains back, never saying done */
+function fails() {
+  return new Promise<boolean>((resolve) => setTimeout(resolve, 800, false));
+}
 </script>
 
 <art>
@@ -26,6 +35,16 @@ const held = ref(0);
   <variant name="Icon">
     <CtHoldButton done="Kept" label="Keep it" @hold="() => held++">
       <template #icon>👍</template>
+      <template #hint>Press and hold</template>
+    </CtHoldButton>
+  </variant>
+  <variant name="Answered by its owner">
+    <CtHoldButton done="Restored" label="Restore" :act="goes">
+      <template #hint>Press and hold</template>
+    </CtHoldButton>
+  </variant>
+  <variant name="Answered, failing">
+    <CtHoldButton danger done="Gone for good" label="Delete forever" :act="fails">
       <template #hint>Press and hold</template>
     </CtHoldButton>
   </variant>

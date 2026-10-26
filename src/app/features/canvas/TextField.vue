@@ -109,7 +109,7 @@ onMounted(() => {
     min-width: 0;
     margin: 0;
     border: 0;
-    border-radius: 4px;
+    border-radius: var(--radius-2);
     background: color-mix(in oklch, var(--bg) 70%, transparent);
     color: inherit;
     resize: none;

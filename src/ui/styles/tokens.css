@@ -217,7 +217,7 @@
   --top-inset: env(safe-area-inset-top, 0px);
 
   /* cut off: the band takes the strip, and everything along the top moves down under it */
-  &[data-offline] {
+  &.offline {
     --top-inset: calc(env(safe-area-inset-top, 0px) + var(--notice));
   }
   --top-clear: calc(var(--top-inset) + var(--top-row) + var(--space-4));

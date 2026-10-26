@@ -210,7 +210,7 @@ article {
     z-index: var(--z-chrome);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-4);
     min-height: var(--top-row);
     /* in the page's column, so the days start where the page does */
     padding: var(--top-inset) var(--page-margin) 0;
@@ -236,7 +236,7 @@ article {
   > .lead {
     position: relative;
     flex-shrink: 0;
-    padding: 0 var(--page-margin) 4px;
+    padding: 0 var(--page-margin) var(--space-2);
 
     /* the page's edge: a hairline across the column, not the screen */
     &::after {
@@ -249,7 +249,7 @@ article {
     }
 
     > p {
-      margin: 10px 0 0;
+      margin: var(--space-5) 0 0;
 
       > small {
         font-size: var(--font-xs);
@@ -258,7 +258,7 @@ article {
 
     /* the open day's heading, at the foot of the lead, over the page */
     > h2 {
-      margin: 14px 0 10px;
+      margin: var(--space-7) 0 var(--space-5);
     }
   }
 
@@ -267,7 +267,7 @@ article {
     flex: 1;
     overflow-y: auto;
     /* clear of the lead's edge before the day starts */
-    padding: 16px var(--page-margin) 24px;
+    padding: var(--space-8) var(--page-margin) var(--space-12);
   }
 }
 </style>

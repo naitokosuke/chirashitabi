@@ -6,7 +6,10 @@
  *
  * A new build's worker takes over at once, so an app left open (an installed one) is not held on
  * an old build. The build before it keeps its cache: a tab still running it loads its chunks
- * (the map's) from there, since a lookup searches every cache. Older ones go.
+ * (the map's) from there, since a file this build does not have is looked up in every cache.
+ * Older ones go. The page and the files this build does have come from its own cache first: the
+ * caches list in the order they were made, so a lookup in all of them finds the previous build's
+ * `/` and `/theme.js` before this one's.
  */
 
 /** The page and every file the build emitted, filled in by the build */
@@ -62,23 +65,33 @@ async function page(req) {
     if (res.status >= 500) throw new Error(`answered ${res.status}`);
     return res;
   });
-  const kept = new Promise((resolve) => setTimeout(resolve, PATIENCE)).then(() =>
-    caches.match("/"),
-  );
+  const kept = new Promise((resolve) => setTimeout(resolve, PATIENCE)).then(keptPage);
   try {
     return await Promise.race([usable, kept.then((r) => r ?? usable)]);
   } catch {
     // nothing kept: the network's answer, error and all, is better than none
-    return (await caches.match("/")) ?? network.catch(() => Response.error());
+    return (await keptPage()) ?? network.catch(() => Response.error());
   }
 }
 
+/** This build's page, never the previous one's: that one loads chunks this worker does not keep */
+async function keptPage() {
+  return (await caches.open(CACHE)).match("/");
+}
+
 /**
- * The build's files carry their hash in their name: a kept one is the one. Whatever it varied on
- * (the page's module script asks with an Origin, the install did not), it is the same file.
+ * This build's files, as it kept them: the hashed ones are the one by their name, and the few
+ * without a hash (public/'s) are this build's, not the previous one's. A file it does not have is
+ * a chunk of the previous build, for a tab still running it. Whatever a file varied on (the
+ * page's module script asks with an Origin, the install did not), it is the same file.
  */
 async function file(req) {
-  return (await caches.match(req, { ignoreVary: true })) ?? fetch(req);
+  const own = await caches.open(CACHE);
+  return (
+    (await own.match(req, { ignoreVary: true })) ??
+    (await caches.match(req, { ignoreVary: true })) ??
+    fetch(req)
+  );
 }
 
 /** A kept picture, or the network's; keeping one that came never holds up or fails the answer */

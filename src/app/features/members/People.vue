@@ -102,9 +102,11 @@ async function sendInvite() {
 /**
  * One change of who is in, and whether it went through; a refusal or a failure is said, the
  * list is refreshed either way (useMembers). A refused change is not asked again. Its second
- * tap is not taken again while the room answers, so a double tap sends it once.
+ * tap is not taken again while the room answers, so a double tap sends it once. Cut off, it is
+ * not sent: the second tap stays, off, for when the connection is back.
  */
 async function run(change: () => Promise<Result<void, MembersRefusal>>) {
+  if (cut.offline) return false;
   failed.value = null;
   try {
     const done = await change();
@@ -172,6 +174,7 @@ onMounted(() => {
                 danger
                 variant="primary"
                 :disabled="membership.remove.isLoading.value"
+                :soft-disabled="cut.offline"
                 @click="() => remove(m.id)"
               >
                 {{ i18n.t("people.removeConfirm") }}
@@ -261,6 +264,7 @@ onMounted(() => {
               danger
               variant="primary"
               :disabled="membership.deleteRoom.isLoading.value"
+              :soft-disabled="cut.offline"
               @click="deleteTrip"
             >
               {{ i18n.t("people.deleteConfirm", { count: KEPT_DAYS }) }}
@@ -277,6 +281,7 @@ onMounted(() => {
               danger
               variant="primary"
               :disabled="membership.leave.isLoading.value"
+              :soft-disabled="cut.offline"
               @click="leave"
             >{{
               i18n.t("people.leaveConfirm")
@@ -297,24 +302,24 @@ onMounted(() => {
 
 .people {
   display: grid;
-  gap: 12px;
+  gap: var(--space-6);
 }
 
 .out {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-block-start: 8px;
+  gap: var(--space-3);
+  margin-block-start: var(--space-4);
 }
 
 .invite {
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
 
   /* the address and the button that sends it, on one line */
   .line {
     display: flex;
-    gap: 8px;
+    gap: var(--space-4);
 
     > input {
       flex: 1;
@@ -327,8 +332,8 @@ onMounted(() => {
   > svg {
     display: block;
     width: min(240px, 100%);
-    margin-block: 4px 8px;
-    border-radius: 10px;
+    margin-block: var(--space-2) var(--space-4);
+    border-radius: var(--radius-5);
   }
 }
 </style>

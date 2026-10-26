@@ -274,15 +274,15 @@ function markBooked(n: Scheduled) {
 
 <style scoped>
 .intro {
-  margin-block-end: 10px;
+  margin-block-end: var(--space-5);
 }
 
 /* the status, the price, taking it off the day */
 .edit {
   display: flex;
-  gap: 8px;
+  gap: var(--space-4);
   align-items: center;
-  margin-block-start: 6px;
+  margin-block-start: var(--space-3);
 
   > span {
     color: var(--paper-muted);
@@ -297,27 +297,27 @@ function markBooked(n: Scheduled) {
 
 /* the agent's slip (CtPaper proposal), as on the canvas: why, then the day it would make */
 .draft {
-  margin-block-start: 14px;
+  margin-block-start: var(--space-7);
 
   p {
-    margin: 0 0 6px;
+    margin: 0 0 var(--space-3);
     font-size: var(--font-md);
     line-height: 1.5;
   }
 
   ol {
     margin: 0;
-    padding-inline-start: 20px;
+    padding-inline-start: var(--space-10);
     font-size: var(--font-md);
   }
 }
 
 .ask-draft {
-  margin-block-start: 14px;
+  margin-block-start: var(--space-7);
 }
 
 /* the ask that did not go through; trying again is the button's own tap */
 .failed {
-  margin: 8px 0 0;
+  margin: var(--space-4) 0 0;
 }
 </style>

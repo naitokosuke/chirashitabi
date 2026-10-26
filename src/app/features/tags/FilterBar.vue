@@ -56,8 +56,8 @@ function toggleOnly() {
   > div + div {
     flex-shrink: 0;
     display: flex;
-    gap: 6px;
-    padding-inline-end: 12px;
+    gap: var(--space-3);
+    padding-inline-end: var(--space-6);
   }
 }
 </style>

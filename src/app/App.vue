@@ -75,7 +75,7 @@ function toTrips(e: MouseEvent) {
   if (route.path !== "/") void router.push("/");
 }
 /** A sheet is over the page (a memo's, or a new trip's): the menu steps aside for it */
-const covered = computed(() => sheetOpen.value || route.name === "/new");
+const covered = computed(() => sheetOpen.value || route.name === "/(trips)/new");
 </script>
 
 <template>

@@ -82,6 +82,8 @@ export const useToast = defineStore("toast", () => {
       waiting = t;
       return;
     }
+    // a word that waited is older than this toast, which says what happened since
+    waiting = null;
     leave();
     current.value = t;
     rewind();
@@ -115,6 +117,14 @@ export const useToast = defineStore("toast", () => {
     leave();
     next();
   }
+  /**
+   * As `leave`, for the room it was shown in being left (useRoom): a word that waited behind it
+   * was about that room, so it goes unsaid rather than over the trips or the room opened next
+   */
+  function leaveRoom() {
+    waiting = null;
+    leave();
+  }
   function undo() {
     clearTimeout(timer);
     const t = current.value;
@@ -124,5 +134,5 @@ export const useToast = defineStore("toast", () => {
     next();
   }
 
-  return { current, show, hold, settle, undo };
+  return { current, show, hold, settle, leaveRoom, undo };
 });

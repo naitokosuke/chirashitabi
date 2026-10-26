@@ -116,19 +116,19 @@ function markBooked(n: Memo) {
 .todos {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-5);
 
   /* the heading, and how many are still to do beside it */
   > h2 {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-4);
   }
 
   /* a line to write the next one in, as quick as a note */
   > form {
     display: flex;
-    gap: 8px;
+    gap: var(--space-4);
 
     > input {
       flex: 1;
@@ -146,7 +146,7 @@ function markBooked(n: Memo) {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      column-gap: 10px;
+      column-gap: var(--space-5);
       min-height: var(--tap);
       border-block-end: 1px solid var(--line);
       font-size: var(--font-base);

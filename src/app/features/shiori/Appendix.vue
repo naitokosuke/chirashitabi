@@ -249,20 +249,20 @@ async function copyLink() {
 /* the appendix: a checklist written on the notes' own paper */
 section {
   & + section {
-    margin-block-start: 18px;
+    margin-block-start: var(--space-9);
   }
 
   > h2 {
-    margin: 20px 0 10px;
+    margin: var(--space-10) 0 var(--space-5);
   }
 
   > ul {
     list-style: none;
     margin: 0;
-    padding: 4px 0 10px;
+    padding: var(--space-2) 0 var(--space-5);
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--space-5);
 
     /* each item a slip of its writer's paper (CtPaper row), the whole slip its box to tick (CtCheck) */
     > li {
@@ -290,14 +290,14 @@ section {
   /* the public page: its link, as of when, and the owner's buttons */
   &.out {
     > h3 {
-      margin: 22px 0 6px;
+      margin: 22px 0 var(--space-3);
     }
 
     > .link {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 4px 12px;
+      gap: var(--space-2) var(--space-6);
       font-size: var(--font-sm);
 
       > a {
@@ -313,8 +313,8 @@ section {
     > .actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      margin-block-start: 10px;
+      gap: var(--space-4);
+      margin-block-start: var(--space-5);
     }
   }
 }
