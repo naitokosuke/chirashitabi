@@ -12,6 +12,7 @@ import { useMembers } from "../members/useMembers";
 import type { NoteId } from "../notes/id";
 import type { Memo } from "../notes/types";
 import { useNotes } from "../notes/useNotes";
+import { useInRoom } from "../sync/InRoom.vue";
 import { shortDate } from "../trip/format";
 import { assignTo } from "../trip/itinerary";
 import { useTrip } from "../trip/useTrip";
@@ -25,7 +26,9 @@ import { useTrip } from "../trip/useTrip";
 const emit = defineEmits<{ put: [date: Temporal.PlainDate] }>();
 const pickingId = defineModel<NoteId | null>("picking", { required: true });
 const store = useNotes();
-const { trip, unassigned } = useTrip();
+const { unassigned } = useTrip();
+/** The trip whose days the memo is put on */
+const here = useInRoom();
 const { members } = useMembers();
 const i18n = useI18n();
 /** A note's paper: whoever wrote it */
@@ -73,7 +76,7 @@ function putPickedOn(date: Temporal.PlainDate) {
     <div v-if="picking !== null">
       <span>{{ i18n.t("shiori.putOn", { title: picking.title }) }}</span>
       <CtButton
-        v-for="d in trip?.days"
+        v-for="d in here.trip.days"
         :key="d.date.toString()"
         variant="primary"
         @click="() => putPickedOn(d.date)"

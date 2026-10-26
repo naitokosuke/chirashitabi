@@ -1,5 +1,6 @@
 import { Temporal } from "temporal-polyfill-lite";
 
+import { MAX_BODY, MAX_TAGS, MAX_TITLE } from "../../../contract/room";
 import { parseHttpUrl } from "../place/google-maps";
 import type { LatLng } from "../place/types";
 
@@ -179,4 +180,19 @@ export function parseNoteText(text: string): Pick<NoteInput, "title" | "body" | 
     .replace(/\n{3,}/g, "\n\n")
     .trim();
   return { title, body, tags };
+}
+
+/**
+ * Which of a memo's words the room would refuse: a title (its first line) longer than a title
+ * may be, a body longer than a body may be, or more tags than a memo holds; null while all fit
+ */
+export function tooMuchOf({
+  title,
+  body,
+  tags,
+}: Pick<NoteInput, "title" | "body" | "tags">): "title" | "body" | "tags" | null {
+  if (title.length > MAX_TITLE) return "title";
+  if (body.length > MAX_BODY) return "body";
+  if (tags.length > MAX_TAGS) return "tags";
+  return null;
 }

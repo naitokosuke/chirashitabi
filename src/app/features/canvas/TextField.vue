@@ -3,6 +3,8 @@ import { onMounted, ref, useTemplateRef } from "vue";
 
 import { useI18n } from "../../i18n/useI18n";
 
+import { MAX_TEXT } from "../../../contract/room";
+
 /**
  * Words being written straight on the desk: where a double click landed, or over a text box
  * being rewritten (which is hidden meanwhile). It sits in desk coordinates, turned and sized
@@ -54,7 +56,7 @@ onMounted(() => {
       ref="field"
       v-model="value"
       :aria-label="i18n.t('canvas.text')"
-      maxlength="1000"
+      :maxlength="MAX_TEXT"
       rows="1"
       spellcheck="false"
       @blur="onBlur"

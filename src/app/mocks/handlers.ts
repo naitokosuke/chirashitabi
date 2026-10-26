@@ -43,7 +43,7 @@ import {
   ProfileSchema,
   WireMemberSchema,
   WireNoteSchema,
-  WireRoomSummarySchema,
+  WireListedRoomSchema,
   WireTripSchema,
   type IsoInstant,
   type ServerMessage,
@@ -137,15 +137,12 @@ const bodyOf = async <S extends v.GenericSchema>(request: Request, schema: S) =>
   return read.success ? read.output : null;
 };
 
-/**
- * A room as the list shows it, checked as the Worker's answer is (no days is no first day);
- * its id goes beside the summary, as the Worker puts it
- */
-const summary = (id: RoomId, { state }: MockRoom) => ({
-  id,
-  ...wire(WireRoomSummarySchema, {
+/** A room as the list shows it, checked as the Worker's answer is: its id beside the summary */
+const summary = (id: RoomId, { state }: MockRoom) =>
+  wire(WireListedRoomSchema, {
+    id,
     name: state.trip.name,
-    first: state.trip.days[0]?.date ?? null,
+    first: state.trip.days[0]?.date,
     days: state.trip.days.length,
     // the people first, the creator leading; the agent after them
     members: [...state.members]
@@ -153,8 +150,7 @@ const summary = (id: RoomId, { state }: MockRoom) => ({
       .map(({ kind, name, color }) => ({ kind, name, color })),
     memos: state.notes.filter((n) => n.kind === "memo").length,
     owner: true,
-  }),
-});
+  });
 
 // ---- the room's socket ----
 

@@ -26,7 +26,6 @@ export const ja: Messages = {
   "rooms.inDays": "あと {$count :integer} 日",
   "rooms.tomorrow": "明日から",
   "rooms.during": "旅の途中 · {$count :integer} 日目",
-  "rooms.undated": "日程なし",
   "rooms.memos": "付箋 {$count :integer}",
   "rooms.new": "新しい旅",
   "rooms.name": "旅の名前",
@@ -224,6 +223,10 @@ export const ja: Messages = {
   "form.tagsLimit": "今日頼める提案はここまでです。また明日頼んでください。",
   "form.tagsTripLimit": "この旅で頼める提案はここまでです。",
   "form.tagPlaceholder": "タグを追加…",
+  "form.titleTooLong":
+    "1行目はタイトルで、{$max :integer}文字までです。短くするか、続きを次の行に書いてください。",
+  "form.bodyTooLong": "2行目からは{$max :integer}文字までです。",
+  "form.tooManyTags": "タグは{$max :integer}個までです。いくつか外すと保存できます。",
   "form.link": "リンク",
   "form.linkPlaceholder": "ブログ、動画など、アイデアの元ページ",
   "form.linkFetching": "ページを読んでいます…",

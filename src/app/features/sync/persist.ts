@@ -39,8 +39,8 @@ const VersionSchema = v.pipe(v.string(), v.parseJson(), v.object({ v: v.number()
 
 /**
  * What keep() writes, read back as the room's own messages are: a note, a member or a change
- * that does not read is left out, and the rest is kept; without who this device is, or as of
- * when, it is none
+ * that does not read is left out, and the rest is kept; without who this device is, as of
+ * when, or a trip that reads, it is none: the device joins the room as if it had kept nothing
  */
 const SavedSchema = v.pipe(
   v.string(),
@@ -51,7 +51,7 @@ const SavedSchema = v.pipe(
     me: MemberIdSchema,
     confirmed: v.object({
       notes: listOf(WireNoteSchema),
-      trip: v.fallback(v.nullable(WireTripSchema), null),
+      trip: WireTripSchema,
       members: listOf(WireMemberSchema),
     }),
     /** `by` since this device signed each one; kept before that, they are all `me`'s */
@@ -120,7 +120,7 @@ export function forget(storage: Storage, roomId: RoomId) {
   }
 }
 
-/** The room as it was kept, or null: never kept, a newer version's, without who this device is, or unreadable */
+/** The room as it was kept, or null: never kept, a newer version's, without who this device is or its trip, or unreadable */
 export function kept(storage: Storage, roomId: RoomId): Kept | null {
   try {
     const raw = storage.getItem(keyOf(roomId));
@@ -132,7 +132,7 @@ export function kept(storage: Storage, roomId: RoomId): Kept | null {
       me: saved.me,
       confirmed: {
         notes: saved.confirmed.notes.map(reviveNote),
-        trip: saved.confirmed.trip === null ? null : reviveTrip(saved.confirmed.trip),
+        trip: reviveTrip(saved.confirmed.trip),
         members: saved.confirmed.members,
       },
       pending: saved.pending.map((p) => ({

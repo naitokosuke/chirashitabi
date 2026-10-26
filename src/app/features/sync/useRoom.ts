@@ -18,7 +18,7 @@ import { ROOMS_KEY } from "../rooms/useRooms";
 import { useToast } from "../toast/useToast";
 
 import { roomKeys } from "./keys";
-import { createLedger, EMPTY_ROOM, type RoomState } from "./ledger";
+import { createLedger, type RoomState } from "./ledger";
 import { claim, forget, keep, kept, prune } from "./persist";
 import { linked, opened, OUT, synced } from "./session";
 import { createRoomSocket } from "./socket";
@@ -49,12 +49,13 @@ export const useRoom = defineStore("room", () => {
   function put<T>(key: EntryKeyTagged<T>, value: T) {
     if (queryCache.getQueryData(key) !== value) queryCache.setQueryData(key, value);
   }
-  /** The ledger's view into the cache */
-  function show(state: RoomState) {
+  /** The ledger's view into the cache; before the room's state is had, there is none to show */
+  function show(state: RoomState | null) {
+    if (state === null) return;
     const id = sync.room;
     put(roomKeys.notes(id), state.notes);
     put(roomKeys.members(id), state.members);
-    if (state.trip !== null) put(roomKeys.trip(id), state.trip);
+    put(roomKeys.trip(id), state.trip);
     keepSoon();
     if (id !== null) warm(id, state.notes);
   }
@@ -85,11 +86,12 @@ export const useRoom = defineStore("room", () => {
     if (keepTimer !== null) clearTimeout(keepTimer);
     keepTimer = null;
     const s = sync.session;
-    // only once this device is in it
-    if (s.kind !== "in") return;
+    const confirmed = ledger.confirmed;
+    // only once this device is in it, and so has it
+    if (s.kind !== "in" || confirmed === null) return;
     keep(localStorage, s.room, {
       me: s.me,
-      confirmed: ledger.confirmed,
+      confirmed,
       pending: [...ledger.pending],
       savedAt: s.syncedAt,
     });
@@ -274,7 +276,7 @@ export const useRoom = defineStore("room", () => {
     // the stores read this room's cache entries from now on
     sync.session = opened(id, was);
     // (and nothing of the room before: its unanswered changes were kept with it)
-    show(ledger.restore(was?.confirmed ?? EMPTY_ROOM, was?.pending ?? []));
+    show(ledger.restore(was?.confirmed ?? null, was?.pending ?? []));
     // in at once when this device kept the room; otherwise once the room answers (onSnapshot)
     remember();
     socket.connect(id);

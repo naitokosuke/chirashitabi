@@ -16,6 +16,7 @@ import {
 
 import { useI18n } from "../../i18n/useI18n";
 
+import { MAX_TITLE } from "../../../contract/room";
 import { useMembers } from "../members/useMembers";
 import type { NoteId } from "../notes/id";
 import type { Memo } from "../notes/types";
@@ -75,7 +76,7 @@ function markBooked(n: Memo) {
       <CtInput
         v-model="title"
         enterkeyhint="done"
-        maxlength="200"
+        :maxlength="MAX_TITLE"
         :aria-label="i18n.t('todo.new')"
         :placeholder="i18n.t('todo.placeholder')"
       />

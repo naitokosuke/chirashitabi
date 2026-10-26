@@ -1,6 +1,7 @@
 <script setup lang="ts" vapor>
 import { computed, onBeforeUnmount, watch } from "vue";
 
+import { useQueryState } from "@pinia/colada";
 import * as v from "valibot";
 import { RouterView, useRoute, useRouter } from "vue-router";
 
@@ -12,6 +13,7 @@ import type { NoteInput } from "../../features/notes/types";
 import Rooms from "../../features/rooms/Rooms.vue";
 import Connection from "../../features/sync/Connection.vue";
 import InRoom from "../../features/sync/InRoom.vue";
+import { roomKeys } from "../../features/sync/keys";
 import { useRoom } from "../../features/sync/useRoom";
 import { useSync } from "../../features/sync/useSync";
 import { useTrips } from "../useTrips";
@@ -57,10 +59,15 @@ watch(
   },
 );
 
-/** The session while this device is in the room the URL names; null until then */
+/** The room's trip, as the room shows it: there from the moment this device is in it (useRoom) */
+const { data: trip } = useQueryState(() => roomKeys.trip(sync.room));
+/** The session and the trip while this device is in the room the URL names; null until then */
 const here = computed(() => {
   const s = sync.session;
-  return s.kind === "in" && s.room === route.params.roomId ? s : null;
+  const t = trip.value;
+  return s.kind === "in" && s.room === route.params.roomId && t !== undefined
+    ? { room: s.room, me: s.me, trip: t }
+    : null;
 });
 const tab = computed(() => viewOf(route.name) ?? "canvas");
 const form = computed(() => sheetOf(route.params));
@@ -114,7 +121,7 @@ function onSave(input: NoteInput, keepOpen: boolean) {
     look) is the room's it was opened in, so none of it is carried into the next one. Within
     a room, the tabs are kept alive (KeepAlive) as they are.
   -->
-  <InRoom v-if="here !== null" :key="here.room" :room="here.room" :me="here.me">
+  <InRoom v-if="here !== null" :key="here.room" :room="here.room" :me="here.me" :trip="here.trip">
     <!-- a covered tab is inert: the sheet is the one thing to use -->
     <main :inert="sheet !== null">
       <!-- the tabs are layers in the same box: the one coming up fades in over the one going -->

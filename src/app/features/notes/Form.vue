@@ -45,6 +45,7 @@ import {
 
 import { useI18n } from "../../i18n/useI18n";
 
+import { MAX_BODY, MAX_TAGS, MAX_TITLE } from "../../../contract/room";
 import backIcon from "../../icons/back.svg";
 import Icon from "../../icons/Icon.vue";
 import type { MemberId } from "../members/types";
@@ -77,6 +78,7 @@ import {
   normalizeTag,
   noteText,
   parseNoteText,
+  tooMuchOf,
 } from "./input";
 import TagsField from "./TagsField.vue";
 import { type NoteInput, TODO_TAG } from "./types";
@@ -478,7 +480,20 @@ function fieldsInput(): NoteInput {
 /** What the fields said when the form opened: an edit sends only what was changed from it */
 const opened = fieldsInput();
 
+/** What is said of the words the room would refuse, and the most it keeps of them */
+const TOO_MUCH = {
+  title: { id: "form.titleTooLong", max: MAX_TITLE },
+  body: { id: "form.bodyTooLong", max: MAX_BODY },
+  tags: { id: "form.tooManyTags", max: MAX_TAGS },
+} as const;
+/**
+ * What the room would refuse of the memo as the fields say it (input.ts); null while it fits.
+ * It is said under the words and the memo is not saved until it fits, so nothing is lost.
+ */
+const tooMuch = computed(() => tooMuchOf(fieldsInput()));
+
 function submit() {
+  if (tooMuch.value !== null) return;
   void onMapsUrl();
   const input = fieldsInput();
   if (target.value.kind === "edit") {
@@ -525,6 +540,9 @@ function submit() {
               size="lg"
               :placeholder="i18n.t('form.notePlaceholder')"
             />
+            <CtHint v-if="tooMuch !== null" aria-live="polite" danger>{{
+              i18n.t(TOO_MUCH[tooMuch].id, { max: TOO_MUCH[tooMuch].max })
+            }}</CtHint>
           </CtField>
           <TagsField
             v-model:draft="memo.tagInput"
@@ -699,7 +717,7 @@ function submit() {
           size="lg"
           type="submit"
           variant="primary"
-          :disabled="!memo.text.trim() || memo.photo.state.kind === 'sending'"
+          :disabled="!memo.text.trim() || memo.photo.state.kind === 'sending' || tooMuch !== null"
         >{{
           i18n.t(saveLabel)
         }}</CtButton>

@@ -18,6 +18,7 @@ import { directionsLink } from "../place/google-maps";
 import { clockText, fitHours, openOn, readHours, spansText } from "../place/hours";
 import { distanceKm, rideMinutes, WALKABLE_KM, walkMinutes, wayMinutes } from "../place/route";
 import type { LatLng } from "../place/types";
+import { useInRoom } from "../sync/InRoom.vue";
 import FlightLine from "../trip/FlightLine.vue";
 import { shortDate } from "../trip/format";
 import { flightDays, stayOn, timing, wakeAt, type Timing } from "../trip/itinerary";
@@ -44,25 +45,25 @@ defineSlots<{
   tail(props: { n: Scheduled }): unknown;
   after(): unknown;
 }>();
-const { trip, forDay, budgetOf } = useTrip();
+const { forDay, budgetOf } = useTrip();
+/** The trip the day is of: its money, flights and stays */
+const here = useInRoom();
 const { members } = useMembers();
 const i18n = useI18n();
 /** A note's paper: whoever wrote it */
 const paperFor = (n: Memo) => paperOf(members.value?.find((m) => m.id === n.by)?.color);
-const price = (amount: number) =>
-  trip.value === undefined ? "" : formatMoney(amount, trip.value.currency, i18n.locale);
+const price = (amount: number) => formatMoney(amount, here.trip.currency, i18n.locale);
 
 /** The flights that leave or land on the day, the way there first */
 const flightsOn = computed(() =>
   LEGS.flatMap((leg) => {
-    const f = trip.value?.flights[leg] ?? null;
-    const on =
-      f !== null && flightDays(f, leg, trip.value?.days ?? []).some((x) => x.equals(props.day));
+    const f = here.trip.flights[leg];
+    const on = f !== null && flightDays(f, leg, here.trip.days).some((x) => x.equals(props.day));
     return on ? [{ leg, flight: f }] : [];
   }),
 );
 /** Where the night of the day is spent, if the trip says */
-const tonight = computed(() => stayOn(trip.value?.stays ?? [], props.day));
+const tonight = computed(() => stayOn(here.trip.stays, props.day));
 
 /** The way up to a sticky: from where, how far, and whether it can start when it says */
 interface Way {
@@ -78,7 +79,7 @@ interface Way {
  */
 const legs = computed(() => {
   const before = new Map<NoteId, Way>();
-  let at = wakeAt(trip.value?.stays ?? [], props.day)?.pin ?? null;
+  let at = wakeAt(here.trip.stays, props.day)?.pin ?? null;
   let fromStay = at !== null;
   let prev: Scheduled | null = null;
   for (const n of props.notes) {

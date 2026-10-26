@@ -11,6 +11,7 @@ import {
   changes,
   chosenBooking,
   parseNoteText,
+  tooMuchOf,
 } from "./input";
 import type { Booking } from "./types";
 
@@ -50,6 +51,22 @@ describe("parseNoteText", () => {
       body: "11時に並ぶ",
       tags: ["ごはん"],
     });
+  });
+});
+
+describe("tooMuchOf", () => {
+  const tags = (n: number) =>
+    parseNoteText(Array.from({ length: n }, (_, i) => `#t${i}`).join(" "));
+
+  test("words the room keeps, up to each limit, are not too much", () => {
+    expect(tooMuchOf(parseNoteText(`${"x".repeat(200)}\n${"y".repeat(4000)}`))).toBeNull();
+    expect(tooMuchOf({ ...tags(20), title: "Tags" })).toBeNull();
+  });
+
+  test("a first line longer than a title, a body longer than a body, more tags than a memo holds", () => {
+    expect(tooMuchOf(parseNoteText("x".repeat(201)))).toBe("title");
+    expect(tooMuchOf(parseNoteText(`Title\n${"y".repeat(4001)}`))).toBe("body");
+    expect(tooMuchOf({ ...tags(21), title: "Tags" })).toBe("tags");
   });
 });
 

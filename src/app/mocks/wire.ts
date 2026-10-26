@@ -11,7 +11,7 @@ export {
   ProfileSchema,
   WireMemberSchema,
   WireNoteSchema,
-  WireRoomSummarySchema,
+  WireListedRoomSchema,
   WireTripSchema,
   type IsoInstant,
   type ServerMessage,

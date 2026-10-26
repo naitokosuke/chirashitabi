@@ -101,7 +101,7 @@ import { useTrip } from "../trip/useTrip";
  * put up and taken down by the owner.
  */
 const store = useNotes();
-const { trip, byTag } = useTrip();
+const { byTag } = useTrip();
 const { members, me } = useMembers();
 const here = useInRoom();
 const i18n = useI18n();
@@ -125,8 +125,7 @@ function setChecked(n: Memo, checked: boolean) {
 // A file handed over and a link copied: what a tap does in a browser, never while rendering on a server
 function downloadCalendar() {
   if (import.meta.env.SSR) return;
-  const t = trip.value;
-  if (t === undefined) return;
+  const t = here.trip;
   const ics = calendarOf(t, store.notes.value ?? [], here.room, Temporal.Now.instant(), {
     flight: (number, from, to) => (number === "" ? `${from} → ${to}` : `${number} ${from} → ${to}`),
     // the labels from the messages, the names as they are: a calendar keeps no isolating marks

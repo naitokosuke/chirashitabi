@@ -59,7 +59,7 @@ const snapshot: Extract<ServerMessage, { type: "snapshot" }> = {
   members: [],
   trip: {
     name: "Taiwan trip",
-    days: [],
+    days: [{ date: "2026-11-03" as never, intro: "" }],
     currency: "TWD" as CurrencyCode,
     center: { lat: 25.05, lng: 121.54 },
     flights: { out: null, back: null },

@@ -27,6 +27,7 @@ import {
   NewTripSchema,
   PointSchema,
   ProfileSchema,
+  type WireMine,
 } from "../contract/wire";
 
 import { AccessVerifier, Unauthenticated } from "./access";
@@ -324,7 +325,7 @@ const api = new Hono<ApiEnv>()
       )
     ).flat();
     // and who is asking, so a device can tell whose what it kept is
-    return c.json({ email, rooms, invitations, deleted }, 200);
+    return c.json({ email, rooms, invitations, deleted } satisfies WireMine, 200);
   })
 
   // An invitation to a room, answered by the person invited

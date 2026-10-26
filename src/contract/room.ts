@@ -26,6 +26,16 @@ export const MAX_NAME = 60;
 export const MAX_DAYS = 60;
 /** The longest a flight's number may be written */
 export const MAX_FLIGHT_NO = 20;
+/** The longest a card's title may be: a memo's first line */
+export const MAX_TITLE = 200;
+/** The longest a memo's body may be: the lines after its title */
+export const MAX_BODY = 4000;
+/** The most tags a memo may have */
+export const MAX_TAGS = 20;
+/** The longest a text box's words may be: a few lines at most */
+export const MAX_TEXT = 1000;
+/** The longest a day's introduction in the booklet may be */
+export const MAX_INTRO = 1000;
 
 /** The app's heartbeat on a room's socket: what it sends, and what the room answers without waking */
 export const HEARTBEAT = { ping: "ping", pong: "pong" } as const;

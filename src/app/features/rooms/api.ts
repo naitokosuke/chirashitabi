@@ -1,12 +1,18 @@
 import { Temporal } from "temporal-polyfill-lite";
 
-import { hc, type InferResponseType } from "hono/client";
+import { hc } from "hono/client";
 import * as v from "valibot";
 
 import type { Api } from "../../../../.worker-types/worker";
-import { HexColorSchema, listOf, type Result } from "../../../contract";
+import { listOf, type Result } from "../../../contract";
 import { KEPT_DAYS } from "../../../contract/room";
-import { IsoDateSchema, IsoInstantSchema, type IsoInstant } from "../../../contract/wire";
+import {
+  IsoInstantSchema,
+  WireListedRoomSchema,
+  type IsoInstant,
+  type WireListedRoom,
+  type WireMine,
+} from "../../../contract/wire";
 import { EmailSchema, type Email } from "../members/types";
 import { DONE, refused, type Refusal } from "../worker/api";
 
@@ -24,9 +30,6 @@ import {
 /** The Worker's API; every call says JSON, as the Worker's gate wants, even one with no body */
 const { api } = hc<Api>("/", { headers: { "Content-Type": "application/json" } });
 
-/** `/api/me` as the Worker answers it */
-type MeAnswer = InferResponseType<typeof api.me.$post, 200>;
-
 // how many days a deleted trip is kept, as the app takes it from the contract
 export { KEPT_DAYS };
 
@@ -38,51 +41,35 @@ const untilOf = (deletedAt: IsoInstant) =>
     .add({ days: KEPT_DAYS });
 
 /** A room of `/api/me` as the list shows it: its first day as a date */
-const summaryFrom = (s: MeAnswer["rooms"][number]): RoomSummary =>
-  s.first === null
-    ? { ...s, first: null, days: 0 }
-    : { ...s, first: Temporal.PlainDate.from(s.first) };
+const summaryFrom = (s: WireListedRoom): RoomSummary => ({
+  ...s,
+  first: Temporal.PlainDate.from(s.first),
+});
 
 /** What the signed-in person has, as the Worker answers it, with its dates as dates */
-const mineFrom = ({ email, rooms, invitations, deleted }: MeAnswer): Mine & { email: Email } => ({
+const mineFrom = ({ email, rooms, invitations, deleted }: WireMine): Mine & { email: Email } => ({
   email,
   rooms: rooms.map(summaryFrom),
   invitations: invitations.map(summaryFrom),
   deleted: deleted.map(({ id, name, deletedAt }) => ({ id, name, until: untilOf(deletedAt) })),
 });
 
-const count = v.fallback(v.pipe(v.number(), v.integer(), v.minValue(0)), 0);
+const { entries: listed } = WireListedRoomSchema;
 
 /**
- * One entry of the list as this device kept it: a room id and a name. What the glance adds
- * (days, members, memos) is taken where it is sound and left empty where it is not: a trip
- * with an odd field still opens.
+ * One entry of the list as this device kept it, read as `/api/me` lists a room: which room, its
+ * name and its days. What the glance adds (members, memos, whether this person made it) is
+ * taken where it is sound and left empty where it is not: a trip with an odd field still opens.
  */
 const RoomSummarySchema = v.pipe(
   v.object({
-    id: RoomIdSchema,
-    name: v.string(),
-    members: listOf(
-      v.object({ kind: v.picklist(["person", "agent"]), name: v.string(), color: HexColorSchema }),
-    ),
-    memos: count,
+    ...listed,
+    members: listOf(listed.members.item),
+    memos: v.fallback(listed.memos, 0),
     // a list kept from a Worker from before says nothing: not the owner, so the list offers leaving at most
-    owner: v.fallback(v.boolean(), false),
-    first: v.fallback(
-      v.nullable(
-        v.pipe(
-          IsoDateSchema,
-          v.transform((d) => Temporal.PlainDate.from(d)),
-        ),
-      ),
-      null,
-    ),
-    days: count,
+    owner: v.fallback(listed.owner, false),
   }),
-  // a trip with no first day has no days to count
-  v.transform(({ first, days, ...glance }): RoomSummary =>
-    first === null ? { ...glance, first, days: 0 } : { ...glance, first, days },
-  ),
+  v.transform(summaryFrom),
 );
 
 /** One entry of the kept list, or null without a room id or a name */
@@ -145,7 +132,7 @@ export async function listMine(): Promise<Mine> {
   }
 }
 
-function keepList(answer: MeAnswer) {
+function keepList(answer: WireMine) {
   try {
     localStorage.setItem(KEPT_LIST, JSON.stringify(answer));
   } catch {
