@@ -9,16 +9,17 @@ Toolchain: pnpm + [Vite+](https://viteplus.dev/) (`vp`); SFC compilation, type c
 ```bash
 vp install
 vp dev
-vp run check   # format + lint + type check (Vize)
+vp run check   # check:worker, then format + lint + type check (Vize); a lint warning fails it
 vp run fmt     # format the SFCs (Vize) and the rest
 vp run musea   # the component gallery (Vize Musea) at /__musea__
 vp build
 vp run analyze                      # VITE_MOCK=false build, then what it is made of (Vite DevTools) at localhost:9999
-vp run check:worker                 # wrangler types + tsc on src/worker/, writing .worker-types/ (before `vp run check`)
-vp run deploy                       # VITE_MOCK=false build, then wrangler deploy (refused if dist/ has the mocks' worker)
+vp run check:worker                 # wrangler types + tsc on src/worker/, writing .worker-types/ afresh
+vp test        # the tests, after `VITE_MOCK=false vp build` (the Worker's tests serve dist/) and, once,
+               # `vp exec playwright install chromium` (*.browser.test.ts run in it)
 ```
 
-CI (`.github/workflows/ci.yml`) runs the checks on every pull request and push against the build without the mocks, and deploys `main` once they pass: that same build, by `wrangler deploy`, tried up to three times when Cloudflare's API fails, using the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; "Run workflow" in the Actions tab does the same by hand.
+CI (`.github/workflows/ci.yml`) runs the checks on every pull request and push against the build without the mocks, and deploys `main` once they pass: that same build, by `wrangler deploy`, tried up to three times when Cloudflare's API fails, using the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, one deploy at a time; "Run workflow" in the Actions tab does the same by hand, checks first.
 
 `vp dev` on its own talks to no Worker: `src/app/mocks/` answers `/api` and the room's socket in the page with MSW, from a seeded Taiwan trip, and the app runs the same code it runs against the Worker. Nothing the mocks hold survives a reload.
 
@@ -63,24 +64,33 @@ src/app/            The app
 
   features/
     members/ Everyone in the room, people (owner or guest) and agents alike; api and useMembers
-             (who is in, whom the owner invited; inviting, removing, leaving, deleting); People (that,
-             on the home tab)
+             (who is in, whom the owner invited; inviting, removing, leaving, deleting); refusals (what
+             the person is told when the room refuses one); paper (the paper a member writes on, their
+             color washed into white); People (that, on the home tab)
     rooms/   The person's trips: api (/api/me with invitations and deleted trips, /api/rooms, answering
-             an invitation, restoring); when (days to go, under way, over); TripTag (a trip as a luggage
-             tag); NewTrip (the sheet that makes one, with its tag drawn live); Invitation (one to answer);
-             Rooms (the list itself, each trip a luggage tag, coming up then been)
+             an invitation, restoring); when (days to go, under way, over); label (a trip's dates and
+             when, in words); NewTrip (the sheet that makes one, with its tag drawn live); Invitation
+             (one to answer); Rooms (the list itself, each trip a luggage tag, coming up then been)
     notes/   Notes: store, types; input (the form's text -> title, body, tags); links (a link's site, the
              links in a note's words); image (a photo or sticker
-             shrunk on the device, and where a room's picture is shown from); Form (the note form, new or
-             edit, Google Maps link -> coordinates: the memo tab, and a sheet over anything)
-    sync/    useSync (the session: out, joining or in a room, and where changes go); InRoom (inside a
-             room: which room, who this device is in it, the Worker for it, never null); keys
-             (the room's cache keys); useRoom (the socket to a room, written into the cache; its pictures
-             fetched while reachable, for the service worker to keep); ledger
+             shrunk on the device, and where a room's picture is shown from); useAsk (an ask that
+             answers later, only the latest one counting); TagsField (a memo's tags, those Clef finds
+             fitting moved up); Form (the note form, new or edit, Google Maps link -> coordinates: the
+             memo tab, and a sheet over anything)
+    sync/    useSync (the session: out, joining or in a room, and where changes go); session (where this
+             device is: out, joining or in, and the transitions between); InRoom (inside a room: which
+             room, who this device is in it, the Worker for it, never null; here.ts its shape and key);
+             keys (the room's cache keys); socket (the socket to a room: connecting, backing off, the
+             heartbeat, sending at a pace the room takes); useRoom (the socket's messages written into
+             the cache; its pictures fetched while reachable, for the service worker to keep); ledger
              (confirmed state and our unanswered changes); persist (the room kept on the device);
              wire (the room's JSON back into the app's types); useOffline (cut off: the browser said so,
              or the socket gave up) and Offline (the band along the top of every screen while it is);
              Connection (the chip while the socket is on its way)
+    shiori/  The booklet's parts: Day (a day as both ways of writing it share it), DayEdit (a day as it
+             is written, with a member's draft of it), DayRead (a day as it is read), Tray (the memos
+             still without a day, to put on one), Appendix (what to pack and do on arrival, the plan
+             as a calendar, the booklet put up as a public page)
     theme/   Light or dark: the device's until picked (useTheme, remembered); ThemeSwitch, the dock's
              sun and moon, whose new colors spread from it like ink
     trip/    The room's trip (name, days, currency, map center, flights, stays); itinerary (notes on a
@@ -97,16 +107,19 @@ src/app/            The app
              that falls while shut);
              airports (airports-data.json from OurAirports, fetched when first needed; suggestions as typed)
     canvas/  Sticky note card (a text box and a sticker too); TextField (words being written on the desk); transform
-             (screen <-> world, zoom, pinch, fit); useViewport (the animated view); usePlace (adding
-             a note on the canvas, placed even before the canvas is opened)
+             (screen <-> world, zoom, pinch, fit); gesture (what the fingers are doing, and the card
+             under one as it is drawn); useViewport (the animated view); usePlace (adding a note on the
+             canvas, placed even before the canvas is opened); useIntake (a picture or a link pasted,
+             dropped or picked, onto the desk); AskIdeas (asking the room's agent for ideas, for the
+             trip or from a note)
     worker/  WorkerApi: by the room's agent, drafting a day (POST /api/rooms/<id>/draft) and leaving ideas
              on the canvas (POST /api/rooms/<id>/suggest), the booklet as a public page and the rest
              the room asks of it (api.ts)
     toast/   useToast (the shell's one toast: a line, an undo, what happens when it leaves without one);
              Toast (it, read out as it lands)
 
-  shared/  Types every feature can use: Brand; CurrencyCode and formatMoney; HexColor; listOf; Result
-           (the types from src/contract)
+  shared/  What every feature can use: formatMoney (an amount in its currency); useToday (today,
+           read again when a view comes back)
 
   i18n/    UI messages in MessageFormat 2 (messages/en.ts is the source, ja.ts follows it);
            format (messageformat, cut at markup); useI18n (the locale: picked here or the
@@ -118,8 +131,7 @@ src/app/            The app
   mocks/   The Worker and its rooms in the page, for `vp dev` (MSW): seed data (members, trip,
            notes) and handlers for `/api` and the room's socket, started at boot
 
-src/contract/       What the app and the Worker both hold to; each takes it through its own modules
-                    (the app's types where they were defined, the Worker's wire.ts, airports.ts, types.ts)
+src/contract/       What the app and the Worker both hold to; each imports it where it is used
   index.ts       What src/shared defines, as the contract speaks in it
   wire.ts        What crosses the socket and the API (Temporal values as ISO strings), and the checks it must pass
   room.ts        The values both sides name: a room's id, seats in a room, a card's papers, a schedule's statuses
@@ -190,7 +202,6 @@ src/worker/         The Cloudflare Worker, its own program (tsconfig.json here: 
   expand.ts         A short Google Maps link (maps.app.goo.gl) read as the link its redirect names
   preview.ts        What a page a note links to says of itself (Open Graph; YouTube's oEmbed): title, a line,
                     its picture, fetched within a fence (docs/auth-and-security.md, "Previewing links")
-  airports.ts       The airports a flight may name (src/contract's airport.ts)
   booklet.ts        The booklet as a public page: one static HTML file written from the room's data, plan only,
                     escaped, no script; served on the booklet host from R2 (index.ts)
   room.ts           Room: the trip, its notes and members in SQLite, and which pictures it has (their bytes
@@ -201,8 +212,6 @@ src/worker/         The Cloudflare Worker, its own program (tsconfig.json here: 
                     members and trip as the wire carries them), apply.ts (a mutation written), socket.ts
                     (a message encoded, the rate window, the changes already answered), agent.ts (what
                     the agent reads of the room, and the trip's candidate tags)
-  wire.ts           What crosses the socket and the checks it must pass (src/contract's wire.ts and room.ts)
-  types.ts          Ids, colors, money, places and Result (the rest of src/contract)
   api.test.ts       The Worker in workerd via wrangler's test harness, Access stood in for by a throwaway key
   env.d.ts          ANTHROPIC_API_KEY (a secret), and ACCESS_CERTS_URL and ANTHROPIC_BASE_URL, which only
                     the tests set
@@ -240,7 +249,9 @@ Currencies and member colors arrive as plain strings too; `parseCurrencyCode` an
 - Tiles come from OpenFreeMap (`https://tiles.openfreemap.org/styles/liberty`): free, no key.
 - Coordinates come from the Google Maps link pasted into the form. A short `maps.app.goo.gl` link is read by the Worker
   (`src/worker/expand.ts`), and the point comes from where it leads.
-- When there are no coordinates, long-press the map to place the note.
+- When there are none, "Find the place" in the form asks the Worker: Claude names the place, and OpenStreetMap's
+  geocoder (Nominatim) gives its coordinates (`src/worker/claude.ts`, `src/worker/geocode.ts`).
+- A long press on the map writes a new memo pinned where it was held.
 - Google Maps is only an "open" link; no Google key ever ships to the browser (see `docs/auth-and-security.md`).
 
 ## Thanks

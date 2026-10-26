@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { musea } from "@vizejs/vite-plugin-musea";
 import { defineConfig } from "@vizejs/vite-plugin/vite-plus";
@@ -83,6 +84,39 @@ export default defineConfig({
   // their notices travel with the code that carries them
   build: { license: true },
   compiler: { vapor: true },
+  // Vize's rules, off in the files where they misread the code
+  vue: {
+    entries: [
+      {
+        // each id is TripEditor's useId() (AirportField is handed one), suffixed with the leg or
+        // the row's index, so unique on the page
+        files: ["src/app/features/trip/TripEditor.vue", "src/app/features/trip/AirportField.vue"],
+        linter: { rules: { "croquis/cf/non-unique-id": "off" } },
+      },
+      {
+        // the field primitives are the bare control; its label is the caller's (CtField's, or an
+        // aria-label)
+        files: [
+          "src/ui/field/CtCheckbox.vue",
+          "src/ui/field/CtFileInput.vue",
+          "src/ui/field/CtInput.vue",
+          "src/ui/field/CtSelect.vue",
+          "src/ui/field/CtTextarea.vue",
+        ],
+        linter: { rules: { "a11y/form-control-has-label": "off" } },
+      },
+      {
+        // HERE is injected by useInRoom, which this same SFC exports to the views inside it
+        files: ["src/app/features/sync/InRoom.vue"],
+        linter: { rules: { "croquis/cf/unused-provide": "off" } },
+      },
+      {
+        // the heading's content is CtTextMorph's text, which the rule cannot see into
+        files: ["src/ui/text-morph/CtTextMorph.art.vue"],
+        linter: { rules: { "a11y/heading-has-content": "off" } },
+      },
+    ],
+  },
   // a module's own tests (import.meta.vitest) are left out of the build
   define: { "import.meta.vitest": "undefined" },
   typecheck: true,
@@ -178,12 +212,15 @@ export default defineConfig({
         },
       },
     ],
-    options: { typeAware: true, typeCheck: true },
+    // a warning fails the check, as an error does (the Vue side: vue.maxWarnings)
+    options: { typeAware: true, typeCheck: true, denyWarnings: true },
     vue: {
       preset: "opinionated",
       // across files too: what a component's callers pass it, and async work writing state that
       // may have moved on by the time it lands (croquis/cf/async-boundary is an error)
       crossFile: true,
+      // a warning fails the check, as an error does
+      maxWarnings: 0,
       rules: {
         // I don't like this rule🫠
         "vue/multi-word-component-names": "off",
@@ -202,6 +239,17 @@ export default defineConfig({
           allowNumber: false,
           allowNullableObject: false,
         },
+      },
+    },
+  },
+  run: {
+    tasks: {
+      // Vize's own check, run once check:worker has written .worker-types/ afresh: the app's hc
+      // client is typed by those declarations, so it is never checked against an older Worker
+      check: {
+        command: `node ${JSON.stringify(fileURLToPath(import.meta.resolve("@vizejs/vite-plugin/internal/vite-plus-task")))} check`,
+        dependsOn: ["check:worker"],
+        cache: false,
       },
     },
   },

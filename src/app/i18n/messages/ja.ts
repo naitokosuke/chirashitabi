@@ -5,6 +5,7 @@ export const ja: Messages = {
   "common.edit": "編集",
   "common.close": "閉じる",
   "common.dismiss": "見送る",
+  "common.failed": "うまくいきませんでした。もう一度お試しください。",
 
   "nav.label": "メニュー",
   "nav.home": "ホーム",

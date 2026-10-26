@@ -8,7 +8,7 @@ A room is used by two people and carries three kinds of value.
 
 - The room's data, read and written over the WebSocket.
   Leaking it exposes the trip's notes; a stranger could also scribble on them.
-- The paid APIs the Worker calls on the room's behalf: Claude for `draftDay`, Workers AI (Clef) for classification, Google Maps for a future Places lookup.
+- The paid APIs the Worker calls on the room's behalf: Claude for the room's agent (drafting a day, suggesting ideas, proposing a trip's candidate tags, naming a memo's place), Workers AI (Clef) for classification, and the fetches of a URL a person typed (a short link, a linked page).
   Anyone who can reach the Worker can spend our money.
 - The API keys themselves.
   Leaking one is the same as the point above, minus the Worker.
@@ -155,20 +155,19 @@ Without the stripping, a human could post a note as the agent, or as the other p
 
 ## Paid APIs
 
-A paid call is a request to a provider outside our own storage: Claude, Workers AI, Google, and the short-link fetch.
+A paid call is a request to a provider outside our own storage: Claude, Workers AI, and the fetch of a short link or a linked page.
 Writes to R2 and Durable Object storage are not paid calls.
 
-Claude is called inside `draftDay` with a key held as a Worker secret; the browser never sees it.
+Claude is called from `src/worker/claude.ts` (`draftDay`, `suggestNotes`, `proposeTags`, `namePlace`) with a key held as a Worker secret; the browser never sees it.
 The Anthropic console gets a monthly spend limit for the workspace.
 
 Clef runs through the Workers AI binding, so there is no key to leak.
 The account stays on the Workers Free plan, which hard-caps Workers AI at 10,000 Neurons a day (further calls fail) and still runs SQLite-backed Durable Objects, R2's free tier and WebSockets; two people never reach its 100,000 requests a day.
 On the Paid plan the cap disappears and Workers AI becomes pay as you go, so moving to Paid is a cost decision, not an upgrade, and the budget below is what bounds Clef then.
 
-Google Maps splits in two.
-A future Places lookup from the Worker uses a secret key.
-IP restriction on that key is useless, since the Worker egresses from Cloudflare's shared ranges; the key is restricted to the Places API and the API's daily quota is set to a few dozen requests, which is a day of brainstorming.
-Nothing that runs in the browser gets a Google key: no Embed API iframe, no JS API.
+There is no Google key at all.
+A memo's place is named by Claude and its coordinates come from OpenStreetMap's geocoder (see the budget below), and a short link is read without one (see "Expanding short links").
+Nothing that runs in the browser gets a Google key either: no Embed API iframe, no JS API.
 Such a key ships to the client by design and a referrer restriction is the only thing between it and anyone who copies it, so the option is closed rather than mitigated.
 The map is MapLibre + OpenFreeMap, and places are links to Google Maps.
 
@@ -180,7 +179,7 @@ The budget is what bounds a lost phone or a bug, so it is specified rather than 
   A per-room budget would multiply by `room:create`.
 - It has a daily ceiling and a per-trip ceiling, both constants in `wrangler.jsonc` vars.
   No mutation can read or change them; raising one is a deploy.
-- Every paid call counts: `draftDay`, each Clef classification, each Places lookup, each short-link expansion.
+- Every paid call counts: each Claude call, each Clef classification, each short-link expansion, each link preview.
   Publishing the booklet counts too, not because R2 is paid but because its rate is the member's to choose; a refusal before the write (not the owner) or a failed write refunds.
 - The order is reserve, call, settle.
   The index decrements before the outbound request; a verified failure (a 4xx or 5xx from the provider) refunds; a timeout or an exception is treated as spent.
@@ -188,9 +187,9 @@ The budget is what bounds a lost phone or a bug, so it is specified rather than 
 - The room object keeps the ledger of who, when and how many tokens, for tracing a surprising bill.
   It stores member ids, not e-mails.
 
-Cloudflare billing notifications and a Google Cloud budget alert are the second line; the index is the first.
+Cloudflare billing notifications and the Anthropic console's spend limit are the second line; the index is the first.
 
-Built for `draftDay` (`POST /api/rooms/<id>/draft`), the agent's suggestions (`POST /api/rooms/<id>/suggest`), tag suggestions (`POST /api/rooms/<id>/tags`) and finding a memo's place (`POST /api/rooms/<id>/places`), which share it.
+Built for `draftDay` (`POST /api/rooms/<id>/draft`), the agent's suggestions (`POST /api/rooms/<id>/suggest`), tag suggestions (`POST /api/rooms/<id>/tags`), finding a memo's place (`POST /api/rooms/<id>/places`), expanding a short link (`POST /api/rooms/<id>/expand`), previewing a link (`POST /api/rooms/<id>/preview`) and publishing the booklet (`POST /api/rooms/<id>/publish`), which share it.
 Finding a place is one Claude call, which names the place as search strings; the coordinates then come from OpenStreetMap's geocoder (Nominatim), which is free and takes no key, so it is not budgeted. What reaches it is Claude's search string (a place's name, city and country), never the memo itself, with an identifying User-Agent and a timeout, at most one request a second for the whole app, as its usage policy asks: `RoomsIndex.geocoderTurn` hands out the turns, and a lookup that would wait more than five seconds fails instead.
 Claude's call and the lookups settle as one, and only Claude's error refunds: Claude was paid once it answered, so a lookup that got no turn is spent as one the geocoder failed is, and however many are asked at once the budget bounds what Claude is paid.
 A point pinned on the map is named the same way (`POST /api/rooms/<id>/where`): one reverse lookup at the geocoder, no Claude call, so it is not budgeted either; only the point's coordinates reach it.

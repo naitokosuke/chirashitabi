@@ -4,10 +4,12 @@ import { createPinia } from "pinia";
 
 import { PiniaColada } from "@pinia/colada";
 
-import App from "./App.vue";
+import { useI18n } from "./i18n/useI18n";
 import "../ui/styles/index.css";
 
+import App from "./App.vue";
 import { useRoom } from "./features/sync/useRoom";
+import { useToast } from "./features/toast/useToast";
 import { openWhereLeft, router } from "./router";
 import "./style.css";
 
@@ -21,6 +23,13 @@ const app = createVaporApp(App as VaporComponent)
   .use(PiniaColada)
   .use(vaporInteropPlugin)
   .use(router);
+
+// What a component, a hook or a watcher throws that nothing caught (no view has an
+// onErrorCaptured): said in the toast, and in full on the console
+app.config.errorHandler = (err) => {
+  console.error(err);
+  useToast().show(useI18n().t("common.failed"));
+};
 
 // Unless VITE_MOCK=false, `/api` and the room's socket are answered in the page (mocks/), and
 // the app talks to them as it would to the Worker; the mocks are not bundled otherwise.

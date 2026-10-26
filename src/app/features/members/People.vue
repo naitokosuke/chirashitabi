@@ -47,6 +47,10 @@ const { members, me, invited } = membership;
 
 const persons = computed(() => (members.value ?? []).filter((m) => m.kind === "person"));
 const open = computed(() => persons.value.length + (invited.data.value?.length ?? 0) < SEATS);
+/** The invitations asked again; a failure stays in their status, so it is not awaited */
+function retry() {
+  void invited.refetch();
+}
 
 /** What is waiting for a second tap: taking someone out, leaving, or deleting */
 type Asking = { kind: "remove"; member: MemberId } | { kind: "leave" } | { kind: "delete" };
@@ -145,7 +149,7 @@ onMounted(() => {
       <CtHeading :id="`${id}-title`">{{ i18n.t("people.title") }}</CtHeading>
       <CtMessage v-if="invited.status.value === 'error'" role="alert">
         {{ i18n.t("people.loadFailed") }}
-        <CtButton @click="() => invited.refetch()">{{ i18n.t("rooms.retry") }}</CtButton>
+        <CtButton @click="retry">{{ i18n.t("rooms.retry") }}</CtButton>
       </CtMessage>
 
       <CtPanel as="ul" pad="none">

@@ -19,10 +19,10 @@ jobs:
       - uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
         with:
           cache: true
-      # check:worker first: it generates worker-configuration.d.ts, which src/worker/tsconfig.json
-      # names in `types`, and the type-aware lint in `check` reads that tsconfig; and it writes
-      # .worker-types/, the Worker's declarations the app's hc client is typed by
-      - run: vp run check:worker
+      # check runs check:worker first (vite.config.ts): it generates worker-configuration.d.ts,
+      # which src/worker/tsconfig.json names in `types`, and the type-aware lint reads that
+      # tsconfig; and it writes .worker-types/ afresh, the Worker's declarations the app's hc
+      # client is typed by. A lint warning fails it, as an error does
       - run: vp run check
       # the build that is deployed, without the mocks, and the one the tests run against; build
       # before test: the Worker's integration tests start it with its assets directory
