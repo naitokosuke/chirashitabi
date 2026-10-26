@@ -10,7 +10,9 @@ import { state } from "./harness";
 
 /**
  * The chips in Chromium: the ink fills the chosen chip, and picking another it stretches
- * across to it, leading edge first, then contracts onto it at its own width.
+ * across to it, leading edge first, then contracts onto it at its own width. Where it is on the
+ * way is read at a set moment of its slides, held there, not after however many frames the
+ * machine managed.
  */
 let app: ReturnType<typeof createVaporApp> | null = null;
 beforeEach(async () => {
@@ -20,19 +22,14 @@ beforeEach(async () => {
   app = createVaporApp(ChipPickHarness as VaporComponent);
   app.mount(root);
   await nextTick();
-  await frames(2);
+  // placed and painted: from now on it slides
+  await expect.poll(() => pill().classList.contains("ready")).toBe(true);
 });
 afterEach(() => {
   app?.unmount();
   document.body.replaceChildren();
 });
 
-const frames = (n: number) =>
-  new Promise<void>((done) => {
-    const step = (left: number) =>
-      left === 0 ? done() : requestAnimationFrame(() => step(left - 1));
-    step(n);
-  });
 const chip = (name: string) => page.getByRole("radio", { name });
 const root = () => document.querySelector<HTMLElement>(".pick")!;
 const pill = () => root().querySelector<HTMLElement>(".pill")!;
@@ -42,6 +39,24 @@ const edgesOf = (el: Element) => {
   const b = el.getBoundingClientRect();
   return { left: b.left - a.left, right: b.right - a.left };
 };
+/**
+ * Early in the slides (ms): the leading edge well on its way, the trailing one still waiting
+ * its beat (a quarter of `--duration-morph`, 87.5ms)
+ */
+const EARLY = 60;
+/** The ink's slides once a pick has set them off (its left edge's and its right edge's) */
+async function slides() {
+  await expect.poll(() => pill().getAnimations().length).toBeGreaterThan(0);
+  return pill().getAnimations();
+}
+/** The ink's edges `ms` into `sliding`, which are held there */
+function edgesAt(sliding: Animation[], ms: number) {
+  for (const a of sliding) {
+    a.pause();
+    a.currentTime = ms;
+  }
+  return edgesOf(pill());
+}
 
 describe("the ink", () => {
   test("fills the chosen chip from the start", async () => {
@@ -58,12 +73,13 @@ describe("the ink", () => {
     await userEvent.click(chip("EUR"));
     expect(state.picked).toBe("EUR");
     const to = edgesOf(chip("EUR").element());
-    await frames(2);
-    const mid = edgesOf(pill());
+    const sliding = await slides();
+    const mid = edgesAt(sliding, EARLY);
     expect(mid.right - from.right).toBeGreaterThan(mid.left - from.left);
     expect(mid.right - mid.left).toBeGreaterThan(from.right - from.left);
-    await expect.poll(() => edgesOf(pill()).left).toBeCloseTo(to.left, 0);
-    await expect.poll(() => edgesOf(pill()).right).toBeCloseTo(to.right, 0);
+    for (const a of sliding) a.finish();
+    expect(edgesOf(pill()).left).toBeCloseTo(to.left, 0);
+    expect(edgesOf(pill()).right).toBeCloseTo(to.right, 0);
     expect(chip("EUR").element().getAttribute("aria-checked")).toBe("true");
   });
 

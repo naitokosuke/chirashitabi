@@ -2,7 +2,8 @@
 /**
  * A panel of the surface on the desk, a hairline round it: what holds a group of things (a
  * form, a list, a notice). `as` is the element it is (a form, a list, a section), so it keeps
- * its meaning. `pad` is the room inside it: `none` for a list whose rows have their own, `sm`
+ * its meaning; a form is sent by Enter and its submit button, `submit` says so, and the page
+ * never leaves for it (a form inside a panel that is not one is its own owner's). `pad` is the room inside it: `none` for a list whose rows have their own, `sm`
  * for a menu of buttons, `md` for most, `lg` for a form. `float` lifts it over what it covers
  * (a menu, a panel opened from a button). `sunken` is a panel set into a panel (a flight in the
  * trip's settings), in the desk's color, its fields back on the surface. The fields on a panel
@@ -17,7 +18,14 @@ const { as = "div", pad = "md" } = defineProps<{
   sunken?: boolean;
   from?: "desktop";
 }>();
+const emit = defineEmits<{ submit: [] }>();
 defineSlots<{ default(): unknown }>();
+
+function submit(event: Event) {
+  if (event.target !== event.currentTarget) return;
+  event.preventDefault();
+  emit("submit");
+}
 </script>
 
 <template>
@@ -25,6 +33,7 @@ defineSlots<{ default(): unknown }>();
     :is="as"
     class="panel"
     :class="[`pad-${pad}`, { float, sunken, 'from-desktop': from === 'desktop' }]"
+    @submit="submit"
   >
     <slot />
   </component>
