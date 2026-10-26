@@ -39,9 +39,9 @@ type Refused<E> = { json(): Promise<{ error: E }> };
  */
 export function refused<E extends string>(res: Refused<E>): Promise<Result<never, E>>;
 export function refused<E extends string, F extends string>(
-  res: Refused<E | typeof OUTSIDER>,
+  res: Refused<E>,
   outside: F,
-): Promise<Result<never, E | F>>;
+): Promise<Result<never, Exclude<E, typeof OUTSIDER> | F>>;
 export async function refused(
   res: Refused<string>,
   outside?: string,
@@ -85,16 +85,6 @@ const publicationOf = ({
   url,
   at: Temporal.Instant.from(at),
 });
-
-/** HH:MM as a time, or null when it is none or not one */
-function timeOf(time: string | null): Temporal.PlainTime | null {
-  if (time === null) return null;
-  try {
-    return Temporal.PlainTime.from(time);
-  } catch {
-    return null;
-  }
-}
 
 /**
  * The Worker's calls for one room; the agent's are paid calls, made only when a member asks.
@@ -171,7 +161,9 @@ export const roomWorkerApi = (room: RoomId): WorkerApi => ({
         // the draft names the notes it was given; one that has since gone is left out
         items: items.flatMap((it) => {
           const note = notes.find((n) => n.id === it.id);
-          return note === undefined ? [] : [{ note, time: timeOf(it.time), minutes: it.minutes }];
+          // a time the Worker checked is one Temporal reads
+          const time = it.time === null ? null : Temporal.PlainTime.from(it.time);
+          return note === undefined ? [] : [{ note, time, minutes: it.minutes }];
         }),
       },
     };

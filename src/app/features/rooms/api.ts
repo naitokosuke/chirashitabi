@@ -6,7 +6,7 @@ import * as v from "valibot";
 import type { Api } from "../../../../.worker-types/worker";
 import { HexColorSchema, listOf, type Result } from "../../../contract";
 import { KEPT_DAYS } from "../../../contract/room";
-import { IsoDateSchema } from "../../../contract/wire";
+import { IsoDateSchema, IsoInstantSchema, type IsoInstant } from "../../../contract/wire";
 import { EmailSchema, type Email } from "../members/types";
 import { DONE, refused, type Refusal } from "../worker/api";
 
@@ -30,8 +30,8 @@ type MeAnswer = InferResponseType<typeof api.me.$post, 200>;
 // how many days a deleted trip is kept, as the app takes it from the contract
 export { KEPT_DAYS };
 
-/** The last day a trip deleted at `deletedAt` (an instant) can be restored, on this device's calendar */
-const untilOf = (deletedAt: string) =>
+/** The last day a trip deleted at `deletedAt` can be restored, on this device's calendar */
+const untilOf = (deletedAt: IsoInstant) =>
   Temporal.Instant.from(deletedAt)
     .toZonedDateTimeISO(Temporal.Now.timeZoneId())
     .toPlainDate()
@@ -93,16 +93,8 @@ export function summaryOf(raw: unknown): RoomSummary | null {
 
 /** One deleted trip of the kept list: a room id, a name and when it was deleted */
 const DeletedRoomSchema = v.pipe(
-  v.object({ id: RoomIdSchema, name: v.string(), deletedAt: v.string() }),
-  v.rawTransform(({ dataset, addIssue, NEVER }): DeletedRoom => {
-    const { id, name, deletedAt } = dataset.value;
-    try {
-      return { id, name, until: untilOf(deletedAt) };
-    } catch {
-      addIssue({ message: "not an instant" });
-      return NEVER;
-    }
-  }),
+  v.object({ id: RoomIdSchema, name: v.string(), deletedAt: IsoInstantSchema }),
+  v.transform(({ id, name, deletedAt }): DeletedRoom => ({ id, name, until: untilOf(deletedAt) })),
 );
 
 /** One deleted trip of the kept list, or null without a room id, a name or when it was deleted */

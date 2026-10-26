@@ -9,6 +9,7 @@ import {
   preview,
   previewable,
   readHead,
+  readUpTo,
   siteOf,
   youtubeWatch,
 } from "./preview";
@@ -74,6 +75,42 @@ describe("readHead", () => {
     const head = readHead(html);
     expect(head.title).toHaveLength(200);
     expect(head.description).toHaveLength(1000);
+  });
+});
+
+describe("readUpTo", () => {
+  /** A request's body of `chunks` chunks of `size` bytes, and how many were read from it */
+  const streamed = (chunks: number, size: number) => {
+    const pulled = { n: 0 };
+    // nothing is pulled before it is read
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          if (pulled.n === chunks) return controller.close();
+          pulled.n++;
+          controller.enqueue(new Uint8Array(size));
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    // as a request streamed in says it: no Content-Length
+    return { req: { headers: new Headers(), body }, pulled };
+  };
+
+  test("a body that does not say how long it is is read only until it passes the size", async () => {
+    const { req, pulled } = streamed(100, 10);
+    expect(await readUpTo(req, 25)).toBeNull();
+    expect(pulled.n).toBe(3);
+  });
+
+  test("one within the size is read whole; cut, one past it is its first bytes", async () => {
+    expect(await readUpTo(streamed(3, 10).req, 30)).toHaveLength(30);
+    expect(await readUpTo(streamed(100, 10).req, 25, true)).toHaveLength(25);
+  });
+
+  test("one that says it is longer is none, whatever came", async () => {
+    const said = new Response(new Uint8Array(10), { headers: { "Content-Length": "100" } });
+    expect(await readUpTo(said, 25)).toBeNull();
   });
 });
 

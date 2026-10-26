@@ -12,6 +12,7 @@ import {
   type Cid,
   type ClientMessage,
   type GoneReason,
+  type IsoInstant,
   type RejectReason,
   type ServerMessage,
 } from "./wire";
@@ -45,7 +46,7 @@ export interface RoomSocketOptions {
   /** A member's change, relayed by the room */
   onMutation(msg: Extract<ServerMessage, { type: "mutation" }>): void;
   /** The room applied one of ours, sent with this `cid`, at `updatedAt` */
-  onAck(cid: Cid, updatedAt: string): void;
+  onAck(cid: Cid, updatedAt: IsoInstant): void;
   /**
    * The room refused one of ours. One refused only for coming too fast is not passed on: it
    * goes again once the room's window has passed.

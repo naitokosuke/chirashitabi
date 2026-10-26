@@ -277,7 +277,7 @@ const BookingSchema = v.variant("state", [
 ]);
 export type WireBooking = v.InferOutput<typeof BookingSchema>;
 /** How long a memo's plan takes there, in whole minutes: a day at most */
-const MinutesSchema = v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(24 * 60));
+export const MinutesSchema = v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(24 * 60));
 /** A point on the desk, as `{ x, y }` within the canvas's bounds */
 export const PointSchema = v.object({ x: finite(), y: finite() });
 

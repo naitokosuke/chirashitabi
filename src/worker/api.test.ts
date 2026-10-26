@@ -745,8 +745,10 @@ describe("invitations", () => {
     expect(b.snapshot).toMatchObject({ me: memberId });
     expect((await me(guest)).invitations).toEqual([]);
     expect(await invited(roomId, owner)).toEqual([]);
-    // the invitation was used up
-    expect((await accept(roomId, guest)).status).toBe(404);
+    // the invitation was used up: accepting again (its answer lost) answers the same member
+    const again = await accept(roomId, guest);
+    expect(again.status).toBe(200);
+    expect(await again.json()).toEqual({ memberId });
     a.ws.close(1000, "done");
     b.ws.close(1000, "done");
   });
@@ -764,10 +766,10 @@ describe("invitations", () => {
     ]);
 
     expect((await invite(roomId, owner, "seat-a@example.com")).status).toBe(200);
-    // already invited, and so holding the last seat: the seat is asked for first
+    // already invited, to the last seat, which is theirs
     expect(await refusal(await invite(roomId, owner, "seat-a@example.com"))).toEqual([
       409,
-      { error: "no seat" },
+      { error: "already invited" },
     ]);
     // the seat is held
     expect(await refusal(await invite(roomId, owner, "seat-b@example.com"))).toEqual([
@@ -845,16 +847,121 @@ describe("invitations", () => {
 
     const again = await accept(roomId, guest);
     expect(again.status).toBe(200);
-    expect({ ok: true, value: ((await again.json()) as { memberId: string }).memberId }).toEqual(
-      ken,
-    );
+    const { memberId } = (await again.json()) as { memberId: string };
+    expect({ ok: true, value: memberId }).toEqual(ken);
     expect(await me(guest)).toMatchObject({ rooms: [{ id: roomId }], invitations: [] });
     // one seat taken, not two: the room is full
     expect(await refusal(await invite(roomId, owner, "acc-again-third@example.com"))).toEqual([
       409,
       { error: "no seat" },
     ]);
-    expect((await accept(roomId, guest)).status).toBe(404);
+    // recorded now, accepting again answers the same member
+    expect(await (await accept(roomId, guest)).json()).toEqual({ memberId });
+  });
+
+  test("an invitation the room never held a seat for is finished by inviting again", async () => {
+    const owner = "inv-again-owner@example.com";
+    const guest = "inv-again-guest@example.com";
+    const { roomId } = await createRoom(owner);
+    const env = await server.getWorker().getEnv();
+    // the index records it, and the room's call fails: no seat is held for it
+    const seat = crypto.randomUUID();
+    expect(await env.ROOMS.getByName("index").invite(guest, roomId, seat)).toEqual({
+      ok: true,
+      value: seat,
+    });
+    const room = await server.getWorker().getDurableObjectStorage("Room", { name: roomId });
+    expect(await room.exec("SELECT id FROM invitations")).toEqual([]);
+
+    // asked again, the room holds the seat the index recorded, and it can be taken
+    expect((await invite(roomId, owner, guest)).status).toBe(200);
+    expect(await room.exec("SELECT id FROM invitations")).toEqual([{ id: seat }]);
+    expect(await invited(roomId, owner)).toEqual([guest]);
+    expect((await accept(roomId, guest)).status).toBe(200);
+  });
+
+  test("a seat the room held that the index lost is given back, and the owner can invite again", async () => {
+    const owner = "lost-seat-owner@example.com";
+    const { roomId, memberId: yuki } = await createRoom(owner);
+    const env = await server.getWorker().getEnv();
+    // a seat held by a try from before the index was asked first, whose index call failed
+    const lost = crypto.randomUUID();
+    expect(await env.ROOM.getByName(roomId).openSeat(yuki, lost, [])).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(await invited(roomId, owner)).toEqual([]);
+    // just held, it may be an invitation still on its way to the index: kept for now
+    expect(await refusal(await invite(roomId, owner, "lost-seat-a@example.com"))).toEqual([
+      409,
+      { error: "no seat" },
+    ]);
+    // and nothing is left waiting in anyone's list for the seat that was not there
+    expect((await me("lost-seat-a@example.com")).invitations).toEqual([]);
+
+    // a minute on, it is given back
+    const room = await server.getWorker().getDurableObjectStorage("Room", { name: roomId });
+    await room.exec("UPDATE invitations SET created_at = '2000-01-01T00:00:00.000Z'");
+    expect((await invite(roomId, owner, "lost-seat-a@example.com")).status).toBe(200);
+    expect(await room.exec("SELECT id FROM invitations WHERE id = ?", lost)).toEqual([]);
+    expect((await accept(roomId, "lost-seat-a@example.com")).status).toBe(200);
+  });
+
+  test("a decline or a withdrawal that failed part way is finished by asking again", async () => {
+    const owner = "decl-again-owner@example.com";
+    const guest = "decl-again-guest@example.com";
+    const { roomId } = await createRoom(owner);
+    const env = await server.getWorker().getEnv();
+    const index = await server.getWorker().getDurableObjectStorage("RoomsIndex", { name: "index" });
+    const seatOf = async () =>
+      (
+        (await index.exec(
+          "SELECT invite_id FROM invitations WHERE email = ? AND room_id = ?",
+          guest,
+          roomId,
+        )) as [{ invite_id: string }]
+      )[0].invite_id;
+
+    // the room gives the seat back, and the index's call fails: the invitation still shows
+    expect((await invite(roomId, owner, guest)).status).toBe(200);
+    await env.ROOM.getByName(roomId).closeSeat(await seatOf());
+    expect((await me(guest)).invitations).toMatchObject([{ id: roomId }]);
+    expect((await post(`/api/invitations/${roomId}/decline`, guest)).status).toBe(200);
+    expect((await me(guest)).invitations).toEqual([]);
+
+    // the same for the owner taking it back
+    expect((await invite(roomId, owner, guest)).status).toBe(200);
+    await env.ROOM.getByName(roomId).closeSeat(await seatOf());
+    expect((await post(`/api/rooms/${roomId}/uninvite`, owner, { email: guest })).status).toBe(200);
+    expect(await invited(roomId, owner)).toEqual([]);
+    // and the seat is free
+    expect((await admit(roomId, owner, guest)).status).toBe(200);
+  });
+
+  test("declining after an acceptance the index did not record takes them out of the room", async () => {
+    const owner = "decl-half-owner@example.com";
+    const guest = "decl-half-guest@example.com";
+    const { roomId } = await createRoom(owner);
+    expect((await invite(roomId, owner, guest)).status).toBe(200);
+    const worker = server.getWorker();
+    const index = await worker.getDurableObjectStorage("RoomsIndex", { name: "index" });
+    const [{ invite_id: seat }] = (await index.exec(
+      "SELECT invite_id FROM invitations WHERE email = ? AND room_id = ?",
+      guest,
+      roomId,
+    )) as [{ invite_id: string }];
+    // the room lets them in, and the index's call fails
+    const stub = (await worker.getEnv()).ROOM.getByName(roomId);
+    expect(await stub.accept(seat, KEN)).toMatchObject({ ok: true });
+
+    // they decline instead: not in the room, not in the index, and the seat is free
+    expect((await post(`/api/invitations/${roomId}/decline`, guest)).status).toBe(200);
+    expect(await me(guest)).toMatchObject({ rooms: [], invitations: [] });
+    const a = await connect(roomId, owner);
+    expect(a.snapshot).toMatchObject({ members: [{ role: "owner" }, { kind: "agent" }] });
+    expect(a.snapshot.type === "snapshot" ? a.snapshot.members : []).toHaveLength(2);
+    a.ws.close(1000, "done");
+    expect((await admit(roomId, owner, "decl-half-other@example.com")).status).toBe(200);
   });
 });
 
@@ -876,7 +983,8 @@ describe("removing and leaving", () => {
     // nobody removes the owner
     expect(await refusal(await remove(guest, yuki))).toEqual([403, { error: "the owner" }]);
     expect((await remove(owner, yuki)).status).toBe(403);
-    expect((await remove(owner, "agent:claude")).status).toBe(403);
+    // the agent is no person in the room to take out: nothing changes (it is still there below)
+    expect((await remove(owner, "agent:claude")).status).toBe(200);
     expect((await remove(owner, "yuki")).status).toBe(400); // not a member id at all
     expect((await remove(owner, ken)).status).toBe(200);
 
@@ -925,10 +1033,13 @@ describe("removing and leaving", () => {
     const ken = await admitted();
     expect((await stub.remove(yuki, ken)).ok).toBe(true);
     expect((await me(guest)).rooms).toMatchObject([{ id: roomId }]);
-    // the owner asks again: they are not in, and the index forgets them all the same
-    expect(
-      await refusal(await post(`/api/rooms/${roomId}/remove`, owner, { member: ken })),
-    ).toEqual([403, { error: "not in" }]);
+    // the index still lets them in; the room refuses them as someone not in it, as JSON
+    expect(await refusal(await post(`/api/rooms/${roomId}/candidates`, guest))).toEqual([
+      403,
+      { error: "not a member" },
+    ]);
+    // the owner asks again: they are out, and the index forgets them, so the removal is done
+    expect((await post(`/api/rooms/${roomId}/remove`, owner, { member: ken })).status).toBe(200);
     expect((await me(guest)).rooms).toEqual([]);
 
     // invited again, they leave, and the index's call fails the same way
@@ -1036,11 +1147,8 @@ describe("deleting a room", () => {
     });
     expect(await me(owner)).toMatchObject({ rooms: [], deleted: [] });
 
-    // asked again, the room says it is not deleted, and the index shows it all the same
-    expect(await refusal(await post(`/api/rooms/${roomId}/restore`, owner))).toEqual([
-      403,
-      { error: "not deleted" },
-    ]);
+    // asked again, the room says it is not deleted, and the index shows it: the restore is done
+    expect((await post(`/api/rooms/${roomId}/restore`, owner)).status).toBe(200);
     expect(await me(owner)).toMatchObject({ rooms: [{ id: roomId }], deleted: [] });
     const c = await connect(roomId, owner);
     c.ws.close(1000, "done");
@@ -1054,7 +1162,7 @@ describe("deleting a room", () => {
     expect((await stub.delete(yuki, roomId)).ok).toBe(true);
     const calls = asked.length;
     // the index still lets the owner in; the room refuses every call that would write or read
-    const statuses = [
+    const answers = [
       await invite(roomId, owner, "del-writes-guest@example.com"),
       await post(`/api/rooms/${roomId}/publish`, owner, { lang: "en" }),
       await post(`/api/rooms/${roomId}/tags`, owner, { title: "x", body: "", image: null }),
@@ -1069,8 +1177,9 @@ describe("deleting a room", () => {
         },
         body: PNG,
       }),
-    ].map((r) => r.status);
-    expect(statuses).toEqual([500, 500, 500, 500, 500, 500]);
+    ];
+    // each refused as the refusal of someone not in the room, which the app's client reads
+    for (const res of answers) expect(await refusal(res)).toEqual([403, { error: "not a member" }]);
     expect(asked.length).toBe(calls);
     const room = await server.getWorker().getDurableObjectStorage("Room", { name: roomId });
     expect(await room.exec("SELECT id FROM invitations UNION ALL SELECT id FROM pictures")).toEqual(
@@ -2229,6 +2338,32 @@ describe("pictures", () => {
     expect((await upload(roomId, "outsider-photos@example.com")).status).toBe(403);
   });
 
+  test("an upload that does not say how long it is is read as it comes, up to the size", async () => {
+    const email = "streamphotos@example.com";
+    const { roomId } = await createRoom(email);
+    // two chunks of 64 KiB, with no Content-Length: read whole, as the size allows. How far one
+    // past the size is read is readUpTo's to show (preview.test.ts): refused before its end, its
+    // connection is closed, and the harness would send the next test's request down it
+    const res = await server.fetch(`${APP}/api/rooms/${roomId}/images`, {
+      method: "POST",
+      headers: {
+        "Cf-Access-Jwt-Assertion": await token(email),
+        Origin: APP,
+        "Content-Type": "image/webp",
+      },
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (let i = 0; i < 2; i++) controller.enqueue(new Uint8Array(64 * 1024));
+          controller.close();
+        },
+      }),
+      duplex: "half",
+    });
+    expect(res.status).toBe(200);
+    const room = await server.getWorker().getDurableObjectStorage("Room", { name: roomId });
+    expect(await room.exec("SELECT bytes FROM pictures")).toEqual([{ bytes: 128 * 1024 }]);
+  });
+
   test("a card shows only a picture the room has, and can lose it", async () => {
     const email = "cardphoto@example.com";
     const { roomId } = await createRoom(email);
@@ -2547,11 +2682,32 @@ describe("tags suggested for a memo", () => {
     };
     // tags that are none once trimmed
     await proposedOnce("candidatesnone@example.com", () => proposingTags(["   ", "#"]));
-    // an answer that is no proposal at all
-    await proposedOnce("candidatesbad@example.com", () => ({
+  });
+
+  test("a failed proposal paid for is not asked again at once, nor given up for good", async () => {
+    const email = "candidatesbad@example.com";
+    const { roomId } = await createRoom(email);
+    judge = judging({ Tea: 0.7 });
+    const calls = asked.length;
+    // an answer that is no proposal at all: spent, and nothing kept
+    answer = () => ({
       status: 200,
       body: { content: [], usage: { input_tokens: 1, output_tokens: 1 } },
-    }));
+    });
+    expect((await ask(roomId, email, { title: "x", body: "", image: null })).status).toBe(200);
+    expect(asked.length).toBe(calls + 1);
+    // asked again at once, the failed one is not paid for again
+    answer = () => proposingTags(["Tea"]);
+    expect((await ask(roomId, email, { title: "y", body: "", image: null })).status).toBe(200);
+    expect(asked.length).toBe(calls + 1);
+    // once its claim has lapsed, the next ask proposes them, and they are kept
+    const room = await server.getWorker().getDurableObjectStorage("Room", { name: roomId });
+    await room.exec("UPDATE tag_proposal SET at = 0");
+    expect((await ask(roomId, email, { title: "z", body: "", image: null })).status).toBe(200);
+    expect(asked.length).toBe(calls + 2);
+    expect(await (await post(`/api/rooms/${roomId}/candidates`, email)).json()).toEqual({
+      tags: ["Tea"],
+    });
   });
 });
 
@@ -3023,5 +3179,57 @@ describe("the geocoder's pace", () => {
     const statuses = (await Promise.all(Array.from({ length: 7 }, lookUp))).map((r) => r.status);
     expect(statuses).toContain(200);
     expect(statuses).toContain(502);
+  }, 15_000);
+
+  test("one person's free lookups hold a share of the turns, never all of them", async () => {
+    const greedy = "pace-greedy@example.com";
+    const other = "pace-other@example.com";
+    const [{ roomId: mine }, { roomId: theirs }] = [
+      await createRoom(greedy),
+      await createRoom(other),
+    ];
+    find = () => ({ status: 200, body: [] });
+    // the queue left by the test before has run out
+    await new Promise((r) => setTimeout(r, 1200));
+    const lookUp = (roomId: string, email: string) =>
+      post(`/api/rooms/${roomId}/find`, email, { query: "Taipei 101", lang: "en" });
+    // six at once from one person: the turns they hold run out before the queue does
+    const flood = Promise.all(Array.from({ length: 6 }, () => lookUp(mine, greedy)));
+    await new Promise((r) => setTimeout(r, 300));
+    // and someone else, asking meanwhile, still has a turn
+    expect((await lookUp(theirs, other)).status).toBe(200);
+    const statuses = (await flood).map((r) => r.status);
+    expect(statuses.filter((s) => s === 200)).toHaveLength(3);
+    expect(statuses.filter((s) => s === 502)).toHaveLength(3);
+  }, 15_000);
+
+  test("a place Claude named that the geocoder had no turn for costs nothing", async () => {
+    const email = "pace-places@example.com";
+    const { roomId } = await createRoom(email);
+    answer = () => ({
+      status: 200,
+      body: {
+        content: [{ type: "tool_use", id: "t1", name: "name_place", input: { queries: ["x"] } }],
+        usage: { input_tokens: 40, output_tokens: 12 },
+      },
+    });
+    const index = (await server.getWorker().getEnv()).ROOMS.getByName("index");
+    // the queue taken to its end, as many people asking at once would
+    let taken = 0;
+    while ((await index.geocoderTurn(null)) !== null) taken++;
+    expect(taken).toBeGreaterThan(0);
+    const seen = looked.length;
+    expect(
+      (await post(`/api/rooms/${roomId}/places`, email, { title: "寧夏夜市", body: "" })).status,
+    ).toBe(502);
+    expect(looked.length).toBe(seen);
+    const storage = await server.getWorker().getDurableObjectStorage("RoomsIndex", {
+      name: "index",
+    });
+    expect(await storage.exec("SELECT refunded FROM spends WHERE email = ?", email)).toEqual([
+      { refunded: 1 },
+    ]);
+    // the queue runs out before any test after this one asks
+    await new Promise((r) => setTimeout(r, 5600));
   }, 15_000);
 });
