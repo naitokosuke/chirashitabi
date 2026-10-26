@@ -135,10 +135,15 @@ export function readHead(html: string): {
 const StepSchema = v.object({ done: v.boolean(), value: v.optional(v.instance(Uint8Array)) });
 
 /**
- * Reads a response's body up to `max` bytes and no further: a longer one is none (a picture,
- * whole or nothing), or, `cut`, its first `max` bytes (a page, whose head comes first)
+ * Reads a body (a response's, or a request's) up to `max` bytes and no further: a longer one is
+ * none (a picture, whole or nothing), or, `cut`, its first `max` bytes (a page, whose head
+ * comes first); a body that does not read as bytes is none too
  */
-async function readUpTo(res: Response, max: number, cut = false): Promise<Uint8Array | null> {
+export async function readUpTo(
+  res: Pick<Response, "headers" | "body">,
+  max: number,
+  cut = false,
+): Promise<Uint8Array | null> {
   const length = Number(res.headers.get("Content-Length") ?? "0");
   if (length > max && !cut) return null;
   const reader = res.body?.getReader();

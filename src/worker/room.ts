@@ -11,6 +11,7 @@ import {
   HEARTBEAT,
   KEPT_DAYS,
   RATE,
+  RoomIdSchema,
   SEATS,
   parseTag,
   type NoteColor,
@@ -54,17 +55,45 @@ import type { DraftContext, PlaceContext, SuggestContext, TagContext } from "./c
 
 export type MemberKind = WireMember["kind"];
 
-/** Why no seat was held for an invitation */
-export type SeatRefusal = "not the owner" | "no seat";
+/** Why no seat was held for an invitation: not the owner, every seat taken, or held for it already */
+export type SeatRefusal = "not the owner" | "no seat" | "already invited";
 /** Why a person was not taken out: the owner never is, only the owner takes another, or gone already */
 export type RemoveRefusal = "the owner" | "not theirs" | "not in";
+
+/**
+ * Why the room would not act for a member id the Worker resolved: it names no person in the
+ * room's table (removed since the index was asked), or the room is deleted. The word the Worker
+ * refuses anyone outside a room with, so the room's refusal is answered as that one
+ */
+export type Outsider = "not a member";
 
 /** A mutation the room wrote, as it wrote it, or why it did not */
 type Applied = Result<WireMutation, RejectReason>;
 
-/** A seat the room holds for an invitation, as it minted it; the index keeps whom it is for */
+/**
+ * A seat the room holds for an invitation, as the Worker minted it for the index to record
+ * first; the index keeps whom it is for
+ */
 const SeatIdSchema = v.pipe(v.string(), v.uuid(), v.brand("SeatId"));
 export type SeatId = v.InferOutput<typeof SeatIdSchema>;
+
+/** A new seat's id */
+export const newSeatId = (): SeatId => v.parse(SeatIdSchema, crypto.randomUUID());
+
+/** A seat's id as the index kept it, read with its schema; null when it is not one */
+export const parseSeatId = (value: unknown): SeatId | null => {
+  const seat = v.safeParse(SeatIdSchema, value);
+  return seat.success ? seat.output : null;
+};
+
+/** The booklet the room has up: its slug, and when it was published */
+type Published = { slug: string; at: IsoInstant };
+
+/** A deleted room: its id, kept for the day it goes for good, and when it was deleted */
+type Deletion = { room_id: RoomId; at: IsoInstant };
+
+/** The room's refusal of someone it does not act for */
+const OUTSIDE: { ok: false; reason: Outsider } = { ok: false, reason: "not a member" };
 
 type Profile = v.InferOutput<typeof ProfileSchema>;
 
@@ -318,8 +347,8 @@ export class Room extends DurableObject<Env> {
     roomId: RoomId,
     type: ImageType,
     bytes: number,
-  ): Promise<Result<ImageId, "full">> {
-    this.assertMember(by);
+  ): Promise<Result<ImageId, "full" | Outsider>> {
+    if (this.outsider(by)) return OUTSIDE;
     const sql = this.ctx.storage.sql;
     // off the list before the bytes go, so no card can take a picture whose bytes are going
     const unused = sql
@@ -336,7 +365,7 @@ export class Room extends DurableObject<Env> {
     // R2 deletes up to 1000 keys a call; a room holds at most MAX_IMAGES
     if (unused.length > 0) await this.env.IMAGES.delete(unused);
     // deleted while the old pictures went: nothing more is written
-    this.assertMember(by);
+    if (this.outsider(by)) return OUTSIDE;
     if (sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM pictures").one().n >= Room.MAX_IMAGES)
       return { ok: false, reason: "full" };
     const id = v.parse(ImageIdSchema, crypto.randomUUID());
@@ -357,9 +386,9 @@ export class Room extends DurableObject<Env> {
   }
 
   /** Whether the room has a picture by that id, asked for member `by` */
-  hasImageFor(by: MemberId, id: ImageId): boolean {
-    this.assertMember(by);
-    return this.hasImage(id);
+  hasImageFor(by: MemberId, id: ImageId): Result<boolean, Outsider> {
+    if (this.outsider(by)) return OUTSIDE;
+    return { ok: true, value: this.hasImage(id) };
   }
 
   private hasImage(id: ImageId): boolean {
@@ -371,9 +400,9 @@ export class Room extends DurableObject<Env> {
   // ---- the public booklet (RPC from the Worker; its file is in R2, the room keeps its slug) ----
 
   /** The booklet the room has published, asked by member `by`: its slug and when; null for none */
-  publication(by: MemberId): { slug: string; at: string } | null {
-    this.assertMember(by);
-    return this.published();
+  publication(by: MemberId): Result<Published | null, Outsider> {
+    if (this.outsider(by)) return OUTSIDE;
+    return { ok: true, value: this.published() };
   }
 
   /**
@@ -381,11 +410,8 @@ export class Room extends DurableObject<Env> {
    * one before goes: publishing again is how a link that went too far is taken back. The page
    * is written here from the room's own data (booklet.ts), so nothing a browser sends is on it.
    */
-  async publish(
-    by: MemberId,
-    lang: Lang,
-  ): Promise<Result<{ slug: string; at: string }, "not the owner">> {
-    this.assertMember(by);
+  async publish(by: MemberId, lang: Lang): Promise<Result<Published, "not the owner" | Outsider>> {
+    if (this.outsider(by)) return OUTSIDE;
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     // nothing else runs until the record names the file put up: two publishes at once (a double
     // tap), or a withdrawal or a deletion between, would leave up a file no record names
@@ -395,7 +421,7 @@ export class Room extends DurableObject<Env> {
       const before = this.published();
       if (before !== null) await this.env.IMAGES.delete(bookletKey(before.slug));
       const slug = newSlug();
-      const at = new Date().toISOString();
+      const at = stamp();
       await this.env.IMAGES.put(
         bookletKey(slug),
         renderBooklet(this.trip(), this.notes(), lang, at),
@@ -415,8 +441,8 @@ export class Room extends DurableObject<Env> {
   }
 
   /** The owner `by` takes the booklet down: its link answers nothing from now on */
-  async withdraw(by: MemberId): Promise<Result<void, "not the owner">> {
-    this.assertMember(by);
+  async withdraw(by: MemberId): Promise<Result<void, "not the owner" | Outsider>> {
+    if (this.outsider(by)) return OUTSIDE;
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     // one at a time with a publish, as there
     await this.ctx.blockConcurrencyWhile(() => this.unpublish());
@@ -434,12 +460,11 @@ export class Room extends DurableObject<Env> {
     this.ctx.storage.sql.exec("DELETE FROM publication");
   }
 
-  private published(): { slug: string; at: string } | null {
-    return (
-      this.ctx.storage.sql
-        .exec<{ slug: string; at: string }>("SELECT slug, at FROM publication")
-        .toArray()[0] ?? null
-    );
+  private published(): Published | null {
+    const row = this.ctx.storage.sql
+      .exec<{ slug: string; at: string }>("SELECT slug, at FROM publication")
+      .toArray()[0];
+    return row === undefined ? null : { slug: row.slug, at: v.parse(IsoInstantSchema, row.at) };
   }
 
   // ---- membership (RPC from the Worker) ----
@@ -481,36 +506,66 @@ export class Room extends DurableObject<Env> {
   }
 
   /** Who made the room and so may invite, remove and delete; asked by member `by` */
-  owner(by: MemberId): MemberId {
-    this.assertMember(by);
-    return this.ownerId();
+  owner(by: MemberId): Result<MemberId, Outsider> {
+    if (this.outsider(by)) return OUTSIDE;
+    return { ok: true, value: this.ownerId() };
   }
 
   /**
-   * Holds a seat for someone the owner `by` invites, until they answer or the owner takes it
-   * back; refused when `by` is not the owner or every seat is taken or held. The index keeps who
-   * the seat is for; the room keeps no e-mail.
+   * How long a held seat the index does not list is kept: an invitation is recorded in the index
+   * before its seat is held here, so one the index has not listed for this long was given back
+   * there and lost here (a call that failed part way), and goes
    */
-  openSeat(by: MemberId): Result<SeatId, SeatRefusal> {
-    this.assertMember(by);
+  static readonly UNLISTED_FOR = 60_000;
+
+  /**
+   * Holds the seat `seat` for someone the owner `by` invites, until they answer or the owner
+   * takes it back; `listed` are the seats the index has invitations to. Refused when `by` is not
+   * the owner, when every seat is taken or held (a held seat the index lost is given back first),
+   * or when the seat is held already: asked again after a try whose answer was lost. The index
+   * keeps who the seat is for; the room keeps no e-mail.
+   */
+  openSeat(by: MemberId, seat: SeatId, listed: SeatId[]): Result<void, SeatRefusal | Outsider> {
+    if (this.outsider(by)) return OUTSIDE;
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     const sql = this.ctx.storage.sql;
+    if (sql.exec("SELECT 1 FROM invitations WHERE id = ?", seat).toArray().length > 0)
+      return { ok: false, reason: "already invited" };
+    const lost = new Date(Date.now() - Room.UNLISTED_FOR).toISOString();
+    const known = new Set<string>(listed);
+    for (const { id } of sql
+      .exec<{ id: string }>(
+        "SELECT id FROM invitations WHERE member IS NULL AND created_at < ?",
+        lost,
+      )
+      .toArray())
+      if (!known.has(id)) sql.exec("DELETE FROM invitations WHERE id = ?", id);
     const held = sql
       .exec<{ n: number }>("SELECT COUNT(*) AS n FROM invitations WHERE member IS NULL")
       .one().n;
     if (this.count("person") + held >= Room.MAX_PEOPLE) return { ok: false, reason: "no seat" };
-    const id = v.parse(SeatIdSchema, crypto.randomUUID());
     sql.exec(
       "INSERT INTO invitations (id, created_at) VALUES (?, ?)",
-      id,
+      seat,
       new Date().toISOString(),
     );
-    return { ok: true, value: id };
+    return { ok: true, value: undefined };
   }
 
-  /** The seat is given back, unless it was taken: declined, withdrawn, or not recorded after all */
+  /**
+   * The seat is given back: declined, withdrawn, or not recorded after all. One taken by someone
+   * the index never recorded (an acceptance that failed part way) takes them out with it, as
+   * `unaccept` does; one given back already is nothing to give.
+   */
   closeSeat(id: SeatId): void {
-    this.ctx.storage.sql.exec("DELETE FROM invitations WHERE id = ? AND member IS NULL", id);
+    const sql = this.ctx.storage.sql;
+    const held = sql
+      .exec<{ member: string | null }>("SELECT member FROM invitations WHERE id = ?", id)
+      .toArray()[0];
+    if (held === undefined) return;
+    const taken = held.member === null ? null : this.person(held.member);
+    if (taken === null) sql.exec("DELETE FROM invitations WHERE id = ?", id);
+    else this.unaccept(taken);
   }
 
   /**
@@ -542,7 +597,10 @@ export class Room extends DurableObject<Env> {
     return { ok: true, value: id };
   }
 
-  /** The index would not record a member `accept` just let in: they are not in, and the seat is lost */
+  /**
+   * The index would not record a member `accept` let in, or their invitation was given back
+   * before it did: they are not in, and the seat is lost
+   */
   unaccept(member: MemberId): void {
     const sql = this.ctx.storage.sql;
     sql.exec("DELETE FROM members WHERE id = ? AND creator = 0", member);
@@ -555,7 +613,7 @@ export class Room extends DurableObject<Env> {
    * is not deleted. Only the owner deletes, but either person can take it back for its thirty
    * days, unless the owner has it gone at once (docs/auth-and-security.md).
    */
-  deletedFor(by: MemberId): { name: string; deletedAt: string } | null {
+  deletedFor(by: MemberId): { name: string; deletedAt: IsoInstant } | null {
     const deletion = this.deletion();
     if (deletion === null || this.person(by) === null) return null;
     const { name } = this.ctx.storage.sql
@@ -570,10 +628,10 @@ export class Room extends DurableObject<Env> {
    * room, they delete it. Their notes stay; their socket is told and closed. Someone leaving
    * again, out already (the index not told the first time), is answered as having left.
    */
-  remove(by: MemberId, member: MemberId): Result<void, RemoveRefusal> {
+  remove(by: MemberId, member: MemberId): Result<void, RemoveRefusal | Outsider> {
     if (by === member && this.person(by) === null && this.deletion() === null)
       return { ok: true, value: undefined };
-    this.assertMember(by);
+    if (this.outsider(by)) return OUTSIDE;
     const owner = this.ownerId();
     if (member === owner) return { ok: false, reason: "the owner" };
     if (by !== owner && by !== member) return { ok: false, reason: "not theirs" };
@@ -597,16 +655,12 @@ export class Room extends DurableObject<Env> {
    * go too. Refused when `by` is not the owner. Asked again after a try that failed part way
    * (the index not told), it keeps the first deletion's time and does the rest again.
    */
-  async delete(by: MemberId, roomId: RoomId): Promise<Result<void, "not the owner">> {
-    this.assertPerson(by);
+  async delete(by: MemberId, roomId: RoomId): Promise<Result<void, "not the owner" | Outsider>> {
+    if (this.person(by) === null) return OUTSIDE;
     if (by !== this.ownerId()) return { ok: false, reason: "not the owner" };
     const sql = this.ctx.storage.sql;
     // deleted before anything is awaited: from here on nothing is written, opened or published
-    sql.exec(
-      "INSERT OR IGNORE INTO deletion (id, room_id, at) VALUES (1, ?, ?)",
-      roomId,
-      new Date().toISOString(),
-    );
+    sql.exec("INSERT OR IGNORE INTO deletion (id, room_id, at) VALUES (1, ?, ?)", roomId, stamp());
     sql.exec("DELETE FROM invitations");
     this.closeSockets(this.ctx.getWebSockets(), "deleted");
     const { at } = sql.exec<{ at: string }>("SELECT at FROM deletion").one();
@@ -620,17 +674,18 @@ export class Room extends DurableObject<Env> {
   static readonly DELETE_AFTER = KEPT_DAYS * 24 * 60 * 60 * 1000;
 
   /** When the room was deleted, or null while it is not */
-  deletedAt(): string | null {
+  deletedAt(): IsoInstant | null {
     return this.deletion()?.at ?? null;
   }
 
   /**
    * A person in the room, `by`, takes the deletion back; refused when it is not deleted, which,
-   * asked while the index still hides the room, means a try whose index call failed restored it
+   * asked while the index still hides the room, means a try whose index call failed restored it,
+   * and refused for anyone else
    */
-  restore(by: MemberId): Result<void, "not deleted"> {
+  restore(by: MemberId): Result<void, "not deleted" | Outsider> {
     if (this.deletion() === null) return { ok: false, reason: "not deleted" };
-    this.assertPerson(by);
+    if (this.person(by) === null) return OUTSIDE;
     this.ctx.storage.sql.exec("DELETE FROM deletion");
     void this.ctx.storage.deleteAlarm();
     return { ok: true, value: undefined };
@@ -673,7 +728,7 @@ export class Room extends DurableObject<Env> {
    * The room goes for good: its pictures, its place in the index, its storage. Nothing else runs
    * until it is gone: a restore in between would be answered yes for a room about to go.
    */
-  private erase(deletion: { room_id: RoomId; at: string }): Promise<void> {
+  private erase(deletion: Deletion): Promise<void> {
     return this.ctx.blockConcurrencyWhile(async () => {
       const keys = this.ctx.storage.sql
         .exec<{ id: ImageId }>("SELECT id FROM pictures")
@@ -687,12 +742,14 @@ export class Room extends DurableObject<Env> {
     });
   }
 
-  private deletion(): { room_id: RoomId; at: string } | null {
-    return (
-      this.ctx.storage.sql
-        .exec<{ room_id: RoomId; at: string }>("SELECT room_id, at FROM deletion")
-        .toArray()[0] ?? null
-    );
+  /** The room's deletion as `delete` wrote it, read with its schemas; null while it is not deleted */
+  private deletion(): Deletion | null {
+    const row = this.ctx.storage.sql
+      .exec<{ room_id: string; at: string }>("SELECT room_id, at FROM deletion")
+      .toArray()[0];
+    return row === undefined
+      ? null
+      : { room_id: v.parse(RoomIdSchema, row.room_id), at: v.parse(IsoInstantSchema, row.at) };
   }
 
   private ownerId(): MemberId {
@@ -747,55 +804,61 @@ export class Room extends DurableObject<Env> {
   // ---- the agent (RPC from the Worker, inside a member's request) ----
 
   /** What the agent needs to draft `date`, asked by member `by`; null when the trip has no such day */
-  dayForDraft(by: MemberId, date: IsoDate): DraftContext | null {
-    this.assertMember(by);
+  dayForDraft(by: MemberId, date: IsoDate): Result<DraftContext | null, Outsider> {
+    if (this.outsider(by)) return OUTSIDE;
     const trip = this.trip();
-    if (!trip.days.some((d) => d.date === date)) return null;
+    if (!trip.days.some((d) => d.date === date)) return { ok: true, value: null };
     const notes = this.notes()
       .filter((n) => n.kind === "memo")
       .filter((n) => n.schedule?.date === date);
-    return { trip: trip.name, currency: trip.currency, date, notes };
+    return { ok: true, value: { trip: trip.name, currency: trip.currency, date, notes } };
   }
 
   // ---- places: where a memo is ----
 
   /** What naming a memo's place needs, asked by member `by`: which trip, and when */
-  placeContext(by: MemberId): PlaceContext {
-    this.assertMember(by);
+  placeContext(by: MemberId): Result<PlaceContext, Outsider> {
+    if (this.outsider(by)) return OUTSIDE;
     const trip = this.trip();
-    return { trip: trip.name, days: trip.days.map((d) => d.date) };
+    return { ok: true, value: { trip: trip.name, days: trip.days.map((d) => d.date) } };
   }
 
   // ---- tags: the ones in use, and the agent's candidates for the trip ----
 
   /** What tagging a memo needs, asked by member `by`: the trip, the tags in use, the candidates */
-  tagContext(by: MemberId): TagContext & { candidates: string[] } {
-    this.assertMember(by);
+  tagContext(by: MemberId): Result<TagContext & { candidates: string[] }, Outsider> {
+    if (this.outsider(by)) return OUTSIDE;
     const trip = this.trip();
     const notes = this.notes();
     const tags = [...new Set(notes.flatMap((n) => (n.kind === "memo" ? n.tags : [])))];
     return {
-      trip: trip.name,
-      days: trip.days.map((d) => d.date),
-      tags,
-      titles: notes.map((n) => n.title),
-      candidates: this.candidates(),
+      ok: true,
+      value: {
+        trip: trip.name,
+        days: trip.days.map((d) => d.date),
+        tags,
+        titles: notes.map((n) => n.title),
+        candidates: this.candidates(),
+      },
     };
   }
 
   /**
    * How long a proposal of the candidates is waited for: one asked for longer ago was never
-   * answered (its request died), and the next ask may propose them
+   * answered (its request died, or what came back was paid for and no proposal), and the next
+   * ask may propose them
    */
   static readonly PROPOSING_FOR = 60_000;
 
   /**
    * Whether member `by` is the one to have the agent propose the trip's candidate tags: yes once
    * a trip, to the first who asks, and to nobody else while that proposal is on its way, so two
-   * asks at once pay for one. Kept as proposed when it is saved, even with no tags in it.
+   * asks at once pay for one. Kept as proposed when it is saved, even with no tags in it; a
+   * proposal that failed and was paid for is not saved, and is asked again after PROPOSING_FOR.
+   * Nobody the room does not act for is the one.
    */
   claimProposal(by: MemberId): boolean {
-    this.assertMember(by);
+    if (this.outsider(by)) return false;
     this.candidateTable();
     const sql = this.ctx.storage.sql;
     const now = Date.now();
@@ -812,19 +875,23 @@ export class Room extends DurableObject<Env> {
     return true;
   }
 
-  /** The proposal claimed spent nothing (a provider's error, or past the budget): it is not made */
+  /**
+   * The proposal claimed spent nothing (a provider's error, or past the budget): it is not made.
+   * Nothing changes for anyone the room does not act for.
+   */
   releaseProposal(by: MemberId): void {
-    this.assertMember(by);
+    if (this.outsider(by)) return;
     this.candidateTable();
     this.ctx.storage.sql.exec("DELETE FROM tag_proposal WHERE done = 0");
   }
 
   /**
-   * The agent's candidate tags, kept so they are proposed once a trip, not on every ask; none
-   * when what it answered was paid for and held no tag to keep
+   * The agent's candidate tags, from an answer that was a proposal, kept so they are proposed
+   * once a trip, not on every ask; none when it held no tag to keep. Nothing is kept for anyone
+   * the room does not act for.
    */
   saveCandidates(by: MemberId, tags: string[]): void {
-    this.assertMember(by);
+    if (this.outsider(by)) return;
     const sql = this.ctx.storage.sql;
     this.candidateTable();
     for (const tag of tags) sql.exec("INSERT OR IGNORE INTO tag_candidates (tag) VALUES (?)", tag);
@@ -858,30 +925,33 @@ export class Room extends DurableObject<Env> {
    * What the agent reads to suggest ideas, asked by member `by` from the note `about` (or from
    * none); null when that note is not on the desk, or has no words to start from
    */
-  contextForSuggest(by: MemberId, about: NoteId | null): SuggestContext | null {
-    this.assertMember(by);
+  contextForSuggest(by: MemberId, about: NoteId | null): Result<SuggestContext | null, Outsider> {
+    if (this.outsider(by)) return OUTSIDE;
     const trip = this.trip();
     // a sticker has no words to read
     const notes = this.notes().filter((n) => n.kind !== "sticker");
     const from = about === null ? null : notes.find((n) => n.id === about);
-    if (from === undefined) return null;
+    if (from === undefined) return { ok: true, value: null };
     return {
-      trip: trip.name,
-      days: trip.days.map((d) => d.date),
-      notes: notes.map((n) => ({
-        title: n.title,
-        tags: n.kind === "memo" ? n.tags : [],
-        date: n.kind === "memo" ? (n.schedule?.date ?? null) : null,
-      })),
-      about:
-        from === null
-          ? null
-          : {
-              title: from.title,
-              body: from.kind === "memo" ? from.body : "",
-              tags: from.kind === "memo" ? from.tags : [],
-              pin: from.kind === "memo" ? from.pin : null,
-            },
+      ok: true,
+      value: {
+        trip: trip.name,
+        days: trip.days.map((d) => d.date),
+        notes: notes.map((n) => ({
+          title: n.title,
+          tags: n.kind === "memo" ? n.tags : [],
+          date: n.kind === "memo" ? (n.schedule?.date ?? null) : null,
+        })),
+        about:
+          from === null
+            ? null
+            : {
+                title: from.title,
+                body: from.kind === "memo" ? from.body : "",
+                tags: from.kind === "memo" ? from.tags : [],
+                pin: from.kind === "memo" ? from.pin : null,
+              },
+      },
     };
   }
 
@@ -890,8 +960,12 @@ export class Room extends DurableObject<Env> {
    * asked) around `at` on the desk, and sent to every socket, the asker's too: nobody made
    * them on their own device. Returns how many were written.
    */
-  addSuggestions(by: MemberId, titles: string[], at: { x: number; y: number }): number {
-    this.assertMember(by);
+  addSuggestions(
+    by: MemberId,
+    titles: string[],
+    at: { x: number; y: number },
+  ): Result<number, Outsider> {
+    if (this.outsider(by)) return OUTSIDE;
     const now = stamp();
     let added = 0;
     titles.forEach((title, i) => {
@@ -920,7 +994,7 @@ export class Room extends DurableObject<Env> {
       });
       for (const ws of this.ctx.getWebSockets()) if (ws.readyState === WebSocket.OPEN) ws.send(out);
     });
-    return added;
+    return { ok: true, value: added };
   }
 
   /**
@@ -1441,15 +1515,13 @@ export class Room extends DurableObject<Env> {
     return row.n;
   }
 
-  /** A person in the room's table, the room deleted or not */
-  private assertPerson(id: MemberId): void {
-    if (this.person(id) === null) throw new Error("not a member");
-  }
-
-  /** A person in a room that is not deleted: the only one the room acts for */
-  private assertMember(id: MemberId): void {
-    this.assertPerson(id);
-    if (this.deletion() !== null) throw new Error("room deleted");
+  /**
+   * Whether the room does not act for `id`: it acts only for a person in its table, in a room
+   * that is not deleted. Its refusal (OUTSIDE) is an answer, not a throw, so the Worker tells it
+   * apart from a failure
+   */
+  private outsider(id: MemberId): boolean {
+    return this.person(id) === null || this.deletion() !== null;
   }
 
   /** The person `id` names in the room's table, as an id read with its schema; null for none */

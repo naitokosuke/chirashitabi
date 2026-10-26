@@ -3,6 +3,7 @@
 export {
   IsoDateSchema,
   IsoInstantSchema,
+  IsoTimeSchema,
   NewTripSchema,
   parseCid,
   parseMutation,

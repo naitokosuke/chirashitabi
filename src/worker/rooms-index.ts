@@ -1,17 +1,24 @@
 import { DurableObject } from "cloudflare:workers";
 
-import type { Email, Result } from "../contract";
-import type { MemberId } from "../contract/member";
-import type { RoomId } from "../contract/room";
+import { parseEmail, type Email, type Result } from "../contract";
+import { parseMemberId, type MemberId } from "../contract/member";
+import { parseRoomId, type RoomId } from "../contract/room";
+import type { IsoInstant } from "../contract/wire";
 
 import { SPACING_MS } from "./geocode";
-import type { SeatId } from "./room";
+import { parseSeatId, type SeatId } from "./room";
 
 /** Why a paid call was not reserved */
 export type Refusal = "day" | "trip";
 
 /** How far ahead the geocoder's turns may be taken: past it, a lookup fails rather than waits */
 const GEOCODER_QUEUE_MS = 5000;
+
+/**
+ * How many of the turns to come one person's free lookups may hold: of the few that fit in
+ * GEOCODER_QUEUE_MS, enough for a lookup and the next, and never all of them
+ */
+const FREE_TURNS = 2;
 
 /**
  * One per account: which rooms each e-mail belongs to, and as which member, which rooms it is
@@ -94,13 +101,33 @@ export class RoomsIndex extends DurableObject<Env> {
   #geocoderAt = 0;
 
   /**
-   * A turn at the geocoder: how many ms to wait before asking, the turns spaced SPACING_MS
-   * apart; null when the turns already taken run past GEOCODER_QUEUE_MS, and it is not asked
+   * The turns each person's free lookups hold that have not come yet, by e-mail, in memory as
+   * the queue is
    */
-  geocoderTurn(): number | null {
+  #freeTurns = new Map<Email, number[]>();
+
+  /**
+   * A turn at the geocoder: how many ms to wait before asking, the turns spaced SPACING_MS
+   * apart; null when the turns already taken run past GEOCODER_QUEUE_MS, and it is not asked.
+   * A free lookup names who asks (`free`), and is refused too while they hold FREE_TURNS of the
+   * turns to come, so nobody's free lookups crowd out everyone else's; a budgeted one (null) is
+   * bounded by the budget already.
+   */
+  geocoderTurn(free: Email | null): number | null {
     const now = Date.now();
     const at = Math.max(now, this.#geocoderAt);
     if (at - now > GEOCODER_QUEUE_MS) return null;
+    if (free !== null) {
+      // a turn that has come is held no longer
+      for (const [email, turns] of this.#freeTurns) {
+        const ahead = turns.filter((t) => t > now);
+        if (ahead.length === 0) this.#freeTurns.delete(email);
+        else this.#freeTurns.set(email, ahead);
+      }
+      const held = this.#freeTurns.get(free) ?? [];
+      if (held.length >= FREE_TURNS) return null;
+      this.#freeTurns.set(free, [...held, at]);
+    }
     this.#geocoderAt = at + SPACING_MS;
     return at - now;
   }
@@ -113,38 +140,42 @@ export class RoomsIndex extends DurableObject<Env> {
    */
   resolve(email: Email, roomId: RoomId, deleted = false): MemberId | null {
     const row = this.ctx.storage.sql
-      .exec<{ member_id: MemberId }>(
+      .exec<{ member_id: string }>(
         `SELECT member_id FROM memberships
            WHERE email = ? AND room_id = ? AND deleted_at IS ${deleted ? "NOT NULL" : "NULL"}`,
         email,
         roomId,
       )
       .toArray()[0];
-    return row?.member_id ?? null;
+    return row === undefined ? null : parseMemberId(row.member_id);
   }
 
   /** The rooms `email` is in, oldest first; with `deleted`, the deleted ones instead */
   rooms(email: Email, deleted = false): RoomId[] {
     return this.ctx.storage.sql
-      .exec<{ room_id: RoomId }>(
+      .exec<{ room_id: string }>(
         `SELECT room_id FROM memberships
            WHERE email = ? AND deleted_at IS ${deleted ? "NOT NULL" : "NULL"} ORDER BY rowid`,
         email,
       )
       .toArray()
-      .map((r) => r.room_id);
+      .flatMap((r) => parseRoomId(r.room_id) ?? []);
   }
 
   /** The rooms `email` is in and who it is in each, oldest first; deleted ones left out */
   memberships(email: Email): { roomId: RoomId; memberId: MemberId }[] {
     return this.ctx.storage.sql
-      .exec<{ room_id: RoomId; member_id: MemberId }>(
+      .exec<{ room_id: string; member_id: string }>(
         `SELECT room_id, member_id FROM memberships
            WHERE email = ? AND deleted_at IS NULL ORDER BY rowid`,
         email,
       )
       .toArray()
-      .map((r) => ({ roomId: r.room_id, memberId: r.member_id }));
+      .flatMap((r) => {
+        const roomId = parseRoomId(r.room_id);
+        const memberId = parseMemberId(r.member_id);
+        return roomId === null || memberId === null ? [] : [{ roomId, memberId }];
+      });
   }
 
   /**
@@ -189,86 +220,87 @@ export class RoomsIndex extends DurableObject<Env> {
   // ---- invitations: a seat the room holds for an e-mail, until it is taken or given back ----
 
   /**
-   * Records that `email` is invited to `roomId`, to the room's seat `inviteId`; refused when it
-   * is already a member there or already invited.
+   * Records that `email` is invited to `roomId`, to the room's seat `seat`, before the room holds
+   * it; returns the seat recorded, which is the one recorded before when `email` is invited there
+   * already (a try that failed part way, asked again). Refused when it is already a member there.
    */
-  invite(
-    email: Email,
-    roomId: RoomId,
-    inviteId: SeatId,
-  ): Result<void, "already in" | "already invited"> {
+  invite(email: Email, roomId: RoomId, seat: SeatId): Result<SeatId, "already in"> {
     const sql = this.ctx.storage.sql;
-    const known = (table: "memberships" | "invitations") =>
-      sql.exec(`SELECT 1 FROM ${table} WHERE email = ? AND room_id = ?`, email, roomId).toArray()
-        .length > 0;
-    if (known("memberships")) return { ok: false, reason: "already in" };
-    if (known("invitations")) return { ok: false, reason: "already invited" };
+    if (
+      sql.exec("SELECT 1 FROM memberships WHERE email = ? AND room_id = ?", email, roomId).toArray()
+        .length > 0
+    )
+      return { ok: false, reason: "already in" };
+    const before = this.invitation(email, roomId);
+    if (before !== null) return { ok: true, value: before };
     sql.exec(
       "INSERT INTO invitations (email, room_id, invite_id) VALUES (?, ?, ?)",
       email,
       roomId,
-      inviteId,
+      seat,
     );
-    return { ok: true, value: undefined };
+    return { ok: true, value: seat };
   }
 
   /** The rooms `email` is invited to, oldest first */
   invitations(email: Email): RoomId[] {
     return this.ctx.storage.sql
-      .exec<{ room_id: RoomId }>(
+      .exec<{ room_id: string }>(
         "SELECT room_id FROM invitations WHERE email = ? ORDER BY rowid",
         email,
       )
       .toArray()
-      .map((r) => r.room_id);
+      .flatMap((r) => parseRoomId(r.room_id) ?? []);
   }
 
   /** Who `roomId` has invited and not heard from yet, oldest first */
   invited(roomId: RoomId): Email[] {
     return this.ctx.storage.sql
-      .exec<{ email: Email }>(
+      .exec<{ email: string }>(
         "SELECT email FROM invitations WHERE room_id = ? ORDER BY rowid",
         roomId,
       )
       .toArray()
-      .map((r) => r.email);
+      .flatMap((r) => parseEmail(r.email) ?? []);
+  }
+
+  /** The room's seats the invitations to `roomId` hold, for the room to give back any it lost */
+  seats(roomId: RoomId): SeatId[] {
+    return this.ctx.storage.sql
+      .exec<{ invite_id: string }>("SELECT invite_id FROM invitations WHERE room_id = ?", roomId)
+      .toArray()
+      .flatMap((r) => parseSeatId(r.invite_id) ?? []);
   }
 
   /**
    * The room's seat the invitation of `email` to `roomId` holds, left in place until the
-   * membership is recorded (`add`), so an acceptance that failed part way can be asked again;
-   * null when there is none
+   * membership is recorded (`add`) or the room has given the seat back, so an answer that failed
+   * part way can be asked again; null when there is none
    */
   invitation(email: Email, roomId: RoomId): SeatId | null {
     const row = this.ctx.storage.sql
-      .exec<{ invite_id: SeatId }>(
+      .exec<{ invite_id: string }>(
         "SELECT invite_id FROM invitations WHERE email = ? AND room_id = ?",
         email,
         roomId,
       )
       .toArray()[0];
-    return row?.invite_id ?? null;
+    return row === undefined ? null : parseSeatId(row.invite_id);
   }
 
-  /**
-   * Takes the invitation of `email` to `roomId` out, declined, withdrawn or refused; returns
-   * the room's seat it held, or null when there was none.
-   */
-  take(email: Email, roomId: RoomId): SeatId | null {
-    const row = this.ctx.storage.sql
-      .exec<{ invite_id: SeatId }>(
-        "DELETE FROM invitations WHERE email = ? AND room_id = ? RETURNING invite_id",
-        email,
-        roomId,
-      )
-      .toArray()[0];
-    return row?.invite_id ?? null;
+  /** Takes the invitation of `email` to `roomId` out, declined, withdrawn or refused */
+  take(email: Email, roomId: RoomId): void {
+    this.ctx.storage.sql.exec(
+      "DELETE FROM invitations WHERE email = ? AND room_id = ?",
+      email,
+      roomId,
+    );
   }
 
   // ---- deleting a room: hidden from everyone at once, gone for good when the room says so ----
 
   /** The room was deleted at `at`, or restored (null); its members' lists and requests follow */
-  mark(roomId: RoomId, at: string | null): void {
+  mark(roomId: RoomId, at: IsoInstant | null): void {
     const sql = this.ctx.storage.sql;
     sql.exec("UPDATE memberships SET deleted_at = ? WHERE room_id = ?", at, roomId);
     // nobody is waiting to join a room nobody can open

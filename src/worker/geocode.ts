@@ -7,7 +7,7 @@
 
 import * as v from "valibot";
 
-import { listOf } from "../contract";
+import { listOf, type Email, type Result } from "../contract";
 import type { LatLng } from "../contract/place";
 import type { Lang } from "../contract/wire";
 
@@ -21,11 +21,17 @@ export const SPACING_MS = 1100;
 const TIMEOUT_MS = 8000;
 
 /**
- * Waits for the app's turn at the geocoder (RoomsIndex.geocoderTurn); false when the turns
- * already taken run too far ahead, and it is not asked
+ * Why the geocoder answered nothing: its turns ran too far ahead, or the asker's free lookups
+ * hold their share of them, and it was not asked ("busy"); or it was asked and did not answer
  */
-async function turn(env: Env): Promise<boolean> {
-  const wait = await env.ROOMS.getByName("index").geocoderTurn();
+export type GeocoderFailure = "busy" | "failed";
+
+/**
+ * Waits for the app's turn at the geocoder (RoomsIndex.geocoderTurn), for a free lookup by
+ * `free` or a budgeted one (null); false when there is no turn, and it is not asked
+ */
+async function turn(env: Env, free: Email | null): Promise<boolean> {
+  const wait = await env.ROOMS.getByName("index").geocoderTurn(free);
   if (wait === null) return false;
   await new Promise((r) => setTimeout(r, wait));
   return true;
@@ -45,8 +51,16 @@ export interface Place {
 /** The longest opening hours kept; OpenStreetMap's own limit on a value is 255 */
 const HOURS = 255;
 
-/** The places a query finds, best first; null when the geocoder could not be asked */
-export async function geocode(env: Env, query: string, lang: Lang): Promise<Place[] | null> {
+/**
+ * The places a query finds, best first, looked up free for `free` or within a budget (null);
+ * or why there are none to give
+ */
+export async function geocode(
+  env: Env,
+  query: string,
+  lang: Lang,
+  free: Email | null,
+): Promise<Result<Place[], GeocoderFailure>> {
   const params = new URLSearchParams({
     q: query,
     format: "jsonv2",
@@ -55,7 +69,7 @@ export async function geocode(env: Env, query: string, lang: Lang): Promise<Plac
     extratags: "1",
     "accept-language": lang,
   });
-  if (!(await turn(env))) return null;
+  if (!(await turn(env, free))) return { ok: false, reason: "busy" };
   let res: Response;
   try {
     res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/search?${params.toString()}`, {
@@ -63,10 +77,10 @@ export async function geocode(env: Env, query: string, lang: Lang): Promise<Plac
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {
-    return null;
+    return { ok: false, reason: "failed" };
   }
-  if (!res.ok) return null;
-  return placesFrom(await res.json().catch(() => null));
+  if (!res.ok) return { ok: false, reason: "failed" };
+  return { ok: true, value: placesFrom(await res.json().catch(() => null)) };
 }
 
 /** A place's `opening_hours` tag, on one line, or null when it has none */
@@ -122,14 +136,15 @@ export function placesFrom(raw: unknown): Place[] {
 }
 
 /**
- * What is at a point: the place there (a shop, a sight) or, short of one, the street; null
- * inside when OpenStreetMap has nothing there, null outside when it could not be asked
+ * What is at a point, looked up free for `free`: the place there (a shop, a sight) or, short
+ * of one, the street, null when OpenStreetMap has nothing there; or why it could not be told
  */
 export async function reverseGeocode(
   env: Env,
   at: LatLng,
   lang: Lang,
-): Promise<{ place: Place | null } | null> {
+  free: Email,
+): Promise<Result<{ place: Place | null }, GeocoderFailure>> {
   const params = new URLSearchParams({
     lat: String(at.lat),
     lon: String(at.lng),
@@ -140,7 +155,7 @@ export async function reverseGeocode(
     extratags: "1",
     "accept-language": lang,
   });
-  if (!(await turn(env))) return null;
+  if (!(await turn(env, free))) return { ok: false, reason: "busy" };
   let res: Response;
   try {
     res = await fetch(`${env.GEOCODER_BASE_URL ?? NOMINATIM}/reverse?${params.toString()}`, {
@@ -148,10 +163,10 @@ export async function reverseGeocode(
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {
-    return null;
+    return { ok: false, reason: "failed" };
   }
-  if (!res.ok) return null;
-  return { place: placeAt(await res.json().catch(() => null), at) };
+  if (!res.ok) return { ok: false, reason: "failed" };
+  return { ok: true, value: { place: placeAt(await res.json().catch(() => null), at) } };
 }
 
 /** What a place at a point is called, most telling first: never a bare house number */

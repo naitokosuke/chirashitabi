@@ -35,6 +35,7 @@ import {
   IsoDateSchema,
   parseAirportCode,
   IsoInstantSchema,
+  IsoTimeSchema,
   NewTripSchema,
   parseCid,
   parseMutation,
@@ -224,7 +225,7 @@ const roomSocket = socket.addEventListener("connection", ({ client, params }) =>
 
 // ---- the agent's calls ----
 
-const SLOTS = ["10:00", "12:30", "16:00", "20:30"];
+const SLOTS = ["10:00", "12:30", "16:00", "20:30"].map((t) => v.parse(IsoTimeSchema, t));
 /** About as long as a real draft takes, so the pending state can be seen while developing */
 const THINKING_MS = 1200;
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -494,8 +495,8 @@ const members = [
     const body = await bodyOf(request, v.object({ member: MemberIdSchema }));
     if (body === null) return badRequest();
     const gone = room.state.members.find((m) => m.id === body.member);
-    if (gone?.kind !== "person")
-      return HttpResponse.json<Answer<InRoom["remove"], 403>>({ error: "not in" }, { status: 403 });
+    // out already: the removal is done, as the Worker answers it
+    if (gone?.kind !== "person") return HttpResponse.json<Answer<InRoom["remove"]>>({});
     if (gone.role === "owner")
       return HttpResponse.json<Answer<InRoom["remove"], 403>>(
         { error: "the owner" },

@@ -3,7 +3,13 @@ import * as v from "valibot";
 import type { CurrencyCode } from "../contract";
 import { NoteIdSchema, type NoteId } from "../contract/note";
 import type { LatLng } from "../contract/place";
-import type { IsoDate, WireMemo } from "../contract/wire";
+import {
+  IsoTimeSchema,
+  MinutesSchema,
+  type IsoDate,
+  type IsoTime,
+  type WireMemo,
+} from "../contract/wire";
 
 /**
  * Claude, called from the Worker with the key held as a secret (docs/auth-and-security.md).
@@ -38,7 +44,7 @@ function latest<T>(items: T[]): T[] {
 export interface DraftProposal {
   reason: string;
   intro: string;
-  items: { id: NoteId; time: string | null; minutes: number | null }[];
+  items: { id: NoteId; time: IsoTime | null; minutes: number | null }[];
 }
 
 export interface Usage {
@@ -428,13 +434,10 @@ const ProposalSchema = v.object({
       v.nullable(
         v.object({
           id: NoteIdSchema,
-          // a time that is not HH:MM is no time
-          time: v.fallback(v.nullable(v.pipe(v.string(), v.isoTime())), null),
-          // and minutes that are not a whole number within a day are none
-          minutes: v.fallback(
-            v.nullable(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(24 * 60))),
-            null,
-          ),
+          // a time that is not a time of day is no time
+          time: v.fallback(v.nullable(IsoTimeSchema), null),
+          // and minutes that are not a whole number within a day are none, as on a memo
+          minutes: v.fallback(v.nullable(MinutesSchema), null),
         }),
       ),
       null,
@@ -444,7 +447,7 @@ const ProposalSchema = v.object({
 
 /**
  * Claude's answer as a draft, or null. Only notes of the day, each once; a time that is not
- * HH:MM is no time, and minutes outside a day are none. Exported for the tests.
+ * a time of day is no time, and minutes outside a day are none. Exported for the tests.
  */
 export function checkProposal(input: unknown, ids: ReadonlySet<NoteId>): DraftProposal | null {
   const answer = v.safeParse(ProposalSchema, input);
