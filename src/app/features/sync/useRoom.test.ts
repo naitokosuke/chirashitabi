@@ -233,6 +233,40 @@ describe("connecting", () => {
     t.pagehide();
     expect(t.keptPending()).toEqual([]);
   });
+
+  test("the changes of one save are made all or none: one too large for a message stops them all", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const t = inRoom();
+    const retitle: Mutation = { type: "note:update", id: remove.id, patch: { title: "Lunch" } };
+    const huge: Mutation = {
+      type: "note:update",
+      id: remove.id,
+      patch: { body: "x".repeat(70_000) },
+    };
+    const before = t.last().sent.length;
+    expect(t.sync.commit(retitle, huge)).toBe(false);
+    // none made, none sent, none kept; the person is told
+    expect(t.cache.getQueryData(roomKeys.notes(ROOM))).toMatchObject([{ id: "n1", title: "n1" }]);
+    expect(t.last().sent).toHaveLength(before);
+    expect(t.toast.current?.text).toBe(
+      "That change is too large to send, so it was not made. Try shortening it.",
+    );
+    t.pagehide();
+    expect(t.keptPending()).toEqual([]);
+
+    // the ones that fit are made together, and sent in order
+    expect(t.sync.commit(retitle, remove)).toBe(true);
+    expect(t.last().sent.slice(before)).toMatchObject([retitle, remove]);
+  });
+
+  test("before this device is in a room, a change is not made", () => {
+    const t = setup();
+    expect(t.sync.commit(remove)).toBe(false);
+    // joining, before the room has said who this device is
+    t.room.connect(ROOM);
+    expect(t.sync.commit(remove)).toBe(false);
+    expect(t.last().sent).toEqual([]);
+  });
 });
 
 describe("keeping the room as the page goes", () => {
