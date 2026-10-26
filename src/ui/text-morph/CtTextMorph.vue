@@ -6,8 +6,8 @@ import { align, flatten, type Glyph, type MorphPart } from "./glyphs";
 /**
  * Text that morphs instead of being replaced: when `parts` change, the characters the old and
  * new text share stay and slide to their new place, the others fade out where they were and in
- * where they go. "1日目 11/3" to "2日目 11/4" moves only the digits. A part's `tone` is a class
- * on its characters, for the parent to style with `:deep(.tone)`.
+ * where they go. "1日目 11/3" to "2日目 11/4" moves only the digits. A part's `tone` `quiet` says
+ * it a step smaller and in muted ink, as a day's date after its name.
  */
 const props = defineProps<{ parts: readonly MorphPart[] }>();
 
@@ -130,5 +130,11 @@ span {
     inset: 0;
     pointer-events: none;
   }
+}
+
+/* a quiet part, a leaving copy of its characters too */
+.quiet {
+  font-size: var(--font-md);
+  color: var(--muted);
 }
 </style>

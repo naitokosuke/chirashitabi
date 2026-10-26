@@ -255,19 +255,19 @@ onBeforeUnmount(() => clearTimeout(resort));
       >#{{ o.name }}</CtChip>
     </div>
     <!-- Clef looks at the words and the photo; what it finds fitting moves up the row -->
-    <div v-if="askByTap || clef.state.kind !== 'idle'" class="suggested">
+    <div v-if="askByTap" class="suggested">
       <CtButton
-        v-if="askByTap"
         variant="ask"
         :disabled="clef.state.kind === 'asking' || !text.trim() || cut.offline"
         :busy="clef.state.kind === 'asking'"
         @click="() => askForTags(true)"
       >{{ i18n.t("form.suggestTags") }}</CtButton>
-      <CtHint v-if="clef.state.kind !== 'idle'" aria-live="polite">{{
-        i18n.t(TAG_STATE[clef.state.kind])
+      <CtHint v-if="clef.state.kind === 'idle' && cut.offline">{{
+        i18n.t("offline.unavailable")
       }}</CtHint>
-      <CtHint v-else-if="askByTap && cut.offline">{{ i18n.t("offline.unavailable") }}</CtHint>
     </div>
+    <!-- what asking Clef is doing, or why nothing came -->
+    <CtHint live>{{ clef.state.kind === "idle" ? "" : i18n.t(TAG_STATE[clef.state.kind]) }}</CtHint>
   </CtField>
 </template>
 

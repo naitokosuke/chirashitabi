@@ -6,15 +6,24 @@
  * a section says of itself; `md` and `lg` are what an empty view says in its place (no notes
  * on the desk yet, no trips yet). `strong` is a line of facts read at a glance (until when, open
  * when, tags and price): bold, its figures of one width. `danger` says it in the danger's ink,
- * for one that has run late. Live regions and `v-if` are the owner's (`aria-live` falls
- * through to it). On paper, its muted ink is the paper's.
+ * for one that has run late. `live` is a live region, which a screen reader hears only once it
+ * is on the page: the owner keeps it there and changes only its words, and while it has none
+ * it takes no room. On paper, its muted ink is the paper's.
  */
-defineProps<{ size?: "xs" | "sm" | "md" | "lg"; strong?: boolean; danger?: boolean }>();
+defineProps<{
+  size?: "xs" | "sm" | "md" | "lg";
+  strong?: boolean;
+  danger?: boolean;
+  live?: boolean;
+}>();
 defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <p :class="[size === undefined ? undefined : `size-${size}`, { strong, danger }]">
+  <p
+    :class="[size === undefined ? undefined : `size-${size}`, { strong, danger, live }]"
+    :aria-live="live ? 'polite' : undefined"
+  >
     <slot />
   </p>
 </template>
@@ -51,6 +60,12 @@ p {
 
   &.danger {
     color: var(--danger);
+  }
+
+  /* a live region with nothing to say: still there for what lands in it, out of the flow */
+  &.live:empty {
+    position: absolute;
+    clip-path: inset(50%);
   }
 }
 </style>

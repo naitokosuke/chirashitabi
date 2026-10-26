@@ -154,7 +154,7 @@ onMounted(() => nameEl.value?.focus());
 
         <CtField :label="i18n.t('rooms.dates')">
           <template #note>
-            <span v-if="dates.end === null" aria-live="polite">{{ i18n.t("rooms.pickLast") }}</span>
+            <span aria-live="polite">{{ dates.end === null ? i18n.t("rooms.pickLast") : "" }}</span>
           </template>
           <template #default>
             <CtCalendar

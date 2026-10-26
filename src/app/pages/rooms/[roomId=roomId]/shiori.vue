@@ -101,7 +101,7 @@ const heading = computed((): CtMorphPart[] => {
       n: dayNumber(here.trip.days, date),
       date: longDate(date, i18n.locale),
     })
-    .map((s) => (s.kind === "text" ? { text: s.text } : { text: s.text, tone: "date" }));
+    .map((s) => (s.kind === "text" ? { text: s.text } : { text: s.text, tone: "quiet" }));
 });
 const modes = computed((): { value: Mode; label: string }[] => [
   { value: "edit", label: i18n.t("common.edit") },
@@ -259,12 +259,6 @@ article {
     /* the open day's heading, at the foot of the lead, over the page */
     > h2 {
       margin: 14px 0 10px;
-
-      /* the date after "1日目", quieter; its characters are the morph's own */
-      :deep(.date) {
-        font-size: var(--font-md);
-        color: var(--muted);
-      }
     }
   }
 

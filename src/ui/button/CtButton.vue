@@ -19,18 +19,22 @@ import { useTemplateRef } from "vue";
  * `danger` is an act that takes something away: `primary` fills it with the danger's color;
  * `quiet` keeps it quieter still, no wash and grey words, the danger's color only on intent;
  * `text` writes it in the line's quieter ink, the same way. `focus()` puts the keyboard on it.
- * `aria-disabled`, given as to a button, is off but keeps the keyboard: a press on it is the
- * owner's to ignore.
+ * `softDisabled` is off but keeps the keyboard (`aria-disabled`), for a button whose act is
+ * under way and which the keyboard is not to fall off: it looks off as a disabled one does, and
+ * a press on it does nothing, so no `click` is emitted.
  */
 const {
   variant = "quiet",
   size = "md",
   type = "button",
+  disabled = false,
+  softDisabled = false,
 } = defineProps<{
   variant?: "quiet" | "primary" | "ask" | "blank" | "text";
   size?: "sm" | "md" | "lg";
   type?: "button" | "submit";
   disabled?: boolean;
+  softDisabled?: boolean;
   busy?: boolean;
   label?: string;
   danger?: boolean;
@@ -41,6 +45,11 @@ defineSlots<{ default(): unknown }>();
 
 const el = useTemplateRef<HTMLButtonElement>("el");
 defineExpose({ focus: () => el.value?.focus() });
+
+function onClick(e: MouseEvent) {
+  if (softDisabled) e.preventDefault();
+  else emit("click", e);
+}
 </script>
 
 <template>
@@ -48,10 +57,15 @@ defineExpose({ focus: () => el.value?.focus() });
     ref="el"
     :type
     :disabled
-    :class="[variant, `size-${size}`, { glyph: label !== undefined, danger, float }]"
+    :class="[
+      variant,
+      `size-${size}`,
+      { glyph: label !== undefined, danger, float, off: disabled || softDisabled },
+    ]"
+    :aria-disabled="softDisabled || undefined"
     :aria-busy="busy || undefined"
     :aria-label="label"
-    @click="(e) => emit('click', e)"
+    @click="onClick"
   >
     <slot />
   </button>
@@ -77,9 +91,8 @@ button {
     background-color var(--duration-swap) ease,
     box-shadow var(--duration-swap) ease;
 
-  /* off; one that keeps the keyboard while it does nothing (aria-disabled) looks it too */
-  &:disabled,
-  &[aria-disabled="true"] {
+  /* off, disabled or soft-disabled alike: every variant's off look keys on `.off` */
+  &.off {
     opacity: 0.35;
   }
 
@@ -111,7 +124,7 @@ button {
 
   &.quiet {
     @media (--can-hover) {
-      &:not(:disabled):hover {
+      &:not(.off):hover {
         background: color-mix(in oklch, var(--ink) 12%, transparent);
       }
     }
@@ -122,7 +135,7 @@ button {
     color: var(--on-ink);
 
     @media (--can-hover) {
-      &:not(:disabled):hover {
+      &:not(.off):hover {
         box-shadow: var(--shadow-float);
       }
     }
@@ -134,7 +147,7 @@ button {
     border: var(--line-width) dashed color-mix(in oklch, var(--ink) 30%, var(--line));
 
     /* the agent cannot be asked now: said by the words going grey, the edge stays */
-    &:disabled {
+    &.off {
       opacity: 1;
       color: var(--muted);
     }
@@ -146,7 +159,7 @@ button {
     color: var(--muted);
 
     @media (--can-hover) {
-      &:not(:disabled):hover {
+      &:not(.off):hover {
         color: var(--ink);
       }
     }
@@ -184,7 +197,7 @@ button {
       color: var(--muted);
 
       @media (--can-hover) {
-        &:not(:disabled):hover {
+        &:not(.off):hover {
           background: var(--wash);
           color: var(--danger);
         }
@@ -196,7 +209,7 @@ button {
       color: var(--muted);
 
       @media (--can-hover) {
-        &:not(:disabled):hover {
+        &:not(.off):hover {
           color: var(--danger);
         }
       }

@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, reactive, useId } from "vue";
+import { computed, onMounted, reactive, useId, useTemplateRef } from "vue";
 
 import {
   CtButton,
@@ -45,7 +45,8 @@ import { useTrip } from "./useTrip";
  * The trip's settings, on its home: its name, when it is (the first day and how many days), its
  * flights there and home, and where its nights are spent. Nothing reaches the room until it is
  * saved, and then only what was changed here. Moving the dates moves what is planned with them; what would fall past the new last
- * day is said before saving, since it goes back to having no day.
+ * day is said before saving, since it goes back to having no day. It opens with the keyboard on
+ * the name, and Esc closes it as Cancel does; where the keyboard goes then is the owner's.
  */
 const props = defineProps<{ trip: TripSnapshot }>();
 const emit = defineEmits<{ close: [] }>();
@@ -166,6 +167,13 @@ function stayLinkState(s: StayForm) {
   return stay.ok && stay.value.pin !== null ? "stay.linkPinned" : "stay.linkNoPin";
 }
 
+// the keyboard starts on the name, and Esc is Cancel
+const nameEl = useTemplateRef<{ focus(): void }>("nameEl");
+onMounted(() => nameEl.value?.focus());
+function onKey(e: KeyboardEvent) {
+  if (e.key === "Escape") emit("close");
+}
+
 function save() {
   const c = changes.value;
   if (c === null) return;
@@ -178,9 +186,9 @@ function save() {
 </script>
 
 <template>
-  <CtPanel as="form" class="editor" pad="lg" @submit.prevent="save">
+  <CtPanel as="form" class="editor" pad="lg" @keydown="onKey" @submit.prevent="save">
     <CtField :for="`${id}-name`" :label="i18n.t('rooms.name')">
-      <CtInput :id="`${id}-name`" v-model="form.name" :maxlength="MAX_NAME" required />
+      <CtInput :id="`${id}-name`" ref="nameEl" v-model="form.name" :maxlength="MAX_NAME" required />
     </CtField>
 
     <div class="row">
@@ -198,8 +206,8 @@ function save() {
         >{{ i18n.t("home.days", { count: form.days }) }}</CtStepper>
       </CtField>
     </div>
-    <CtMessage v-if="dropped > 0" role="status">{{
-      i18n.t("trip.dropped", { count: dropped })
+    <CtMessage live>{{
+      dropped > 0 ? i18n.t("trip.dropped", { count: dropped }) : ""
     }}</CtMessage>
 
     <!-- the flights there and home: each a card of a few fields once added, said once what they need -->
@@ -295,10 +303,8 @@ function save() {
             "
             @choose="(it) => chooseStay(s, it.place)"
           />
-          <CtHint v-if="found.get(s)?.length === 0" aria-live="polite">{{
-            i18n.t("stay.findNone")
-          }}</CtHint>
-          <CtHint v-else-if="found.has(s)">{{ i18n.t("form.placesCredit") }}</CtHint>
+          <CtHint live>{{ found.get(s)?.length === 0 ? i18n.t("stay.findNone") : "" }}</CtHint>
+          <CtHint v-if="(found.get(s)?.length ?? 0) > 0">{{ i18n.t("form.placesCredit") }}</CtHint>
         </div>
         <div class="row">
           <CtField :for="`${id}-stay-${i}-in`" :label="i18n.t('stay.checkIn')">
@@ -326,7 +332,7 @@ function save() {
             @paste="() => onStayPaste(s)"
           />
         </CtField>
-        <CtHint aria-live="polite">{{ i18n.t(stayLinkState(s)) }}</CtHint>
+        <CtHint live>{{ i18n.t(stayLinkState(s)) }}</CtHint>
       </CtPanel>
       <CtButton class="start" variant="blank" @click="addStay"><Icon :size="16" :src="plusIcon" />{{ i18n.t("stay.add") }}</CtButton>
     </fieldset>

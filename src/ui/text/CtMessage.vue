@@ -4,14 +4,16 @@
  * their day. In ink, with room on its line for what to do about it (a CtButton in the slot).
  * `boxed` sets it on a panel of its own, for a message that stands apart from what is round it.
  * `danger` says it in the danger ink, for a call that did not go through where trying again is
- * the button's own tap. Its `role` (`status`, `alert`) and `aria-live` are the owner's.
+ * the button's own tap. Its `role` (`status`, `alert`) is the owner's. `live` is a live region,
+ * which a screen reader hears only once it is on the page: the owner keeps it there and changes
+ * only its words, and while it has none it takes no room.
  */
-defineProps<{ boxed?: boolean; danger?: boolean }>();
+defineProps<{ boxed?: boolean; danger?: boolean; live?: boolean }>();
 defineSlots<{ default(): unknown }>();
 </script>
 
 <template>
-  <p :class="{ boxed, danger }"><slot /></p>
+  <p :class="{ boxed, danger, live }" :aria-live="live ? 'polite' : undefined"><slot /></p>
 </template>
 
 <style scoped>
@@ -38,6 +40,12 @@ p {
     background: var(--surface);
     box-shadow: inset 0 0 0 var(--line-width) var(--line);
     font-size: var(--font-md);
+  }
+
+  /* a live region with nothing to say: still there for what lands in it, out of the flow */
+  &.live:empty {
+    position: absolute;
+    clip-path: inset(50%);
   }
 }
 </style>

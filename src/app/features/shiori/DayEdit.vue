@@ -263,8 +263,8 @@ function markBooked(n: Scheduled) {
             @click="() => ask(inRoom, day)"
           >{{ i18n.t(here.kind === "asking" ? "shiori.drafting" : "shiori.askDraft") }}</CtButton>
           <CtHint v-if="cut.offline" data-turn>{{ i18n.t("offline.unavailable") }}</CtHint>
-          <CtMessage v-if="here.kind === 'failed'" aria-live="polite" class="failed" danger>{{
-            i18n.t(FAILED[here.why])
+          <CtMessage class="failed" danger live>{{
+            here.kind === "failed" ? i18n.t(FAILED[here.why]) : ""
           }}</CtMessage>
         </template>
       </template>
