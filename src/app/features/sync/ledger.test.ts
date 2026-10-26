@@ -4,6 +4,7 @@ import { describe, expect, test } from "vite-plus/test";
 
 import type { CurrencyCode } from "../../../contract";
 import type { MemberId } from "../members/types";
+import { makeMemo } from "../notes/fixtures";
 import type { NoteId } from "../notes/id";
 import type { Memo } from "../notes/types";
 import type { TripSnapshot } from "../trip/types";
@@ -19,32 +20,7 @@ const ME = "yuki" as MemberId;
 const KEN = "ken" as MemberId;
 const t = (s: number) => Temporal.Instant.fromEpochMilliseconds(s * 1000);
 
-const memo = (id: string, title: string): Memo => ({
-  id: id as NoteId,
-  kind: "memo",
-  title,
-  color: "#fff1b8",
-  x: 0,
-  y: 0,
-  rot: 0,
-  scale: 1,
-  by: ME,
-  updatedAt: t(0),
-  body: "",
-  tags: [],
-  mapsUrl: null,
-  pin: null,
-  schedule: null,
-  budget: null,
-  checked: false,
-  image: null,
-  minutes: null,
-  hours: null,
-  link: null,
-  booking: null,
-  due: null,
-  assignee: null,
-});
+const memo = (id: string, title: string) => makeMemo(id, { title, by: ME, updatedAt: t(0) });
 const trip: TripSnapshot = {
   name: "Taiwan trip",
   days: [{ date: Temporal.PlainDate.from("2026-11-03"), intro: "" }],

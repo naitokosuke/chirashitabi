@@ -5,6 +5,7 @@ import { describe, expect, test } from "vite-plus/test";
 import type { MemberId } from "../members/types";
 
 import { applyToNotes } from "./apply";
+import { makeMemo } from "./fixtures";
 import type { ImageId, NoteId } from "./id";
 import type { Memo, Note, Sticker, Suggestion, TextBox } from "./types";
 
@@ -13,33 +14,8 @@ const KEN = "ken" as MemberId;
 const t0 = Temporal.Instant.from("2026-10-01T00:00:00Z");
 const t1 = Temporal.Instant.from("2026-10-01T00:01:00Z");
 
-const memo = (id: string, extra: Partial<Memo> = {}): Memo => ({
-  id: id as NoteId,
-  kind: "memo",
-  title: id,
-  color: "#fff1b8",
-  x: 0,
-  y: 0,
-  rot: 0,
-  scale: 1,
-  by: YUKI,
-  updatedAt: t0,
-  body: "",
-  tags: [],
-  mapsUrl: null,
-  pin: null,
-  schedule: null,
-  budget: null,
-  checked: false,
-  image: null,
-  minutes: null,
-  hours: null,
-  link: null,
-  booking: null,
-  due: null,
-  assignee: null,
-  ...extra,
-});
+const memo = (id: string, extra: Partial<Memo> = {}) =>
+  makeMemo(id, { by: YUKI, updatedAt: t0, ...extra });
 const suggestion = (id: string): Suggestion => ({
   id: id as NoteId,
   kind: "suggestion",

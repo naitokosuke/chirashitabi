@@ -2,6 +2,7 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import * as v from "valibot";
 
+import { makeMemo } from "../features/notes/fixtures";
 import { NoteIdSchema } from "../features/notes/id";
 import {
   ARRIVAL_TAG,
@@ -37,25 +38,10 @@ const card = (): Pick<Memo, "id" | "color" | "rot" | "scale" | "by" | "updatedAt
   by: YUKI,
   updatedAt: Temporal.Now.instant(),
 });
-const n = (p: Partial<Memo> & Pick<Memo, "title" | "x" | "y">): Memo => ({
-  ...card(),
-  kind: "memo",
-  body: "",
-  tags: [],
-  mapsUrl: null,
-  pin: null,
-  schedule: null,
-  budget: null,
-  checked: false,
-  image: null,
-  minutes: null,
-  hours: null,
-  link: null,
-  booking: null,
-  due: null,
-  assignee: null,
-  ...p,
-});
+const n = (p: Partial<Memo> & Pick<Memo, "title" | "x" | "y">): Memo => {
+  const c = card();
+  return makeMemo(c.id, { ...c, ...p });
+};
 const suggest = (p: Partial<Suggestion> & Pick<Suggestion, "title" | "x" | "y">): Suggestion => ({
   ...card(),
   kind: "suggestion",

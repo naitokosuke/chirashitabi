@@ -3,8 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import { describe, expect, test } from "vite-plus/test";
 
 import type { CurrencyCode } from "../../../contract";
-import type { MemberId } from "../members/types";
-import type { NoteId } from "../notes/id";
+import { makeMemo } from "../notes/fixtures";
 import type { Memo, NoteStatus } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 import type { HttpUrl } from "../place/google-maps";
@@ -20,35 +19,11 @@ const words: CalendarWords = {
   booked: (code) => `Booked · ${code}`,
 };
 
-function memo(id: string, status: NoteStatus, extra: Partial<Memo> = {}): Memo {
-  return {
-    kind: "memo",
-    id: id as NoteId,
-    title: id,
-    color: "#fff1b8",
-    x: 0,
-    y: 0,
-    rot: 0,
-    scale: 1,
-    by: "m" as MemberId,
-    updatedAt: Temporal.Instant.from("2026-10-01T00:00:00Z"),
-    body: "",
-    tags: [],
-    mapsUrl: null,
-    pin: null,
+const memo = (id: string, status: NoteStatus, extra: Partial<Memo> = {}) =>
+  makeMemo(id, {
     schedule: { date: date("2026-11-03"), time: Temporal.PlainTime.from("12:30"), status },
-    budget: null,
-    checked: false,
-    image: null,
-    minutes: null,
-    hours: null,
-    link: null,
-    booking: null,
-    due: null,
-    assignee: null,
     ...extra,
-  };
-}
+  });
 
 const trip: TripSnapshot = {
   name: "Taiwan, at last",

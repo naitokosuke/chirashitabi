@@ -11,6 +11,10 @@ interface Env {
   CLEF_BASE_URL?: string;
   /** Where places are looked up (geocode.ts); unset in production, a local stub in the tests */
   GEOCODER_BASE_URL?: string;
+  /** The geocoder's turns, this many ms apart (rooms-index.ts); unset in production, shortened in the tests */
+  GEOCODER_SPACING_MS?: string;
+  /** How far ahead its turns may be taken, in ms; unset in production, shortened in the tests */
+  GEOCODER_QUEUE_MS?: string;
   /** Where short Google Maps links are expanded (expand.ts); unset in production, a stub in the tests */
   SHORTLINK_BASE_URL?: string;
   /** Where pages are fetched for a link's preview (preview.ts); unset in production, a stub in the tests */
