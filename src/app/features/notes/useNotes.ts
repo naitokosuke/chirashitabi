@@ -60,7 +60,7 @@ export const useNotes = defineQuery(() => {
   function addText(text: string, at: { x: number; y: number }, shape = { rot: 0, scale: 1 }) {
     const t = text.trim();
     if (t === "") return;
-    const n: NewText = { id: uid(), kind: "text", title: t, color: "#ffffff", ...at, ...shape };
+    const n: NewText = { id: uid(), kind: "text", text: t, ...at, ...shape };
     sync.commit({ type: "note:add", note: n });
     return n;
   }
@@ -69,8 +69,6 @@ export const useNotes = defineQuery(() => {
     const n: NewSticker = {
       id: uid(),
       kind: "sticker",
-      title: "",
-      color: "#ffffff",
       image,
       ...at,
       ...(shape ?? { rot: Math.random() * 8 - 4, scale: 1 }),
@@ -84,7 +82,7 @@ export const useNotes = defineQuery(() => {
     if (n?.kind !== "text") return;
     const t = text.trim();
     if (t === "") remove(id);
-    else if (t !== n.title) sync.commit({ type: "text:edit", id, text: t });
+    else if (t !== n.text) sync.commit({ type: "text:edit", id, text: t });
   }
   /** Only memos have fields to edit; a suggestion is adopted first */
   function update(id: NoteId, patch: MemoPatch) {
@@ -136,7 +134,7 @@ export const useNotes = defineQuery(() => {
     const n = byId(id);
     if (n === undefined) return;
     const at = { x: n.x + 24, y: n.y + 24 };
-    if (n.kind === "text") return addText(n.title, at, { rot: n.rot, scale: n.scale });
+    if (n.kind === "text") return addText(n.text, at, { rot: n.rot, scale: n.scale });
     if (n.kind === "sticker") return addSticker(n.image, at, { rot: n.rot, scale: n.scale });
     return add(duplicateInput(n), at);
   }

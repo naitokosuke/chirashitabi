@@ -12,6 +12,7 @@ import {
   type MemoPatch,
   type Note,
   type NoteInput,
+  type Paper,
   type Suggestion,
   type Tag,
 } from "./types";
@@ -106,7 +107,7 @@ export function bookingOf(d: BookingDraft): Booking | null {
 }
 
 /** A copy keeps the words and the look, not the place */
-export const duplicateInput = (n: Note): NoteInput => ({
+export const duplicateInput = (n: Paper): NoteInput => ({
   title: n.title,
   body: n.kind === "memo" ? n.body : "",
   tags: n.kind === "memo" ? [...n.tags] : [],

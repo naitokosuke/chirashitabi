@@ -477,7 +477,7 @@ function tapDesk(e: PointerEvent) {
 /** A text box is rewritten where it is; it is hidden while the field is over it */
 function rewrite(note: TextBox) {
   const { id, x, y, rot, scale } = note;
-  overlay.value = { kind: "writing", id, x, y, rot, scale, text: note.title };
+  overlay.value = { kind: "writing", id, x, y, rot, scale, text: note.text };
 }
 function doneWriting(text: string | null) {
   const w = overlay.value;
@@ -530,7 +530,12 @@ function remove(note: Note) {
     card?.contains(document.activeElement) === true || menuEl.value?.holdsFocus() === true;
   dropMenu();
   const deleting = store.removeLater(here.room, note.id);
-  const title = note.kind === "sticker" ? i18n.t("canvas.sticker") : note.title;
+  const title =
+    note.kind === "sticker"
+      ? i18n.t("canvas.sticker")
+      : note.kind === "text"
+        ? note.text
+        : note.title;
   toast.show(i18n.t("canvas.deleted", { title }), {
     undo: () => {
       deleting.undo();
@@ -732,7 +737,11 @@ watch(
       <CtMenu
         v-if="overlay.kind === 'menu' && menuNote !== null"
         ref="menuEl"
-        :label="menuNote.kind === 'sticker' ? i18n.t('canvas.sticker') : menuNote.title"
+        :label="menuNote.kind === 'sticker'
+          ? i18n.t('canvas.sticker')
+          : menuNote.kind === 'text'
+            ? menuNote.text
+            : menuNote.title"
         :x="overlay.x"
         :y="overlay.y"
         @close="closeMenu"

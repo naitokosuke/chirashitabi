@@ -67,9 +67,11 @@ const HOLD_MS = 600;
     :role="note.kind === 'text' || note.kind === 'sticker' ? 'button' : 'group'"
     :aria-label="note.kind === 'sticker'
       ? i18n.t('canvas.sticker')
-      : note.kind !== 'suggestion'
-        ? note.title
-        : undefined"
+      : note.kind === 'text'
+        ? note.text
+        : note.kind === 'memo'
+          ? note.title
+          : undefined"
     :aria-labelledby="note.kind === 'suggestion' ? `${id}-strip ${id}-title` : undefined"
   >
     <!-- a slip from the agent, cut square: what it is in the strip, the proposal, what to do with it;
@@ -119,7 +121,7 @@ const HOLD_MS = 600;
       </template>
     </CtPaper>
     <!-- words on the desk itself: no paper -->
-    <p v-else-if="note.kind === 'text'" class="lettering">{{ note.title }}</p>
+    <p v-else-if="note.kind === 'text'" class="lettering">{{ note.text }}</p>
     <!-- a cut-out picture on the desk itself: edged in white, no paper -->
     <img
       v-else-if="note.kind === 'sticker'"

@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import { describe, expect, test } from "vite-plus/test";
 
 import { parseHexColor } from "../../../contract";
-import type { NoteId } from "../notes/id";
+import type { ImageId, NoteId } from "../notes/id";
 import type { NewMemo, Tag } from "../notes/types";
 import type { AirportCode } from "../place/airports";
 
@@ -60,7 +60,19 @@ const MUTATIONS: Mutation[] = [
   { type: "note:add", note: { ...memo, schedule: null } },
   {
     type: "note:add",
-    note: { id, kind: "text", title: "Day 1", color: "#ffffff", x: 0, y: 0, rot: 0, scale: 1 },
+    note: { id, kind: "text", text: "Day 1", x: 0, y: 0, rot: 0, scale: 1 },
+  },
+  {
+    type: "note:add",
+    note: {
+      id,
+      kind: "sticker",
+      image: "0f8fad5b-d9cb-469f-a165-70867728950e" as ImageId,
+      x: 0,
+      y: 0,
+      rot: 2,
+      scale: 1,
+    },
   },
   { type: "note:update", id, patch: { title: "Ding Tai Fung" } },
   { type: "note:update", id, patch: { schedule: memo.schedule } },

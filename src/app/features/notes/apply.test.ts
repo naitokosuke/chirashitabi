@@ -5,8 +5,8 @@ import { describe, expect, test } from "vite-plus/test";
 import type { MemberId } from "../members/types";
 
 import { applyToNotes } from "./apply";
-import type { NoteId } from "./id";
-import type { Memo, Note, Suggestion, TextBox } from "./types";
+import type { ImageId, NoteId } from "./id";
+import type { Memo, Note, Sticker, Suggestion, TextBox } from "./types";
 
 const YUKI = "yuki" as MemberId;
 const KEN = "ken" as MemberId;
@@ -52,6 +52,14 @@ const suggestion = (id: string): Suggestion => ({
   by: KEN,
   updatedAt: t0,
 });
+const placed = { x: 0, y: 0, rot: 0, scale: 1, by: YUKI, updatedAt: t0 };
+const box = (id: string): TextBox => ({ ...placed, id: id as NoteId, kind: "text", text: "Day 1" });
+const sticker = (id: string): Sticker => ({
+  ...placed,
+  id: id as NoteId,
+  kind: "sticker",
+  image: "img" as ImageId,
+});
 
 /** Applies and checks the old array and its notes were not touched */
 function apply(
@@ -96,7 +104,7 @@ describe("applyToNotes", () => {
     ).toBe(notes);
   });
 
-  test("recolor and move apply to any card", () => {
+  test("recolor applies to paper; move to any card", () => {
     const notes = [suggestion("s")];
     const recolored = apply(
       notes,
@@ -104,7 +112,7 @@ describe("applyToNotes", () => {
       YUKI,
       t1,
     );
-    expect(recolored[0]?.color).toBe("#ffd9de");
+    expect(recolored[0]).toMatchObject({ color: "#ffd9de", updatedAt: t1 });
     const moved = apply(
       recolored,
       { type: "note:move", id: "s" as NoteId, x: 10, y: 20 },
@@ -112,6 +120,14 @@ describe("applyToNotes", () => {
       t1,
     );
     expect(moved[0]).toMatchObject({ x: 10, y: 20 });
+  });
+
+  test("a text box and a sticker have no paper to recolor", () => {
+    const notes: Note[] = [box("t"), sticker("k")];
+    for (const id of ["t", "k"])
+      expect(
+        apply(notes, { type: "note:recolor", id: id as NoteId, color: "#ffd9de" }, YUKI, t1),
+      ).toBe(notes);
   });
 
   test("adopting turns a suggestion into a plain memo, still by whoever suggested it", () => {
@@ -128,10 +144,9 @@ describe("applyToNotes", () => {
   });
 
   test("a text box is rewritten; a memo takes no rewrite", () => {
-    const box: TextBox = { ...memo("t"), kind: "text", title: "Day 1" };
-    const notes: Note[] = [box, memo("m")];
+    const notes: Note[] = [box("t"), memo("m")];
     const next = apply(notes, { type: "text:edit", id: "t" as NoteId, text: "Day 2" }, KEN, t1);
-    expect(next[0]).toMatchObject({ kind: "text", title: "Day 2", updatedAt: t1, by: YUKI });
+    expect(next[0]).toMatchObject({ kind: "text", text: "Day 2", updatedAt: t1, by: YUKI });
     expect(next[1]).toBe(notes[1]);
     expect(apply(notes, { type: "text:edit", id: "m" as NoteId, text: "x" }, KEN, t1)).toBe(notes);
   });

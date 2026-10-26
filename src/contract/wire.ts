@@ -318,10 +318,9 @@ export const MinutesSchema = v.pipe(v.number(), v.integer(), v.minValue(1), v.ma
 /** A point on the desk, as `{ x, y }` within the canvas's bounds */
 export const PointSchema = v.object({ x: finite(), y: finite() });
 
-const card = {
+/** Which note and where it is on the desk: what every kind has */
+const placed = {
   id: NoteIdSchema,
-  title: text(MAX_TITLE),
-  color: ColorSchema,
   x: finite(),
   y: finite(),
   rot: finite(360),
@@ -329,11 +328,15 @@ const card = {
   scale: v.optional(scale(), 1),
 };
 
+/** What a note on paper has besides: its title, and the paper's color */
+const paper = { title: text(MAX_TITLE), color: ColorSchema };
+
 /** Who wrote a note and when: the room's to stamp, never the writer's */
 const stamped = { by: MemberIdSchema, updatedAt: IsoInstantSchema };
 
 const memo = {
-  ...card,
+  ...placed,
+  ...paper,
   kind: v.literal("memo"),
   body: text(MAX_BODY),
   tags: TagsSchema,
@@ -358,28 +361,42 @@ const memo = {
   /** The page its idea came from (a blog, a video), any http(s) link; null for none. None from an older client: none */
   link: v.optional(v.nullable(HttpUrlSchema), null),
 };
-const suggestion = { ...card, kind: v.literal("suggestion") };
-/** Words set straight on the desk, with no paper under them: a heading, a label. `title` is the text */
-const textBox = { ...card, kind: v.literal("text"), title: words() };
-/** A picture stuck straight on the desk: `image` is what it shows; it has no words */
-const sticker = { ...card, kind: v.literal("sticker"), image: ImageIdSchema };
+const suggestion = { ...placed, ...paper, kind: v.literal("suggestion") };
+/** Words set straight on the desk, with no paper under them: a heading, a label */
+const textBox = { ...placed, kind: v.literal("text"), text: words() };
+/** A picture stuck straight on the desk: `image` is what it shows; it has no words and no paper */
+const sticker = { ...placed, kind: v.literal("sticker"), image: ImageIdSchema };
+
+/**
+ * A text box as a client or a room from before each kind had only its own fields sends it, and
+ * as a device kept it: its words as `title`, beside a color it never showed. Read as a text box
+ * is now. Every other kind's old shape is its new one with fields to spare, which a check drops.
+ */
+const pastText = { ...placed, kind: v.literal("text"), title: words() };
 
 /** A note as its writer sends it in `note:add`: who and when are the room's to stamp */
-const WireNewNoteSchema = v.variant("kind", [
-  v.object(memo),
-  v.object(suggestion),
-  v.object(textBox),
-  v.object(sticker),
+const WireNewNoteSchema = v.union([
+  v.variant("kind", [v.object(memo), v.object(suggestion), v.object(textBox), v.object(sticker)]),
+  v.pipe(
+    v.object(pastText),
+    v.transform(({ title, ...box }) => ({ ...box, text: title })),
+  ),
 ]);
 export type WireNewNote = v.InferOutput<typeof WireNewNoteSchema>;
 
 const WireMemoSchema = v.object({ ...memo, ...stamped });
 export type WireMemo = v.InferOutput<typeof WireMemoSchema>;
-export const WireNoteSchema = v.variant("kind", [
-  WireMemoSchema,
-  v.object({ ...suggestion, ...stamped }),
-  v.object({ ...textBox, ...stamped }),
-  v.object({ ...sticker, ...stamped }),
+export const WireNoteSchema = v.union([
+  v.variant("kind", [
+    WireMemoSchema,
+    v.object({ ...suggestion, ...stamped }),
+    v.object({ ...textBox, ...stamped }),
+    v.object({ ...sticker, ...stamped }),
+  ]),
+  v.pipe(
+    v.object({ ...pastText, ...stamped }),
+    v.transform(({ title, ...box }) => ({ ...box, text: title })),
+  ),
 ]);
 export type WireNote = v.InferOutput<typeof WireNoteSchema>;
 
@@ -484,6 +501,7 @@ const REJECT = [
   "not a memo",
   "not a text box",
   "not a suggestion",
+  "not on paper",
 ] as const;
 export type RejectReason = (typeof REJECT)[number];
 
@@ -580,7 +598,7 @@ if (import.meta.vitest !== undefined) {
     };
     const read = (m: unknown) => parseMutation(m, stamp, (code) => code);
     const id = "n1";
-    const box = { id, kind: "text", color: "#ffffff", x: 0, y: 0, rot: 0 };
+    const box = { id, kind: "text", x: 0, y: 0, rot: 0 };
 
     test("a memo's title, body and tags, up to the room's limits and no further", () => {
       const update = (patch: object) => read({ type: "note:update", id, patch });
@@ -607,8 +625,75 @@ if (import.meta.vitest !== undefined) {
       });
       expect(read({ type: "text:edit", id, text: " \n " })).toBeNull();
       expect(read({ type: "text:edit", id, text: "x".repeat(MAX_TEXT + 1) })).toBeNull();
-      expect(read({ type: "note:add", note: { ...box, title: "Day 1" } })).not.toBeNull();
-      expect(read({ type: "note:add", note: { ...box, title: "" } })).toBeNull();
+      expect(read({ type: "note:add", note: { ...box, text: "Day 1" } })).not.toBeNull();
+      expect(read({ type: "note:add", note: { ...box, text: "" } })).toBeNull();
+    });
+  });
+
+  describe("each kind its own fields", () => {
+    const stamp = {
+      by: v.parse(MemberIdSchema, "agent:claude"),
+      updatedAt: v.parse(IsoInstantSchema, "2026-10-20T09:30:00.000Z"),
+    };
+    const add = (note: object) => parseMutation({ type: "note:add", note }, stamp, (code) => code);
+    const placed = { id: "n1", x: 0, y: 0, rot: 0, scale: 1 };
+    const image = "0f8fad5b-d9cb-469f-a165-70867728950e";
+    const added = (note: object) => ({ type: "note:add", note: { ...note, ...stamp } });
+
+    test("paper has a title and a color; a text box its words; a sticker its picture", () => {
+      const slip = { ...placed, kind: "suggestion", title: "Jiufen", color: "#ffffff" };
+      expect(add(slip)).toEqual(added(slip));
+      expect(add({ ...slip, color: undefined })).toBeNull();
+      expect(add({ ...placed, kind: "text", text: "Day 1" })).toEqual(
+        added({ ...placed, kind: "text", text: "Day 1" }),
+      );
+      expect(add({ ...placed, kind: "sticker", image })).toEqual(
+        added({ ...placed, kind: "sticker", image }),
+      );
+      expect(add({ ...placed, kind: "sticker" })).toBeNull();
+    });
+
+    test("an older client's text box and sticker, with a title and a color, read as they are now", () => {
+      const old = { ...placed, color: "#ffffff" };
+      expect(add({ ...old, kind: "text", title: " Day 1 " })).toEqual(
+        added({ ...placed, kind: "text", text: "Day 1" }),
+      );
+      expect(add({ ...old, kind: "text", title: "" })).toBeNull();
+      // as the room sends one for tabs on the previous build: the words, the title beside them
+      expect(add({ ...old, kind: "text", text: "Day 1", title: "Day 1" })).toEqual(
+        added({ ...placed, kind: "text", text: "Day 1" }),
+      );
+      expect(add({ ...old, kind: "sticker", title: "", image })).toEqual(
+        added({ ...placed, kind: "sticker", image }),
+      );
+    });
+
+    test("a snapshot from a room before then reads the same way", () => {
+      const old = { ...placed, ...stamp, color: "#ffffff" };
+      const snapshot = {
+        type: "snapshot",
+        me: stamp.by,
+        members: [],
+        trip: {
+          name: "Taiwan trip",
+          days: [{ date: "2026-11-03", intro: "" }],
+          currency: "TWD",
+          center: { lat: 25.05, lng: 121.54 },
+          flights: { out: null, back: null },
+          stays: [],
+        },
+        notes: [
+          { ...old, kind: "text", title: "Day 1" },
+          { ...old, kind: "sticker", title: "", image },
+        ],
+      };
+      expect(v.parse(ServerMessageSchema, snapshot)).toEqual({
+        ...snapshot,
+        notes: [
+          { ...placed, ...stamp, kind: "text", text: "Day 1" },
+          { ...placed, ...stamp, kind: "sticker", image },
+        ],
+      });
     });
   });
 
