@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { Temporal } from "temporal-polyfill-lite";
+import type { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref } from "vue";
 
@@ -8,6 +8,7 @@ import { useRoute, useRouter } from "vue-router";
 import { CtAmount, CtAvatar, CtButton, CtHeading, CtPanel, CtShareBar } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
+import { useToday } from "../../../shared/useToday";
 
 import { useI18n } from "../../../i18n/useI18n";
 
@@ -50,6 +51,7 @@ const toTrips = () => void router.replace("/");
 const price = (amount: number) =>
   trip.value === undefined ? "" : formatMoney(amount, trip.value.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
+const today = useToday();
 /** The trip's settings are open under its title */
 const editing = ref(false);
 
@@ -64,10 +66,7 @@ const range = computed(() => {
 /** Before the trip (or while it has no days yet), what there is to do before it comes first */
 const ahead = computed(() => {
   const days = trip.value?.days ?? [];
-  const when = whenOf(
-    { first: days[0]?.date ?? null, days: days.length },
-    Temporal.Now.plainDateISO(),
-  );
+  const when = whenOf({ first: days[0]?.date ?? null, days: days.length }, today.value);
   return when.kind === "ahead" || when.kind === "undated";
 });
 
@@ -171,7 +170,7 @@ const allTotal = computed(() => budgetOf(undefined, false));
 
       <div class="side">
         <CtPanel class="todo-card" from="desktop" pad="lg">
-          <Todos @add="addTodo" @open="openNote" />
+          <Todos :today @add="addTodo" @open="openNote" />
         </CtPanel>
 
         <People @out="toTrips" />

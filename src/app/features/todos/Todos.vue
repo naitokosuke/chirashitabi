@@ -1,5 +1,5 @@
 <script setup lang="ts" vapor>
-import { Temporal } from "temporal-polyfill-lite";
+import type { Temporal } from "temporal-polyfill-lite";
 
 import { computed, ref, useId } from "vue";
 
@@ -27,14 +27,15 @@ import { isLate, todosOf, type Todo } from "./list";
 /**
  * What there is to do before the trip, on its home: the to-dos and the plans still to book, the
  * soonest first. A to-do is ticked off here; a plan is marked booked. A new to-do is written in
- * a line (`add`, which puts it on the desk); a title opens its note (`open`).
+ * a line (`add`, which puts it on the desk); a title opens its note (`open`). What is late is
+ * counted from `today`.
  */
+const props = defineProps<{ today: Temporal.PlainDate }>();
 const emit = defineEmits<{ add: [title: string]; open: [id: NoteId] }>();
 const store = useNotes();
 const { members } = useMembers();
 const i18n = useI18n();
 const id = useId();
-const today = Temporal.Now.plainDateISO();
 
 const todos = computed(() => todosOf(store.notes.value ?? []));
 const open = computed(() => todos.value.filter((t) => !t.done).length);
@@ -52,7 +53,7 @@ const whoOf = (t: Todo) => members.value?.find((m) => m.id === t.memo.assignee);
 /** "By 10/20", or "" with no day */
 function dueText(t: Todo) {
   if (t.due === null) return "";
-  return i18n.t(isLate(t, today) ? "todo.late" : "todo.due", {
+  return i18n.t(isLate(t, props.today) ? "todo.late" : "todo.due", {
     date: shortDate(t.due, i18n.locale),
   });
 }

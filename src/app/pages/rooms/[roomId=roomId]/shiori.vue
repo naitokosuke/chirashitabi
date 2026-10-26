@@ -1,16 +1,7 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import {
-  computed,
-  onActivated,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  shallowReactive,
-  shallowRef,
-  useTemplateRef,
-} from "vue";
+import { computed, ref, shallowReactive, useTemplateRef } from "vue";
 
 import {
   CtGlass,
@@ -25,6 +16,7 @@ import {
 } from "../../../../ui/index";
 
 import { formatMoney } from "../../../shared/money";
+import { useToday } from "../../../shared/useToday";
 
 import { useI18n } from "../../../i18n/useI18n";
 
@@ -56,12 +48,7 @@ const mode = shallowReactive<Turning<Mode>>({ picked: "edit", shown: "edit" });
 /** The memo picked in the tray to put on a day, by id, kept while the booklet is read */
 const pickingId = ref<NoteId | null>(null);
 
-/** Today, read again when the page comes back: from another tab, or a phone woken the next day */
-const today = shallowRef(Temporal.Now.plainDateISO());
-const readToday = () => (today.value = Temporal.Now.plainDateISO());
-onActivated(readToday);
-onMounted(() => document.addEventListener("visibilitychange", readToday));
-onBeforeUnmount(() => document.removeEventListener("visibilitychange", readToday));
+const today = useToday();
 const openingDay = computed(
   () =>
     trip.value?.days.find((d) => d.date.equals(today.value))?.date ??

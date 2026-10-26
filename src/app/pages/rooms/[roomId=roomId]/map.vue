@@ -93,11 +93,20 @@ const selectedId = ref<NoteId | null>(null);
 const selected = computed(
   (): Pinned | null => pinnedOf(notes.value ?? []).find((n) => n.id === selectedId.value) ?? null,
 );
-const day = ref<Temporal.PlainDate | null>(null); // show a day's route
+/** The day picked to show its route, or null for every day */
+const picked = ref<Temporal.PlainDate | null>(null);
+/**
+ * The day whose route is shown, one of the trip's: a picked day the trip no longer has (made
+ * shorter meanwhile, here or by the partner) is every day, as no pick is
+ */
+const day = computed(() => {
+  const p = picked.value;
+  return p !== null && trip.value?.days.some((d) => d.date.equals(p)) === true ? p : null;
+});
 const isDay = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
-const toggleDay = (date: Temporal.PlainDate) => (day.value = isDay(date) ? null : date);
+const toggleDay = (date: Temporal.PlainDate) => (picked.value = isDay(date) ? null : date);
 const noPin = computed(() => (notes.value ?? []).filter(needsPin).length);
-const showAllDays = () => (day.value = null);
+const showAllDays = () => (picked.value = null);
 const closeCard = () => (selectedId.value = null);
 const editSelected = () => {
   if (selected.value !== null) void openSheet({ kind: "edit", id: selected.value.id });
@@ -203,23 +212,25 @@ onBeforeUnmount(() => {
   map = null;
 });
 
-/** A memo's marker, an element on the page: only ever made for the map, which is a browser's */
-function pinEl(n: Pinned) {
+/**
+ * A memo's marker, an element on the page: only ever made for the map, which is a browser's.
+ * It holds the note's id, not the note: its words and its pin are written in as they change
+ * (syncMarkers), and a click goes to where the pin is now.
+ */
+function pinEl(id: NoteId) {
   if (import.meta.env.SSR) throw new Error("a map marker is made in a browser only");
   const d = document.createElement("button");
   d.type = "button";
   d.className = "pin";
-  d.setAttribute("aria-label", n.title);
   const dot = document.createElement("span"),
     lbl = document.createElement("span");
   dot.className = "dot";
   lbl.className = "lbl";
-  lbl.textContent = n.title;
   d.append(dot, lbl);
   d.addEventListener("click", (e) => {
     e.stopPropagation();
-    selectedId.value = n.id;
-    map?.easeTo({ center: lngLat(n.pin), duration: 300 });
+    selectedId.value = id;
+    if (selected.value !== null) map?.easeTo({ center: lngLat(selected.value.pin), duration: 300 });
   });
   return d;
 }
@@ -233,7 +244,9 @@ function syncMarkers() {
     seen.add(n.id);
     let m = markers.get(n.id);
     if (m === undefined) {
-      m = new Marker({ element: pinEl(n), anchor: "bottom" }).setLngLat(lngLat(n.pin)).addTo(map);
+      m = new Marker({ element: pinEl(n.id), anchor: "bottom" })
+        .setLngLat(lngLat(n.pin))
+        .addTo(map);
       markers.set(n.id, m);
     } else m.setLngLat(lngLat(n.pin));
     const e = m.getElement();
@@ -243,6 +256,7 @@ function syncMarkers() {
     e.classList.toggle("on", selected.value?.id === n.id);
     // the pin is the note's own paper (whoever wrote it), as its card on the desk is
     e.style.setProperty("--pin", paperFor(n));
+    e.setAttribute("aria-label", n.title);
     const label = e.querySelector(".lbl");
     if (label !== null) label.textContent = n.title;
   }

@@ -45,7 +45,7 @@ import { useTrip } from "./useTrip";
 /**
  * The trip's settings, on its home: its name, when it is (the first day and how many days), its
  * flights there and home, and where its nights are spent. Nothing reaches the room until it is
- * saved, and then only what changed. Moving the dates moves what is planned with them; what would fall past the new last
+ * saved, and then only what was changed here. Moving the dates moves what is planned with them; what would fall past the new last
  * day is said before saving, since it goes back to having no day.
  */
 const props = defineProps<{ trip: TripSnapshot }>();
@@ -56,6 +56,8 @@ const { rename, setDates, setFlight, setStays } = useTrip();
 const { notes } = useNotes();
 const here = useInRoom();
 
+/** What the inputs said when the editor opened: a save sends only what was changed from it */
+const opened = formOf(props.trip);
 const form = reactive<TripForm>(formOf(props.trip));
 const airports = useAirports();
 const settings = computed(() => settingsOf(form, airports.value));
@@ -161,11 +163,16 @@ function stayLinkState(s: StayForm) {
 function save() {
   const s = settings.value;
   if (s === null) return;
-  rename(s.name);
-  setDates(s.first, s.days);
+  // the settings left as they were stay the room's: the partner may have changed them meanwhile.
+  // Both are read from inputs the same way, so one left alone is the same; when what it opened
+  // on reads as none (a trip past what the editor takes), every setting is sent, as typed
+  const was = settingsOf(opened, airports.value);
+  if (was === null || s.name !== was.name) rename(s.name);
+  if (was === null || s.days !== was.days || !s.first.equals(was.first)) setDates(s.first, s.days);
   for (const leg of LEGS)
-    if (!sameFlight(s.flights[leg], props.trip.flights[leg])) setFlight(leg, s.flights[leg]);
-  if (!sameStays(s.stays, props.trip.stays)) setStays(s.stays);
+    if (was === null || !sameFlight(s.flights[leg], was.flights[leg]))
+      setFlight(leg, s.flights[leg]);
+  if (was === null || !sameStays(s.stays, was.stays)) setStays(s.stays);
   emit("close");
 }
 </script>
