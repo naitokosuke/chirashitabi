@@ -2,9 +2,9 @@ import type { Temporal } from "temporal-polyfill-lite";
 
 import type * as v from "valibot";
 
-import type { CurrencyCode, HexColor } from "../../../contract";
+import type { CurrencyCode } from "../../../contract";
 import type { RoomId } from "../../../contract/room";
-import type { ProfileSchema } from "../../../contract/wire";
+import type { ProfileSchema, WireListedRoom } from "../../../contract/wire";
 import type { Email } from "../members/types";
 import type { LatLng } from "../place/types";
 
@@ -12,17 +12,13 @@ import type { LatLng } from "../place/types";
 export { parseRoomId, RoomIdSchema, type RoomId } from "../../../contract/room";
 
 /**
- * A room as the list of a person's trips shows it: the trip at a glance. `first` is null while
- * the trip has no days; the members are the people first, then the agent.
+ * A room as the list of a person's trips shows it: the trip at a glance, as `/api/me` lists it
+ * (the contract), its first day as a date. The members are the people first, then the agent;
+ * `owner` says this person made the trip, and so may delete it, where anyone else may leave it.
  */
 export type RoomSummary = {
-  id: RoomId;
-  name: string;
-  members: { kind: "person" | "agent"; name: string; color: HexColor }[];
-  memos: number;
-  /** This person made the trip, and so may delete it; anyone else may leave it */
-  owner: boolean;
-} & ({ first: null; days: 0 } | { first: Temporal.PlainDate; days: number });
+  [K in keyof WireListedRoom]: K extends "first" ? Temporal.PlainDate : WireListedRoom[K];
+};
 
 /** A trip its owner deleted, which either person in it can restore until `until` (the room's own count of days) */
 export interface DeletedRoom {

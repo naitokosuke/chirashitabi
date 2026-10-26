@@ -2,9 +2,11 @@ import { Temporal } from "temporal-polyfill-lite";
 
 import { describe, expect, test } from "vite-plus/test";
 
+import type { CurrencyCode } from "../../../contract";
 import type { MemberId } from "../members/types";
 import type { NoteId } from "../notes/id";
 import type { Memo } from "../notes/types";
+import type { TripSnapshot } from "../trip/types";
 
 import { createLedger, type RoomState } from "./ledger";
 import type { Mutation } from "./types";
@@ -43,13 +45,21 @@ const memo = (id: string, title: string): Memo => ({
   due: null,
   assignee: null,
 });
-const room = (...notes: Memo[]): RoomState => ({ notes, trip: null, members: [] });
+const trip: TripSnapshot = {
+  name: "Taiwan trip",
+  days: [{ date: Temporal.PlainDate.from("2026-11-03"), intro: "" }],
+  currency: "TWD" as CurrencyCode,
+  center: { lat: 25.05, lng: 121.54 },
+  flights: { out: null, back: null },
+  stays: [],
+};
+const room = (...notes: Memo[]): RoomState => ({ notes, trip, members: [] });
 const retitle = (id: string, title: string): Mutation => ({
   type: "note:update",
   id: id as NoteId,
   patch: { title },
 });
-const titles = (s: RoomState) => s.notes.map((n) => (n.kind === "memo" ? n.title : "?"));
+const titles = (s: RoomState | null) => s?.notes.map((n) => (n.kind === "memo" ? n.title : "?"));
 
 describe("createLedger", () => {
   test("ours shows at once, and stays once the room acks it", () => {
@@ -131,8 +141,16 @@ describe("createLedger", () => {
       color: "#d7263d" as never,
     };
     const v = l.members([ken]);
-    expect(v.members).toEqual([ken]);
-    expect(v.notes.map((n) => n.title)).toEqual(["B"]);
-    expect(l.confirmed.notes.map((n) => n.title)).toEqual(["A"]);
+    expect(v?.members).toEqual([ken]);
+    expect(titles(v)).toEqual(["B"]);
+    expect(titles(l.confirmed)).toEqual(["A"]);
+  });
+
+  test("before the room's state is had, nothing is shown; a kept change shows once it is", () => {
+    const l = createLedger();
+    expect(l.restore(null, [{ cid: C1, m: retitle("a", "A1"), at: t(1), by: ME }])).toBeNull();
+    expect(l.members([])).toBeNull();
+    expect(l.relayed(retitle("a", "ken's"), KEN, t(1))).toBeNull();
+    expect(titles(l.snapshot(room(memo("a", "A"))))).toEqual(["A1"]);
   });
 });

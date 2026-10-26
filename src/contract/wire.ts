@@ -11,6 +11,7 @@ import { Temporal } from "temporal-polyfill-lite";
 import * as v from "valibot";
 
 import { HexColorSchema } from "../shared/color";
+import { EmailSchema } from "../shared/email";
 import { CurrencyCodeSchema } from "../shared/money";
 
 import { AirportCodeSchema, type AirportCode } from "./airport";
@@ -18,17 +19,24 @@ import { ImageIdSchema } from "./image";
 import { MemberIdSchema } from "./member";
 import { NoteIdSchema } from "./note";
 import { HttpUrlSchema, LatLngSchema } from "./place";
-import { COLORS, MAX_DAYS, MAX_FLIGHT_NO, MAX_NAME, STATUSES, TagSchema } from "./room";
+import {
+  COLORS,
+  MAX_BODY,
+  MAX_DAYS,
+  MAX_FLIGHT_NO,
+  MAX_INTRO,
+  MAX_NAME,
+  MAX_TAGS,
+  MAX_TEXT,
+  MAX_TITLE,
+  RoomIdSchema,
+  STATUSES,
+  TagSchema,
+} from "./room";
 
 export const MAX_MESSAGE_BYTES = 32 * 1024;
 
 // ---- limits ----
-const TITLE = 200;
-/** A text box's words: a few lines at most */
-const TEXT = 1000;
-const BODY = 4000;
-const TAGS = 20;
-const INTRO = 1000;
 /** How far a point on the desk may be from its middle, either way */
 export const COORD = 1e6;
 /** Stays in a trip: one a night at most, for a trip as long as it may be */
@@ -51,6 +59,8 @@ export const MAX_IMAGE_BYTES = 1024 * 1024;
 const text = (max: number) => v.pipe(v.string(), v.maxLength(max));
 /** A name as written, at most MAX_NAME long, trimmed and not blank */
 const named = () => v.pipe(v.string(), v.maxLength(MAX_NAME), v.trim(), v.nonEmpty());
+/** A text box's words, at most MAX_TEXT long, trimmed and not blank */
+const words = () => v.pipe(v.string(), v.maxLength(MAX_TEXT), v.trim(), v.nonEmpty());
 const finite = (max = COORD) => v.pipe(v.number(), v.finite(), v.minValue(-max), v.maxValue(max));
 const count = (max: number) => v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(max));
 const scale = () => v.pipe(v.number(), v.finite(), v.minValue(MIN_SCALE), v.maxValue(MAX_SCALE));
@@ -140,23 +150,50 @@ export const WireMemberSchema = v.variant("kind", [
 ]);
 export type WireMember = v.InferOutput<typeof WireMemberSchema>;
 
-const summary = {
+/**
+ * A room as its own room tells it at a glance, without its notes: its first day and how many
+ * (a trip always has one), and how many memos
+ */
+export const WireRoomSummarySchema = v.object({
   name: v.string(),
   /** The people first, then the agent, as they look: no ids, no roles; who is who stays in the room */
   members: v.array(
     v.object({ kind: v.picklist(["person", "agent"]), name: v.string(), color: HexColorSchema }),
   ),
-  memos: v.number(),
+  memos: v.pipe(v.number(), v.integer(), v.minValue(0)),
   /** Whether the person asking made the trip, and so may delete it (false on an invitation) */
   owner: v.boolean(),
-};
-
-/** A room as `/api/me` lists it: the trip at a glance, without its notes; its first day, none while it has no days */
-export const WireRoomSummarySchema = v.union([
-  v.object({ ...summary, first: v.null(), days: v.literal(0) }),
-  v.object({ ...summary, first: IsoDateSchema, days: v.number() }),
-]);
+  first: IsoDateSchema,
+  days: count(MAX_DAYS),
+});
 export type WireRoomSummary = v.InferOutput<typeof WireRoomSummarySchema>;
+
+/** A room as `/api/me` lists it: which room, at a glance */
+export const WireListedRoomSchema = v.object({
+  id: RoomIdSchema,
+  ...WireRoomSummarySchema.entries,
+});
+export type WireListedRoom = v.InferOutput<typeof WireListedRoomSchema>;
+
+/** A trip its owner deleted, as `/api/me` lists it to the people who were in it: when it was deleted */
+export const WireDeletedRoomSchema = v.object({
+  id: RoomIdSchema,
+  name: v.string(),
+  deletedAt: IsoInstantSchema,
+});
+export type WireDeletedRoom = v.InferOutput<typeof WireDeletedRoomSchema>;
+
+/**
+ * What `/api/me` answers: who is asking, the rooms they are in, the ones they are invited to
+ * (each with its owner leading its members) and the deleted ones they may still restore
+ */
+export const WireMineSchema = v.object({
+  email: EmailSchema,
+  rooms: v.array(WireListedRoomSchema),
+  invitations: v.array(WireListedRoomSchema),
+  deleted: v.array(WireDeletedRoomSchema),
+});
+export type WireMine = v.InferOutput<typeof WireMineSchema>;
 
 // ---- the trip ----
 
@@ -217,7 +254,8 @@ export type WireDay = v.InferOutput<typeof WireDaySchema>;
 
 export const WireTripSchema = v.object({
   name: v.string(),
-  days: v.array(WireDaySchema),
+  /** A trip always has a day: it is made with one (NewTripSchema), and moved to one at least (`trip:dates`) */
+  days: v.pipe(v.array(WireDaySchema), v.minLength(1)),
   currency: CurrencyCodeSchema,
   center: LatLngSchema,
   /** The flight there and the flight home, each or both not known yet */
@@ -259,7 +297,7 @@ const WireScheduleSchema = v.object({
 });
 export type WireSchedule = v.InferOutput<typeof WireScheduleSchema>;
 
-const TagsSchema = v.pipe(v.array(TagSchema), v.maxLength(TAGS));
+const TagsSchema = v.pipe(v.array(TagSchema), v.maxLength(MAX_TAGS));
 const BudgetSchema = v.nullable(v.pipe(v.number(), v.finite(), v.minValue(0), v.maxValue(1e9)));
 /** When a memo's place is open, as OpenStreetMap writes it; OpenStreetMap's own limit on a value */
 const HoursSchema = v.pipe(v.string(), v.trim(), v.nonEmpty(), v.maxLength(255));
@@ -283,7 +321,7 @@ export const PointSchema = v.object({ x: finite(), y: finite() });
 
 const card = {
   id: NoteIdSchema,
-  title: text(TITLE),
+  title: text(MAX_TITLE),
   color: ColorSchema,
   x: finite(),
   y: finite(),
@@ -298,7 +336,7 @@ const stamped = { by: MemberIdSchema, updatedAt: IsoInstantSchema };
 const memo = {
   ...card,
   kind: v.literal("memo"),
-  body: text(BODY),
+  body: text(MAX_BODY),
   tags: TagsSchema,
   mapsUrl: v.nullable(HttpUrlSchema),
   pin: v.nullable(LatLngSchema),
@@ -323,7 +361,7 @@ const memo = {
 };
 const suggestion = { ...card, kind: v.literal("suggestion") };
 /** Words set straight on the desk, with no paper under them: a heading, a label. `title` is the text */
-const textBox = { ...card, kind: v.literal("text"), title: text(TEXT) };
+const textBox = { ...card, kind: v.literal("text"), title: words() };
 /** A picture stuck straight on the desk: `image` is what it shows; it has no words */
 const sticker = { ...card, kind: v.literal("sticker"), image: ImageIdSchema };
 
@@ -377,8 +415,8 @@ const mutations = [
   v.object({ type: v.literal("note:update"), id: NoteIdSchema, patch: WireMemoPatchSchema }),
   v.object({ type: v.literal("note:recolor"), id: NoteIdSchema, color: ColorSchema }),
   v.object({ type: v.literal("note:adopt"), id: NoteIdSchema }),
-  // what a text box says; empty, it is deleted instead
-  v.object({ type: v.literal("text:edit"), id: NoteIdSchema, text: text(TEXT) }),
+  // what a text box says; blank, it is deleted instead
+  v.object({ type: v.literal("text:edit"), id: NoteIdSchema, text: words() }),
   // where a card is; as it is turned or resized, how it is turned and how large
   v.object({
     type: v.literal("note:move"),
@@ -389,7 +427,7 @@ const mutations = [
     scale: v.optional(scale()),
   }),
   v.object({ type: v.literal("note:delete"), id: NoteIdSchema }),
-  v.object({ type: v.literal("day:intro"), date: IsoDateSchema, intro: text(INTRO) }),
+  v.object({ type: v.literal("day:intro"), date: IsoDateSchema, intro: text(MAX_INTRO) }),
   v.object({ type: v.literal("member:profile"), ...ProfileSchema.entries }),
   // the trip's name, as written on the desk
   v.object({ type: v.literal("trip:rename"), name: named() }),
@@ -533,6 +571,82 @@ if (import.meta.vitest !== undefined) {
       expect(v.is(IsoInstantSchema, "2026-10-20T09:30:00.123Z")).toBe(true);
       expect(v.is(IsoInstantSchema, "2026-10-20T09:30:00+09:00")).toBe(false);
       expect(v.is(IsoInstantSchema, "2026-02-31T09:30:00Z")).toBe(false);
+    });
+  });
+
+  describe("limits", () => {
+    const stamp = {
+      by: v.parse(MemberIdSchema, "agent:claude"),
+      updatedAt: v.parse(IsoInstantSchema, "2026-10-20T09:30:00.000Z"),
+    };
+    const read = (m: unknown) => parseMutation(m, stamp, (code) => code);
+    const id = "n1";
+    const box = { id, kind: "text", color: "#ffffff", x: 0, y: 0, rot: 0 };
+
+    test("a memo's title, body and tags, up to the room's limits and no further", () => {
+      const update = (patch: object) => read({ type: "note:update", id, patch });
+      expect(update({ title: "x".repeat(MAX_TITLE) })).not.toBeNull();
+      expect(update({ title: "x".repeat(MAX_TITLE + 1) })).toBeNull();
+      expect(update({ body: "x".repeat(MAX_BODY) })).not.toBeNull();
+      expect(update({ body: "x".repeat(MAX_BODY + 1) })).toBeNull();
+      const tags = (n: number) => Array.from({ length: n }, (_, i) => `t${i}`);
+      expect(update({ tags: tags(MAX_TAGS) })).not.toBeNull();
+      expect(update({ tags: tags(MAX_TAGS + 1) })).toBeNull();
+    });
+
+    test("a day's intro, up to its limit", () => {
+      const intro = (s: string) => read({ type: "day:intro", date: "2026-11-03", intro: s });
+      expect(intro("x".repeat(MAX_INTRO))).not.toBeNull();
+      expect(intro("x".repeat(MAX_INTRO + 1))).toBeNull();
+    });
+
+    test("a text box's words are trimmed and never blank, as it is made or rewritten", () => {
+      expect(read({ type: "text:edit", id, text: "  Day 2 " })).toEqual({
+        type: "text:edit",
+        id,
+        text: "Day 2",
+      });
+      expect(read({ type: "text:edit", id, text: " \n " })).toBeNull();
+      expect(read({ type: "text:edit", id, text: "x".repeat(MAX_TEXT + 1) })).toBeNull();
+      expect(read({ type: "note:add", note: { ...box, title: "Day 1" } })).not.toBeNull();
+      expect(read({ type: "note:add", note: { ...box, title: "" } })).toBeNull();
+    });
+  });
+
+  describe("the trip and the list of rooms", () => {
+    const trip = {
+      name: "Taiwan trip",
+      days: [{ date: "2026-11-03", intro: "" }],
+      currency: "TWD",
+      center: { lat: 25.05, lng: 121.54 },
+      flights: { out: null, back: null },
+      stays: [],
+    };
+    test("a trip always has a day", () => {
+      expect(v.is(WireTripSchema, trip)).toBe(true);
+      expect(v.is(WireTripSchema, { ...trip, days: [] })).toBe(false);
+    });
+
+    const room = {
+      id: "0f8fad5b-d9cb-469f-a165-70867728950e",
+      name: "Taiwan trip",
+      members: [{ kind: "person", name: "Yuki", color: "#3c6ee0" }],
+      memos: 3,
+      owner: true,
+      first: "2026-11-03",
+      days: 3,
+    };
+    const mine = { email: "yuki@example.com", rooms: [room], invitations: [], deleted: [] };
+    test("`/api/me`: a room with its first day and how many", () => {
+      expect(v.is(WireMineSchema, mine)).toBe(true);
+      expect(v.is(WireMineSchema, { ...mine, rooms: [{ ...room, first: null, days: 0 }] })).toBe(
+        false,
+      );
+      const deleted = { id: room.id, name: room.name, deletedAt: "2026-10-20T09:30:00.000Z" };
+      expect(v.is(WireMineSchema, { ...mine, deleted: [deleted] })).toBe(true);
+      expect(v.is(WireMineSchema, { ...mine, deleted: [{ ...deleted, deletedAt: "x" }] })).toBe(
+        false,
+      );
     });
   });
 }

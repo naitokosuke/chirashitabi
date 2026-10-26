@@ -55,6 +55,7 @@ import { boundsOf, dayStops, routeLine } from "../../../features/place/route";
 import { guardMissingProperties } from "../../../features/place/style";
 import type { LatLng } from "../../../features/place/types";
 import { useAirports } from "../../../features/place/useAirports";
+import { useInRoom } from "../../../features/sync/InRoom.vue";
 import { useTags } from "../../../features/tags/useTags";
 import { hhmm, shortDate } from "../../../features/trip/format";
 import { flightDays, stayOn, wakeAt } from "../../../features/trip/itinerary";
@@ -79,10 +80,11 @@ const { members } = useMembers();
 /** A note's paper: whoever wrote it */
 const paperFor = (n: Note) => paperOf(members.value?.find((m) => m.id === n.by)?.color);
 const tags = useTags();
-const { trip, forDay } = useTrip();
+const { forDay } = useTrip();
+/** The trip the map is of: where it opens, its stays and flights */
+const here = useInRoom();
 const i18n = useI18n();
-const price = (amount: number) =>
-  trip.value === undefined ? "" : formatMoney(amount, trip.value.currency, i18n.locale);
+const price = (amount: number) => formatMoney(amount, here.trip.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 const el = useTemplateRef<HTMLElement>("el");
 /** How long a press is held to write a memo there; where it is held, while it is */
@@ -101,7 +103,7 @@ const picked = ref<Temporal.PlainDate | null>(null);
  */
 const day = computed(() => {
   const p = picked.value;
-  return p !== null && trip.value?.days.some((d) => d.date.equals(p)) === true ? p : null;
+  return p !== null && here.trip.days.some((d) => d.date.equals(p)) ? p : null;
 });
 const isDay = (date: Temporal.PlainDate) => day.value?.equals(date) ?? false;
 const toggleDay = (date: Temporal.PlainDate) => (picked.value = isDay(date) ? null : date);
@@ -123,9 +125,9 @@ onMounted(() => {
   if (el.value === null) return;
   map = new MLMap({
     container: el.value,
-    // the trip's area; the whole world until the room says where we are going
-    center: trip.value === undefined ? [0, 0] : [trip.value.center.lng, trip.value.center.lat],
-    zoom: trip.value === undefined ? 1 : 11.5,
+    // the trip's area
+    center: [here.trip.center.lng, here.trip.center.lat],
+    zoom: 11.5,
     attributionControl: { compact: true },
   });
   // A wheel or a trackpad zooms about twice as fast as MapLibre's default (1/450 a notch's
@@ -271,7 +273,7 @@ function syncRoute() {
   const src = map.getSource("route");
   if (!(src instanceof maplibregl.GeoJSONSource)) return;
   const d = day.value;
-  const stays = trip.value?.stays ?? [];
+  const stays = here.trip.stays;
   // a day leaves from the night before's stay, or the airport it lands at on the way there; and
   // ends at its night's stay, or the airport it leaves from on the way home
   const stops =
@@ -314,7 +316,7 @@ const scheduleKey = (n: Note) =>
   n.kind === "memo" && n.schedule !== null
     ? `${n.schedule.date} ${n.schedule.time} ${n.schedule.status}`
     : "";
-watch([day, () => (notes.value ?? []).map(scheduleKey), () => trip.value?.stays], syncRoute);
+watch([day, () => (notes.value ?? []).map(scheduleKey), () => here.trip.stays], syncRoute);
 
 /** Where the nights are spent, a square of ink each, under the notes' pins */
 const stayMarkers: Marker[] = [];
@@ -322,7 +324,7 @@ function syncStays() {
   if (import.meta.env.SSR) return;
   if (map === null) return;
   for (const m of stayMarkers.splice(0)) m.remove();
-  for (const s of trip.value?.stays ?? []) {
+  for (const s of here.trip.stays) {
     if (s.pin === null) continue;
     const d = document.createElement("div");
     d.className = "pin stay";
@@ -337,7 +339,7 @@ function syncStays() {
     );
   }
 }
-watch(() => trip.value?.stays, syncStays);
+watch(() => here.trip.stays, syncStays);
 
 // ---- the airports the flights name, found among the airports (airports.ts) ----
 const airports = useAirports();
@@ -346,9 +348,9 @@ const airports = useAirports();
  * the one it leaves from, when the flight is on that day
  */
 function airportOn(d: Temporal.PlainDate, leg: Leg) {
-  const f = trip.value?.flights[leg] ?? null;
+  const f = here.trip.flights[leg];
   if (f === null) return undefined;
-  const days = flightDays(f, leg, trip.value?.days ?? []);
+  const days = flightDays(f, leg, here.trip.days);
   const on = leg === "out" ? days.at(-1) : days[0];
   if (on === undefined || !on.equals(d)) return undefined;
   return findAirport(airports.value, leg === "out" ? f.to : f.from);
@@ -360,8 +362,8 @@ function syncAirports() {
   if (map === null) return;
   for (const m of airportMarkers.splice(0)) m.remove();
   const named = new Map<string, Airport>();
-  for (const f of [trip.value?.flights.out, trip.value?.flights.back])
-    for (const text of f == null ? [] : [f.from, f.to]) {
+  for (const f of [here.trip.flights.out, here.trip.flights.back])
+    for (const text of f === null ? [] : [f.from, f.to]) {
       const a = findAirport(airports.value, text);
       if (a !== undefined) named.set(a.code, a);
     }
@@ -380,7 +382,7 @@ function syncAirports() {
     );
   }
 }
-watch([() => trip.value?.flights, airports], () => {
+watch([() => here.trip.flights, airports], () => {
   syncAirports();
   syncRoute();
 });
@@ -404,7 +406,7 @@ function fitAll() {
               i18n.t("map.all")
             }}</CtChip>
             <CtChip
-              v-for="d in trip?.days"
+              v-for="d in here.trip.days"
               :key="d.date.toString()"
               float
               :selected="isDay(d.date)"

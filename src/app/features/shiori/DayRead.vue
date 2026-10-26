@@ -13,6 +13,7 @@ import { paperOf } from "../members/paper";
 import { useMembers } from "../members/useMembers";
 import { siteOf } from "../notes/links";
 import type { Memo, Scheduled } from "../notes/types";
+import { useInRoom } from "../sync/InRoom.vue";
 import { durationMessage, hhmm } from "../trip/format";
 import { endOf } from "../trip/itinerary";
 import { useTrip } from "../trip/useTrip";
@@ -25,14 +26,17 @@ import Day from "./Day.vue";
  * booking is counted from `today`.
  */
 const props = defineProps<{ day: Temporal.PlainDate; today: Temporal.PlainDate }>();
-const { trip, forDay, dayOf } = useTrip();
+const { forDay } = useTrip();
+/** The trip the day is of: its money, and the day's line */
+const here = useInRoom();
 const { members } = useMembers();
 const i18n = useI18n();
 /** A note's paper: whoever wrote it */
 const paperFor = (n: Memo) => paperOf(members.value?.find((m) => m.id === n.by)?.color);
-const price = (amount: number) =>
-  trip.value === undefined ? "" : formatMoney(amount, trip.value.currency, i18n.locale);
+const price = (amount: number) => formatMoney(amount, here.trip.currency, i18n.locale);
 
+/** The day's line, as written for the booklet; none while nobody wrote one */
+const intro = computed(() => here.trip.days.find((d) => d.date.equals(props.day))?.intro ?? "");
 /** The strip as it is read: the maybes wait at its end */
 const notes = computed(() => forDay(props.day).filter((n) => n.schedule.status !== "idea"));
 const maybes = computed(() => forDay(props.day, "idea"));
@@ -51,7 +55,7 @@ function long(minutes: number) {
 <template>
   <Day :day :today :notes>
     <template #intro>
-      <p v-if="(dayOf(day)?.intro ?? '') !== ''" class="intro" data-turn>{{ dayOf(day)?.intro }}</p>
+      <p v-if="intro !== ''" class="intro" data-turn>{{ intro }}</p>
     </template>
     <template #tab="{ n }">
       <span class="time">{{

@@ -782,10 +782,11 @@ export class Room extends DurableObject<Env> {
   summary(by: MemberId | null = null): WireRoomSummary {
     const sql = this.ctx.storage.sql;
     const { name } = sql.exec<{ name: string }>("SELECT name FROM trip WHERE id = 1").one();
-    const days = sql
-      .exec<{ date: IsoDate }>("SELECT date FROM days ORDER BY position")
-      .toArray()
-      .map((d) => d.date);
+    // a trip always has a day: made with one, and moved to one at least
+    const { first } = sql
+      .exec<{ first: IsoDate }>("SELECT date AS first FROM days ORDER BY position LIMIT 1")
+      .one();
+    const { days } = sql.exec<{ days: number }>("SELECT COUNT(*) AS days FROM days").one();
     // the people first, the creator leading; the agent after them
     const members = this.members()
       .sort((a, b) => Number(a.kind === "agent") - Number(b.kind === "agent"))
@@ -794,11 +795,7 @@ export class Room extends DurableObject<Env> {
       .exec<{ memos: number }>(`SELECT COUNT(*) AS memos FROM ${ON_DESK} WHERE kind = 'memo'`)
       .one();
     const owner = by !== null && by === this.ownerId();
-    const [first] = days;
-    const glance = { name, members, memos, owner };
-    return first === undefined
-      ? { ...glance, first: null, days: 0 }
-      : { ...glance, first, days: days.length };
+    return { name, members, memos, owner, first, days };
   }
 
   // ---- the agent (RPC from the Worker, inside a member's request) ----

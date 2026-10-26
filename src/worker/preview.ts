@@ -1,5 +1,6 @@
 import * as v from "valibot";
 
+import { MAX_TITLE } from "../contract/room";
 import { MAX_IMAGE_BYTES, parseImageType, type ImageType } from "../contract/wire";
 
 /**
@@ -26,7 +27,6 @@ export interface Preview {
 export const PAGE_BYTES = 512 * 1024;
 const REDIRECTS = 3;
 const TIMEOUT_MS = 8000;
-const TITLE = 200;
 const DESCRIPTION = 1000;
 /** A desktop browser's: a page answers one with its markup, not a login or an app's shell */
 const USER_AGENT =
@@ -119,7 +119,7 @@ export function readHead(html: string): {
   }
   const titleTag = /<title\b[^>]*>([^<]*)<\/title>/i.exec(head)?.[1];
   return {
-    title: line(meta.get("og:title") ?? meta.get("twitter:title") ?? titleTag, TITLE),
+    title: line(meta.get("og:title") ?? meta.get("twitter:title") ?? titleTag, MAX_TITLE),
     description: line(
       meta.get("og:description") ?? meta.get("twitter:description") ?? meta.get("description"),
       DESCRIPTION,
@@ -267,8 +267,8 @@ async function youtube(u: URL, ours: string[], base?: string): Promise<Preview |
   return {
     url: youtubeWatch(u),
     site: "youtube.com",
-    title: title === null ? null : line(title, TITLE),
-    description: author === null ? null : line(author, TITLE),
+    title: title === null ? null : line(title, MAX_TITLE),
+    description: author === null ? null : line(author, MAX_TITLE),
     image: thumb === null ? null : await thumbnail(thumb, ours, base),
   };
 }

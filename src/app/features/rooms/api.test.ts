@@ -21,23 +21,26 @@ describe("summaryOf", () => {
       ],
       memos: 12,
     });
-    expect(s?.first?.equals(Temporal.PlainDate.from("2026-11-03"))).toBe(true);
+    expect(s?.first.equals(Temporal.PlainDate.from("2026-11-03"))).toBe(true);
     expect(s).toMatchObject({ id: ID, name: "Taiwan trip", days: 3, memos: 12 });
     expect(s?.members.map((m) => m.name)).toEqual(["Yuki", "Claude"]);
   });
 
-  test("leaves out an entry without a room id or a name", () => {
-    expect(summaryOf({ id: "nope", name: "x" })).toBeNull();
-    expect(summaryOf({ id: ID })).toBeNull();
+  test("leaves out an entry without a room id, a name or its days", () => {
+    const days = { first: "2026-11-03", days: 3 };
+    expect(summaryOf({ id: "nope", name: "x", ...days })).toBeNull();
+    expect(summaryOf({ id: ID, ...days })).toBeNull();
+    expect(summaryOf({ id: ID, name: "Old" })).toBeNull();
+    expect(summaryOf({ id: ID, name: "Odd", first: "2026-02-30", days: 3 })).toBeNull();
+    expect(summaryOf({ id: ID, name: "Odd", first: "2026-11-03", days: 0 })).toBeNull();
     expect(summaryOf(null)).toBeNull();
   });
 
   test("keeps a trip whose glance is missing or odd, with that part empty", () => {
-    expect(summaryOf({ id: ID, name: "Old" })).toEqual({
+    expect(summaryOf({ id: ID, name: "Old", first: "2026-11-03", days: 3 })).toMatchObject({
       id: ID,
       name: "Old",
-      first: null,
-      days: 0,
+      days: 3,
       members: [],
       memos: 0,
       owner: false,
@@ -45,12 +48,12 @@ describe("summaryOf", () => {
     const s = summaryOf({
       id: ID,
       name: "Odd",
-      first: "2026-02-30",
-      days: -1,
+      first: "2026-11-03",
+      days: 3,
       members: [{ kind: "person", name: "X", color: "red; background: url(x)" }, "junk"],
       memos: 1.5,
     });
-    expect(s).toMatchObject({ first: null, days: 0, members: [], memos: 0 });
+    expect(s).toMatchObject({ days: 3, members: [], memos: 0 });
   });
 });
 

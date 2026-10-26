@@ -101,7 +101,6 @@ import { useTags } from "../../../features/tags/useTags";
 import { useToast } from "../../../features/toast/useToast";
 import { shortDate } from "../../../features/trip/format";
 import { assignTo } from "../../../features/trip/itinerary";
-import { useTrip } from "../../../features/trip/useTrip";
 import type { WorkerApi } from "../../../features/worker/types";
 import Icon from "../../../icons/Icon.vue";
 import plusIcon from "../../../icons/plus.svg";
@@ -123,7 +122,6 @@ const here = useInRoom();
 /** Where changes go now: an answer is written only while the room it was asked in is open */
 const sync = useSync();
 const tags = useTags();
-const { trip } = useTrip();
 const i18n = useI18n();
 /** Cut off: what needs the Worker is not offered */
 const cut = useOffline();
@@ -991,12 +989,9 @@ watch(
           i18n.t("common.edit")
         }}</CtMenuItem>
         <!-- the trip's days: a memo goes on one from the desk, where the ideas are -->
-        <CtMenuGroup
-          v-if="menuMemo !== null && (trip?.days.length ?? 0) > 0"
-          :label="i18n.t('canvas.day')"
-        >
+        <CtMenuGroup v-if="menuMemo !== null" :label="i18n.t('canvas.day')">
           <CtChip
-            v-for="d in trip?.days"
+            v-for="d in here.trip.days"
             :key="d.date.toString()"
             toggle
             :selected="onMenuDay(d.date)"

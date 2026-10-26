@@ -25,10 +25,14 @@ import Appendix from "../../../features/shiori/Appendix.vue";
 import DayEdit from "../../../features/shiori/DayEdit.vue";
 import DayRead from "../../../features/shiori/DayRead.vue";
 import Tray from "../../../features/shiori/Tray.vue";
+import { useInRoom } from "../../../features/sync/InRoom.vue";
 import { longDate, shortDate } from "../../../features/trip/format";
+import { dayNumber } from "../../../features/trip/itinerary";
 import { useTrip } from "../../../features/trip/useTrip";
 
-const { trip, budgetOf, fixedCount, dayNumber } = useTrip();
+const { budgetOf, fixedCount } = useTrip();
+/** The trip the booklet is of */
+const here = useInRoom();
 const i18n = useI18n();
 
 /**
@@ -51,9 +55,7 @@ const pickingId = ref<NoteId | null>(null);
 const today = useToday();
 const openingDay = computed(
   () =>
-    trip.value?.days.find((d) => d.date.equals(today.value))?.date ??
-    trip.value?.days[0]?.date ??
-    null,
+    here.trip.days.find((d) => d.date.equals(today.value))?.date ?? here.trip.days[0]?.date ?? null,
 );
 /**
  * The day a tab is, one of the trip's: a picked day the trip no longer has (made shorter
@@ -61,22 +63,21 @@ const openingDay = computed(
  */
 const dayOfTab = (t: Tab) => {
   if (t === "appendix") return null;
-  return trip.value?.days.find((d) => t !== null && d.date.equals(t))?.date ?? openingDay.value;
+  return here.trip.days.find((d) => t !== null && d.date.equals(t))?.date ?? openingDay.value;
 };
-/** The day on the page, or null on the appendix tab (or while the trip has no days) */
+/** The day on the page, or null on the appendix tab */
 const day = computed(() => dayOfTab(tab.shown));
 /** The day the tabs and the heading show, ahead of the page by the time it takes to turn */
 const pickedDay = computed(() => dayOfTab(tab.picked));
-const price = (amount: number) =>
-  trip.value === undefined ? "" : formatMoney(amount, trip.value.currency, i18n.locale);
+const price = (amount: number) => formatMoney(amount, here.trip.currency, i18n.locale);
 const short = (date: Temporal.PlainDate) => shortDate(date, i18n.locale);
 
 const totalFixed = computed(() => budgetOf(undefined, true));
 const totalAll = computed(() => budgetOf(undefined, false));
-/** "11/3 – 11/5", one date for a day trip, null while the trip has no days */
+/** "11/3 – 11/5", or one date for a day trip */
 const range = computed(() => {
-  const first = trip.value?.days[0]?.date;
-  const last = trip.value?.days.at(-1)?.date;
+  const first = here.trip.days[0]?.date;
+  const last = here.trip.days.at(-1)?.date;
   if (first === undefined || last === undefined) return null;
   return first.equals(last) ? short(first) : `${short(first)} – ${short(last)}`;
 });
@@ -84,9 +85,9 @@ const range = computed(() => {
 // tabs are keyed by the date's ISO string
 const APPENDIX = "appendix";
 const dayTabs = computed(() => [
-  ...(trip.value?.days ?? []).map((d) => ({
+  ...here.trip.days.map((d) => ({
     value: d.date.toString(),
-    label: i18n.t("shiori.dayTab", { n: dayNumber(d.date), date: short(d.date) }),
+    label: i18n.t("shiori.dayTab", { n: dayNumber(here.trip.days, d.date), date: short(d.date) }),
   })),
   { value: APPENDIX, label: i18n.t("shiori.appendix") },
 ]);
@@ -96,7 +97,10 @@ const heading = computed((): CtMorphPart[] => {
   const date = pickedDay.value;
   if (date === null) return [{ text: i18n.t("shiori.appendix") }];
   return i18n
-    .parts("shiori.dayHeading", { n: dayNumber(date), date: longDate(date, i18n.locale) })
+    .parts("shiori.dayHeading", {
+      n: dayNumber(here.trip.days, date),
+      date: longDate(date, i18n.locale),
+    })
     .map((s) => (s.kind === "text" ? { text: s.text } : { text: s.text, tone: "date" }));
 });
 const modes = computed((): { value: Mode; label: string }[] => [

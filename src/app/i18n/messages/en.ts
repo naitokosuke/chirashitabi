@@ -33,7 +33,6 @@ one {{In {$count} day}}
 `,
   "rooms.tomorrow": "Tomorrow",
   "rooms.during": "On the trip · day {$count :integer}",
-  "rooms.undated": "No dates",
   "rooms.memos": `
 .input {$count :integer}
 .match $count
@@ -248,6 +247,10 @@ one {{Claude left {$count} idea here}}
   "form.tagsLimit": "That is all the suggestions for today. Ask again tomorrow.",
   "form.tagsTripLimit": "This trip has used all the suggestions it can ask for.",
   "form.tagPlaceholder": "Add a tag…",
+  "form.titleTooLong":
+    "The first line is the title, at most {$max :integer} characters. Shorten it, or go on in the next line.",
+  "form.bodyTooLong": "After the first line, a note holds at most {$max :integer} characters.",
+  "form.tooManyTags": "A note holds at most {$max :integer} tags. Take some off to save it.",
   "form.link": "Link",
   "form.linkPlaceholder": "A blog post, a video, a page the idea came from",
   "form.linkFetching": "Reading the page…",

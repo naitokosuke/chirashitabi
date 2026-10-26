@@ -6,10 +6,9 @@ import type { RoomId, RoomSummary } from "./types";
 import { lastDay, shelve, whenOf } from "./when";
 
 const TODAY = Temporal.PlainDate.from("2026-10-03");
-const trip = (name: string, first: string | null, days = 3): RoomSummary => ({
-  ...(first === null
-    ? { first: null, days: 0 as const }
-    : { first: Temporal.PlainDate.from(first), days }),
+const trip = (name: string, first: string, days = 3): RoomSummary => ({
+  first: Temporal.PlainDate.from(first),
+  days,
   id: name as RoomId,
   name,
   members: [],
@@ -27,23 +26,17 @@ describe("whenOf", () => {
   ] as const)("a trip from %s for %i days", (first, days, when) => {
     expect(whenOf(trip("t", first, days), TODAY)).toEqual(when);
   });
-
-  test("a trip without days is undated", () => {
-    expect(whenOf(trip("t", null), TODAY)).toEqual({ kind: "undated" });
-    expect(whenOf(trip("t", "2026-11-03", 0), TODAY)).toEqual({ kind: "undated" });
-  });
 });
 
 test("lastDay", () => {
-  expect(lastDay(trip("t", "2026-11-03", 3))?.toString()).toBe("2026-11-05");
-  expect(lastDay(trip("t", null))).toBeNull();
+  expect(lastDay(trip("t", "2026-11-03", 3)).toString()).toBe("2026-11-05");
+  expect(lastDay(trip("t", "2026-11-03", 1)).toString()).toBe("2026-11-03");
 });
 
-test("shelve: under way first, then the soonest, undated last; past ones most recent first", () => {
+test("shelve: under way first, then the soonest; past ones most recent first", () => {
   const { coming, been } = shelve(
     [
       trip("later", "2027-01-10"),
-      trip("undated", null),
       trip("old", "2025-05-01"),
       trip("now", "2026-10-02"),
       trip("soon", "2026-10-20"),
@@ -51,6 +44,6 @@ test("shelve: under way first, then the soonest, undated last; past ones most re
     ],
     TODAY,
   );
-  expect(coming.map((t) => t.name)).toEqual(["now", "soon", "later", "undated"]);
+  expect(coming.map((t) => t.name)).toEqual(["now", "soon", "later"]);
   expect(been.map((t) => t.name)).toEqual(["recent", "old"]);
 });

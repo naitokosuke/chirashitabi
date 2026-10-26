@@ -30,7 +30,7 @@ type DraftState =
  */
 const useDayDraft = defineQuery(() => {
   const store = useNotes();
-  const { forDay, dayOf, setIntro } = useTrip();
+  const { forDay, setIntro } = useTrip();
   /** Each room's draft: an answer is the room's it was asked in, whichever room is open when it comes */
   const drafts = shallowRef<ReadonlyMap<RoomId, DraftState>>(new Map());
 
@@ -58,16 +58,16 @@ const useDayDraft = defineQuery(() => {
   }
   /**
    * The draft of the room open now (`room`, InRoom) becomes the day: its order and times on the
-   * memos, its intro unless one is written. The stores write the open room, so only its own
-   * draft is taken, never another room's.
+   * memos, its intro unless the `trip` has one written. The stores write the open room, so only
+   * its own draft is taken, never another room's.
    */
-  function adopt(room: RoomId) {
+  function adopt({ room, trip }: Here) {
     const s = draftIn(room);
     if (s.kind !== "drafted") return;
     // the day's memos as they are now, not as they were when the draft was asked for
     for (const { id, patch } of draftUpdates(s.draft, forDay(s.date))) store.update(id, patch);
     // keep an intro someone already wrote
-    const written = dayOf(s.date)?.intro ?? "";
+    const written = trip.days.find((d) => d.date.equals(s.date))?.intro ?? "";
     setIntro(s.date, written === "" ? s.draft.intro : written);
     keep(room, { kind: "idle" });
   }
@@ -97,6 +97,7 @@ import { formatMoney } from "../../shared/money";
 
 import { useI18n } from "../../i18n/useI18n";
 
+import { MAX_INTRO } from "../../../contract/room";
 import { useMembers } from "../members/useMembers";
 import type { Scheduled } from "../notes/types";
 import { useInRoom } from "../sync/InRoom.vue";
@@ -113,7 +114,7 @@ import Day from "./Day.vue";
  */
 const props = defineProps<{ day: Temporal.PlainDate; today: Temporal.PlainDate }>();
 const store = useNotes();
-const { trip, forDay, dayOf, setIntro } = useTrip();
+const { forDay, setIntro } = useTrip();
 const { members } = useMembers();
 const inRoom = useInRoom();
 const i18n = useI18n();
@@ -144,8 +145,7 @@ const FAILED = {
   trip: "shiori.draftTripLimit",
 } as const satisfies Record<Extract<DraftState, { kind: "failed" }>["why"], string>;
 
-const price = (amount: number) =>
-  trip.value === undefined ? "" : formatMoney(amount, trip.value.currency, i18n.locale);
+const price = (amount: number) => formatMoney(amount, inRoom.trip.currency, i18n.locale);
 /** "1 h 30 min" */
 function long(minutes: number) {
   const d = durationMessage(minutes);
@@ -180,10 +180,11 @@ function markBooked(n: Scheduled) {
         class="intro"
         dashed
         data-turn
+        :maxlength="MAX_INTRO"
         rows="2"
         :aria-label="i18n.t('shiori.intro')"
         :placeholder="i18n.t('shiori.introPlaceholder')"
-        :model-value="dayOf(day)?.intro ?? ''"
+        :model-value="inRoom.trip.days.find((d) => d.date.equals(day))?.intro ?? ''"
         @change="onIntroChange"
       />
     </template>
@@ -245,7 +246,7 @@ function markBooked(n: Scheduled) {
                 }}</small></li></ol>
           </template>
           <template #foot>
-            <CtButton variant="primary" @click="() => adopt(inRoom.room)">{{
+            <CtButton variant="primary" @click="() => adopt(inRoom)">{{
               i18n.t("shiori.adoptDraft")
             }}</CtButton>
             <CtButton @click="() => dismiss(inRoom.room)">{{ i18n.t("common.dismiss") }}</CtButton>

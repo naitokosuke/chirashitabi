@@ -141,6 +141,21 @@ describe("keep and kept", () => {
     expect(kept(storage, R1)).toBeNull();
   });
 
+  test("kept with a trip that does not read: nothing, so the device joins the room afresh", () => {
+    const storage = memoryStorage();
+    keep(storage, R1, { me: YUKI, confirmed: room, pending: [], savedAt: at });
+    const saved = JSON.parse(storage.getItem("chirashitabi:room:r1")!) as {
+      confirmed: { trip: Record<string, unknown> };
+    };
+    for (const trip of [null, { ...saved.confirmed.trip, days: [] }, { name: "Taiwan trip" }]) {
+      storage.setItem(
+        "chirashitabi:room:r1",
+        JSON.stringify({ ...saved, confirmed: { ...saved.confirmed, trip } }),
+      );
+      expect(kept(storage, R1)).toBeNull();
+    }
+  });
+
   test("rooms are kept apart", () => {
     const storage = memoryStorage();
     keep(storage, R1, { me: YUKI, confirmed: room, pending: [], savedAt: at });
