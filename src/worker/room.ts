@@ -98,7 +98,32 @@ const OUTSIDE: { ok: false; reason: Outsider } = { ok: false, reason: "not a mem
 type Profile = v.InferOutput<typeof ProfileSchema>;
 
 /** A message to a member's socket, as it goes; the type checks it against what the app reads */
-const encode = (message: ServerMessage): string => JSON.stringify(message);
+const encode = (message: ServerMessage): string => JSON.stringify(withPreviousBuildFields(message));
+
+/**
+ * A message as a tab still on the previous build reads it too: that build reads a `title` and a
+ * `color` on every note, so a text box goes with its words as its `title` and a sticker with a
+ * blank one, both on white. The app now drops both as it reads (its checks keep only a kind's own
+ * fields). It is here for tabs left open across a deploy, which would otherwise read no room
+ * with a text box or a sticker in it, and can go after a release or two.
+ */
+const withPreviousBuildFields = (message: ServerMessage) => {
+  const note = (n: WireNote) => {
+    switch (n.kind) {
+      case "memo":
+      case "suggestion":
+        return n;
+      case "text":
+        return { ...n, title: n.text, color: "#ffffff" };
+      case "sticker":
+        return { ...n, title: "", color: "#ffffff" };
+    }
+  };
+  if (message.type === "snapshot") return { ...message, notes: message.notes.map(note) };
+  if (message.type === "mutation" && message.mutation.type === "note:add")
+    return { ...message, mutation: { ...message.mutation, note: note(message.mutation.note) } };
+  return message;
+};
 
 /**
  * The cids of a member's changes the room remembers, newest kept: a phone that lost an ack

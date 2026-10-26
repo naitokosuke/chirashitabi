@@ -659,6 +659,10 @@ if (import.meta.vitest !== undefined) {
         added({ ...placed, kind: "text", text: "Day 1" }),
       );
       expect(add({ ...old, kind: "text", title: "" })).toBeNull();
+      // as the room sends one for tabs on the previous build: the words, the title beside them
+      expect(add({ ...old, kind: "text", text: "Day 1", title: "Day 1" })).toEqual(
+        added({ ...placed, kind: "text", text: "Day 1" }),
+      );
       expect(add({ ...old, kind: "sticker", title: "", image })).toEqual(
         added({ ...placed, kind: "sticker", image }),
       );

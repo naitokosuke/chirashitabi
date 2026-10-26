@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
+import * as v from "valibot";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import {
   createTestHarness,
@@ -12,7 +13,17 @@ import {
   type Unstable_RawConfig,
 } from "wrangler";
 
-import type { ServerMessage } from "../contract/wire";
+import { ImageIdSchema } from "../contract/image";
+import { MemberIdSchema } from "../contract/member";
+import { NoteIdSchema } from "../contract/note";
+import { COLORS, MAX_TEXT, MAX_TITLE } from "../contract/room";
+import {
+  COORD,
+  IsoInstantSchema,
+  MAX_SCALE,
+  MIN_SCALE,
+  type ServerMessage,
+} from "../contract/wire";
 
 // The Worker runs in workerd through wrangler's test harness. Access is stood in for by
 // signing tokens with a throwaway key and serving its public half from a local stub.
@@ -1365,6 +1376,9 @@ describe("the socket", () => {
       y: 60,
       rot: 0,
       scale: 2,
+      // beside it, what a tab on the previous build reads
+      title: "Day 1 · Taipei",
+      color: "#ffffff",
       by: expect.any(String),
       updatedAt: expect.any(String),
     });
@@ -1374,7 +1388,7 @@ describe("the socket", () => {
     const d = await connect(roomId, partner);
     expect(d.snapshot).toMatchObject({ notes: [{ id: "m1" }] });
     // a client from before each kind had only its own fields says the words as a title, on
-    // white paper: read as the words, and told as them
+    // white paper: read as the words, and told as them (with the title beside, for the previous build)
     const where = { id: "t3", kind: "text", x: 5, y: 6, rot: 0, scale: 1 };
     a.send({
       type: "note:add",
@@ -1385,7 +1399,14 @@ describe("the socket", () => {
     const told = await b.next();
     expect(told.type === "mutation" && told.mutation).toEqual({
       type: "note:add",
-      note: { ...where, text: "Day 2", by: expect.any(String), updatedAt: expect.any(String) },
+      note: {
+        ...where,
+        text: "Day 2",
+        title: "Day 2",
+        color: "#ffffff",
+        by: expect.any(String),
+        updatedAt: expect.any(String),
+      },
     });
     // the room's list counts memos, not words on the desk
     expect((await me(owner)).rooms).toMatchObject([{ memos: 1 }]);
@@ -2452,6 +2473,9 @@ describe("pictures", () => {
         y: 60,
         rot: 10,
         scale: 2,
+        // beside it, what a tab on the previous build reads
+        title: "",
+        color: "#ffffff",
         by: expect.any(String),
         updatedAt: expect.any(String),
       },
@@ -2464,7 +2488,8 @@ describe("pictures", () => {
     expect(c.snapshot).toMatchObject({ notes: [] });
 
     // a client from before each kind had only its own fields sends a blank title and white
-    // paper with it: stuck all the same, and kept and told without them
+    // paper with it: stuck all the same, and kept without them; told with them, for tabs on the
+    // previous build
     a.send({
       type: "note:add",
       note: { ...sticker(id), id: "s2", title: "", color: "#ffffff" },
@@ -2474,9 +2499,67 @@ describe("pictures", () => {
     const told = await c.next();
     expect(told.type === "mutation" && told.mutation).toEqual({
       type: "note:add",
-      note: { ...sticker(id), id: "s2", by: expect.any(String), updatedAt: expect.any(String) },
+      note: {
+        ...sticker(id),
+        id: "s2",
+        title: "",
+        color: "#ffffff",
+        by: expect.any(String),
+        updatedAt: expect.any(String),
+      },
     });
     for (const s of [a, b, c]) s.ws.close(1000, "done");
+  });
+
+  test("a tab on the previous build reads a room with a text box and a sticker in it", async () => {
+    // the previous build's notes, as its contract checked them (memos, unchanged, left out): a
+    // title and a color on every kind, a text box's words its title
+    const finite = (max = COORD) =>
+      v.pipe(v.number(), v.finite(), v.minValue(-max), v.maxValue(max));
+    const card = {
+      id: NoteIdSchema,
+      title: v.pipe(v.string(), v.maxLength(MAX_TITLE)),
+      color: v.picklist(COLORS),
+      x: finite(),
+      y: finite(),
+      rot: finite(360),
+      scale: v.optional(
+        v.pipe(v.number(), v.finite(), v.minValue(MIN_SCALE), v.maxValue(MAX_SCALE)),
+        1,
+      ),
+    };
+    const stamped = { by: MemberIdSchema, updatedAt: IsoInstantSchema };
+    const words = v.pipe(v.string(), v.maxLength(MAX_TEXT), v.trim(), v.nonEmpty());
+    const PreviousNoteSchema = v.variant("kind", [
+      v.object({ ...card, ...stamped, kind: v.literal("suggestion") }),
+      v.object({ ...card, ...stamped, kind: v.literal("text"), title: words }),
+      v.object({ ...card, ...stamped, kind: v.literal("sticker"), image: ImageIdSchema }),
+    ]);
+
+    const email = "previous-build@example.com";
+    const { roomId } = await createRoom(email);
+    const { id } = (await (await upload(roomId, email)).json()) as { id: string };
+    const a = await connect(roomId, email);
+    const placed = { x: 5, y: 6, rot: 0, scale: 1 };
+    a.send({
+      type: "note:add",
+      note: { ...placed, id: "t1", kind: "text", text: "Day 1" },
+      cid: "c1",
+    });
+    expect((await a.next()).type).toBe("ack");
+    a.send({
+      type: "note:add",
+      note: { ...placed, id: "s1", kind: "sticker", image: id },
+      cid: "c2",
+    });
+    expect((await a.next()).type).toBe("ack");
+
+    const b = await connect(roomId, email);
+    expect(v.parse(v.array(PreviousNoteSchema), b.snapshot.notes)).toMatchObject([
+      { id: "t1", kind: "text", title: "Day 1", color: "#ffffff" },
+      { id: "s1", kind: "sticker", title: "", color: "#ffffff", image: id },
+    ]);
+    for (const s of [a, b]) s.ws.close(1000, "done");
   });
 
   test("a picture no card shows gives its place back a day on, at the next upload", async () => {
