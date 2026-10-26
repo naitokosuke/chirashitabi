@@ -93,10 +93,13 @@ export async function judgeTags(env: Env, memo: MemoToTag, tags: string[]): Prom
 
   let output: unknown;
   try {
-    output = await run(env, input);
+    const res = await run(env, input);
+    // Workers AI answered with an error: the model did not run, so nothing was spent
+    if (!res.ok) return { ok: false, refund: true, reason: `Clef answered ${res.status}` };
+    output = await res.json();
   } catch (e) {
-    if (e instanceof Refused) return { ok: false, refund: true, reason: e.message };
-    // no answer: it may have run, so it counts
+    // no answer (cut off at TIMEOUT_MS, or the connection lost), or one that is no JSON: it
+    // may have run, so it counts
     return { ok: false, refund: false, reason: `Clef failed: ${String(e)}` };
   }
   const answered = v.safeParse(OutputSchema, output);
@@ -112,19 +115,26 @@ export async function judgeTags(env: Env, memo: MemoToTag, tags: string[]): Prom
   return { ok: true, value: scored };
 }
 
-/** The provider refused the call (a 4xx or 5xx): nothing was spent */
-class Refused extends Error {}
+/** How long a call may take before it is given up, and counted as spent */
+const TIMEOUT_MS = 30_000;
 
-/** Through the binding; in the tests, through a stub at CLEF_BASE_URL (the binding needs Cloudflare) */
-async function run(env: Env, input: ClefInput): Promise<unknown> {
-  if (env.CLEF_BASE_URL !== undefined) {
-    const res = await fetch(env.CLEF_BASE_URL, {
+/**
+ * Workers AI's answer as it was sent, status and all: through the binding, asked for its raw
+ * response (else the binding throws an error of its own for a status outside 2xx, which cannot
+ * be told from a lost connection by its type); in the tests, from a stub at CLEF_BASE_URL (the
+ * binding needs Cloudflare). Either way the answer is read the same way.
+ */
+async function run(env: Env, input: ClefInput): Promise<Response> {
+  const signal = AbortSignal.timeout(TIMEOUT_MS);
+  if (env.CLEF_BASE_URL !== undefined)
+    return fetch(env.CLEF_BASE_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
+      signal,
     });
-    if (!res.ok) throw new Refused(`Clef answered ${res.status}`);
-    return res.json();
-  }
-  return env.AI.run(CLEF_MODEL, input);
+  // the binding's types do not list this model, so they type its answer as an object whatever
+  // is asked for; the raw response is checked to be one
+  const raw = await env.AI.run(CLEF_MODEL, input, { returnRawResponse: true, signal });
+  return v.parse(v.instance(Response), raw);
 }

@@ -134,6 +134,29 @@ export function readHead(html: string): {
   };
 }
 
+/** How much of a page is looked through for a `<meta>` naming its encoding: HTML puts it there */
+const SNIFF_BYTES = 1024;
+
+/**
+ * A page's bytes as text, in the encoding it is written in (Shift_JIS, EUC-JP, Big5, …): the
+ * one its `Content-Type` names, else the one a `<meta charset>` or `<meta http-equiv>` in its
+ * first SNIFF_BYTES names, else UTF-8; an encoding by a name no decoder knows is read as UTF-8
+ */
+export function decodePage(bytes: Uint8Array, contentType: string | null): string {
+  const charset = /;\s*charset\s*=\s*["']?([\w.:-]+)/i;
+  // the encoding's name is ASCII in any encoding a page may use, so a byte is a character here
+  const start = String.fromCharCode(...bytes.subarray(0, SNIFF_BYTES));
+  const label =
+    charset.exec(contentType ?? "")?.[1] ??
+    /<meta\b[^>]*\bcharset\s*=\s*["']?([\w.:-]+)/i.exec(start)?.[1] ??
+    "utf-8";
+  try {
+    return new TextDecoder(label).decode(bytes);
+  } catch {
+    return new TextDecoder().decode(bytes);
+  }
+}
+
 /** One step of reading a body: done, or a chunk of bytes */
 const StepSchema = v.object({ done: v.boolean(), value: v.optional(v.instance(Uint8Array)) });
 
@@ -306,7 +329,7 @@ export async function preview(url: string, ours: string[], base?: string): Promi
   if (type !== "text/html" && type !== "application/xhtml+xml") return null;
   const bytes = await readUpTo(res, PAGE_BYTES, true);
   if (bytes === null) return null;
-  const head = readHead(new TextDecoder().decode(bytes));
+  const head = readHead(decodePage(bytes, res.headers.get("Content-Type")));
   // where the page ended: the stub keeps the address asked for, the web may have moved it
   const ended = base === undefined && res.url !== "" ? (previewable(res.url, ours) ?? u) : u;
   return {

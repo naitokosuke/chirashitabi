@@ -146,6 +146,26 @@ function servePage(req: IncomingMessage, res: ServerResponse) {
     res.setHeader("Content-Length", String(2 * 1024 * 1024));
     return res.end(PNG);
   }
+  // a page in Shift_JIS that says so only in its markup: its title is ラーメン
+  if (host === "blog.example.com" && path === "/sjis") {
+    const markup = (s: string) => [...new TextEncoder().encode(s)];
+    return answer(
+      200,
+      "text/html",
+      Uint8Array.from([
+        ...markup(`<meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS"><title>`),
+        0x83,
+        0x89,
+        0x81,
+        0x5b,
+        0x83,
+        0x81,
+        0x83,
+        0x93,
+        ...markup("</title>"),
+      ]),
+    );
+  }
   if (host === "blog.example.com" && path === "/bigpic") {
     return answer(
       200,
