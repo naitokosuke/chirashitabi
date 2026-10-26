@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
-import { Temporal } from "temporal-polyfill-lite";
+import type { Temporal } from "temporal-polyfill-lite";
 
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
+import { computed, ref, shallowRef } from "vue";
 
 import {
   CtButton,
@@ -16,6 +16,8 @@ import {
   CtTag,
   safeUrl,
 } from "../../../ui/index";
+
+import { useToday } from "../../shared/useToday";
 
 import type { MessageId } from "../../i18n/types";
 import { useI18n } from "../../i18n/useI18n";
@@ -59,11 +61,7 @@ const i18n = useI18n();
 const cut = useOffline();
 const room = useRoom();
 const sync = useSync();
-/** Today, read again when the page comes back into view: a phone woken the next day moves on */
-const today = shallowRef(Temporal.Now.plainDateISO());
-const readToday = () => (today.value = Temporal.Now.plainDateISO());
-onMounted(() => document.addEventListener("visibilitychange", readToday));
-onBeforeUnmount(() => document.removeEventListener("visibilitychange", readToday));
+const today = useToday();
 
 const trips = useRooms();
 const { data: mine, status: listStatus, refetch: refetchList } = trips.list;

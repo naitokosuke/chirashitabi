@@ -19,9 +19,9 @@ import { useTrips } from "../useTrips";
 import { sheetOf, viewOf } from "./url";
 
 /**
- * A room: its tabs, each a page kept once it is opened (KeepAlive), so coming back to one shows
- * it as it was (the map's tiles, the booklet's scroll, the desk's pan and zoom), with nothing to
- * load; and the memo sheet over them, open on the URL's query, so back closes it. Being here
+ * A room: its tabs, each a page kept once it is opened in this room (KeepAlive), so coming back
+ * to one shows it as it was (the map's tiles, the booklet's scroll, the desk's pan and zoom),
+ * with nothing to load; and the memo sheet over them, open on the URL's query, so back closes it. Being here
  * enters the room the URL names, and leaving leaves it. Until this device is in it (session.ts),
  * the trips are shown, saying it is on its way.
  */
@@ -108,11 +108,13 @@ function onSave(input: NoteInput, keepOpen: boolean) {
 
 <template>
   <!--
-    Not keyed by the room: a room this device kept, opened straight from another one (back,
-    say), is in at once and keeps the tabs as they are. What InRoom provides follows what it is
-    passed, so a tab kept alive (KeepAlive) reads the room it is in now.
+    Keyed by the room: a room this device kept, opened straight from another one (back, say),
+    is in at once, and its tabs are its own, made anew. What a tab holds (a memo being written,
+    the trip's settings open, a delete waiting on its second tap, where the desk and the map
+    look) is the room's it was opened in, so none of it is carried into the next one. Within
+    a room, the tabs are kept alive (KeepAlive) as they are.
   -->
-  <InRoom v-if="here !== null" :room="here.room" :me="here.me">
+  <InRoom v-if="here !== null" :key="here.room" :room="here.room" :me="here.me">
     <!-- a covered tab is inert: the sheet is the one thing to use -->
     <main :inert="sheet !== null">
       <!-- the tabs are layers in the same box: the one coming up fades in over the one going -->
