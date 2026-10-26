@@ -205,6 +205,14 @@ export function settingsOf(form: TripForm, airports: Airport[]): TripSettings | 
   return { name, first, days: form.days, flights: { out: out.value, back: back.value }, stays };
 }
 
+/** What a save of the trip's settings changes: a name, dates or stays, or none; the flights changed */
+export interface TripChanges {
+  name: string | null;
+  dates: { first: Temporal.PlainDate; days: number } | null;
+  flights: { leg: Leg; flight: Flight | null }[];
+  stays: Stay[] | null;
+}
+
 /**
  * What saving `now` changes of `was`, the settings the editor opened on: a setting left as it
  * was is no change (null, or its flight left out), and stays the room's, since the partner may
@@ -212,15 +220,7 @@ export function settingsOf(form: TripForm, airports: Airport[]): TripSettings | 
  * same; when what it opened on reads as none (a trip past what the editor takes), every
  * setting is a change, as typed.
  */
-export function changesOf(
-  was: TripSettings | null,
-  now: TripSettings,
-): {
-  name: string | null;
-  dates: { first: Temporal.PlainDate; days: number } | null;
-  flights: { leg: Leg; flight: Flight | null }[];
-  stays: Stay[] | null;
-} {
+export function changesOf(was: TripSettings | null, now: TripSettings): TripChanges {
   return {
     name: was === null || now.name !== was.name ? now.name : null,
     dates:

@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { Temporal } from "temporal-polyfill-lite";
 
-import { computed, onMounted, reactive, useId, useTemplateRef } from "vue";
+import { computed, onMounted, reactive, ref, useId, useTemplateRef } from "vue";
 
 import {
   CtButton,
@@ -46,13 +46,14 @@ import { useTrip } from "./useTrip";
  * flights there and home, and where its nights are spent. Nothing reaches the room until it is
  * saved, and then only what was changed here. Moving the dates moves what is planned with them; what would fall past the new last
  * day is said before saving, since it goes back to having no day. It opens with the keyboard on
- * the name, and Esc closes it as Cancel does; where the keyboard goes then is the owner's.
+ * the name, and Esc closes it as Cancel does while nothing was changed; where the keyboard goes
+ * then is the owner's.
  */
 const props = defineProps<{ trip: TripSnapshot }>();
 const emit = defineEmits<{ close: [] }>();
 const i18n = useI18n();
 const id = useId();
-const { rename, setDates, setFlight, setStays } = useTrip();
+const { save: saveTrip } = useTrip();
 const { notes } = useNotes();
 const here = useInRoom();
 
@@ -167,26 +168,38 @@ function stayLinkState(s: StayForm) {
   return stay.ok && stay.value.pin !== null ? "stay.linkPinned" : "stay.linkNoPin";
 }
 
-// the keyboard starts on the name, and Esc is Cancel
+// the keyboard starts on the name, and Esc is Cancel while nothing was changed
 const nameEl = useTemplateRef<{ focus(): void }>("nameEl");
 onMounted(() => nameEl.value?.focus());
+/** Esc pressed over changes not saved: the editor stays, and says how to leave it */
+const keptOpen = ref(false);
+/**
+ * Esc closes the editor as Cancel does, unless an IME is using it (a word being given up) or a
+ * field inside took it (an airport list shut). Over changes not saved it stays and says so: an
+ * Esc meant for something else (a date's picker, the places found) never throws away what was
+ * written; Cancel does that.
+ */
 function onKey(e: KeyboardEvent) {
-  if (e.key === "Escape") emit("close");
+  if (e.key !== "Escape" || e.isComposing || e.keyCode === 229 || e.defaultPrevented) return;
+  if (JSON.stringify(form) === JSON.stringify(opened)) emit("close");
+  else keptOpen.value = true;
 }
 
-function save() {
+/**
+ * Everything changed goes to the room together; when the room could not take it (too large),
+ * nothing is sent and the editor stays with what was written, for it to be shortened. The page
+ * never leaves for the form's action: `.prevent` on a component's listener is not kept by
+ * Vapor, so the editor still open would load the page again.
+ */
+function save(e: Event) {
+  e.preventDefault();
   const c = changes.value;
-  if (c === null) return;
-  if (c.name !== null) rename(c.name);
-  if (c.dates !== null) setDates(c.dates.first, c.dates.days);
-  for (const { leg, flight } of c.flights) setFlight(leg, flight);
-  if (c.stays !== null) setStays(c.stays);
-  emit("close");
+  if (c !== null && saveTrip(c)) emit("close");
 }
 </script>
 
 <template>
-  <CtPanel as="form" class="editor" pad="lg" @keydown="onKey" @submit.prevent="save">
+  <CtPanel as="form" class="editor" pad="lg" @keydown="onKey" @submit="save">
     <CtField :for="`${id}-name`" :label="i18n.t('rooms.name')">
       <CtInput :id="`${id}-name`" ref="nameEl" v-model="form.name" :maxlength="MAX_NAME" required />
     </CtField>
@@ -337,6 +350,7 @@ function save() {
       <CtButton class="start" variant="blank" @click="addStay"><Icon :size="16" :src="plusIcon" />{{ i18n.t("stay.add") }}</CtButton>
     </fieldset>
 
+    <CtMessage live>{{ keptOpen ? i18n.t("trip.unsaved") : "" }}</CtMessage>
     <footer>
       <CtButton size="lg" type="submit" variant="primary" :disabled="changes === null">{{
         i18n.t("trip.save")

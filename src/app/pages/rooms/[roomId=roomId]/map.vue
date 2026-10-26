@@ -312,17 +312,14 @@ function fitRoute() {
 onMounted(() => watchEffect(syncMarkers));
 // The route is drawn again when what it goes through changes, and the map comes round it only
 // when another day is picked: a partner's card on its way (a dozen times a second) or an edit
-// leaves the map where it is looked at. What it goes through is watched as one string, which
-// stays the same while nothing on the route changed.
-const scheduleKey = (n: Note) =>
-  n.kind === "memo" && n.schedule !== null
-    ? `${n.schedule.date} ${n.schedule.time} ${n.schedule.status}`
-    : "";
+// leaves the map where it is looked at. What it goes through is watched as the stops themselves,
+// one string that stays the same while nothing on the route changed: a time, a stay or a place
+// moved on a scheduled memo all move a stop.
 watch(day, () => {
   syncRoute();
   fitRoute();
 });
-watch([() => (notes.value ?? []).map(scheduleKey).join("\n"), () => here.trip.stays], syncRoute);
+watch(() => routeStops().join("|"), syncRoute);
 
 /** Where the nights are spent, a square of ink each, under the notes' pins */
 const stayMarkers: Marker[] = [];

@@ -9,7 +9,7 @@ import type { Mutation, Transport } from "./types";
  * Before the room store is made, changes go nowhere. None is made then: what makes changes is
  * shown only inside a room, under the page that makes the room store first.
  */
-const NOWHERE: Transport = { commit: () => {}, send: () => {} };
+const NOWHERE: Transport = { commit: () => false, send: () => {} };
 
 /**
  * The session (session.ts) and where changes go, as the stores need them without depending
@@ -22,7 +22,7 @@ export const useSync = defineStore("sync", () => {
   const transport = shallowRef<Transport>(NOWHERE);
   /** The room whose cache entries the stores read; none out of a room */
   const room = computed(() => roomOf(session.value));
-  const commit = (msg: Mutation) => transport.value.commit(msg);
+  const commit = (...msgs: Mutation[]) => transport.value.commit(...msgs);
   const send = (msg: Mutation) => transport.value.send(msg);
   return { session, transport, room, commit, send };
 });

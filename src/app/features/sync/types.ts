@@ -7,12 +7,14 @@ import type { Flight, Leg, Stay } from "../trip/types";
 
 /**
  * How the stores reach the room (useRoom installs it). `commit` is a change of ours: it shows
- * at once and is kept until the room answers (ledger.ts). `send` only passes something along
- * that is not a change to keep, such as a card's position while it is being dragged. Until a
- * room is installed both do nothing.
+ * at once and is kept until the room answers (ledger.ts). The changes of one save are committed
+ * together, all of them or none, and whether they were is said back, so a save that was not
+ * made keeps what the person wrote. `send` only passes something along that is not a change to
+ * keep, such as a card's position while it is being dragged. Until a room is installed both do
+ * nothing.
  */
 export interface Transport {
-  commit(msg: Mutation): void;
+  commit(...msgs: Mutation[]): boolean;
   send(msg: Mutation): void;
 }
 export type Mutation =

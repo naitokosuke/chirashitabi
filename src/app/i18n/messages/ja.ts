@@ -85,6 +85,7 @@ export const ja: Messages = {
   "trip.edit": "旅を編集",
   "trip.save": "保存",
   "trip.dropped": "新しい期間から外れる {$count :integer} 件の予定は、日付なしに戻ります",
+  "trip.unsaved": "変更がまだ保存されていません。保存するか、キャンセルで取り消してください",
   "flight.out": "行き",
   "flight.back": "帰り",
   "flight.number": "便名",

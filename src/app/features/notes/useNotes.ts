@@ -84,10 +84,9 @@ export const useNotes = defineQuery(() => {
     if (t === "") remove(id);
     else if (t !== n.text) sync.commit({ type: "text:edit", id, text: t });
   }
-  /** Only memos have fields to edit; a suggestion is adopted first */
+  /** Only memos have fields to edit; a suggestion is adopted first. Whether it was made. */
   function update(id: NoteId, patch: MemoPatch) {
-    if (byId(id)?.kind !== "memo") return;
-    sync.commit({ type: "note:update", id, patch });
+    return byId(id)?.kind === "memo" && sync.commit({ type: "note:update", id, patch });
   }
   /** Where a card is, and, when it was turned or resized, how it is turned and how large */
   function move(id: NoteId, x: number, y: number, shape?: Shape) {
