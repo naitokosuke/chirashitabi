@@ -14,7 +14,6 @@ import {
   type IsoTime,
   type WireBooking,
   type WireMemoPatch,
-  type WireMutation,
   type WireFlight,
   type WireNewNote,
   type WireNote,
@@ -30,10 +29,11 @@ import type { Mutation } from "./types";
 // what crosses the socket, and its checks, as the app takes them from the contract
 export {
   CidSchema,
+  ClientMutationSchema,
+  fitsMessage,
   IsoInstantSchema,
   ServerMessageSchema,
   WireMemberSchema,
-  WireMutationSchema,
   WireNoteSchema,
   WireTripSchema,
   type ClientMessage,
@@ -66,17 +66,21 @@ const booking = (b: WireBooking): Booking =>
     : b;
 
 // what a note kept on a device from before lacks, the contract's schema has already defaulted
-export function reviveNote(n: WireNote): Note {
-  const updatedAt = Temporal.Instant.from(n.updatedAt);
-  if (n.kind !== "memo") return { ...n, updatedAt };
-  return {
-    ...n,
-    updatedAt,
-    schedule: n.schedule === null ? null : schedule(n.schedule),
-    booking: n.booking === null ? null : booking(n.booking),
-    due: n.due === null ? null : Temporal.PlainDate.from(n.due),
-  };
-}
+const reviveNewNote = (n: WireNewNote): NewNote =>
+  n.kind === "memo"
+    ? {
+        ...n,
+        schedule: n.schedule === null ? null : schedule(n.schedule),
+        booking: n.booking === null ? null : booking(n.booking),
+        due: n.due === null ? null : Temporal.PlainDate.from(n.due),
+      }
+    : n;
+
+export const reviveNote = (n: WireNote): Note => ({
+  ...reviveNewNote(n),
+  by: n.by,
+  updatedAt: Temporal.Instant.from(n.updatedAt),
+});
 
 const reviveFlight = (f: WireFlight | null): Flight | null =>
   f === null
@@ -113,11 +117,14 @@ const revivePatch = (p: WireMemoPatch): MemoPatch => {
   };
 };
 
-/** A mutation from another member, as the app's `Mutation`; `by` and the stamp travel beside it */
-export function reviveMutation(m: WireMutation): Mutation {
+/**
+ * A mutation as the app's `Mutation`: another member's, relayed with `by` and the stamp beside
+ * it, or one of ours kept on this device, whose new note the room has not stamped yet
+ */
+export function reviveMutation(m: ClientMutation): Mutation {
   switch (m.type) {
     case "note:add":
-      return { type: "note:add", note: reviveNote(m.note) };
+      return { type: "note:add", note: reviveNewNote(m.note) };
     case "note:update":
       return { type: "note:update", id: m.id, patch: revivePatch(m.patch) };
     case "note:recolor":

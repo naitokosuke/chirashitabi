@@ -23,7 +23,15 @@ import { linked, opened, OUT, synced } from "./session";
 import { createRoomSocket } from "./socket";
 import type { Mutation } from "./types";
 import { useSync } from "./useSync";
-import { newCid, reviveMutation, reviveNote, reviveTrip, type GoneReason } from "./wire";
+import {
+  fitsMessage,
+  newCid,
+  reviveMutation,
+  reviveNote,
+  reviveTrip,
+  wireMutation,
+  type GoneReason,
+} from "./wire";
 
 const STORAGE_KEY = "chirashitabi:room";
 /** How long a picture that did not come is left before it is asked for again */
@@ -254,11 +262,17 @@ export const useRoom = defineStore("room", () => {
   /**
    * Ours: shown at once, kept until the room answers, sent now or after the next snapshot.
    * Only in a room, where this device knows whose change it is; the views that make changes
-   * are not shown before that.
+   * are not shown before that. One too large for a message is not made, and the person is
+   * told: kept, it would go on every connection and never be read.
    */
   function commit(m: Mutation) {
     const s = sync.session;
     if (s.kind !== "in") return;
+    if (!fitsMessage(wireMutation(m))) {
+      console.warn(`room: ${m.type} too large to send`);
+      toast.show(i18n.t("room.tooLarge"));
+      return;
+    }
     const cid = newCid();
     show(ledger.commit(m, cid, Temporal.Now.instant(), s.me));
     // after what is pending before it, at the pace the room takes

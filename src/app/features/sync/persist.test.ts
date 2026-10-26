@@ -1,18 +1,27 @@
 import { Temporal } from "temporal-polyfill-lite";
 
+import { createApp } from "vue";
+
+import { createPinia, setActivePinia } from "pinia";
+
+import { PiniaColada } from "@pinia/colada";
 import { describe, expect, test } from "vite-plus/test";
 
 import { parseCurrencyCode, parseHexColor } from "../../../contract";
 import type { Email, MemberId } from "../members/types";
-import type { NoteId } from "../notes/id";
+import { parseImageId, type NoteId } from "../notes/id";
+import { blankInput } from "../notes/input";
 import type { Memo, Tag } from "../notes/types";
+import { useNotes } from "../notes/useNotes";
 import type { AirportCode } from "../place/airports";
 import type { HttpUrl } from "../place/google-maps";
 import type { RoomId } from "../rooms/types";
 
 import type { RoomState } from "./ledger";
 import { claim, keep, kept, prune } from "./persist";
-import type { Cid } from "./wire";
+import type { Mutation } from "./types";
+import { useSync } from "./useSync";
+import { wireMutation, type Cid } from "./wire";
 
 const R1 = "r1" as RoomId;
 
@@ -218,10 +227,55 @@ describe("keep and kept", () => {
       { ...where, by: YUKI, updatedAt: at, id: "t1", kind: "text", text: "Day 1" },
       { ...where, by: YUKI, updatedAt: at, id: "s1", kind: "sticker", image },
     ]);
+    // a stamp kept beside a new note is not its own: the room stamps it once it is sent
     expect(back?.pending[0]?.m).toEqual({
       type: "note:add",
-      note: { ...where, by: YUKI, updatedAt: at, id: "t2", kind: "text", text: "Day 2" },
+      note: { ...where, id: "t2", kind: "text", text: "Day 2" },
     });
+  });
+
+  test("a memo, a text box and a sticker as the app makes them, kept unanswered, come back to be sent", () => {
+    const app = createApp({});
+    const pinia = createPinia();
+    app.use(pinia).use(PiniaColada);
+    setActivePinia(pinia);
+    const made: Mutation[] = [];
+    useSync().transport = { commit: (m) => void made.push(m), send: () => {} };
+    const notes = app.runWithContext(() => useNotes());
+    const image = parseImageId("0f8fad5b-d9cb-469f-a165-70867728950e")!;
+    notes.add(
+      {
+        ...blankInput(["Food" as Tag], { lat: 25.03, lng: 121.56 }),
+        title: "Din Tai Fung",
+        booking: { state: "needed", by: Temporal.PlainDate.from("2026-11-02") },
+        due: Temporal.PlainDate.from("2026-11-01"),
+      },
+      { x: 10, y: 20 },
+    );
+    notes.addText(" Day 1 ", { x: 0, y: 0 });
+    notes.addSticker(image, { x: 30, y: 40 });
+    expect(made.map((m) => m.type)).toEqual(["note:add", "note:add", "note:add"]);
+
+    const storage = memoryStorage();
+    const pending = made.map((m, i) => ({ cid: `c${i}` as Cid, m, at, by: YUKI }));
+    keep(storage, R1, { me: YUKI, confirmed: room, pending, savedAt: at });
+    const back = kept(storage, R1);
+    expect(back?.pending).toEqual(pending);
+    // and sent as they would have been before they were kept
+    expect(back?.pending.map((p) => wireMutation(p.m))).toEqual(made.map(wireMutation));
+  });
+
+  test("a change kept by a build that did not ask whether it fits a message is left out", () => {
+    const storage = memoryStorage();
+    const stay = room.trip.stays[0]!;
+    const long = `https://www.google.com/maps?q=25.04,121.55&x=${"x".repeat(1900)}` as HttpUrl;
+    const stays = Array.from({ length: 60 }, () => ({ ...stay, mapsUrl: long }));
+    const pending = [
+      { cid: "c1" as Cid, m: { type: "trip:stays" as const, stays }, at, by: YUKI },
+      { cid: "c2" as Cid, m: { type: "note:delete" as const, id: memo.id }, at, by: YUKI },
+    ];
+    keep(storage, R1, { me: YUKI, confirmed: room, pending, savedAt: at });
+    expect(kept(storage, R1)?.pending).toEqual([pending[1]]);
   });
 
   test("a newer version's save is neither read nor written over", () => {

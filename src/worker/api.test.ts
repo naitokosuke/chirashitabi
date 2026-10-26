@@ -22,6 +22,7 @@ import {
   IsoInstantSchema,
   MAX_SCALE,
   MIN_SCALE,
+  ServerMessageSchema,
   type ServerMessage,
 } from "../contract/wire";
 
@@ -1597,7 +1598,7 @@ describe("the socket", () => {
       checked INTEGER NOT NULL DEFAULT 0, image TEXT, scale REAL NOT NULL DEFAULT 1)`);
     await room.exec(
       `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at)
-       VALUES ('old', 'text', 'Kept', '#ffffff', 1, 2, 3, 'someone', '2026-01-01T00:00:00Z')`,
+       VALUES ('old', 'text', 'Kept', '#ffffff', 1, 2, 3, 'agent:claude', '2026-01-01T00:00:00Z')`,
     );
     await worker.evictDurableObject("Room", { name: roomId });
 
@@ -1650,7 +1651,7 @@ describe("the socket", () => {
       checked INTEGER NOT NULL DEFAULT 0, image TEXT, scale REAL NOT NULL DEFAULT 1)`);
     await room.exec(
       `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at, tags, checked)
-       VALUES ('old', 'memo', 'Kept', '#fff1b8', 1, 2, 3, 'someone', '2026-01-01T00:00:00Z', '["Food"]', 1)`,
+       VALUES ('old', 'memo', 'Kept', '#fff1b8', 1, 2, 3, 'agent:claude', '2026-01-01T00:00:00Z', '["Food"]', 1)`,
     );
     await worker.evictDurableObject("Room", { name: roomId });
 
@@ -1684,6 +1685,79 @@ describe("the socket", () => {
     a.send({ type: "note:add", note: box, cid: "c1" });
     expect(await a.next()).toMatchObject({ type: "ack", cid: "c1" });
     a.ws.close(1000, "done");
+  });
+
+  test("notes from before a check are repaired once: a field the contract refuses cleared, a note with nothing to fall back to deleted", async () => {
+    const owner = "repaired-room@example.com";
+    const { roomId } = await createRoom(owner);
+    const worker = server.getWorker();
+    const room = await worker.getDurableObjectStorage("Room", { name: roomId });
+    const row = (id: string, kind: string, title: string, by = "agent:claude") =>
+      room.exec(
+        `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at)
+         VALUES (?, ?, ?, '#ffffff', 1, 2, 3, ?, '2026-01-01T00:00:00Z')`,
+        id,
+        kind,
+        title,
+        by,
+      );
+    // a text box left blank before its words had to be there; a memo whose link and hours a
+    // check now refuses; a sticker whose picture is no id; one no one wrote; and a sound memo
+    await row("blank", "text", "  ");
+    await row("worn", "memo", "Kept");
+    await room.exec(
+      "UPDATE notes SET link = 'javascript:alert(1)', hours = ? WHERE id = 'worn'",
+      "x".repeat(300),
+    );
+    await row("torn", "sticker", "");
+    await room.exec("UPDATE notes SET image = 'not-an-id' WHERE id = 'torn'");
+    await row("nobody", "memo", "Who", "someone");
+    await row("sound", "memo", "Fine");
+    // a room from before the repairs: it has never been repaired
+    await room.exec("DROP TABLE repaired");
+    await worker.evictDurableObject("Room", { name: roomId });
+
+    const a = await connect(roomId, owner);
+    const notes = a.snapshot.type === "snapshot" ? a.snapshot.notes : [];
+    expect(notes.map((n) => n.id)).toEqual(["worn", "sound"]);
+    expect(notes[0]).toMatchObject({ id: "worn", title: "Kept", link: null, hours: null, rot: 3 });
+    // deleted as a member deletes one: its id is not made again
+    a.send({ type: "note:add", note: { ...memo("blank"), kind: "memo" }, cid: "c1" });
+    expect(await a.next()).toEqual({ type: "rejected", reason: "duplicate id", cid: "c1" });
+    a.ws.close(1000, "done");
+    expect(await room.exec("SELECT version FROM repaired")).toEqual([{ version: 1 }]);
+  });
+
+  test("a note or a member that does not read is left out of the snapshot, and the room still opens", async () => {
+    const owner = "unread-rows@example.com";
+    const { roomId } = await createRoom(owner);
+    const worker = server.getWorker();
+    const room = await worker.getDurableObjectStorage("Room", { name: roomId });
+    const a = await connect(roomId, owner);
+    a.send({ type: "note:add", note: memo("n1"), cid: "c1" });
+    expect(await a.next()).toMatchObject({ type: "ack", cid: "c1" });
+    a.ws.close(1000, "done");
+    // written past the checks, after the room's repair has run
+    await room.exec(
+      `INSERT INTO notes (id, kind, title, color, x, y, rot, by, updated_at)
+       VALUES ('bad', 'text', '', '#ffffff', 1, 2, 3, 'agent:claude', '2026-01-01T00:00:00Z')`,
+    );
+    await room.exec(
+      "INSERT INTO members (id, kind, name, color) VALUES ('0f8fad5b-d9cb-469f-a165-70867728950e', 'person', 'Odd', 'red')",
+    );
+    await room.exec(
+      "INSERT INTO stays (position, name, check_in, nights) VALUES (9, 'Nowhere', 'someday', 1)",
+    );
+
+    const b = await connect(roomId, owner);
+    expect(v.parse(ServerMessageSchema, b.snapshot)).toMatchObject({
+      type: "snapshot",
+      notes: [{ id: "n1" }],
+      trip: { stays: [] },
+    });
+    const members = b.snapshot.type === "snapshot" ? b.snapshot.members : [];
+    expect(members.map((m) => m.name)).not.toContain("Odd");
+    b.ws.close(1000, "done");
   });
 
   test("how long a memo takes is kept, changed and taken back; past a day it is refused", async () => {
@@ -2107,11 +2181,11 @@ describe("the socket", () => {
     expect(await refused({ type: "day:intro", date: "2026-12-25", intro: "x" })).toBe(
       "no such day",
     );
-    expect(await refused({ type: "note:add", note: memo("big", "x".repeat(40_000)) })).toBe(
+    expect(await refused({ type: "note:add", note: memo("big", "x".repeat(70_000)) })).toBe(
       "too large",
     );
-    // the limit is in bytes: 20,000 characters of three bytes each are 60 KB
-    expect(await refused("あ".repeat(20_000))).toBe("too large");
+    // the limit is in bytes: 25,000 characters of three bytes each are 75 KB
+    expect(await refused("あ".repeat(25_000))).toBe("too large");
     b.idle();
     for (const s of [a, b]) s.ws.close(1000, "done");
   });

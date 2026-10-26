@@ -88,6 +88,7 @@ one {{{$count} note}}
   "offline.unavailable": "Not available while offline",
   "offline.in": "Offline · showing the trip as of {$time}",
   "room.refused": "The room did not take a change, so it was undone",
+  "room.tooLarge": "That change is too large to send, so it was not made. Try shortening it.",
   "room.gone.removed": "You were removed from the trip",
   "room.gone.left": "You left the trip",
   "room.gone.deleted": "The trip was deleted",

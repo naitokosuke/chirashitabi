@@ -1,6 +1,6 @@
 import { airportCodeOf } from "../../contract/airport";
 
-import type { NoteRow } from "./notes";
+import { ON_DESK, repairOf, type NoteRow } from "./notes";
 
 /**
  * Makes the tables every room has, and brings those an earlier build made up to what this one
@@ -165,6 +165,54 @@ export const migrate = (storage: DurableObjectStorage): void => {
         f.leg,
       );
   }
+  repair(storage);
+};
+
+/** How far notes have been repaired against the contract; one more each time a check is added */
+const REPAIRED = 1;
+
+/**
+ * Notes kept before a check the contract has since gained, brought up to it once (each
+ * REPAIRED): what the room would read only to leave out (readNotes). A field it refuses is
+ * cleared to what it takes; a note that is still refused, or has nothing to fall back to (a
+ * text box left blank before its words had to be there), is deleted as `note:delete` deletes
+ * one. Each is logged.
+ */
+const repair = (storage: DurableObjectStorage): void => {
+  const sql = storage.sql;
+  sql.exec(`
+    CREATE TABLE IF NOT EXISTS repaired (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      version INTEGER NOT NULL
+    )
+  `);
+  const done = sql
+    .exec<{ version: number }>("SELECT version FROM repaired WHERE id = 1")
+    .toArray()[0];
+  if (done !== undefined && done.version >= REPAIRED) return;
+  storage.transactionSync(() => {
+    const now = new Date().toISOString();
+    for (const r of sql.exec<NoteRow>(`SELECT * FROM ${ON_DESK}`).toArray()) {
+      const fix = repairOf(r);
+      if (fix.kind === "fine") continue;
+      if (fix.kind === "delete") {
+        sql.exec("UPDATE notes SET deleted_at = ? WHERE id = ?", now, r.id);
+        console.warn("room: a note the contract refuses is deleted", { id: r.id, kind: r.kind });
+        continue;
+      }
+      const columns = Object.entries(fix.columns);
+      sql.exec(
+        `UPDATE notes SET ${columns.map(([c]) => `${c} = ?`).join(", ")} WHERE id = ?`,
+        ...columns.map(([, value]) => value),
+        r.id,
+      );
+      console.warn("room: a note the contract refuses is repaired", {
+        id: r.id,
+        cleared: columns.map(([c]) => c),
+      });
+    }
+    sql.exec("INSERT OR REPLACE INTO repaired (id, version) VALUES (1, ?)", REPAIRED);
+  });
 };
 
 /** Every column of a note, in the order `notesTable` makes them; a misspelt one fails to compile */
