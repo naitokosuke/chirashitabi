@@ -160,7 +160,11 @@ onMounted(() => {
     syncRoute();
     fitRoute();
   });
-  map.on("click", () => {
+  map.on("click", (e) => {
+    // a memo's pin is a button and takes its own click (opening its card); the stays' and the
+    // airports' marks are not, so a click on one is the map's
+    const target = e.originalEvent.target;
+    if (target instanceof Element && target.closest("button") !== null) return;
     // the click that ends a long press is not also a click on the map (closing the open card)
     if (held) held = false;
     else selectedId.value = null;
@@ -250,8 +254,7 @@ function syncMarkers() {
       // they change, and a press goes to where the pin is now
       const { id } = n;
       const pin = markerEl("memo", n.title);
-      pin.addEventListener("click", (e) => {
-        e.stopPropagation();
+      pin.addEventListener("click", () => {
         selectedId.value = id;
         if (selected.value !== null)
           map?.easeTo({ center: lngLat(selected.value.pin), duration: 300 });

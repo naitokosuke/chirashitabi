@@ -81,7 +81,8 @@ function onKey(e: KeyboardEvent) {
       choose(a);
     }
   } else if (e.key === "Escape" && shown.value) {
-    e.stopPropagation();
+    // taken, so the editor round it leaves it alone (it closes on an Esc no field took)
+    e.preventDefault();
     close();
   }
 }

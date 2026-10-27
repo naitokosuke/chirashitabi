@@ -92,7 +92,11 @@ function key(e: KeyboardEvent) {
   e.preventDefault();
 }
 
-/** Native and capturing, so the row's own links and buttons never see a click it takes */
+/**
+ * Native and capturing, so the row's own links and buttons never see a click it takes: the row
+ * is what decides, before them. Stopped, not only prevented: their handlers, which Vapor hears
+ * at the document, would still run on a prevented click (a link going to its page by the router)
+ */
 function click(e: MouseEvent) {
   const slid = e.timeStamp < slidUntil;
   const onContent = e.target instanceof Node && (content.value?.contains(e.target) ?? false);
