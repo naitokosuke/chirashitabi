@@ -184,8 +184,14 @@ function pivotOf(note: Note): Pivot | null {
 function onDown(e: PointerEvent) {
   if (import.meta.env.SSR) return;
   const target = e.target;
-  // a button, or words being written on the desk, is not the desk
-  if (!(target instanceof Element) || target.closest("button, textarea") !== null) return;
+  // a control keeps its own press: a link on a card opens its page, a button does what it says,
+  // words being written take the caret. None of them is the desk or a card to drag, pick or open
+  // a menu on; a memo's title is no control here (it is a paragraph that is the card's button)
+  if (
+    !(target instanceof Element) ||
+    target.closest("a, button, input, select, textarea, [contenteditable]") !== null
+  )
+    return;
   dropMenu();
   vp.value?.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });

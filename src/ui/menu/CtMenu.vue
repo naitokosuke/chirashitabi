@@ -5,8 +5,9 @@ import { useTemplateRef } from "vue";
  * A menu of what can be done to the thing it opened from (a card on the desk), floating over
  * the view at `x`, `y` from the corner of its positioned parent; where that is, the owner works
  * out, measuring it with `size()`. It is a toolbar: ← and → walk its buttons (past the
- * disabled ones, which cannot take the focus), Esc asks to close it (`close`). A press inside it stays in it, so what it floats over (a desk that pans)
- * never takes it. It holds `CtMenuItem`s, and `CtMenuGroup`s of things picked in it.
+ * disabled ones, which cannot take the focus), Esc asks to close it (`close`) and is taken, so
+ * what holds the menu leaves that Esc alone (`defaultPrevented`). It holds `CtMenuItem`s, and
+ * `CtMenuGroup`s of things picked in it.
  *
  * `focusFirst()` puts the keyboard on its first button; `holdsFocus()` says whether it is in it.
  */
@@ -23,7 +24,7 @@ const buttons = () => [
 function onKey(e: KeyboardEvent) {
   if (import.meta.env.SSR) return;
   if (e.key === "Escape") {
-    e.stopPropagation();
+    e.preventDefault();
     emit("close");
     return;
   }
@@ -53,7 +54,6 @@ defineExpose({
     role="toolbar"
     :aria-label="label"
     :style="`inset-inline-start: ${x}px; inset-block-start: ${y}px`"
-    @pointerdown.stop
     @keydown="onKey"
   >
     <slot></slot>

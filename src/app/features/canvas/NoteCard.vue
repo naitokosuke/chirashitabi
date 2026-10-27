@@ -138,7 +138,8 @@ const HOLD_MS = 600;
         />
       </template>
       <template #default>
-        <!-- where the idea came from: its site, which opens the page -->
+        <!-- where the idea came from: its site, which opens the page (a press on a link is the
+             link's: the desk starts nothing on one) -->
         <a
           v-if="safeUrl(note.link) !== undefined"
           class="link source"
@@ -146,8 +147,6 @@ const HOLD_MS = 600;
           rel="noopener noreferrer"
           target="_blank"
           :aria-label="i18n.t('note.link')"
-          @pointerdown.stop
-          @click.stop
         ><Icon :size="11" :src="externalIcon" /><span class="site">{{ siteOf(note.link) }}</span></a
         >
         <!-- a memo holds links, so it is no button itself: its title is, which takes the
@@ -171,8 +170,6 @@ const HOLD_MS = 600;
               :href="safeUrl(s.url)"
               rel="noopener noreferrer"
               target="_blank"
-              @pointerdown.stop
-              @click.stop
             ><Icon :size="11" :src="externalIcon" /><span class="site">{{ siteOf(s.url) }}</span></a
             ><template v-else>{{
               s.text

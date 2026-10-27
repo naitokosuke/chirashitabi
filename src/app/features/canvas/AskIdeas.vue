@@ -110,9 +110,10 @@ function toggle() {
   if (asking.value.kind === "closed") open(null);
   else close();
 }
+/** Esc folds the ask, and is taken: what covers the desk (a sheet) leaves an Esc taken alone */
 function onKey(e: KeyboardEvent) {
   if (e.key !== "Escape") return;
-  e.stopPropagation();
+  e.preventDefault();
   close();
 }
 /**
