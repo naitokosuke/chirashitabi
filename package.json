@@ -33,9 +33,11 @@
     "@vue/devtools-api": "^8.2.1",
     "msw": "^3.0.2",
     "playwright": "catalog:",
+    "tsrs": "0.20.1-ts7.1.0-beta",
     "typescript": "^5.9.2",
     "vite": "catalog:",
     "vite-plus": "catalog:",
+    "vize": "0.603.0",
     "wrangler": "^4.145.0"
   },
   "devEngines": {

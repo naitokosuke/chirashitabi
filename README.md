@@ -4,17 +4,18 @@ Scatter first, then it becomes an itinerary. A brainstorming notebook for a trip
 The app is called chirashitabi; each trip gets its own room, such as "Taiwan trip".
 
 A canvas prototype split into SFCs on Vue 3.6 RC Vapor Mode.
-Toolchain: pnpm + [Vite+](https://viteplus.dev/) (`vp`); SFC compilation, type checking, linting and formatting by [Vize](https://github.com/ubugeeei-prod/vize).
+Toolchain: pnpm + [Vite+](https://viteplus.dev/) (`vp`); SFC compilation, linting and formatting by [Vize](https://github.com/ubugeeei-prod/vize); type checking, .vue included through Vize's content mapper, by [tsrs](https://www.npmjs.com/package/tsrs).
 
 ```bash
 vp install
 vp dev
-vp run check   # check:worker, then format + lint + type check (Vize); a lint warning fails it
+vp run check   # check:worker, check:types (tsrs), then format + lint (Vize); a lint warning fails it
 vp run fmt     # format the SFCs (Vize) and the rest
 vp run musea   # the component gallery (Vize Musea) at /__musea__
 vp build
 vp run analyze                      # VITE_MOCK=false build, then what it is made of (Vite DevTools) at localhost:9999
 vp run check:worker                 # wrangler types + tsc on src/worker/, writing .worker-types/ afresh
+vp run check:types                  # check:worker, then tsrs on the app, .vue included
 vp test        # the tests, after `VITE_MOCK=false vp build` (the Worker's tests serve dist/) and, once,
                # `vp exec playwright install chromium` (*.browser.test.ts run in it)
 ```
