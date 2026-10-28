@@ -190,7 +190,7 @@ const tabOf = (value: string): Tab =>
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../../../../ui/styles/media.css";
 
 article {
   position: absolute;

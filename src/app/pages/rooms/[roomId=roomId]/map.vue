@@ -467,7 +467,7 @@ function fitAll() {
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../../../../ui/styles/media.css";
 
 section {
   position: absolute;

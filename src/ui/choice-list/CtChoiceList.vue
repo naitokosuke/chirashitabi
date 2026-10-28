@@ -21,7 +21,7 @@ const emit = defineEmits<{ choose: [item: T] }>();
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../styles/media.css";
 ul {
   display: grid;
   gap: var(--space-3);

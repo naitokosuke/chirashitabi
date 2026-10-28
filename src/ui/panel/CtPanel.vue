@@ -40,7 +40,7 @@ function submit(event: Event) {
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../styles/media.css";
 
 .panel {
   margin: 0;

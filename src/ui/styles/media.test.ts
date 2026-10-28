@@ -53,7 +53,7 @@ describe("named media queries", () => {
 
   test.each(users)("$file imports media.css where it uses them", ({ css }) => {
     expect(css).toMatch(
-      /@import\s+["']\/src\/ui\/styles\/media\.css["']|@import\s+["']\.\/media\.css["']/,
+      /@import\s+["'][./]*(?:ui\/)?styles\/media\.css["']|@import\s+["']\.\/media\.css["']/,
     );
   });
 });

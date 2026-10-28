@@ -1,10 +1,8 @@
 /*
  * The app's media queries, named. LightningCSS replaces each `(--name)` with its query at
  * build time (vite.config.ts: css.transformer, drafts.customMedia), and only in a stylesheet
- * that has these definitions: a style block that uses one imports this file, by its path from
- * the project root (Vize hands a style block to LightningCSS under a root-relative id, where a
- * path relative to the .vue does not resolve). A name with no definition matches nothing,
- * silently; media.test.ts catches that.
+ * that has these definitions: a style block that uses one imports this file. A name with no
+ * definition matches nothing, silently; media.test.ts catches that.
  */
 
 /* A pointer that can hover: hover styles never stick on a tapped phone */

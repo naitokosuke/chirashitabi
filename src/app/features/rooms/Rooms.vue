@@ -357,7 +357,7 @@ function retry() {
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../../../ui/styles/media.css";
 
 .rooms {
   position: absolute;

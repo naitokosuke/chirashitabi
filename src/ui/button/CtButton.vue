@@ -72,7 +72,7 @@ function onClick(e: MouseEvent) {
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../styles/media.css";
 
 button {
   display: inline-flex;

@@ -69,7 +69,7 @@ const slots = defineSlots<{
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../styles/media.css";
 
 /* one shadow and one ink on paper in every cut; the outline says which cut */
 .paper {

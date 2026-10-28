@@ -197,7 +197,7 @@ onMounted(() => nameEl.value?.focus());
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../../../ui/styles/media.css";
 
 .fields {
   display: flex;

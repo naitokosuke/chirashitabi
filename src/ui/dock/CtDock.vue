@@ -143,7 +143,7 @@ function onLeave() {
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../styles/media.css";
 
 nav {
   /* an icon's cell at rest; `--m` (per item) is how much it has grown under the pointer */

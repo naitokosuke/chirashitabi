@@ -126,7 +126,7 @@ async function no() {
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../../../ui/styles/media.css";
 
 /* the tag handed over on a card: the tag, then who one will be in the trip */
 .invitation {

@@ -298,7 +298,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../../../ui/styles/media.css";
 
 .people {
   display: grid;
