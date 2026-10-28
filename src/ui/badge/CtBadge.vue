@@ -24,7 +24,7 @@ defineSlots<{ default(): unknown }>();
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../styles/media.css";
 
 .badge {
   flex-shrink: 0;

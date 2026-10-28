@@ -15,7 +15,7 @@ defineSlots<{ default(): unknown }>();
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../styles/media.css";
 button {
   position: absolute;
   inset-inline-start: var(--space-6);

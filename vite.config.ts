@@ -133,7 +133,9 @@ export default defineConfig({
   },
   // a module's own tests (import.meta.vitest) are left out of the build
   define: { "import.meta.vitest": "undefined" },
-  typecheck: true,
+  // the types are tsrs's (check:types), not Vize's checker; its type-aware lint rules still ask
+  // Vize's own Corsa
+  typecheck: false,
   // the tests run in Node, but a `*.browser.test.ts` in a real Chromium: what a pointer does
   test: {
     projects: [
@@ -258,11 +260,18 @@ export default defineConfig({
   },
   run: {
     tasks: {
-      // Vize's own check, run once check:worker has written .worker-types/ afresh: the app's hc
-      // client is typed by those declarations, so it is never checked against an older Worker
+      // the app's types, .vue included (tsconfig.json: contentMappers), run once check:worker has
+      // written .worker-types/ afresh: the app's hc client is typed by those declarations, so it
+      // is never checked against an older Worker
+      "check:types": {
+        command: "tsrs --runExternalCode --noEmit",
+        dependsOn: ["check:worker"],
+        cache: false,
+      },
+      // Vize's own check (lint, format), after the types
       check: {
         command: vizeCheck(),
-        dependsOn: ["check:worker"],
+        dependsOn: ["check:types"],
         cache: false,
       },
     },

@@ -33,7 +33,7 @@ const { chosen, ready } = useIndicator(list, () => [props.modelValue, props.opti
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../styles/media.css";
 
 [role="radiogroup"] {
   position: relative;

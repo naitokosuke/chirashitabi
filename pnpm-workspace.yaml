@@ -1,17 +1,25 @@
 minimumReleaseAgeExclude:
-  - "@vizejs/native-darwin-arm64@0.562.0"
-  - "@vizejs/native-darwin-x64@0.562.0"
-  - "@vizejs/native-linux-arm64-gnu@0.562.0"
-  - "@vizejs/native-linux-arm64-musl@0.562.0"
-  - "@vizejs/native-linux-x64-gnu@0.562.0"
-  - "@vizejs/native-linux-x64-musl@0.562.0"
-  - "@vizejs/native-win32-arm64-msvc@0.562.0"
-  - "@vizejs/native-win32-x64-msvc@0.562.0"
-  - "@vizejs/native@0.562.0"
-  - "@vizejs/unplugin@0.562.0"
-  - "@vizejs/vite-plugin-musea@0.562.0"
-  - "@vizejs/vite-plugin@0.562.0"
-  - vize@0.562.0
+  - "@vizejs/native-darwin-arm64@0.603.0"
+  - "@vizejs/native-darwin-x64@0.603.0"
+  - "@vizejs/native-linux-arm64-gnu@0.603.0"
+  - "@vizejs/native-linux-arm64-musl@0.603.0"
+  - "@vizejs/native-linux-x64-gnu@0.603.0"
+  - "@vizejs/native-linux-x64-musl@0.603.0"
+  - "@vizejs/native-win32-arm64-msvc@0.603.0"
+  - "@vizejs/native-win32-x64-msvc@0.603.0"
+  - "@vizejs/native@0.603.0"
+  - "@vizejs/unplugin@0.603.0"
+  - "@vizejs/vite-plugin-musea@0.603.0"
+  - "@vizejs/vite-plugin@0.603.0"
+  - vize@0.603.0
+  - "@tsrs/darwin-arm64@0.20.1-ts7.1.0-beta"
+  - "@tsrs/darwin-x64@0.20.1-ts7.1.0-beta"
+  - "@tsrs/linux-arm64-gnu@0.20.1-ts7.1.0-beta"
+  - "@tsrs/linux-arm64-musl@0.20.1-ts7.1.0-beta"
+  - "@tsrs/linux-x64-gnu@0.20.1-ts7.1.0-beta"
+  - "@tsrs/linux-x64-musl@0.20.1-ts7.1.0-beta"
+  - "@tsrs/win32-x64@0.20.1-ts7.1.0-beta"
+  - tsrs@0.20.1-ts7.1.0-beta
 # wrangler's runtime (workerd) and bundler (esbuild) fetch a native binary on install
 allowBuilds:
   esbuild: true

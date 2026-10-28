@@ -369,7 +369,7 @@ function save() {
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../../../ui/styles/media.css";
 .editor {
   display: grid;
   gap: var(--space-8);

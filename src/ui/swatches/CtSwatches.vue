@@ -31,7 +31,7 @@ const { chosen, ready } = useIndicator(root, () => [props.modelValue, props.colo
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../styles/media.css";
 
 .swatches {
   position: relative;

@@ -131,7 +131,7 @@ const place = (a: Airport) => [a.city, a.country].filter((s) => s !== "").join("
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../../../ui/styles/media.css";
 
 /* not positioned itself: the airports it may mean float under the row it is in, as wide as it */
 .airport {

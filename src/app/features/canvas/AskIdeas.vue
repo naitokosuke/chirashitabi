@@ -211,7 +211,7 @@ defineExpose({ open, busy: () => thinking.value });
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../../../ui/styles/media.css";
 
 /*
  * Both sit in the row along the top of the desk, which takes no touches itself so the desk

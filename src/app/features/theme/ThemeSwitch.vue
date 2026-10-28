@@ -56,7 +56,7 @@ const RAYS = Array.from({ length: 8 }, (_, i) => {
 </template>
 
 <style scoped>
-@import "/src/ui/styles/media.css";
+@import "../../../ui/styles/media.css";
 
 svg {
   overflow: visible;
